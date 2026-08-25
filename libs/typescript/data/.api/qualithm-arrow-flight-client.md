@@ -2,17 +2,7 @@
 
 `@qualithm/arrow-flight-client` speaks the Arrow Flight and Flight SQL wire for the OLAP lane: `FlightSqlClient` wraps `FlightClient`, runs queries, updates, prepared statements, transactions, and metadata discovery, and decodes every result onto `apache-arrow` `Table`/`RecordBatch`. `lane/olap` consumes it as an engine-blind columnar ingress/egress row beside the ClickHouse and DuckDB rows, its transport reusing the one `@connectrpc/connect` stack over `node:http2` rather than a second gRPC client.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@qualithm/arrow-flight-client`
-- package: `@qualithm/arrow-flight-client` (Apache-2.0)
-- module: `exports["."]` (node/bun/deno) + `./testing` helper subpath; `types` first-class, single build
-- subpath: the exports map admits those two entries ALONE — `./gen/**` stays unresolvable, so every generated message `Schema` value (`FlightDataSchema`, `FlightDescriptorSchema`, `TicketSchema`) is unreachable and a message value arrives only from a member that returns one
-- runtime: `runtime:node` services and CLI — rides `node:http2`, no browser row
-- depends: `@connectrpc/connect`/`@connectrpc/connect-node` transport, `@bufbuild/protobuf` Flight descriptors, `apache-arrow` column plane
-- rail: `lane/olap` Flight SQL row — no Effect peer; the lane owns the boundary-kernel wrap
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two clients, their config, credential, and addressing shapes, the decode discriminant, and the SQL + error shapes
 
@@ -36,7 +26,7 @@
 
 - `FlightClientOptions.nodeOptions` carries the `node:http2` connect knobs straight through to `createGrpcTransport`, the one leg of the record the client forwards to the transport beside `baseUrl`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory construction, SQL execution and transaction driver, the low-level RPC set, metadata discovery, the Arrow IPC codec pairs
 
@@ -65,7 +55,7 @@
 |  [21]   | `getSchemaFromFlightData` / `parseIpcMessage`                       | static   | schema off a frame stream, CONSUMING it; IPC split    |
 |  [22]   | `DEFAULT_TIMEOUT_MS`                                                | static   | `30000`, applied by `resolveOptions`, read by nothing |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `lane/olap` consumes the Flight SQL row as engine-blind columnar ingress/egress; the server engine stays opaque behind the wire.
@@ -95,9 +85,3 @@
 [LOCAL_ADMISSION]:
 - `scope:data`, node lane — the client rides `node:http2`, scoped in the lane's acquire-release graph, `close()` on release.
 - OLAP rows are correctness-adjacent, never the record of truth — they read and write columns; nothing folds back as authority.
-
-[RAIL_LAW]:
-- Package: `@qualithm/arrow-flight-client`
-- Owns: the Flight SQL wire of the OLAP lane — client construction, `query`/`executeUpdate`/prepared/transaction/catalog, the low-level RPC set behind the `flight` accessor, the Arrow IPC codecs, the `FlightError` family
-- Accept: the engine-blind columnar ingress/egress row on `@connectrpc/connect` transport, `Table`/`RecordBatch` decode, every endpoint of a partitioned plan consumed or raised on, scoped acquire-release with `close()` on release, `auth` and `tls` material sealed behind one unwrap, a rotating credential carried by `authProvider` and adopted eagerly through `authenticate()`, a consumer-owned bound on every answer and every emission
-- Reject: a second gRPC stack beside connect, row-materialized re-encoding off the Arrow plane, an assembled `FlightDescriptor` literal, a plan read paid per frame set where the echoed message already crossed, a classifier arm for a refusal class this pin never throws, a fault detail dropping `details`, a retry policy resting on `timeoutMs` or on the raw `code` field outside the numeric status algebra, an endpoint skipped rather than raised on, `tls.key` or `tls.passphrase` crossing unsealed, a client torn down and rebuilt to adopt a rotated credential, a threaded `TypeMap` sold as a decode guarantee, the Flight client as a record of truth, an unscoped client leak

@@ -4,16 +4,7 @@
 
 `otel/emit` composes its codecs to continue an inbound `traceparent` into the `@effect/opentelemetry` facade, and the SDK-bridge lane reports through its `ExportResult` rail; the native `Otlp` lane owns its own context bridge, so core is never reached there.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/core`
-- package: `@opentelemetry/core` (Apache-2.0)
-- module: ESM + CJS, single index; the `internal` namespace export carries the SDK-seam adapters
-- runtime: isomorphic — `node` reads `process.env`, `browser` reads `globalThis`; propagation, export, and time surfaces are runtime-neutral
-- depends: `@opentelemetry/api` (peer, the `Context`/`SpanContext`/`TextMapPropagator`/`HrTime`/`Attributes` type source); `@opentelemetry/semantic-conventions` (pure-data, sole runtime dep)
-- rail: observability primitive substrate every `@opentelemetry/sdk-*`/`exporter-*` peer builds on
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: W3C propagation carriers
 
@@ -44,7 +35,7 @@ Every exporter and SDK processor reports terminal disposition through `ExportRes
 |  [07]   | `ErrorHandler = (ex: Exception) => void`                 | callback type      | the global error-sink type          |
 |  [08]   | `Clock { now(): number }`                                | clock interface    | monotonic clock for `AnchoredClock` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: W3C extract-and-continue codecs
 
@@ -101,7 +92,7 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 
 - `urlMatches(url, pattern)` splits on the pattern's own type: a `RegExp` matches the URL partially, a STRING compares by whole-value equality. `isUrlIgnored` folds a roster under it, and every browser instrumentation's `ignoreUrls` and `propagateTraceHeaderCorsUrls` runs exactly this predicate — so an origin spelled as a string never matches a request URL carrying a path, and a self-exclusion or CORS roster that must cover a prefix carries anchored patterns.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Core composes only on the SDK-bridge path (`NodeSdk`/`WebSdk`) and on `otel/emit`'s raw `traceparent` parse; the native `Otlp` lane owns its own W3C context bridge and serialization, so core's codecs are reached only where the facade does not already own the extract-and-continue.
@@ -119,9 +110,3 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 - `@opentelemetry/*` admits ONLY inside `scope:runtime` (edge-ledger); every other folder emits through Effect's native `Effect.withSpan`/`Metric`/`Effect.log` and never imports core.
 - core's `semconv` internal module stays off the package index — `@opentelemetry/semantic-conventions` (`telemetry/core/observe/convention`) owns the semantic-convention vocabulary, so core's internal `ATTR_*` constants are never transcribed.
 - `_export`/`Exporter` sit under the `internal` namespace export, used only where the SDK-bridge lane adapts a callback exporter, never as a first-class instrumentation surface.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/core`
-- Owns: the W3C `TextMapPropagator` codecs, the `ExportResult`/`ExportResultCode` export rail, the `suppressTracing`/`RPCMetadata` context-key operators (marked here, honored at the SDK tracer), the typed `OTEL_*` env readers, and the `HrTime` conversion algebra with the shared attribute/error/util primitives every SDK peer reuses
-- Accept: `parseTraceParent` + `TraceState` feeding `makeExternalSpan`/`withSpanContext` on `otel/emit`; `CompositePropagator` as the one folded propagator; `ExportResult` as the terminal export disposition; typed env readers over raw `process.env`; core composed only on the SDK-bridge/context path
-- Reject: `@opentelemetry/*` outside `scope:runtime`, hand-rolled `traceparent`/`tracestate` parsing, core codecs where the native `Otlp` lane already owns the seam, transcribing core's internal `semconv` constants, treating the `platform/*` split as a fork

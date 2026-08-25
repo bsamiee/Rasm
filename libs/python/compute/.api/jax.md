@@ -2,17 +2,7 @@
 
 `jax` owns the XLA-compiled, autodiff-capable array substrate the compute numeric-study rail differentiates, compiles, vectorizes, and parallelizes through composable function transforms. Every JAX-ecosystem sibling composes on it — each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and rides the `grad`/`jit`/`vmap` transforms cataloged here — and the owner never re-implements an autodiff or XLA pipeline jax owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jax`
-- package: `jax` (runtime backend `jaxlib`; XLA)
-- import: `jax`
-- owner: `compute`
-- rail: accelerator
-- default precision: 32-bit arrays; `config.update("jax_enable_x64", True)` promotes the rail to float64
-- capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, structured control flow, pytree registration, a NumPy/SciPy-API mirror on XLA, the ahead-of-time staging ladder with its compile reports, and trace capture with an in-process trace reader
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: array, device, and sharding types
 
@@ -86,7 +76,7 @@
 
 Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total narrow tuple over the transform lane. Row [05] belongs to the ENGINE MINT alone: a gated fold brackets the mint, never the solve, so an `ImportError` raised inside a running transform propagates as the defect it is. UNVERIFIED BY PROBE — `jax` is not installed in this environment; the rows read from the documented surface and a probe is owed.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compilation and differentiation transforms
 - call: `jit(fun, *, static_argnums, static_argnames, donate_argnums, in_shardings, out_shardings)`, `grad(fun, argnums=0, has_aux=False, holomorphic=False, allow_int=False)`, `value_and_grad(fun, argnums=0, has_aux=False)`, `jacfwd(fun, argnums=0, has_aux=False, holomorphic=False)`, `jacrev(fun, argnums=0, has_aux=False, allow_int=False)`, `hessian(fun, argnums=0, has_aux=False)`
@@ -231,7 +221,7 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 |  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh        | named device mesh for `NamedSharding`/`shard_map`     |
 |  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh        | construct a `Mesh` from axis shapes/names             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `jax`; transforms and types at top level, array and primitive ops under submodules
@@ -261,9 +251,3 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 - custom array carriers register via `tree_util.register_pytree_node` so the sibling transforms treat them as first-class leaves
 - compile evidence reads the staging ladder rather than wall-clock timing: `lower`/`compile` report the program the backend built, and a `None` cost or memory report records absent evidence rather than a zero
 - trace capture stays caller-armed and disarmed by default — one trace runs per process, and an always-on capture pays device-trace cost on every compile while serializing concurrent solves at the profiler's own lock
-
-[RAIL_LAW]:
-- Package: `jax`
-- Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, structured control flow, the `jax.numpy`/`jax.scipy` array+linalg mirror, the `jax.stages` compile-report ladder, the `jax.profiler` capture and reader surface, and the `tree_util` pytree protocol every sibling carrier registers against
-- Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`/`custom_vjp`, batched through `vmap`, with state carried as registered pytrees, randomness threaded through split keys, and compile evidence read off the staging ladder
-- Reject: hand-rolled autodiff or XLA pipelines; a Python loop over traced values where `lax` control flow applies; a reseeded global RNG where a split key threads; ad-hoc Python containers where a registered pytree carries state; a wall-clock stopwatch or a TensorBoard round trip where the staging reports and the in-process trace reader answer directly

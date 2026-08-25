@@ -24,7 +24,7 @@ One retry-policy table rules the whole branch: `RetryClass` is the single behavi
 - Boundary: no retry around a pure transform — `stamina` rides only flaky external oracles through this table. Exported contract is branch-consumer law: the entry family and its `FaultRow` parameter, every `POLICY` row with its route column, the `Reoffer` vocabulary, and the `RetryClass` vocabulary; narrowing the `OCCT` target below the `BrokenWorkerInterpreter | BrokenWorkerProcess` pair is a cross-folder break.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractContextManager

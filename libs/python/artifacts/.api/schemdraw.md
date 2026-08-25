@@ -2,16 +2,7 @@
 
 `schemdraw` mints symbol-anchored technical-schematic authoring: a `Drawing` context-manager canvas over the 226-symbol closed `elements` vocabulary and the `flow`/`logic`/`dsp` domain modules, a fluent relative-connection placement algebra over named anchors, the `Segment*` primitive grammar, and a backend-selected `get_imagedata` egress (pure-SVG or matplotlib). schemdraw owns the diagram class whose marks are NAMED symbols with bound anchor terminals — a resistor, an op-amp, a NAND gate — never the node-link routing `rustworkx`/`pyelk`/`fast-sugiyama` hold nor the rasterization `resvg-py`/`vl-convert`/`pyvips` own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `schemdraw`
-- package: `schemdraw` (MIT)
-- import: `schemdraw`
-- owner: `artifacts`
-- rail: diagram
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document canvas, render context, geometry
 
@@ -92,7 +83,7 @@ Every drawable symbol derives `Element`; the hierarchy splits into `Element2Term
 |  [03]   | `TimingDiagram` | `TimingDiagram(waved, **kwargs)` WaveJSON digital-timing diagram from a `dict`              |
 |  [04]   | `BitField`      | `BitField(reg, **kwargs)` register bit-field map from a `dict`                              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Drawing` — open, insert, render, egress
 
@@ -189,7 +180,7 @@ Two-terminal symbols (resistor, capacitor, wire) add the in-line placement surfa
 |  [02]   | `self.anchors['name'] = (x, y)` in the symbol `init`               | declare a named terminal anchor on the custom symbol |
 |  [03]   | `self.segments.append(Segment/SegmentPoly/SegmentArc/…)`           | append a typed path/poly/arc/text primitive          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import schemdraw` and `from schemdraw import elements as elm` (add `flow`, `logic`, `dsp` where the domain vocabulary is needed) at boundary scope only; distribution and import name are both `schemdraw`. Domain code holds the schematic content — the component graph, flowchart structure, or logic network — and lowers it here through the fluent algebra, never letting the `Drawing`/`Element` object model leak inward.
@@ -210,8 +201,3 @@ Two-terminal symbols (resistor, capacitor, wire) add the in-line placement surfa
 - `structlog`/`opentelemetry` rail: the render is bracketed by the runtime observability seam, emitting a span carrying the backend, the element/segment counts, and the byte length as attributes — the same diagram-rail telemetry the `drawsvg`/`drawpyo` arms emit.
 - `visualization/diagram/draw#DRAW` sibling seam: schemdraw is owned by `visualization/diagram/schematic#SCHEMATIC`, disjoint from `visualization/diagram/draw#DRAW`'s `drawsvg` general-diagram arm and `drawpyo` `.drawio` arm by diagram CLASS — the seven-mark `DiagramGlyph` grammar cannot express a named symbol with bound anchor terminals, so schematic content lowers onto the `elements`/`flow`/`logic`/`dsp` vocabulary here while the data-driven AEC diagram lowers onto `DiagramGlyph` there.
 - `export/layered#LAYERED` seam: a schematic emitting as named SVG layers buckets its elements with `zorder`/`add_svgdef` and lowers the rendered SVG to the `export/layered#LAYERED` `Layer(name, source, bbox)` row — the same named-layer contract the `drawsvg` arm uses.
-
-[RAIL_LAW]:
-- Package: `schemdraw`
-- Owns: symbol-anchored technical-schematic authoring — the `Drawing` context-manager canvas over a standalone pure-SVG or matplotlib backend, the 226-symbol closed `elements` vocabulary with the `flow`/`logic`/`dsp` domain modules, the fluent relative-connection placement algebra over named anchors, the `Segment*` primitive grammar with `ElementCompound` custom-symbol composition, the `Ic`/`IcPin` named-pin builder, the `logic.Kmap`/`Table`/`TimingDiagram`/`BitField` structured owners and `parsing.logicparse` gate-network builder, the `config`/`theme`/`svgconfig`/`style` appearance owners, and the `get_imagedata`/`save`/`get_segments`/`get_bbox` egress over `ImageFormat`.
-- Reject: a hand-emitted SVG tag or `<path d>` string where `elements` and `Segment*` exist; an `add_resistor`/`add_capacitor` family where `d +=`/`add` discriminates on the constructed symbol; an absolute-coordinate placement table where the fluent algebra derives coordinates; the generic `DiagramGlyph` node-link/ER/Sankey diagram the `drawsvg` arm renders; an editable `.drawio` egress the `drawpyo` arm owns; re-implemented graph routing where `rustworkx`/`pyelk`/`fast-sugiyama`/`libavoid` route; in-page matplotlib raster where `resvg-py`/`vl-convert`/`pyvips` cover it; a per-symbol color literal where the `graphic/color/derive#DERIVE` palette binds; identity minting the runtime owns.

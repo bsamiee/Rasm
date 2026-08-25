@@ -2,17 +2,7 @@
 
 `OpenIddict.Client` owns the standalone OAuth 2.0 / OpenID Connect relying-party client: `OpenIddictClientService` folds every token-acquisition flow, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery through one polymorphic request-record entry. It is the AppHost agent-identity rail behind delegated and machine-to-machine credential flows; the access and identity tokens it acquires cross to `Microsoft.IdentityModel.JsonWebTokens` for validation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenIddict.Client`
-- package: `OpenIddict.Client` (Apache-2.0)
-- assembly: `OpenIddict.Client`
-- namespace: `OpenIddict.Client`, `Microsoft.Extensions.DependencyInjection`
-- asset: pure-managed runtime library; no native asset, no RID burden
-- depends: `OpenIddict.Abstractions` (wire primitives `OpenIddictRequest` / `OpenIddictResponse` / `OpenIddictParameter` / `OpenIddictConstants`), `Microsoft.IdentityModel.JsonWebTokens`, `Microsoft.IdentityModel.Protocols`
-- rail: oidc-client
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client service and configuration — `OpenIddict.Client`
 
@@ -60,7 +50,7 @@
 |  [01]   | `OpenIddictClientExtensions` | static class  | `AddClient` DI entry on the builder       |
 |  [02]   | `OpenIddictClientBuilder`    | builder class | flow, credential, and registration wiring |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: token-acquisition verbs — instance methods on `OpenIddictClientService`
 
@@ -129,7 +119,7 @@ Development signing members supply development-only material.
 |  [28]   | `RemoveEventHandler(...)`                                            | handler removal              |
 |  [29]   | `Configure(Action<OpenIddictClientOptions>)`                         | options override             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - package boundary: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition
@@ -159,9 +149,3 @@ Development signing members supply development-only material.
 - Drive RP-initiated logout through `SignOutInteractivelyAsync` with the cached `IdentityTokenHint`, redeeming the returned `Nonce` exactly as the interactive challenge nonce, never a hand-built end-session URL.
 - Leave PKCE, DPoP, PAR, and client-authentication-method selection to registration capability sets and server metadata; set an advanced override property only when a provider rejects the negotiated default.
 - Read tokens and expiration from the typed result `required` members; treat the raw `OpenIddictResponse` and principals as the audit surface.
-
-[RAIL_LAW]:
-- Package: `OpenIddict.Client`
-- Owns: OAuth 2.0 / OIDC relying-party token acquisition, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery
-- Accept: flow-specific request records through `OpenIddictClientService`; provider identity through `OpenIddictClientRegistration`; flow and credential enablement through `OpenIddictClientBuilder`
-- Reject: hand-rolled authorization-URL/PKCE/DPoP construction, direct token-endpoint HTTP calls, per-flow service proliferation, bypassing registration capability negotiation with manual override properties

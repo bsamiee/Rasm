@@ -2,19 +2,7 @@
 
 `Avalonia.Themes.Fluent` owns the Fluent control-theme floor: a `FluentTheme : Styles, IResourceNode` collection over the `ColorPaletteResources` Windows-Fluent system-token surface, keyed per `ThemeVariant` through `Palettes` and switched between `Normal` and `Compact` density through one direct property. `ColorPaletteResources` derives the six accent shades from a single `Accent` set, so the AppUi `Theme/tokens` resolve fold writes this surface as the host theme spine rather than a parallel token framework.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Themes.Fluent`
-- package: `Avalonia.Themes.Fluent` (MIT)
-- assembly: `Avalonia.Themes.Fluent`
-- target: `net10.0`
-- namespace: `Avalonia.Themes.Fluent`, `Avalonia.Themes.Fluent.Accents`
-- asset: managed runtime library
-- asset: embedded `avares://` XAML resources compiled into the assembly
-- depends: `Avalonia` (`Styles`, `ResourceProvider`, `ResourceDictionary`, `ThemeVariant`, `Color`, `DirectProperty`) — see `api-avalonia.md`
-- rail: theme
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: theme objects and the density vocabulary
 
@@ -33,7 +21,7 @@
 |  [03]   | `DensityStyles/Compact.xaml` | compact density overlay                                                 |
 |  [04]   | `Accents/*.xaml`             | system color/brush keys (`SystemAccentColor`, `SystemBaseHighColor`, …) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [THEME_ENTRYPOINTS]: `FluentTheme` operations
 
@@ -71,7 +59,7 @@
 [LIST]: `ListLow` `ListMedium`
 [SINGLE]: `ErrorText` `RegionColor`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `FluentTheme` composes first in `Application.Styles` as the retained control-theme floor; every accent and system-color override flows through a `ColorPaletteResources` keyed per `ThemeVariant` in `Palettes`, a single `Accent` set derives the six shades that `TryGetResource` serves, and `DensityStyle` swaps the `Compact.xaml` overlay through the one `DensityStyleProperty`.
@@ -84,9 +72,3 @@
 
 [LOCAL_ADMISSION]:
 - `ResolvedTheme` resolves and overrides through `ColorPaletteResources` and `FluentTheme.Palettes`; `Accent` carries the derive-shades contract, the resolved `DensityRow` assigns `DensityStyle`, and the light and dark resolves seat the two `Palettes` entries the floor carries.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Themes.Fluent`
-- Owns: the Fluent control-theme `Styles`/`IResourceNode` floor, the embedded control/accent XAML, the `ColorPaletteResources` system-token surface, the `DensityStyle` vocabulary behind `DensityStyleProperty`, and per-variant override via `Palettes[ThemeVariant]`
-- Accept: `ResolvedTheme` resolves and overrides through `ColorPaletteResources`/`Palettes`; shell, sidecar, panel, diagnostics, and support views bind one `DensityRow` onto `DensityStyle`; the light and dark resolves seat the two `Palettes` entries, high-contrast riding the shipped `SemiTheme` variant keys rather than a locally minted inheritance chain
-- Reject: a parallel theme framework or second control-theme dictionary; hand-rolled accent-shade math when `Accent` derives it; a host-specific spacing system or per-view density literal outside `DensityRow`; a per-variant palette constructed outside the resolve fold or a string-keyed variant lookup bypassing `ThemeVariant`

@@ -2,17 +2,7 @@
 
 `uncertainties` owns first-order linear error propagation with automatic correlation tracking for the compute uncertainty rail. `ufloat` mints an independent `Variable`, and every arithmetic result is a derived `UFloat` (the public alias of `AffineScalarFunc`) carrying a `derivatives` chain-rule gradient against its source variables, so two results sharing a `Variable` stay correlated with no side covariance table. A derived `std_dev` and its `error_components()` variance split feed the `Measurement`, and a bare `math`/NumPy call that drops the propagation graph is the boundary reject signal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `uncertainties`
-- package: `uncertainties`
-- module: `uncertainties`
-- namespaces: `uncertainties.umath`, `uncertainties.unumpy`, `uncertainties.unumpy.ulinalg`
-- owner: `compute`
-- rail: uncertainty
-- capability: linear error propagation with automatic correlation tracking — scalar `UFloat` algebra, covariance/correlation reconstruction, arbitrary-function lifting via `wrap`, a `umath` scalar-math mirror, and a `unumpy` NumPy-array/matrix surface with an `ulinalg` linear-algebra path
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: uncertainty value types
 
@@ -45,7 +35,7 @@
 
 Row [01] is NOT re-exported from the package root — a `catch` set imports it from `uncertainties.core` — and it subclasses `Exception` directly, so a `ValueError`-only tuple leaks it.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scalar construction and correlation
 - `correlated_values(nom_values, covariance_mat, tags=None)`, `correlated_values_norm(values_with_std_dev, correlation_mat, tags=None)`: the cohort constructors.
@@ -87,7 +77,7 @@ Row [01] is NOT re-exported from the package root — a `catch` set imports it f
 |  [07]   | `umath.ceil` / `floor` / `trunc` / `fmod` / `degrees` / `radians` | scalar math    | rounding, modulus, angle conversion             |
 |  [08]   | `unumpy.exp` / `log` / `sqrt` / `sin` / `arctan2` / `hypot`       | array math     | elementwise propagation over `uarray`/`umatrix` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - value graph: `ufloat` returns a `Variable`; every arithmetic result is an `AffineScalarFunc`/`UFloat` carrying a `derivatives` map of linear sensitivities to the originating `Variable` atoms. Correlation is the chain rule on that map — sharing a `Variable` is shared dependence, never a side covariance table.
@@ -106,9 +96,3 @@ Row [01] is NOT re-exported from the package root — a `catch` set imports it f
 - entry: measurement-error inputs enter as `ufloat` (independent) or `correlated_values` (correlated cohort).
 - evidence: derived results expose `nominal_value`, `std_dev`, and `error_components()`, which join the `Measurement` with correlation provenance.
 - array/matrix: array payloads use `unumpy.uarray`; matrix study math uses `unumpy.umatrix` with `ulinalg.inv`/`pinv`.
-
-[RAIL_LAW]:
-- Package: `uncertainties`
-- Owns: first-order linear error propagation, automatic correlation tracking via the `derivatives` chain rule, covariance/correlation reconstruction, arbitrary-function lifting, and NumPy array/matrix uncertainty wrapping for the uncertainty rail
-- Accept: a study result carrying a propagated `std_dev`, an `error_components()` split, and correlation provenance through shared `Variable` atoms or a `correlated_values` cohort
-- Reject: manual error-bar arithmetic, uncorrelated re-derivation of propagated variance, a side covariance table parallel to the `UFloat` graph, and bare `math`/NumPy calls that drop the uncertainty graph

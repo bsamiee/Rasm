@@ -4,15 +4,7 @@
 
 `work/report.ts` internalizes it once as the output-format policy's CSV arm — `parse` feeds `Schema.decodeUnknown` per row, the `NODE_STREAM_INPUT` `Duplex` bridges to an Effect `Stream`, and encoded bytes ride the shared `deliver` rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `papaparse`
-- package: `papaparse` (MIT)
-- module: UMD single-file (`papaparse.js`, `main` only, no `module`/`exports` map); the `Papa` namespace under `export as namespace Papa`; no deep-import subpaths
-- runtime: isomorphic, zero runtime dependencies, no native addon; Node rides the sync `string` path or the `NODE_STREAM_INPUT` `Duplex`, the `File`/`FileReader` and `download`/`XMLHttpRequest` paths bind browser only; `@types/papaparse` supplies the surface and threads `@types/node` for the `Duplex`
-- rail: the CSV codec and egress owner for `work/report`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the parse and serialize configuration shapes; each field roster rides the token lines below the grid.
 
@@ -42,7 +34,7 @@
 - `ParseError.type`: `"Quotes"` / `"Delimiter"` / `"FieldMismatch"`; `ParseError.code`: `"MissingQuotes"` / `"UndetectableDelimiter"` / `"TooFewFields"` / `"TooManyFields"` / `"InvalidQuotes"` — one closed literal union.
 - `ParseMeta`: `delimiter`, `linebreak`, `aborted`, `fields?`, `truncated`, `cursor`, `renamedHeaders?`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the polymorphic codec and its streaming-control surface — every top-level surface is a `Papa.` member.
 
@@ -61,7 +53,7 @@
 - `Papa.parse(string)`: `worker: true` forks a Web Worker, returning `void` through callbacks rather than a `ParseResult`.
 - `RECORD_SEP` is `\x1E`, `UNIT_SEP` is `\x1F`, `BYTE_ORDER_MARK` is `﻿`; `LocalChunkSize`/`RemoteChunkSize`/`DefaultDelimiter` are reassignable module `let` bindings.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `parse` is one polymorphic entry: the first argument's shape selects the modality — a `string` returns a `ParseResult` synchronously, a `File`/URL drives async callbacks and returns `void`, the `NODE_STREAM_INPUT` symbol returns a `Duplex`, and `worker: true` forks a Web Worker — one `decodeCsv` seam discriminates internally, so downstream never picks a per-source function.
@@ -84,9 +76,3 @@
 - `unparse` carries `escapeFormulae: true` on every egress to an untrusted spreadsheet sink.
 - `NODE_STREAM_INPUT` carries any export whose row count is unbounded, never a whole result set buffered into one `unparse` string.
 - Browser config (`File`/`download`) binds `browser` alone, never a `work` Node durable job.
-
-[RAIL_LAW]:
-- Package: `papaparse` (+ `@types/papaparse`)
-- Owns: RFC 4180 CSV decode/encode — the polymorphic `parse`, `unparse` with formula-injection defense, the `Parser` streaming-control handle, the `ParseError` code union, the `ParseMeta` metadata, and the `NODE_STREAM_INPUT` Node-`Duplex` rail; the CSV arm of the report output-format policy that `exceljs.csv` defers to
-- Accept: `Effect.sync`-wrapped `parse`/`unparse`, per-row `Schema.decodeUnknown`, `ParseError.code` as a `Data.taggedEnum`, `unparse` with `escapeFormulae`, `NodeStream.fromReadable` over the `Duplex`, the encoded `Uint8Array` through `FileSystem`/`HttpBody` or as a shared `jszip`/`nodemailer` deliver artifact
-- Reject: `dynamicTyping` in place of `Schema`, untyped consumption of `result.data`, `unparse` without the formula guard on an untrusted sink, the browser `File`/`download` paths in a Node durable job, whole-result buffering where the row count is unbounded

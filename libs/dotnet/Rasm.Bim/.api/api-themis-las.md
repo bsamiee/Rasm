@@ -2,17 +2,7 @@
 
 `Themis.Las` owns managed uncompressed ASPRS LAS decode/encode — every point data record format (0-10) streamed into a `LasPoint` facet carrier over a `MathNet.Numerics` `Vector<double>` position, with the public header and the CRS-WKT-carrying VLR/EVLR surface. It decodes UNCOMPRESSED `.las` only; the `.laz` compressed leg is the separate-assembly `Unofficial.laszip.netstandard` peer (`libs/dotnet/.api/api-laszip.md`), and `reconstruct#LAS_INGEST` `LasIngest.Decode` folds the two as one dual-engine ingest front dispatched once by `LasCompression.Sniff`, this reader owning the uncompressed leg.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Themis.Las`
-- package: `Themis.Las` (MIT)
-- assembly: `Themis.Las` → the `net10.0` consumer binds `lib/net8.0/Themis.Las.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
-- namespace: `Themis.Las`, `Themis.Las.Structs`, `Themis.Las.Builders`, `Themis.Las.Stream`, `Themis.Las.Time`
-- depends: `MathNet.Numerics` — `LasPoint.Position` is a `MathNet.Numerics.LinearAlgebra.Vector<double>`, so the point geometry rides the Compute MathNet substrate directly
-- scope: ASPRS LAS point data record formats 0-10; UNCOMPRESSED `.las` only — the `.laz` compressed leg is the `Unofficial.laszip.netstandard` peer (`libs/dotnet/.api/api-laszip.md`)
-- rail: `reconstruct#LAS_INGEST` — the uncompressed leg of the dual-engine scan-to-BIM ingest front
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stream codec roots
 
@@ -54,7 +44,7 @@
 |  [06]   | `Time.GpsTime` / `Time.LeapSeconds` | GPS-time helper  | LAS GPS timestamp ↔ UTC `DateTime` with leap-second tables                   |
 |  [07]   | `LasHelper` / `Extensions`          | header helper    | `GetGlobalEncoding(useGpsStandardTime, useProjWkt)` bit composition          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: forward point read
 - note: `LasReader` is the streaming front of the uncompressed leg; the `ref` overload fills one caller-owned `LasPoint` for a garbage-free decode loop.
@@ -95,7 +85,7 @@
 
 - [05]-[HEADER_READ]: `ScaleX`/`OriginX`/`MinX`/`MaxX`/…, `PointDataFormat`, `PointCount`, `NumPointRecordsByReturn` (`ulong[]`) with the `LegacyNumPointRecordsByReturn` (`uint[]`) pair.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `LasPoint` is the one decoded point carrier implementing `ILasPoint: IPosition, ILasPointBase, ILasTime, ILasRgb, ILas4Band, ILasWaveform`; `Position` is a `MathNet.Numerics.LinearAlgebra.Vector<double>` (`X`/`Y`/`Z` project its components) and `DateTime` lifts `Timestamp` through `GpsTime.Parse`
@@ -119,9 +109,3 @@
 - `LasHeaderBuilder` composes the header and `ILasHeader` reads it
 - LAS GPS time (`GpsTime`), CRS WKT VLR (`LasVariableLengthRecord`), and ASPRS classification (`LasPoint.Classification`) thread onto the canonical owners `georeference#GEO_PROJECTION` and `reconstruct#RECONSTRUCTION`
 - LAZ decodes at the `libs/dotnet/.api/api-laszip.md` peer, routed by a `LasCompression.Sniff`-detected compressed input; both engines are pure-managed IL, so the ALC firebreak holds
-
-[RAIL_LAW]:
-- Package: `Themis.Las` (MIT)
-- Owns: streaming uncompressed ASPRS LAS read/write (point data record formats 0-10), the `LasPoint` facet model, the LAS public header + VLR/EVLR surface, and the GPS-time conversion — the UNCOMPRESSED leg of the `reconstruct#LAS_INGEST` dual-engine front
-- Accept: a raw LAS byte stream admitted through one scoped temp path and decoded by the no-alloc `GetNextPoint(ref LasPoint)` loop into `Position.Clone()`-detached `MathNet` vectors and `& 0x1F`-masked format-0-5 classes, content-keyed via the kernel `ContentHash`/seam `CanonicalWriter` (`ReconstructionLineage`), the ASPRS classification and CRS WKT threaded onto `reconstruct#RECONSTRUCTION`/`georeference#GEO_PROJECTION`
-- Reject: a re-minted point-cloud scan/segmentation/registration engine (the kernel owns it); a LAZ decode in this leg (the `Unofficial.laszip.netstandard` peer owns it) or a native LASzip binding; a hand-implemented `IStreamHandler` beside the path admission; a bare `point.Position` collection or an unmasked format-0-5 classification byte; a second hashing scheme or the upper-stratum `Rasm.Compute` `InterchangeIdentity` beside the kernel `ContentHash`/seam `CanonicalWriter` lineage; a Themis-local CRS reprojection beside `ProjNET`; a parallel point struct or per-format reader family

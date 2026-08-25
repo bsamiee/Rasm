@@ -2,18 +2,7 @@
 
 `Microsoft.Diagnostics.NETCore.Client` (dotnet/diagnostics) owns managed access to the .NET runtime diagnostics IPC endpoint: a pid-bound `DiagnosticsClient` captures a process dump and opens the EventPipe runtime-event stream. It is the sole owner of process-dump capture and the EventPipe stream, feeding the support-bundle capture fan on the observability rail and bounded to the host and companion process tree the AppHost owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Diagnostics.NETCore.Client`
-- package: `Microsoft.Diagnostics.NETCore.Client` (MIT)
-- assembly: `Microsoft.Diagnostics.NETCore.Client`
-- namespace: `Microsoft.Diagnostics.NETCore.Client`, `Microsoft.Diagnostics.NETCore.Client.WebSocketServer`
-- target: `net8.0`
-- depends: BCL only (`System.IO.Pipes` IPC over the runtime diagnostics socket)
-- asset: runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and session surfaces
 
@@ -33,7 +22,7 @@
 |  [03]   | `PerfMapType`                 | enum           | perf-map generation kind for native-symbol resolution                        |
 |  [04]   | `ServerNotAvailableException` | exception      | the target process endpoint is gone (mapped, never propagated)               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and process discovery
 
@@ -70,7 +59,7 @@
 
 - `StartEventPipeSession`: one overload takes an `EventPipeProvider` set with a rundown flag and a circular-buffer bound, the other an `EventPipeSessionConfiguration`; the async form adds a `CancellationToken`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DiagnosticsClient` targets one process's runtime diagnostics IPC endpoint — a Unix domain socket or named pipe published by the runtime; `GetPublishedProcesses` enumerates locally diagnosable runtimes. AppHost targets the host process itself, or a companion child whose pid the companion control host owns.
@@ -86,9 +75,3 @@
 - Process-dump and EventPipe capture fill the support-bundle capture fan; the dump is one `SupportArtifact` under the window size cap, its path recorded in `SupportManifest`, never streamed into telemetry.
 - Dump completeness is `DumpPolicy` row data, never a call-site literal: `Triage`/`Normal` for routine capture, `WithHeap`/`Full` only under an explicit escalation trigger; `WriteDumpFlags` rides the same row.
 - `DiagnosticsClient` is bounded to the host and companion process tree the AppHost owns, and capture rides `DeadlineClass` bounds so a stuck endpoint degrades one artifact row rather than wedging the pipeline.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Diagnostics.NETCore.Client`
-- Owns: process-dump capture and the EventPipe session stream for the host and companion process tree
-- Accept: a pid-scoped `DiagnosticsClient`, dump completeness as row policy, and the `EventStream` drained by TraceEvent
-- Reject: a hand-rolled `createdump` shell-out, an unbounded dump on an ordinary capture window, a general remote-process attach, or a thrown capture fault crossing the bundle pipeline

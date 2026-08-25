@@ -2,16 +2,7 @@
 
 `av` (PyAV) binds the FFmpeg media surface for the artifacts MEDIA rail: `av.open` selects a read `InputContainer` or write `OutputContainer`, `add_stream` mints the typed `VideoStream`/`AudioStream` owners, and one `from_ndarray`/`encode`/`mux` loop drives a frame sequence into MP4/WebM/GIF while the inverse `demux`/`decode`/`to_ndarray` loop reads it back. One polymorphic `MediaOp` folds encode, decode, transcode, remux, and filter through the bundled FFmpeg libraries, so the branch never shells out to a system `ffmpeg` binary nor re-implements the container, filter, or codec layer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `av`
-- package: `av` (BSD-3-Clause)
-- import: `av`
-- owner: `artifacts`
-- rail: media
-- bundled: FFmpeg shared libraries — `libavcodec`/`libavformat`/`libavfilter`/`libswscale`/`libswresample` with the `libx264`/`libx265`/`libvpx`/`libSvtAv1Enc` encoders, read at runtime through `av.library_versions`/`av.ffmpeg_version_info`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: container, stream, frame, codec, filter, and typed-error roots
 
@@ -48,7 +39,7 @@
 |  [29]   | `BSFNotFoundError`       | error                | requested bitstream filter is unregistered                                      |
 |  [30]   | `InvalidDataError`       | error                | malformed/invalid frame or stream data                                          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container open and stream creation
 
@@ -196,7 +187,7 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 |  [26]   | `AudioFrame.rate`                                       | `int` (settable)                      | sample-rate stamp before resample    |
 |  [27]   | `AudioFrame.to_ndarray`                                 | `to_ndarray() -> ndarray`             | extract samples to NumPy             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One polymorphic `MediaOp` discriminates Encode / Decode / Transcode / Remux / Filter; the read side (`demux`/`decode`/`seek`) and the write side (`add_stream`/`encode`/`mux`) are arms of one owner, a transcode being `decode` then optional `Graph` then `encode` then `mux`.
@@ -219,9 +210,3 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 [LOCAL_ADMISSION]:
 - `import av` at boundary scope only; the manifest import policy binds module-level import.
 - Codec, muxer, bsf, and filter admission is a membership probe over `av.codecs_available`/`av.bitstream_filters_available`/`av.filter.filters_available` and `hwdevices_available` before `add_stream`/`BitStreamFilterContext`/`Graph.add`.
-
-[RAIL_LAW]:
-- Package: `av`
-- Owns: the FFmpeg container/codec/filter media surface — `demux`/`decode`/`seek` read, `add_stream`/`encode`/`mux` write, the libavfilter graph, bitstream-filter remux, and swscale/swresample conversion.
-- Accept: frame-sequence encode, decode, transcode, remux, and filter-graph pipelines feeding the media and document owners as `MediaOp` arms.
-- Reject: a subprocess shell-out to a system `ffmpeg`; a hand-rolled muxer, packetizer, filter loop, or codec layer; a parallel reader/writer package or `add_video_stream`/`add_audio_stream` pair over the one `add_stream` factory; a raw pixel copy where `from_ndarray`/`from_dlpack` ingest.

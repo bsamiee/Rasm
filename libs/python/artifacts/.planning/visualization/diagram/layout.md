@@ -20,7 +20,7 @@
 - Boundary: no SVG emission (`visualization/diagram/draw#DRAW`'s), no graph analysis (`data/graph/graph#GRAPH`'s centrality/shortest-path/community kernel stays at the data plane; this owner runs only layout functions), no ephemeris computation (`visualization/diagram/solar#SOLAR` solves sun positions; this owner composes `project`/`furniture`), no ad-hoc color (the `GlyphStyle` indices key the `graphic/color/derive#DERIVE` palette), and no content key; `rustworkx` owns force/radial/topological placement, `grandalf`/`fast-sugiyama` Sugiyama, `pyelk` ports/nesting/orthogonal, `kiwisolver` the Cassowary solve, all behind one `LayoutPolicy` owner — a hand-rolled Sugiyama/spring/constraint loop, an `ORTHOGONAL` aliased to a straight-line router, a synchronous native layout left on the event loop, a GIL-holding pure-Python engine pass declared `RELEASING`, a `Force()` default on a plan-anchored kind, a fixed rectangle standing for a measured area, and an absent measurement coerced to `0.0` are the rejected forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from itertools import groupby, pairwise

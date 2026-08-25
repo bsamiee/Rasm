@@ -4,16 +4,7 @@
 
 CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the schemaless wire and Avro the schema-governed leg. Blob encoding runs under `Canonical`: the rail hashes the bytes and re-reads peer blobs under a depth-bounded `PeekState()` loop that refuses untrusted indefinite-length frames.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Formats.Cbor`
-- package: `System.Formats.Cbor` (MIT)
-- assembly: `System.Formats.Cbor`
-- namespace: `System.Formats.Cbor`
-- asset: in-box BCL managed assembly (`lib/net10.0`), AnyCPU, zero transitive dependencies, no native payload
-- rail: blob-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: writer and reader surfaces
 
@@ -34,7 +25,7 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 
 `Canonical` emits shortest-form integers, length-sorted map keys, and definite-length headers; `Ctap2Canonical` adds the CTAP2 depth and type restrictions for FIDO2. `Strict` enforces well-formedness and rejects duplicate keys, and `Lax` validates nothing. `WriteSimpleValue(CborSimpleValue)` also writes the raw major-type-7 values 0-19 and 32-255 beyond the four named cases. Typed `WriteDateTimeOffset`/`WriteUnixTimeSeconds`/`WriteBigInteger`/`WriteDecimal` emit their matching `CborTag`; raw `WriteTag` precedes a hand-encoded tagged item.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: writer construction and framing
 - ctor: `new CborWriter(conformanceMode, convertIndefiniteLengthEncodings, allowMultipleRootLevelValues, initialCapacity)`
@@ -104,7 +95,7 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 |  [12]   | `ReadTag() -> CborTag`                                        | consumes a tag prefix                       |
 |  [13]   | `ReadDateTimeOffset()` / `ReadUnixTimeSeconds()`              | tag-0 string / tag-1 epoch decode           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `System.Formats.Cbor` is the whole surface: one namespace, no DI, no attributes, no schema, a hand-driven token stream.
@@ -125,9 +116,3 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 - Every stored CBOR body carries codec, conformance mode, and compression/redaction class, matching the `MessagePack` payload contract.
 - `CborReader` is buffer-resident: a body larger than memory is framed into items by the store layer (`api-objectstore`), never streamed through one reader.
 - Canonical determinism binds wherever bytes feed content identity; `Lax`/`Strict` are read-time validation choices and never key a `ContentKey`.
-
-[RAIL_LAW]:
-- Package: `System.Formats.Cbor`
-- Owns: RFC 8949 self-describing binary blob/snapshot codec with canonical determinism
-- Accept: profile-declared CBOR serialization, canonical-mode content addressing, bounded untrusted decode
-- Reject: hand-rolled CBOR framing, `Lax`-mode content keys, unbounded indefinite-length decode on the untrusted path

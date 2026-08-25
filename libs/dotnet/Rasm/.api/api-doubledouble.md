@@ -2,18 +2,7 @@
 
 `TYoshimura.DoubleDouble` mints `ddouble`, a `readonly struct` holding an unevaluated 106-bit hi/lo `double` pair — the deterministic middle tier refining `double`, never arbitrary-precision or exact. `ddouble` implements the complete `System.Numerics` number, function-group, operator, parse, and format contracts, so a generic kernel binds it and its special-function library evaluates every classical family at double-double precision.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TYoshimura.DoubleDouble`
-- package: `TYoshimura.DoubleDouble` (MIT)
-- assembly: `DoubleDouble.dll`
-- namespace: `DoubleDouble` holds `ddouble` and its extension/converter siblings
-- target: single `lib/net10.0` asset
-- asset: pure-managed AnyCPU, zero package dependencies, `System.Numerics.BigInteger` the sole BCL touch
-- abi: full `System.Numerics` generic-math — a kernel constrained on `INumber<T>`, `IFloatingPointConstants<T>`, or any function-group interface binds `ddouble` with no adapter; `ddouble` (lowercase) is the public spelling
-- rail: middle-precision FP (106-bit double-double)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `ddouble` value and its three first-class siblings in namespace `DoubleDouble`
 
@@ -31,7 +20,7 @@
 - `DoubleDoubleIOExpand` supplies `Write(BinaryWriter, ddouble)` and `ReadDDouble(BinaryReader) -> ddouble` with exact hi/lo round-tripping.
 - `DDoubleJsonConverter : JsonConverter<ddouble>` overrides `Read` and `Write`, registering on `JsonSerializerOptions.Converters` for lossless serialization.
 
-## [03]-[NUMERIC_CONTRACT]
+## [02]-[NUMERIC_CONTRACT]
 
 [CONTRACT_SCOPE]: construction — no public constructor, operators and `Parse` only
 
@@ -109,7 +98,7 @@ No-throw conversion triads bridge `ddouble` and any `INumberBase<TOther>` under 
 |  [07]   | `TryFormat(Span<char>, out int, ReadOnlySpan<char>, provider)` | span render           |
 |  [08]   | `ToString(format, provider)`                                   | string render         |
 
-## [04]-[ELEMENTARY_AND_SPECIAL_FUNCTIONS]
+## [03]-[ELEMENTARY_AND_SPECIAL_FUNCTIONS]
 
 [FUNCTION_SCOPE]: power, root, exponential, logarithm
 
@@ -228,7 +217,7 @@ Every elliptic function takes parameter `m = k²`.
 |  [06]   | `JacobiP(int n,alpha,beta,x)`                   | Jacobi       |
 |  [07]   | `ZernikeR(int n,int m,x)`                       | Zernike      |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - representation: one `readonly struct ddouble` holds a private unevaluated hi/lo `double` pair (~106-bit significand, ~31 decimal digits via `DecimalDigits`); the pair is internal, so a consumer treats `ddouble` purely as a number.
@@ -245,9 +234,3 @@ Every elliptic function takes parameter `m = k²`.
 - `ddouble` is the middle predicate tier between the interior `double` filter and the sign-exact `Expansion`/`Fraction` adjudicators: the predicate recomputes the determinant in `ddouble` when the `double` error bound brackets zero, and only sub-106-bit-degenerate residue advances to exact adjudication.
 - `ddouble.Sign` or an operator comparison gives the predicate its verdict and the value is discarded.
 - non-predicate numeric work (curvature, geodesic, fitting residuals, quadrature weights) uses the special-function library at 106-bit where the `double` `MathNet.Numerics` result loses too many digits, narrowing to `double` only at the reporting boundary.
-
-[RAIL_LAW]:
-- Package: `TYoshimura.DoubleDouble`
-- Owns: the 106-bit `ddouble` number, its complete generic-math and special-function surface, and its aggregation, binary I/O, and JSON siblings.
-- Accept: the predicate middle tier (recompute in `ddouble`, read `Sign`, escalate only indeterminate residue to `Expansion`/`Fraction`); a generic numeric kernel constrained on `INumber<T>` or a function-group interface bound to `ddouble`; accuracy-critical special-function or quadrature evaluation that loses digits at `double`; lossless 106-bit (de)serialization through the converter and I/O extensions.
-- Reject: treating `ddouble` as an exact or arbitrary-precision oracle, where `Fraction` owns the exact `Sign`; hand-assembling or reading its internal `Hi`/`Lo` pair; narrowing `ddouble` to `double` mid-adjudication; re-hosting a whole `MathNet.Numerics` distribution or solver on `ddouble` by hand when only the special-function evaluation needs the precision; presenting an internal `Consts`-kernel helper as public API.

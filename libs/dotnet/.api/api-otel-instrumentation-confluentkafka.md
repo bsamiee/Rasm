@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Instrumentation.ConfluentKafka` owns messaging-semconv emission on the Kafka wire: instrumented builders subclass the Confluent builders so every client they mint spans and meters its own traffic under one instrumentation name serving both the `ActivitySource` and the `Meter`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.ConfluentKafka`
-- package: `OpenTelemetry.Instrumentation.ConfluentKafka`
-- assembly: `OpenTelemetry.Instrumentation.ConfluentKafka`
-- namespace: `Confluent.Kafka`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
-- rail: transport instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumented clients, their telemetry options, and the admission holders
 
@@ -35,7 +27,7 @@
 |  [02]   | `messaging.client.sent.messages`      | `{message}` | producer send attempts                             |
 |  [03]   | `messaging.client.consumed.messages`  | `{message}` | messages delivered to the application              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction, root admission, and the consume seam; every verb closes on the `TKey,TValue` closure
 
@@ -56,7 +48,7 @@
 - `AddKafkaProducerInstrumentation`: builder-less overloads resolve the instrumented builder from DI, keyed when the `name` argument rides.
 - `TryExtractPropagationContext`: returns `true` on the default context for a header-free message, so callers discriminate on the extracted `ActivityContext`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - build root: `InstrumentedProducerBuilder` and `InstrumentedConsumerBuilder` are the client mints on this wire, so admission binds the builder instance the root registered or resolves.
@@ -74,9 +66,3 @@
 - One instrumented builder replaces the plain builder at a sink seam; a second plain producer beside it forks the telemetry surface.
 - Composition-root-only, at the AppHost wire root that owns Kafka clients; one closure pair registers per message shape across both providers.
 - librdkafka `StatisticsHandler` JSON stays the broker-ops lane on the Confluent config rows; these client instruments carry the app-side leg on the OTel providers.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.ConfluentKafka`
-- Owns: Kafka messaging spans, the client instrument roster, and header-borne context on both legs
-- Accept: instrumented-builder construction with per-closure admission at the root
-- Reject: hand-rolled messaging-semconv spans over plain Confluent builders

@@ -2,16 +2,7 @@
 
 `AWSSDK.KeyManagementService` is the AWS SDK for .NET client for AWS KMS: the `KmsProvider.Aws` arm of two disjoint Persistence delegate surfaces the `Element/identity` `KmsProvider` axis selects. Its `EnvelopeKeyring` arm wraps a data-encryption key under a symmetric customer master key; its SIGNING arm signs an `OpDigest` over an asymmetric key, feeding the `SigningKeyring`. Every operation is async-only and pure-managed.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AWSSDK.KeyManagementService`
-- package: `AWSSDK.KeyManagementService` (Apache-2.0)
-- assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds the `net10.0` consumer; `netstandard2.0`/`net472` fallbacks)
-- namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`
-- depends: `AWSSDK.Core`; pure-managed, no native asset
-- rail: DEK wrap/unwrap and asymmetric `OpDigest` sign/verify — the AWS arm of the `Element/identity` `KmsProvider` axis
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and configuration family
 
@@ -63,7 +54,7 @@
 
 [ALGOS]: `ECDSA_SHA_256`/`ECDSA_SHA_384`/`ECDSA_SHA_512`, `RSASSA_PSS_SHA_256/384/512`, `RSASSA_PKCS1_V1_5_SHA_256/384/512`, `ED25519_SHA_512`/`ED25519_PH_SHA_512`, `ML_DSA_SHAKE_256`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: key-wrap and random-material operations, each `…Async(request, CancellationToken)`
 
@@ -87,7 +78,7 @@
 |  [02]   | `VerifyAsync(VerifyRequest)`      | verify     | verifies `Signature`; `SignatureValid` the verdict      |
 |  [03]   | `GetPublicKeyAsync(string keyId)` | key export | downloads the public key for an outside-KMS verify path |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IAmazonKeyManagementService` is the operation contract; `AmazonKeyManagementServiceClient` is the long-lived `IDisposable` concrete root; every operation is async-only (`…Async(request, CancellationToken)`), no sync twin, and `Paginators` exposes the list-op auto-pager.
@@ -113,9 +104,3 @@
 - sign: `Sign(SignRequest{ KeyId, Message=opDigest, MessageType=DIGEST, SigningAlgorithm })` over the asymmetric key returns the `Signature` the `SignedAuthorship` carries, and `Verify(VerifyRequest)` returns `SignatureValid` lifted to `Authentic`/`Forged`; the signing key is distinct from the wrapping CMK, both leased through the same per-open `SecretLease` handle.
 - `SigningAlgorithmSpec` maps from `SigningAlgorithm.WireName` (`ECDSA_SHA_256`↔`es256`, `RSASSA_PSS_SHA_256`↔`ps256`, `RSASSA_PKCS1_V1_5_SHA_256`↔`rs256`, and the 384/512 widths) at the keyring delegate edge.
 - `KmsProvider.None` (the local tier) never reaches this surface — attest and verify short to `Unsigned`, so a store with no KMS still records the delta→actor binding, never a fabricated signature.
-
-[RAIL_LAW]:
-- Package: `AWSSDK.KeyManagementService`
-- Owns: wrap/unwrap of the data-encryption key AND asymmetric Sign/Verify of the seam `OpDigest` through AWS KMS — two disjoint surfaces behind the one `KmsProvider.Aws` arm
-- Accept: one `IAmazonKeyManagementService` per key, `GenerateDataKey` for the DEK mint + `Encrypt`/`Decrypt` for the wrap round trip + `ReEncrypt` for rotation with `EncryptionContext` AAD on every call, and `SignAsync(MessageType.DIGEST)`/`VerifyAsync` over an asymmetric key feeding the `SigningKeyring`
-- Reject: a native KMS wrap verb, per-operation client construction, plaintext DEK persistence, unwrap without the binding `EncryptionContext`, `MessageType.RAW` for an already-hashed `OpDigest`, or signing over the symmetric wrapping CMK

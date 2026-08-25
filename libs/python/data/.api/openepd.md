@@ -2,16 +2,7 @@
 
 `openepd` is the typed Pydantic v2 object model and EC3 REST client for the OpenEPD interchange format — Building Transparency's EC3 schema for Environmental Product Declarations. It roots every declaration at `BaseOpenEpdSchema`, carries the EN 15804 + TRACI LCIA payload as a typed matrix, and moves declarations through the sync EC3 client and the offline `bundle` package. It models and fetches OpenEPD/EC3 payloads; it neither computes an LCA — the Brightway cluster owns that — nor parses ILCD+EPD, which is `epdx`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `openepd`
-- package: `openepd` (Apache-2.0)
-- module: pure Python, zero compiled extensions; `openepd.model` imports without `requests`, which the `api-client` extra adds for the REST client
-- namespaces: `openepd.model` (Pydantic v2 declarations/LCIA/specs), `openepd.api` (sync REST client), `openepd.bundle` (zip package IO), `openepd.category` (EC3 category tree), `openepd.m49` (UN M49 ↔ ISO region codes)
-- rail: epd-lca (OpenEPD/EC3 interchange)
-- depends: `pydantic`, `email-validator`, `idna`, `open-xpd-uuid`, `openlocationcode`; `requests` under the `api-client` extra
-
-## [02]-[DECLARATION_MODELS]
+## [01]-[DECLARATION_MODELS]
 
 [DECLARATION_SCOPE]: the three OpenEPD doctypes (Pydantic v2 `RootDocument` tree, `openepd.model.*`)
 - variants: each doctype ships a `WithDeps` form (referenced PCR/orgs/plants inlined, self-contained) and a `Preview` form (LCIA-free search-listing projection) — `EpdWithDeps` `EpdPreview` `IndustryEpdWithDeps` `IndustryEpdPreview` `GenericEstimateWithDeps` `GenericEstimatePreview`
@@ -74,7 +65,7 @@
 
 [LCIA_CARRIER_OPTIONALITY]: all three `WithLciaMixin` slots are OPTIONAL and default `None` — `impacts: Impacts | None`, `resource_uses: ResourceUseSet | None`, `output_flows: OutputFlowSet | None` (verified against the installed distribution). A declaration carrying resource and output flows alone is a LAWFUL document, so `decl.impacts.available_methods()` on the bare attribute answers `AttributeError` rather than a domain refusal: the container admits on the rail before any method is elected.
 
-## [03]-[LCIA_PAYLOAD]
+## [02]-[LCIA_PAYLOAD]
 
 [LCIA_SCOPE]: the impact matrix (`openepd.model.lcia`) — the leg the material-impact owner sums
 - impacts: `Impacts` is a `pydantic.RootModel` keyed `dict[LCIAMethod, ImpactSet]` — `set_impact_set(method, impact_set)`, `get_impact_set(method)`, `available_methods() -> set[LCIAMethod]`, `as_dict()`, `replace_lcia_method(old, new)`
@@ -110,7 +101,7 @@
 
 [METHOD_LAW]: `Impacts` keys by `LCIAMethod`, and the method decides what an attribute name MEANS — `gwp` under `TRACI 2.2` and under `EF 3.1` are different characterizations at different units, so a fold that ignores the key publishes wrong-unit numbers under a right-looking name. `get_impact_set` accepts a `LCIAMethod`, the method LABEL as `str` (resolved through `LCIAMethod.get_by_name`), or `None` (which reads the `UNKNOWN` bucket), and returns `None` when the declaration carries no set for it — so a label-keyed preference probe never raises. EN 15804+A2 characterization is `EF 3.1`/`EF 3.0`; `CML 2016` is the +A1 method, whose eutrophication is the single `ep`.
 
-## [04]-[CLIENT_AND_BUNDLE]
+## [03]-[CLIENT_AND_BUNDLE]
 
 [CLIENT_SCOPE]: the EC3/OpenEPD sync REST client (`openepd.api`, requires the `api-client` extra)
 - resources: one client, one typed accessor per resource — `.epds` `.pcrs` `.orgs` `.plants` `.standards` `.categories` `.industry_epds` `.generic_estimates` (`EpdApi`, `PcrApi`, …)
@@ -139,14 +130,14 @@
 |  [01]   | `DefaultBundleReader` | class   | typed object + blob read out of a bundle             |
 |  [02]   | `DefaultBundleWriter` | class   | typed object + binary-attachment write into a bundle |
 
-## [05]-[BASE_MACHINERY]
+## [04]-[BASE_MACHINERY]
 
 [BASE_SCOPE]: the schema/extension/factory kernel (`openepd.model.base`, `openepd.model.factory`, `openepd.model.common`)
 - `BaseOpenEpdSchema` (extends `pydantic.BaseModel`) — every model's root; `to_serializable()`, `has_values()`, and the typed extension-field API: `set_ext(ext)`, `get_ext(ext_type)`, `get_ext_or_empty(ext_type)`, `set_ext_field(key, value)`, `get_typed_ext_field(key, type, default)`. `OpenEpdExtension` carries vendor data without forking the schema.
 - `RootDocument` / `BaseDocumentFactory[TRootDocument]` / `RootDocumentFactory` / `DocumentFactory` — the doctype-discriminated factory: `RootDocumentFactory.from_dict(data)` reads `OpenEpdDoctypes` off the payload and routes to `EpdFactory` / `IndustryEpdFactory` / `GenericEstimateFactory`, so one entrypoint parses any declaration kind.
 - `OpenXpdUUID` (str subtype), `OpenEpdDoctypes` (StrEnum), `Location`/`LatLng`, `Ingredient`/`Constituent`, the `RangeFloat`/`RangeInt`/`RangeRatioFloat`/`RangeAmount` range carriers, and `OpenEPDUnit` (StrEnum) — the shared value vocabulary.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every declaration crosses the boundary through the Pydantic tree: `Epd.model_validate`/`model_dump` (or `RootDocumentFactory.from_dict` for a doctype-agnostic parse) carries a typed model inward, never a loose `dict`.
@@ -168,10 +159,3 @@
 
 [LOCAL_ADMISSION]:
 - `openepd` is the sole OpenEPD/EC3 modeler and fetcher on the impact rail; a folder composing it registers `openepd` in the branch manifest and this catalog.
-
-[RAIL_LAW]:
-- Package: `openepd`
-- Owns: the typed OpenEPD object model (`Epd`/`IndustryEpd`/`GenericEstimate` + org/plant/PCR + `Specs`), the EN 15804/TRACI LCIA payload (`Impacts`/`ImpactSet`/`ScopeSet`/`ResourceUseSet`/`OutputFlowSet`), the EC3 sync REST client (`OpenEpdApiClientSync`), and the offline declaration bundle IO
-- Accept: `Epd.model_validate`/`model_dump` as the typed boundary; `RootDocumentFactory.from_dict` as the doctype-agnostic parse; `Impacts.get_impact_set(method).get_scopeset_by_name(ind)` as the typed LCIA read; `OpenEpdApiClientSync(...).epds.find(omf)` as the streaming EC3 search; `DefaultBundleReader`/`DefaultBundleWriter` for offline packages; `OpenEpdExtension` for vendor data
-- Reject: hand-rolled OpenEPD JSON parsing the Pydantic tree owns; treating openepd as an LCA calculator (compute routes to `bw2calc`/`olca-ipc`) or the ILCD+EPD parser (`epdx`); double-retrying the client; forking the schema for vendor fields instead of the extension API
-- Reject: naming `subtype` or `date_published` on any declaration — neither exists, representativeness reads `doctype` and the issue date `date_of_issue`; reading `Epd.manufacturer` as the issuer; admitting `declared_unit.unit` without its `qty`, which silently rescales every cell; folding an `ImpactSet` without pinning its `LCIAMethod`; summing `A1`/`A2`/`A3` into `A1A2A3`; reading `ep` beside `ep_marine`

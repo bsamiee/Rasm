@@ -2,17 +2,7 @@
 
 `vegafusion` owns the Rust-backed server-side Vega transform engine over the module-level `runtime` singleton. Chart pre-pass uses `pre_transform_spec` or `ChartState.get_transformed_spec`; columnar egress uses `pre_transform_extract`, the transformer serializers, and `get_column_usage`. Native work crosses `anyio.to_process`, returns `PrePassEvidence`, and binds that evidence to one event and span.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `vegafusion`
-- package: `vegafusion` (BSD-3-Clause)
-- module: `vegafusion` (canonical alias `import vegafusion as vf`)
-- owner: `artifacts`
-- rail: charts
-- asset: Rust extension wheel (`_vegafusion.abi3.so`), abi3 forward-compatible, no cp-gate; the native core returns an `arro3-core` Arrow `Table` (default extracted format `arro3`, not `pyarrow`); hard deps `narwhals` (dataframe interchange — polars/pandas/pyarrow ingest), `packaging`; `vl-convert-python` is a soft dep reached lazily by `get_local_tz()` only (tz fallback); `pandas`/`polars`/`pyarrow` resolve through `sys.modules` at call time, never eager
-- capability: server-side Vega data-transform pre-evaluation, named/threshold dataset extraction, spec/data splitting, interactive chart-state maintenance, planner diagnostics, per-dataset referenced-column analysis, gRPC runtime connection, reset-on-set worker-pool resource policy, and Arrow IPC dataset feeding via the narwhals interchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime and chart-state roots
 
@@ -32,7 +22,7 @@ Module `__all__` exports exactly `runtime` (the singleton `VegaFusionRuntime` *i
 
 - [05]-[PRETRANSFORMWARNING]: `type` ∈ `RowLimitExceeded`/`BrokenInteractivity`/`Unsupported`; `message: str`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `runtime` transform execution
 - shared carry: `spec` (`dict` or JSON `str`), `local_tz` (defaults `get_local_tz()`), `default_input_tz`, `inline_datasets`
@@ -69,7 +59,7 @@ Module `__all__` exports exactly `runtime` (the singleton `VegaFusionRuntime` *i
 |  [11]   | `transformer.to_feather`               | `to_feather(data, file)` -> `None`; Feather/Arrow IPC file/stream sink                        |
 |  [12]   | `set_local_tz` / `get_local_tz`        | configure/read runtime default tz (falls back to `vl_convert` then `'UTC'`)                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `runtime.pre_transform_spec` is the single spec-keyed pre-evaluation surface; `preserve_interactivity`/`keep_signals`/`keep_datasets` are rows on it, never per-mode transform functions. DataFusion transforms execute server-side and the reduced result inlines INTO the returned spec — the aggregation IS the size reduction, so one self-contained spec renders with no client-side transform work and no oversized embedded data.
@@ -88,9 +78,3 @@ Module `__all__` exports exactly `runtime` (the singleton `VegaFusionRuntime` *i
 
 [LOCAL_ADMISSION]:
 - Admitted as the charts pre-transform engine; composed only through the `runtime` singleton and the `ChartState` return, over the embedded DataFusion core.
-
-[RAIL_LAW]:
-- Package: `vegafusion`
-- Owns: server-side Vega data-transform pre-evaluation, named/threshold dataset extraction, spec/data splitting, interactive chart-state maintenance, planner diagnostics, referenced-column analysis, gRPC runtime connection, reset-on-set worker-pool resource policy, and Arrow IPC dataset feeding via the internal narwhals interchange
-- Accept: the chart-render pre-pass (`pre_transform_spec` reduce-and-inline, `new_chart_state`/`get_transformed_spec` for the interactive row) for `altair`/Vega specs feeding the `vl-convert` render path; the columnar egress surface (`pre_transform_extract`/`pre_transform_datasets`/`transformer`/`get_column_usage`) for the `data/tabular/columnar` owner
-- Reject: a hand-rolled transform engine where the embedded DataFusion runtime executes; an Arrow-IPC side channel into the renderer where the reduction crosses inside the spec; a per-format dataset serializer where the narwhals interchange is the wire; a fresh runtime per transform where the singleton's reset-on-set properties tune the pool; `vegafusion.runtime.ChartState` where the singleton shadows the submodule; a `PyChartStateGrpc` runtime import absent from the wheel; the `VegaFusionWidget` as a charts surface where live UI is out of rail

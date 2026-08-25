@@ -20,7 +20,7 @@ Every linear solve rides the `matrix` owners — `CholeskySparse.SolveDetailed` 
 - Boundary: the `dec` scaffold (`SourceDelta`/`FaceGradients`/`Divergence`) composes as settled; `MeshProbe` is the one closest-face interpolation owner the sibling shape page composes; the heat time is scale-derived (`h²`), since transport spread is vector heat's semantic and distance carries none.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;

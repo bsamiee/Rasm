@@ -2,15 +2,7 @@
 
 `Microsoft.Extensions.Caching.Hybrid` owns the two-tier read-through cache: an in-process L1 over a distributed L2, collapsed behind one entrypoint that serves every concurrent miss on a key from a single factory invocation. Its boundary is the payload codec — an L2 value crosses as `ReadOnlySequence<byte>` and `IBufferWriter<byte>`, so a caller's codec writes straight into the transport buffer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
-- package: `Microsoft.Extensions.Caching.Hybrid` (MIT)
-- assembly: `Microsoft.Extensions.Caching.Hybrid` (registration and the runtime cache); `Microsoft.Extensions.Caching.Abstractions` (the `HybridCache` contract, entry policy, and codec seam)
-- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed`
-- rail: runtime cache
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cache contract, policy values, and the codec and L2 seams
 
@@ -31,7 +23,7 @@
 - `DisableUnderlyingData` skips the factory on a miss, turning the read into a cache peek; each read/write pair ORs to its combined tier member.
 - `Flags` set at the call site replaces the instance default outright and ORs only with the runtime's forced flags, so an override states every lane it wants disabled.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `HybridCache` operations, each closing on `(HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default)`
 - Each key shape carries the stateful `(key, TState, Func<TState, CancellationToken, ValueTask<T>>)` row below and a stateless `(key, Func<CancellationToken, ValueTask<T>>)` mirror; threading caller state through `TState` keeps the factory delegate static and closure-free.
@@ -77,7 +69,7 @@
 |  [04]   | `IBufferDistributedCache.TryGet(string, IBufferWriter<byte>) -> bool`                       | instance | reads L2 bytes to the buffer   |
 |  [05]   | `IBufferDistributedCache.Set(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions)` | instance | writes L2 from segments        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `HybridCache` resolves from DI as a singleton the registration mints; a caller binds the abstract contract and never constructs an implementation.
@@ -103,9 +95,3 @@
 - `AddHybridCache` seeds `TimeProvider.System`, an `IMemoryCache`, a JSON codec factory, and the inbuilt `string`/`byte[]` codecs through try-add, so a registration placed ahead of it displaces the seed.
 - `IBufferDistributedCache` is what an L2 contribution implements to reach the zero-copy path, and every admitted codec type keeps a public constructor for the trim and AOT annotation on the generic overloads.
 - Persistence owns the L2-store and serializer half while the AppHost runtime owns L1, stampede single-flight, and tag invalidation — one cache owner across both halves, never a second registration.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Caching.Hybrid`
-- Owns: the two-tier read-through cache — stampede collapse, tag-grouped eviction, and the zero-copy payload codec chain between L1, L2, and the caller
-- Accept: cache policy as call-site and registration data — entry options, flags, tag sets, keyed profiles, and one codec factory
-- Reject: a caller-held population lock, a per-type codec service beside the factory, an L2 store stopping at `IDistributedCache`, and tag eviction standing in for durable-store integrity

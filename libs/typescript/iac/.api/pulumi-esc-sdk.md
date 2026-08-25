@@ -2,15 +2,7 @@
 
 `@pulumi/esc-sdk` drives ESC environments imperatively: one `EscApi` over a `Configuration` owns environment CRUD, the open-read session model, diagnostic-gated writes, decrypt, revisions, and tags at `org/project/env` arity, for any Node process outside a running Pulumi program. `@pulumi/pulumiservice` authors environment existence in the graph while this SDK reads and writes out-of-graph; Doppler stays the canonical store and an ESC environment projects over it, never a second store.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/esc-sdk`
-- package: `@pulumi/esc-sdk` (Apache-2.0)
-- module: `@pulumi/esc-sdk` CJS root; generated raw client at `escApi.rawApi`
-- runtime: `node` — standalone HTTP client, no Pulumi-runtime dependency
-- rail: operate / environment
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the ESC wire models and the client configuration
 
@@ -35,7 +27,7 @@
 - `EnvironmentDefinition`: `imports` is the merge DAG, `values` the projection payload over `pulumiConfig`/`environmentVariables`/`files` with free string keys.
 - `Value`: `secret` set lifts the property to `Redacted` at the boundary, and `trace` carries source spans.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and the `EscApi` methods
 
@@ -70,7 +62,7 @@ Every method resolves a `Promise` that may be `undefined` and takes `(org, proje
 [revision tag]: `listEnvironmentRevisionTags` `getEnvironmentRevisionTag` `createEnvironmentRevisionTag(tag, revision)` `updateEnvironmentRevisionTag` `deleteEnvironmentRevisionTag`
 [environment tag]: `listEnvironmentTags` `getEnvironmentTag` `createEnvironmentTag(tag, value)` `updateEnvironmentTag` `deleteEnvironmentTag`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - session law: `openEnvironment` resolves every dynamic provider once and mints the session `id` that `readOpenEnvironment`/`readOpenEnvironmentProperty` consume; `openAndReadEnvironment` folds open and read for whole reads, the per-property read serves the narrow one.
@@ -85,9 +77,3 @@ Every method resolves a `Promise` that may be `undefined` and takes `(org, proje
 
 [LOCAL_ADMISSION]:
 - Admit only the wrapped client: an `EscApi` call enters through `Effect.tryPromise`, `undefined` lifts to `Option`, and `accessToken` sources from `Config.redacted`; a raw `Promise` escaping the boundary is refused.
-
-[RAIL_LAW]:
-- Package: `@pulumi/esc-sdk`
-- Owns: imperative ESC environment access for out-of-graph processes — CRUD, open/read sessions, diagnostic-gated writes, decrypt, revisions, tags
-- Accept: `openAndReadEnvironment` for whole reads, per-property reads for narrow ones, check-gated writes, revision-tag pinning, `Redacted`-lifted secrets, `Config.redacted` tokens
-- Reject: secret literals in definitions, unchecked writes, dual writers over one environment, attachment through workspace settings, raw calls escaping `Effect.tryPromise`, `decryptEnvironment` in automation paths

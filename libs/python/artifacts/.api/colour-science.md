@@ -2,16 +2,7 @@
 
 `colour` owns the artifacts colour rail's colorimetric truth: spectral-distribution representation, colour-model conversion across XYZ/RGB/Lab/CAM appearance spaces through one `convert` gateway, chromatic adaptation, CCTF and broadcast transfer functions, LUT and image IO, colour-difference and colour-quality metrics, and the CMFS/illuminant/light-source dataset registries. It resolves a measured SPD or appearance coordinate to the numeric XYZ/`xy` vector every downstream engine consumes, never re-implementing a conversion or interpolation it owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `colour`
-- package: `colour-science` (BSD-3-Clause)
-- import: `colour`
-- owner: `artifacts`
-- rail: colour
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: spectral distribution and shape family
 
@@ -45,7 +36,7 @@
 |  [07]   | `NullInterpolator`             | pass-through       | identity, no interpolation             |
 |  [08]   | `Extrapolator`                 | boundary extension | wrap, clamp, or constant extrapolation |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: universal conversion and adaptation
 
@@ -135,7 +126,7 @@ CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_waveleng
 |  [03]   | `CCS_ILLUMINANTS`   | illuminant whitepoints | keyed `xy` chromaticity whitepoints per standard observer                                |
 |  [04]   | `SDS_LIGHT_SOURCES` | light-source SPDs      | keyed real light-source spectral distributions                                           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `convert` is the universal entry keyed on `source`/`target` model strings; the named transforms (`XYZ_to_Lab`, `XYZ_to_CIECAM02`, `CCT_to_xy`) are direct rows sharing the same `method=`/`**kwargs` axis, never a per-method wrapper. Appearance models `ZCAM`/`Hellwig 2022`/`Kim 2009`/`RLAB`/`Hunt` register as `convert` model nodes, named as convert targets rather than per-model wrappers.
@@ -157,9 +148,3 @@ CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_waveleng
 - imaging codec: `read_image`/`write_image` route to Imageio/OpenImageIO float buffers; the multi-bit-depth pixel array feeds the imaging owner, the colour transform running on the array before encode, never on a serialized blob.
 - figures owner: chromaticity (`XYZ_to_xy`), spectral locus (`wavelength_to_XYZ`), and CCT (`CCT_to_xy`) coordinates feed the plot owner as numeric arrays; `plot_*` stays Matplotlib-gated at the figures owner, never invoked in the colour rail.
 - universal rail (`libs/python/.api`): numeric XYZ/`xy`/Lab ndarrays project into one `graphic/color/derive#DERIVE` `ColorModel`/`Derivation` case; `numpy` materializes the coordinate arrays and the typing rail refines their rank, dtype, and finiteness.
-
-[RAIL_LAW]:
-- Package: `colour-science`
-- Owns: spectral-distribution representation, XYZ/RGB/Lab/LCH/CAM colour transforms, CCTF encode/decode, broadcast transfer functions, chromatic adaptation, CCT and chromaticity transforms, dominant/complementary wavelength, whiteness/yellowness and colour-quality indices, reflectance recovery, Munsell notation, LUT IO, image IO, dataset registries, and colour-difference metrics.
-- Accept: `convert` or named transforms for colour-model conversion; `SpectralDistribution`/`MultiSpectralDistributions` for SPD work; `RGB_COLOURSPACES`/`MSDS_CMFS`/`SDS_ILLUMINANTS` for named-registry lookup; XYZ/`xy` arrays handed to `coloraide` for CSS/gamut presentation.
-- Reject: a hand-rolled CCTF, XYZ transform matrix, CCT estimation, or interpolation where `colour` owns the operation; `coloraide` for spectral sd→XYZ integration or `colour` for CSS string parsing; a per-method wrapper where `method=` selects a registry row; a Matplotlib `plot_*` surface inside the colour rail.

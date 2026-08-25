@@ -24,7 +24,7 @@
 - Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
 using System.Linq;
@@ -1418,7 +1418,7 @@ Surface point census — display, objects, host, and render streams; each owning
 
 | [INDEX] | [POINT]                         | [PAYLOAD]     | [MODALITY]      | [OWNER_ENTRY]                                            |
 | :-----: | :------------------------------ | :------------ | :-------------- | :------------------------------------------------------- |
-|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe, veto   | `DisplayHooks.Mount` grants `PointerLease`                |
+|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe, veto   | `DisplayHooks.Mount` grants `PointerLease`               |
 |  [02]   | `rasm.rhino.display.widget`     | `WidgetFact`  | observe         | `DisplayHooks.Mount` over `WidgetHost.Of`                |
 |  [03]   | `rasm.rhino.display.cull`       | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Cull`             |
 |  [04]   | `rasm.rhino.display.drawobject` | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Suppress`         |

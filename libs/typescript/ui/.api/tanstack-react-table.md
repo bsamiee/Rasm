@@ -4,15 +4,7 @@
 
 `tableFeatures` stitches features, row-model factories, and function registries into one static object `useTable` instantiates as a `Table` of plain data and derivation functions; every state slice rides a `@tanstack/store` atom, and `options.atoms` hands a slice's ownership to an outside atom of that same vocabulary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tanstack/react-table`
-- package: `@tanstack/react-table` (MIT)
-- module: ESM-only, `sideEffects: false`; subpaths `.`, `./flex-render`, `./static-functions`, `./experimental-worker-plugin`; re-exports `@tanstack/table-core` whole
-- runtime: React render tree over a DOM-free, framework-agnostic core; state rides `@tanstack/react-store` atoms; peer `react >=18`, node `>=20`
-- rail: view table plane — the headless collection-derivation half of the `view/table` rows
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the feature registry — one static object stitching every capability a table owns
 
@@ -81,7 +73,7 @@
 - Every slice is controllable and atom-persistable; `RowSelectionState` keyed by the `GlobalId` brand bridges selection to `viewer/mark/selection`.
 - `ExternalAtoms` maps each slice to a `@tanstack/store` `Atom`, and upstream names it the preferred v9 ownership model for app-managed state: `makeStateUpdater` reads `options.atoms?.[key] ?? baseAtoms[key]` itself, so the table's own setters write the outside atom with no callback in the loop. `Atom` is a structural interface, so a foreign fold is admitted as an adapter atom minted over it, never through a parallel `state` pair.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing a table and typing its columns
 
@@ -224,7 +216,7 @@
 - `functionalUpdate` resolves an `Updater`, `makeStateUpdater` builds the keyed setter, and `tableMemo` memoizes a feature derivation against the table.
 - `table.getIsSomeRowsSelected()`/`getIsSomePageRowsSelected()` read as at-least-one and stay true when all are selected; pair each with `!getIsAllRowsSelected()`/`!getIsAllPageRowsSelected()` for an indeterminate control.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Headless by construction: the package returns a `Table` instance — plain data and derivation functions — and never touches the DOM. `ui` owns all markup through the react-aria grid spine (`grid`/`row`/`columnheader`/`gridcell` roles and keyboard nav), and `FlexRender` is the single bridge resolving a column's `cell`/`header`/`footer` against its typed context. No styled component exists to override; the token vocabulary lives entirely in `ui`.
@@ -253,9 +245,3 @@
 - Choose the render boundary deliberately — a `useTable` selector for the instance holder and `table.Subscribe` for a subtree reading one slice — rather than accepting the whole-state default under a virtualized grid.
 - Call row, cell, column, and header methods through their receiver, and spell pinning as `start`/`end` in state, arguments, comparisons, and the CSS logical inset the sticky layout rides.
 - Type columns against the decoded `wire` Schema type; the `wire` `#vocab` owns the row shape, never a re-declared or `any`-typed row.
-
-[RAIL_LAW]:
-- Package: `@tanstack/react-table` (over `@tanstack/table-core`)
-- Owns: the `ColumnDef` model, the `Table`/`Row`/`Cell`/`Header`/`Column` instance surface, the static `tableFeatures` registry over every capability (sort/filter/group/expand/paginate/facet/select/span/pin/order/size/resize/visibility), the atom-backed state rail with its three-tier ownership precedence, and the per-table `sortFns`/`filterFns`/`aggregationFns` registries
-- Accept: headless usage with `ui`-owned react-aria markup, an explicit feature object with individually-imported built-ins, `createColumnHelper` typed against `typeof features` and the `wire` Schema, `@effect-atom`-owned slices through `options.atoms` fed by the `Grid.edge` adapter atom, `state` with a per-slice controlled pair for a slice no fold owns, selector and `table.Subscribe` render boundaries, react-virtual windowing over `getRowModel().rows`
-- Reject: a styled table component owning markup or a11y, `stockFeatures` or whole-registry spreads in a shipped table, inline per-column comparators where a registry entry fits, global meta augmentation where a per-table slot fits, a data-typed member on the shared `columnMeta` slot, destructured row/cell/column/header methods, physical `left`/`right` pinning vocabulary, a `state` + `on<Slice>Change` pair beside a fold that already owns the slice, `table.store` read in render, `any`-typed rows, a re-declared row shape duplicating the `wire` `#vocab`

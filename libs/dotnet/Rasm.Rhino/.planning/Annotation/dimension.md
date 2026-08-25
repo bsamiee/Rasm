@@ -22,7 +22,7 @@
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm; a new point roster is one product both families read.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
 using Rasm.Rhino.Document;

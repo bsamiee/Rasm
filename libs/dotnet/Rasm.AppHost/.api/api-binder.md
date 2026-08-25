@@ -2,15 +2,7 @@
 
 `ConfigurationBinder` binds the merged `IConfiguration` tree onto typed AppHost policy records — scalars, object graphs, and constructor-bound records — through one reflection engine the package source generator supplants at every call site. Its boundary is bootstrap: a policy value materializes once and validates before runtime start, feeding the configuration rail every AppHost policy consumer reads.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.Binder`
-- package: `Microsoft.Extensions.Configuration.Binder` (MIT)
-- assembly: `Microsoft.Extensions.Configuration.Binder`
-- namespace: `Microsoft.Extensions.Configuration`
-- rail: configuration binding
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the static bind surface and its policy object
 
@@ -19,7 +11,7 @@
 |  [01]   | `ConfigurationBinder` | class         | static `Get`/`Bind`/`GetValue` extension face |
 |  [02]   | `BinderOptions`       | class         | binding policy carried into every bind        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: binding operations and the two policy knobs
 
@@ -37,7 +29,7 @@
 |  [10]   | `BinderOptions.BindNonPublicProperties`               | property | widen binding to non-public setters       |
 |  [11]   | `BinderOptions.ErrorOnUnknownConfiguration`           | property | throw on a key mapping to no member       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Binding walks the colon-delimited `IConfiguration` tree onto scalars, nullables, enums, arrays, collections, dictionaries, object graphs, and constructor-bound records; an unmapped key leaves the target default unless `ErrorOnUnknownConfiguration` fails the bind.
@@ -52,9 +44,3 @@
 - Policy records bind once at bootstrap and validate before runtime start.
 - `ErrorOnUnknownConfiguration` fails a closed policy surface on any unmapped key.
 - Non-public property binding admits only where a package-owned policy type sets `BindNonPublicProperties`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Configuration.Binder`
-- Owns: typed policy binding from the configuration tree
-- Accept: bound typed values validate before runtime start
-- Reject: late untyped `IConfiguration` reads in runtime code

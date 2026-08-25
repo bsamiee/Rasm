@@ -4,15 +4,7 @@
 
 `StrategyName`/`RuntimeCaching` cross into `browser/shell.ts` type-only, so the runtime cache-route rows and the emitted asset share one truth; the value surface never enters the browser bundle.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `workbox-build`
-- package: `workbox-build` (MIT)
-- module: CommonJS `build/index.js`, types `build/index.d.ts`; the root barrel re-exports the emit functions and the whole `./types` surface
-- runtime: Node build-time only — globs the filesystem and writes files, never bundled into the browser app
-- rail: `browser/shell` build-time
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the cache-route vocabulary the runtime shares type-only, the precache-entry shapes, and the per-emit option algebras with their results
 
@@ -35,7 +27,7 @@
 - `ManifestEntry.revision: string\|null` — a content-addressed URL sets it `null`, exempting the asset from cache-busting.
 - Option algebra: `GenerateSWOptions = BasePartial&GlobPartial&GeneratePartial&RequiredSWDestPartial&OptionalGlobDirectoryPartial`; `InjectManifestOptions` swaps `GeneratePartial`→`InjectPartial` and requires `globDirectory`; `GetManifestOptions = BasePartial&GlobPartial&RequiredGlobDirectoryPartial`, no SW destination.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one precache-manifest concern in three output modalities, with the runtime-library copy and CDN-URL helpers
 
@@ -51,7 +43,7 @@
 - `copyWorkboxLibraries`: an `injectManifest` caller runs it to self-host the runtime rather than the CDN; a `generateSW` caller never needs it.
 - `getManifest`: folds the build-time prerendered per-route HTML into the precache without emitting a worker — the client-rendered-plus-prerender SEO posture.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each emit function globs `globDirectory` against `globPatterns`, hashes every match into a `ManifestEntry.revision`, and drops the revision to `null` for a URL `dontCacheBustURLsMatching` marks already content-addressed; `maximumFileSizeToCacheInBytes` (2 MiB default) bounds an accidental large match out of the precache, and `manifestTransforms` rewrite the entry array sequentially before emit.
@@ -64,9 +56,3 @@
 
 [LOCAL_ADMISSION]:
 - VALUE-import `workbox-build` only in the Node build script; `browser/shell.ts` imports `RuntimeCaching`/`StrategyName` type-only. `vite-plugin-pwa` (tooling catalog) internalizes `injectManifest`/`generateSW` into the Vite pipeline — the browser catalog owns the type seam, the tooling catalog owns the plugin wiring — under the folder-local `# browser` catalog group.
-
-[RAIL_LAW]:
-- Package: `workbox-build`
-- Owns: build-time precache-manifest computation and service-worker emission, and the `StrategyName`/`RuntimeCaching` cache-route vocabulary.
-- Accept: `injectManifest` over an authored SW; `RuntimeCaching`/`StrategyName` as type-only row data in runtime code; the shared option partials composed per emit function.
-- Reject: value-importing `workbox-build` into the browser bundle; per-route imperative caching outside the row projection; `generateSW` when the worker is authored, which `injectManifest` owns.

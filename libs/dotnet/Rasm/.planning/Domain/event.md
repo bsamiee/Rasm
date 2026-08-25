@@ -1,6 +1,5 @@
 # [RASM_EVENT]
 
-
 Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
 ## [01]-[INDEX]
@@ -25,7 +24,7 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 - Boundary: `EventType.Domain` is the segment `[06]-[OBSERVABILITY_CONFORMANCE]`'s naming gate resolves against the branch roster at the conformance minter, so an unrostered subject refuses at that declaration owner rather than reaching a broker; this page never names that roster, because a kernel page holding an app-platform vocabulary inverts the strata. `subject` is the wire projection of `identity.md`'s `UInt128` currency, so `ContentHash` stays the only digest owner and renderer. `dataref` remains an independent URI-reference on the generated extension message.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Globalization;
 using CloudNative.CloudEvents;
@@ -124,7 +123,7 @@ public readonly record struct EventId {
 |  [04]   | `secret`     | redaction route runs | `barred`  | no binding — reference-only carriage |
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -170,7 +169,7 @@ public sealed partial class DataGrade {
 - Growth: a new estate extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Net.Mime;
 using Buf.Validate;
 using Celly.Protovalidate;
@@ -550,7 +549,7 @@ public static class EventCarrier {
 |  [03]   | `avro`     | `+avro`     |     yes      |   no    |
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Net.Mime;
 using System.Text.Json;
 using CloudNative.CloudEvents;

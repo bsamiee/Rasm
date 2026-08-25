@@ -2,17 +2,7 @@
 
 `Smino.Bcf.Toolkit` owns the BCF (BIM Collaboration Format) codec — the `.bcfzip` container and BCF-API JSON round-trip behind the COORDINATION issue board. `Worker` is the one converter, its overloads discriminating by sink shape (path, `Stream`, target `BcfVersionEnum`) and async-vs-sync to fold a version-tagged `IBcf` graph to and from the zipped container. `IBcf` discriminates `Bcf30.Bcf` and `Bcf21.Bcf`, so the host-neutral `BcfTopic`/`BcfComment`/`BcfViewpoint` projection reads one interface root at any format version; `BcfVersion.TryParse` admits `2.1` and `3.0`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Smino.Bcf.Toolkit`
-- package: `Smino.Bcf.Toolkit` (Apache-2.0)
-- assembly: `bcf-toolkit`
-- namespace: `BcfToolkit`, `BcfToolkit.Model`, `BcfToolkit.Model.Bcf30`, `BcfToolkit.Model.Bcf21`, `BcfToolkit.Model.Interfaces`, `BcfToolkit.Builder.Bcf30`, `BcfToolkit.Builder.Bcf21`, `BcfToolkit.Utils`
-- asset: net9.0 single TFM, bound by the net10.0 consumer as `lib/net9.0`; pure-managed AnyCPU, no `runtimes/` folder
-- dependency: `Json.Net`, `Newtonsoft.Json`, `RecursiveDataAnnotationsValidation`, `Serilog`, `System.CommandLine`, `System.Text.RegularExpressions` — the `System.CommandLine` binder and `Serilog` sink drive the package's own CLI tool host, unreached by the library entrypoints
-- rail: review
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: converter, version axis, header payload
 
@@ -64,7 +54,7 @@
 - [01]-[BCFROOT]: `Bcf30.Bcf` — `ConcurrentBag<Markup> Markups`, `DocumentInfo? Document`, `Extensions`, `ProjectInfo? Project`, `Version`.
 - [06]-[VIZINFO]: `Bcf30.VisualizationInfo` — `OrthogonalCamera`/`PerspectiveCamera`, `Components`, lines, clipping planes, bitmaps.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Worker` — round-trip conversion
 
@@ -136,7 +126,7 @@
 - `ViewSetupHintsBuilder` spells its setters SINGULAR (`SetSpaceVisible`) against the model's plural `SpacesVisible` properties.
 - `BitmapBuilder` publishes no payload setter, matching the model: bitmap bytes ride the container part, never the graph.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Worker` folds a version-tagged `IBcf` graph, but the interface roots are thin markers (`ITopic` declares only `Guid`), so a consumer projection reads the CONCRETE `Bcf30.*` graph and `Worker.BcfFromStream` up-converts a 2.1 source to it — one generation at the read boundary, never an interface-rooted projection that no rich column reaches.
@@ -152,9 +142,3 @@
 - `Smino.Bcf.Toolkit` reads and writes BCF containers and the BCF-API JSON model only — the issue-board lifecycle, clash detection, IFC model graph, state machine, clash→topic fold, and `ElementQuery` join are COORDINATION concerns.
 - source `BcfVersionEnum`, topic count, and target serialization shape are the facts the ISSUES/COORDINATION fold carries on its result.
 - `System.CommandLine` binder and `Serilog` sink form the package's own CLI host; the design composes `Worker`/`BcfExtensions` directly.
-
-[RAIL_LAW]:
-- Package: `Smino.Bcf.Toolkit`
-- Owns: BCF container and BCF-API JSON round-trip
-- Accept: the `.bcfzip` ISSUES codec and the COORDINATION issue-exchange wire
-- Reject: issue-board lifecycle/state, clash detection, IFC model graph, the bundled CLI host

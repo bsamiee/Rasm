@@ -1,15 +1,8 @@
 # [PY_TESTS_API_MOTO]
 
-`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. `moto[server]` adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `_testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the estate drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
+`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. `moto[server]` adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the estate drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `moto` · license `Apache-2.0` · extra `moto[server]`
-- namespace: `import moto` (decorator `moto.mock_aws`) · `from moto.server import ThreadedMotoServer`
-- asset: pure-Python wheel; `server` extra pulls `flask`/`flask-cors`; SDK boundary rides `boto3`
-- rail: object-store double — the loopback S3 endpoint every `ObjectStore` provision terminates in
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]             | [KIND]                    | [CAPABILITY]                                                                          |
 | :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------ |
@@ -26,7 +19,7 @@ class ThreadedMotoServer:
     def stop(self) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                          | [KIND]              | [CAPABILITY]                                                                 |
 | :-----: | :--------------------------------- | :------------------ | :--------------------------------------------------------------------------- |
@@ -43,7 +36,7 @@ host, port = server.get_host_and_port(); endpoint = f"http://{host}:{port}"
 httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [MOTO_TOPOLOGY]:
 - Backend state is process-global, keyed by `(account_id, region, service)`; concurrent `ThreadedMotoServer` endpoints share one backend set, so isolation is per-key naming and reset, never per-server.
@@ -53,15 +46,9 @@ httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
 
 [STACKING]:
 - `s3fs`(`.api/s3fs.md`): `_provision_store` binds a `ThreadedMotoServer` loopback and projects an `S3FileSystem(endpoint_url=endpoint)` view; the real HTTP wire carries e-tags and presigned GET the `MemoryFileSystem` double refuses — the honest capability split `test_env.py` proves.
-- `env.py`(`../_testkit/env.py`): `ObjectStore` teardown POSTs `/moto-api/reset` before `server.stop()`, so a later provision starts pristine over the shared process-global backend; a dead endpoint short-circuits to `stop()` since no state remains.
+- `env.py`(`../testkit/env.py`): `ObjectStore` teardown POSTs `/moto-api/reset` before `server.stop()`, so a later provision starts pristine over the shared process-global backend; a dead endpoint short-circuits to `stop()` since no state remains.
 - `network` marker: every `ObjectStore` spec binds a real INET loopback socket, so it carries `network` and is excluded from the mutation lane where sockets stay disabled.
 
 [LOCAL_ADMISSION]:
 - Admitted at the dev-plane test tier only (`[dependency-groups] dev`, `moto[server]`); never a runtime `libs/python` dependency.
 - `ObjectStore` is the sole moto consumer — specs reach S3 semantics through `provision(ObjectStore())`, never a bare `mock_aws` or a raw `ThreadedMotoServer`.
-
-[RAIL_LAW]:
-- Package: `moto[server]`
-- Owns: the process-global AWS backend mock and its real HTTP projection — the S3-compatible loopback endpoint under `_testkit`.
-- Accept: `ThreadedMotoServer(ip_address="127.0.0.1", port=0)` for the ephemeral loopback; `/moto-api/reset` for idempotent process-global teardown; `mock_aws` only where an in-process SDK patch suffices and no external client reads the wire.
-- Reject: a hardcoded host port; a retired per-service `mock_*` decorator; a provision that skips reset (leaks residue keys across the shared backend); any moto import outside the `_testkit` `env.py` owner.

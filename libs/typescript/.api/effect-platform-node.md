@@ -2,16 +2,7 @@
 
 `@effect/platform-node` binds every abstract `@effect/platform` `Context.Tag` to a concrete Node `Layer`, so folder code written against the abstract Tags runs on a Node process unchanged. It authors no contract of its own — the runtime half of the platform tier, swappable with `@effect/platform-bun` behind identical Tags — and owns the `NodeRuntime.runMain` process edge draining fibers and finalizers on `SIGINT`/`SIGTERM`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/platform-node`
-- package: `@effect/platform-node` (MIT)
-- module: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`, per-module deep-import subpaths (`@effect/platform-node/NodeRuntime`, `NodeHttpServer`, …)
-- runtime: Node — `node:*` builtins, no compiled addon; bundles `undici` (HTTP `Dispatcher`), `ws` (WebSocket), `mime`, and `@effect/platform-node-shared` (the base shared with `-bun`)
-- depends: hard peers on `effect`, `@effect/platform`, `@effect/cluster`, `@effect/rpc`, `@effect/sql` (none optional); the cluster/rpc/sql trio backs the `NodeCluster*` bindings and is required at install
-- rail: node runtime binding — proc, serve, work
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: process entry, aggregate context, and HTTP-client dispatch
 - rail: system-apis
@@ -24,7 +15,7 @@
 |  [03]   | `NodeHttpServer` (server `Layer` factory)  | server binding | `serve/route` — `HttpServer` on `node:http`           |
 |  [04]   | `Undici` (re-export of `undici`)           | raw client     | raw-undici escape hatch; domain stays on `HttpClient` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process runtime and aggregate context
 - rail: system-apis
@@ -75,7 +66,7 @@
 |  [02]   | `NodeClusterSocket.layer` / `.layerDispatcherK8s` | cluster socket | `work/entity` — socket transport + K8s pod-discovery |
 |  [03]   | `NodeClusterSocket.layerK8sHttpClient`            | discovery      | `work/entity` — K8s runner-discovery client          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Binding, not contract: every export is a `Layer` (or a factory returning one) satisfying a `@effect/platform` Tag on Node, and `NodeContext.layer` is the aggregate — provide it once at the app root and all five services resolve for every service beneath.
@@ -95,9 +86,3 @@
 [LOCAL_ADMISSION]:
 - `Node*` Layers are admitted only at the app composition root; domain modules import the abstract `@effect/platform` Tag.
 - Cluster peers (`@effect/cluster`/`@effect/rpc`/`@effect/sql`) are admitted only in `work`, with a `data` `@effect/sql` driver satisfying `MessageStorage`; `layerK8sHttpClient` is runner discovery, provisioning is `iac`.
-
-[RAIL_LAW]:
-- Package: `@effect/platform-node`
-- Owns: the Node binding for every `@effect/platform` Tag — context/fs/path/command/terminal/worker, the undici `HttpClient` + `Dispatcher`/`HttpAgent`, `NodeHttpServer`/`NodeHttpPlatform`/`NodeMultipart`, the `ws` socket transport, the `NodeStream`/`NodeSink` bridges, `NodeKeyValueStore`, the `NodeCluster*` transports, `NodeRuntime.runMain`, and the raw `Undici` re-export
-- Accept: `NodeContext.layer` + targeted `Node*` Layers at the app root, `NodeRuntime.runMain` as the process edge, `NodeHttpClient.layerUndici` with a tuned `Dispatcher`, `NodeStream`/`NodeSink` for stream boundaries, `NodeClusterSocket.layerK8sHttpClient` for discovery
-- Reject: `Node*` Layers in domain modules, `Effect.runPromise` as a long-lived process edge, direct `undici`/`ws`/`node:stream` consumption in domain code, cluster provisioning through a runtime import

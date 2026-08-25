@@ -19,7 +19,7 @@
 - Packages: QuikGraph (`GraphExtensions.ToDelegateVertexAndEdgeListGraph`, `BreadthFirstSearchAlgorithm`, `EdgeRecorderObserver`, `SEdge`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;

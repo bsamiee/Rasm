@@ -2,18 +2,7 @@
 
 `DeltaLake.Net` owns a managed Delta Lake client over the Rust `delta-rs`/`delta-kernel` FFI: `DeltaEngine` mints and loads `DeltaTable` handles carrying the full Delta protocol — DataFusion-SQL Arrow reads, writes, MERGE/UPDATE/DELETE, time-travel, and maintenance. Its distinguishing seam is the metadata-only `AddAction` commit rail publishing externally-written Parquet transactionally without a data rewrite; it binds `Apache.Arrow` on both edges and enters as an external Delta-warehouse backend beside the DuckLake catalog and `Apache.Arrow.Adbc` drivers.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DeltaLake.Net`
-- package: `DeltaLake.Net` (MIT)
-- assembly: `DeltaLake` — the bound assembly and root namespace, distinct from the package id `DeltaLake.Net`
-- namespace: `DeltaLake.Table`, `DeltaLake.Interfaces`, `DeltaLake.Errors`, `DeltaLake.Extensions` — the consumer surface; `DeltaLake.Bridge`/`DeltaLake.Kernel.*` are internal FFI plumbing
-- target: `net9.0` bound asset (`net8.0`/`net472` also shipped)
-- native: `DeltaLake.Bridge.Runtime` P/Invoke-loads the RID-resolved `delta_kernel_ffi` + `delta_rs_bridge` Rust bridge — `osx-arm64`/`osx-x64` `.dylib`, `linux-*` `.so`, `win-x64` `.dll`
-- depends: `Apache.Arrow` wire model, `Microsoft.Data.Analysis` (`DataFrame` egress)
-- rail: store-backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine and table owners — `DeltaEngine`/`DeltaTable` both own native handles and are `IDisposable`; the engine mints and outlives the tables
 
@@ -65,7 +54,7 @@
 |  [03]   | `DeltaRuntimeException`       | runtime fault | `DeltaLakeException` lifting a native `delta-rs` error                 |
 |  [04]   | `DataFrameExtensions`         | DataFrame ext | `ToMarkdown()`/`ToPrettyText()` on `Microsoft.Data.Analysis.DataFrame` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine, create, and load
 
@@ -118,7 +107,7 @@
 |  [08]   | `CheckpointAsync(ct)`                                   | checkpoint  | writes a Delta log checkpoint                            |
 |  [09]   | `AddConstraintsAsync(constraints, customMetadata?, ct)` | constraint  | adds CHECK constraints + metadata                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - executor: the query engine is Rust-embedded DataFusion — `QueryAsync`/`MergeAsync`/`UpdateAsync` SQL is DataFusion SQL, never a managed parser.
@@ -138,9 +127,3 @@
 - DeltaLake enters behind the `Store/provisioning` store-profile vocabulary as a distinct external-warehouse backend class, orthogonal to the self-hosted DuckLake catalog and the `Apache.Arrow.Adbc` drivers.
 - engine and table handles are bracketed profile-owned resources: the native runtime and table handle open under a `using` scope, never as ambient singletons.
 - `SaveMode`, partition columns, `OptimizeType`, and retention windows declare on the profile, never per call.
-
-[RAIL_LAW]:
-- Package: `DeltaLake.Net`
-- Owns: managed Delta Lake read/write over the `delta-rs`/`delta-kernel` FFI — Arrow-native DataFusion-SQL reads, writes, MERGE/UPDATE/DELETE, time-travel, maintenance, and the metadata-only `AddAction` commit rail
-- Accept: bracketed `DeltaEngine`/`DeltaTable` resources, Arrow `RecordBatch`/`IArrowArrayStream` as the wire shape, URI-routed cloud storage, `CreateWriteTransactionAsync` registration of externally-written Parquet, and `DeltaLakeException` fault discrimination on `ErrorCode`
-- Reject: confusing the package id `DeltaLake.Net` with the bound assembly/namespace `DeltaLake`, treating the `DeltaLake.Bridge`/`DeltaLake.Kernel` FFI plumbing as a consumer API, ambient non-disposed engine/table handles, and assuming `AppId`/`TransactionVersion` enforce uniqueness without the `GetLatestTransactionVersionAsync` pre-check

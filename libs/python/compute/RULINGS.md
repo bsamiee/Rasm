@@ -4,7 +4,6 @@
 
 ## [01]-[PACKAGES]
 
-- `jax` and its solver family stay marker-gated at the root manifest — an assay `unsupported` verdict IS that gated state, never a missed admission.
 - Markers seat on `jax` and siblings, never `jaxlib`, with `jaxtyping` bare — the pin bars a binary-half marker, and zero sdists give no lift.
 - `proxsuite` refuses admission and the convex `Backend` axis carries no ProxQP row — its `cmeel` backend dies on floor metadata before any compile.
 - `cvxpy` pins `canon_backend=cp.SCIPY_CANON_BACKEND` at every solve site — the source-built CPP canon aborts on a `ProblemData.hpp` assert.

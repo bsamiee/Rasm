@@ -2,17 +2,7 @@
 
 `cadquery-ocp` binds the OpenCASCADE Technology (OCCT) B-rep modeling kernel to Python as flat `OCP.*` submodules: BREP topology, `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/offset shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name/material document model. It is the sole `OCP` path this estate admits, and `CadService` composes its operations behind the generated boundary, so a peer reaches this kernel through typed requests rather than an import of its own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cadquery-ocp`
-- package: `cadquery-ocp` (Apache-2.0)
-- module: `OCP`
-- namespaces: `OCP.{TopoDS,TopAbs,TopExp,TopTools,gp,Geom,GeomAPI,GC,BRep,BRepAlgoAPI,BRepBuilderAPI,BRepPrimAPI,BRepOffsetAPI,BRepFilletAPI,BRepGProp,BRepMesh,BRepCheck,BOPAlgo,ShapeFix,STEPControl,STEPCAFControl,IGESControl,IGESCAFControl,APIHeaderSection,StepBasic,StepData,IFSelect,Interface,RWGltf,XCAFApp,XCAFDoc,TDocStd,TDF,TCollection,TColStd,TColgp,Precision,Message}`
-- abi: CPython C-extension over the OCCT C++ libraries; the Forge python-overlay `.pth` supplies `OCP` at the interpreter floor, and the import stays worker-side under the one-slot native lane
-- rail: generated CadService provider kernel
-- capability: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive/feature/Boolean/offset/fillet/chamfer shape construction, n-ary Boolean over `TopTools_ListOfShape`, mesh triangulation, STEP/IGES exchange with file-local STEP header access, and the XCAF document model carrying assembly, color, name, layer, and material
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: topology family — `OCP.TopoDS` / `OCP.TopAbs`
 
@@ -170,7 +160,7 @@
 |  [05]   | `Message_ProgressRange`                | progress range   | the writer/mesh progress argument                                            |
 |  [06]   | `TColStd_IndexedDataMapOfStringString` | string map       | the `RWGltf_CafWriter.Perform` `fileInfo` glTF-metadata map                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: STEP exchange (shape-only) — no assembly metadata; read status is `IFSelect_ReturnStatus`
 
@@ -263,7 +253,7 @@
 |  [07]   | `BRepGProp.VolumeProperties_s(shape, gprops)` | property       | accumulate mass, centroid, moments                              |
 |  [08]   | `BRepCheck_Analyzer(shape).IsValid()`         | validity       | exact OCCT topology and geometry validity                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - flat import: each module lands from the `OCP` namespace directly — `from OCP.TopoDS import TopoDS_Shape`, `from OCP.STEPCAFControl import STEPCAFControl_Reader` — with no intermediate `OCC.Core.*` layer.
@@ -285,9 +275,3 @@
 
 [LOCAL_ADMISSION]:
 - `cadquery-ocp` is admitted here as the one exact-modeling kernel behind `CadService`; `pythonocc-core`'s rival `OCC.Core.*` tree refuses, and geometry's OCCT reach rides `topologic_core`'s own binding.
-
-[RAIL_LAW]:
-- Package: `cadquery-ocp`
-- Owns: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/chamfer/thick-solid shape construction, mesh triangulation, STEP/IGES exchange and file-local STEP header access, and the XCAF assembly/color/name/material document model for the STEP bridge
-- Accept: STEP/IGES source bytes for the B-rep hop; a parsed STEP model for file-local `FILE_SCHEMA`; `TopoDS_Shape` topology feeding the tessellation and mesh-export owners; `TopTools_ListOfShape` collections for the n-ary Boolean and thick-solid arms
-- Reject: a hand-rolled STEP/IGES/header parser, `StepModel().Protocol().SchemaName(model)` as file-local AP evidence, `FsValue()` under the unregistered return type, B-rep topology, Boolean kernel, fillet/offset algebra, or triangulator where OCP is admitted; wrapper-renames of `STEPCAFControl_Reader`/`BRepMesh_IncrementalMesh`; shape-only `STEPControl_Reader` where assembly/color/name metadata is required; the `pythonocc-core` `OCC.Core.*` path; a bare-4-arg `MakeThickSolid(...)` ctor assumption where the operation is `MakeThickSolidByJoin`/`BySimple`

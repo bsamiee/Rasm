@@ -2,7 +2,6 @@
 
 `Conformance` owns the PDF cryptographic close at the exchange boundary. Its operations return the produced bytes with the content key and `ConformanceVerdict`; pyhanko owns signing, timestamping, archival maintenance, field reservation, and validation.
 
-
 ## [01]-[INDEX]
 
 - [02]-[CONFORMANCE]: `Conformance` owns signing, timestamping, archival augmentation, field reservation, and audit, returning `(ContentKey, bytes, ConformanceVerdict)` through `close`.
@@ -14,7 +13,7 @@
 - Growth: extend the owning operation, policy, or verdict type and its existing fold. Transient provider failures widen `_TRANSIENT`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial, reduce

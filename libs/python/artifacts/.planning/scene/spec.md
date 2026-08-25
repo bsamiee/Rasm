@@ -19,7 +19,7 @@ Pickle-by-reference re-imports the defining module on the far interpreter, so th
 - Boundary: `FieldFilter.apply` and the `RenderSpec` projections take live provider handles only as quoted parameter types — the worker floor supplies the objects, this floor owns the dispatch bodies over them; the single-operand `FieldFilter` is why binary CSG rides `scene/render#SCENE`'s dedicated two-operand modality. Texture PRODUCTION — the channel roster, the transfer and packing law, the deep codecs, and the egress paths — stays `graphic/texture/set#TEXTURE_SET`'s and never reaches this floor, which composes only the slot roster its own provider exposes and consumes resolved paths, transfers, and a set key a caller already chose; the set-to-slot fold is that producer's, exactly as the preview-surface fold is. A sampler reads through texture coordinates, so a grid carrying none unwraps through the filter chain where the caller orders it, and a set whose planes no single slot addresses — a per-tile UDIM roster — has no binding here and refuses at the producer that would flatten it.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from functools import reduce

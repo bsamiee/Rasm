@@ -24,7 +24,7 @@
 - Boundary: carbon never converts to currency and never takes a commercial load, so `EstimateRow.Carbon` carries no loading column at all. Credits remain signed rows on the same ledger rather than a second family.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
 using System.Threading;

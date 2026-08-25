@@ -106,8 +106,8 @@ Reply and interaction axes are mutually exclusive; modifiers compose freely.
 |  [06]   | Interaction | `kAEAlwaysInteract` | `0x30`   | `NSAppleEventSendAlwaysInteract` | receiver always fronts UI              |
 |  [07]   | Modifier    | `kAECanSwitchLayer` | `0x40`   | `NSAppleEventSendCanSwitchLayer` | permits a layer switch to the receiver |
 |  [08]   | Modifier    | `kAEDontReconnect`  | `0x80`   | none                             | suppresses automatic session reconnect |
-|  [10]   | Modifier    | `kAEDontRecord`     | `0x1000` | `NSAppleEventSendDontRecord`     | excludes the event from recording      |
-|  [11]   | Modifier    | `kAEDontExecute`    | `0x2000` | `NSAppleEventSendDontExecute`    | builds the event without executing it  |
+|  [09]   | Modifier    | `kAEDontRecord`     | `0x1000` | `NSAppleEventSendDontRecord`     | excludes the event from recording      |
+|  [10]   | Modifier    | `kAEDontExecute`    | `0x2000` | `NSAppleEventSendDontExecute`    | builds the event without executing it  |
 
 `NSAppleEventSendOptions` adds one net-new flag, `NSAppleEventSendDontAnnotate` (`kAEDoNotAutomaticallyAddAnnotationsToEvent`), which suppresses the sandbox annotations the system otherwise stamps onto the event. `NSAppleEventSendDefaultOptions` composes `NSAppleEventSendWaitForReply | NSAppleEventSendCanInteract`, so a sender that names neither axis still blocks its run loop and still permits receiver UI.
 

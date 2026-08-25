@@ -2,15 +2,7 @@
 
 `plugin-barman-cloud` is the CNPG operator's backup plugin: one sidecar-injecting controller and one CRD that turns object storage into a WAL archive, a scheduled backup destination, and a point-in-time recovery source. The chart installs the plugin; the DESTINATION is a typed `ObjectStore` custom resource the cluster tier authors. Its Service name is FIXED because the plugin's own certificate is issued against it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `plugin-barman-cloud`
-- chart: `plugin-barman-cloud` from `https://cloudnative-pg.github.io/charts` (Apache-2.0), chart and `appVersion` versioned independently
-- asset: the plugin Deployment, the fixed-name Service, a ServiceAccount, its RBAC cell, the client and server certificates with their issuer, and the `barmancloud.cnpg.io` CRD
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / relational backup
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                | [CAPABILITY]                                                           |
 | :-----: | :----------------------------------- | :--------------------------------------------------------------------- |
@@ -30,7 +22,7 @@
 [SERVICE_NAME]: `barman-cloud` VERBATIM, override-proof, because the server certificate's subject is generated from it. The operator resolves the plugin by that name, so the fixed spelling is a contract rather than a default.
 [UPDATE_STRATEGY]: `Recreate` is the only supported value — the operator does not yet handle a rolling plugin update, so a `RollingUpdate` strategy is a values row the chart accepts and the runtime does not survive.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Backup is a PLUGIN, not an operator feature: the CNPG operator carries no object-store archiving of its own on this pin, so WAL archiving, scheduled backup, full recovery, and PITR all resolve through this chart's `ObjectStore` CR. One CR per realized cluster scope, so a dedicated cluster's archive prefix and credential are its own and a shared destination never re-couples the blast radius the dedicated tier bought.
@@ -49,9 +41,3 @@
 - Leave `updateStrategy` at `Recreate`; the operator supports no other value on this pin.
 - Author the destination as a typed `ObjectStore` CR with a scope-carrying archive prefix, never as chart values — the chart declares no destination at all.
 - Move the plugin pin and the sidecar image together, because the sidecar lands inside every cluster pod the operator reconciles.
-
-[RAIL_LAW]:
-- Contract: `plugin-barman-cloud` chart values + the `barmancloud.cnpg.io` `ObjectStore` CRD
-- Owns: PostgreSQL object-storage backup — WAL archiving, scheduled backup, full recovery, and PITR — through one plugin controller, its mTLS material, and the sidecar it injects into every cluster pod
-- Accept: `skipCrds: false` under a render carrier; installation after the operator with an explicit dependency; the fixed `barman-cloud` Service name; `Recreate` as the update strategy; one typed `ObjectStore` per realized cluster scope with its own prefix and credential
-- Reject: an address derived from the pinned name; a `RollingUpdate` strategy; a destination spelled as chart values; a shared archive prefix across dedicated clusters; a plugin pin moved independently of the sidecar image

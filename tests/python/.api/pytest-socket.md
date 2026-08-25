@@ -2,14 +2,7 @@
 
 `pytest-socket` swaps `socket.socket`, `socket.getaddrinfo`, and `socket.gethostbyname` for guarded stand-ins for the duration of a test, turning accidental egress into an immediate `SocketBlockedError` instead of a hang. Rasm's suite arms it globally through `addopts` so every test starts INET-blind; a test opts back in through the `socket_enabled` fixture, which the testkit couples to the auto-applied `network` marker. `--allow-unix-socket` keeps loopback UDS capsules alive while INET stays sealed.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pytest-socket` · license `MIT`
-- namespace: `import pytest_socket`; `pytest11` entry point `socket = pytest_socket`
-- asset: `pytest_socket/__init__.py` (single-module plugin, `py.typed`)
-- rail: the INET-block lane — the default session disables `socket.socket`, and only `socket_enabled`/`network` capsules lift it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY]                                                                       |
 | :-----: | :-------------------------- | :-------- | :--------------------------------------------------------------------------------- |
@@ -28,7 +21,7 @@ def enable_socket() -> None: ...
 def socket_allow_hosts(allowed: str | list[str] | None = None, allow_unix_socket: bool = False, resolution_cache: dict[str, set[str]] | None = None) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                      | [KIND]     | [CAPABILITY]                                                            |
 | :-----: | :--------------------------------------------- | :--------- | :---------------------------------------------------------------------- |
@@ -48,7 +41,7 @@ def socket_enabled(pytestconfig: pytest.Config) -> Iterator[None]: ...
 def socket_disabled(pytestconfig: pytest.Config) -> Iterator[None]: ...
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PYTEST_SOCKET_TOPOLOGY]:
 - One `_PytestSocketConfig` stash row holds the session decision; `pytest_runtest_setup` resolves per test in a fixed precedence and `pytest_runtest_teardown` restores the real socket surface every time.
@@ -56,16 +49,10 @@ def socket_disabled(pytestconfig: pytest.Config) -> Iterator[None]: ...
 - `--allow-hosts` installs a narrower `connect`-only guard through `socket_allow_hosts`, admitting exact hosts, resolved hostnames, and CIDR networks parsed by `_partition_allowed`.
 
 [STACKING]:
-- `runtime.py`(`../_testkit/runtime.py`): `pytest_collection_modifyitems` auto-applies `pytest.mark.network` to any item whose `fixturenames` contains `socket_enabled`, so lifting the block always tags the test for the mutation-lane deselection.
-- `seams.py`(`../_testkit/seams.py`): `loopback_server` binds a `127.0.0.1` capsule that rides the `network` marker.
+- `runtime.py`(`../testkit/runtime.py`): `pytest_collection_modifyitems` auto-applies `pytest.mark.network` to any item whose `fixturenames` contains `socket_enabled`, so lifting the block always tags the test for the mutation-lane deselection.
+- `seams.py`(`../testkit/seams.py`): `loopback_server` binds a `127.0.0.1` capsule that rides the `network` marker.
 - `pyproject.toml`(`../../../pyproject.toml`): `addopts` pins `--disable-socket` and `--allow-unix-socket`; the `network` marker is declared and excluded from mutation lanes via `-m "not network"`.
 
 [LOCAL_ADMISSION]:
 - Admitted at the shared test tier through the `pytest11` entry point; no suite imports `pytest_socket` directly — the guard is session-installed and fixture-lifted.
 - `required_plugins` lists `pytest-socket`, so a missing plugin fails collection instead of silently allowing egress.
-
-[RAIL_LAW]:
-- Package: `pytest-socket`
-- Owns: the process-wide INET block, the UDS exemption, the host allow-list guard, and the per-test lift surface.
-- Accept: `socket_enabled` (with its coupled `network` marker) for loopback and egress capsules; `--allow-hosts` for a scoped allow-list; `--allow-unix-socket` for UDS transports.
-- Reject: raw `enable_socket()` calls inside a test body over the `socket_enabled` fixture; unmarked network access; `--force-enable-socket` in the default lane, which erases the guard for the whole session.

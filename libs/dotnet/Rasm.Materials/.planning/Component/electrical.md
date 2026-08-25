@@ -24,7 +24,7 @@ THE ELECTRICAL SEED PAGE owns the `ComponentFamily.Electrical` row facts (`Compo
 - Boundary: the ambient and ground-temperature correction ladders and the conductor-count grouping factors are `Rasm.Compute` derating inputs — captured two-sourced in evidence, they land on the sizing route and never stamp a component row, because a corrected ampacity is a DESIGN verdict over an occurrence, not a product fact.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Globalization;

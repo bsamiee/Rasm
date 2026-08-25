@@ -2,15 +2,7 @@
 
 `mqtt` owns the live MQTT.js client realizing core's MQTT v5 carrier dialect. Runtime scopes connections, subscriptions, packet properties, acknowledgements, and per-client QoS stores; core owns carrier injection and extraction.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `mqtt`
-- package: `mqtt` (MIT)
-- module: one barrel; browser and React Native exports select WebSocket bundles
-- runtime: node/bun TCP, TLS, and WebSocket; browser WebSocket only
-- rail: runtime/net/channel
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the live client, operation options, delivered packets, lifecycle events, and scoped stores
 
@@ -29,7 +21,7 @@
 |  [11]   | `IStore` / `Store`                              | QoS store       | per-client incoming/outgoing packet store          |
 |  [12]   | `TimerVariant`                                  | clock policy    | automatic, worker, or native keepalive timer       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scoped acquisition, packet verbs, event consumption, acknowledgement, and release
 
@@ -51,7 +43,7 @@
 - `IClientOptions` also seats the CONNECT credential (`username`, `password`), the session pair (`clean`, `properties.sessionExpiryInterval`), the inbound flow-control window (`properties.receiveMaximum`), and the re-dial posture (`reconnectPeriod`, `reconnectOnConnackError`, `connectTimeout`, `resubscribe`).
 - `customHandleAcks` is honored at `protocolVersion: 5` alone; every lower version replaces it with an immediate acknowledgement.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PublishQoS` derives as `NonNullable<IClientPublishOptions["qos"]>` from the public publish-options frame.
@@ -76,8 +68,3 @@
 - Every dial rebuilds the CONNECT packet from `client.options`, so that record is the credential rotation rail; `reconnect()` replaces both packet stores and discards queued QoS>0 state, so a rotation supervisor trades freshness for publish loss.
 - Keep every incoming/outgoing `Store` private to its client; QoS 1 and 2 delivery state never crosses clients.
 - Treat subscription grant `128` as refusal and map it through the typed fault rail.
-
-[RAIL_LAW]:
-- Owns: live client resources, MQTT verbs, packet and option frames, lifecycle events, acknowledgements, and per-client stores.
-- Accept: scoped acquisition, carrier-driven user properties, typed packet reads, scoped streams, and typed reason-code folding.
-- Reject: invalid root imports, global clients/listeners/stores, unscoped connections, raw carrier reads, swallowed grant refusal, listener-only ingress on a QoS>0 subscription, and a deadline-free graceful release.

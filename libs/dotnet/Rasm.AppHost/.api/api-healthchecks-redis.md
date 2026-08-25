@@ -2,22 +2,13 @@
 
 `AspNetCore.HealthChecks.Redis` (Xabaril) is one concrete `IHealthCheck` proving Redis reachability: it pings every non-`Cluster` server of a supplied `IConnectionMultiplexer` and asserts `cluster_state:ok` on each cluster server. It enters the AppHost health fold as one deploy-gated `store`-tagged driver row bound to the redis sink's shared multiplexer, so a faulted redis degrades the host to `ReadOnly` through the existing Store rule, never a thrown exception.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Redis`
-- package: `AspNetCore.HealthChecks.Redis` (Apache-2.0)
-- assembly: `HealthChecks.Redis`
-- namespace: `HealthChecks.Redis`, `Microsoft.Extensions.DependencyInjection`
-- target: `net8.0` (also `netstandard2.0`)
-- rail: health
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe family
 
 `RedisHealthCheck` is the sole public type — an `IHealthCheck` with no public options type and no cluster/endpoint configuration, its probe behavior fixed. Its two public constructors admit the connection: `RedisHealthCheck(string)` connects lazily through a static multiplexer cache, and `RedisHealthCheck(IConnectionMultiplexer)` binds a supplied multiplexer without connecting.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration overloads (`RedisHealthCheckBuilderExtensions`, default name `"redis"`)
 
@@ -32,7 +23,7 @@ Every `AddRedis` overload is a static `IHealthChecksBuilder` extension appending
 
 [PROBE]: `RedisHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)` is the sole probe operation.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RedisHealthCheck : IHealthCheck` is the entire surface — the constructors, the `AddRedis` overloads, and one probe method, with no options type.
@@ -47,9 +38,3 @@ Every `AddRedis` overload is a static `IHealthChecksBuilder` extension appending
 - `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Redis, check), cadence)` adapts the probe into one `Store`-tagged row the composition registers only when the redis sink is bound — never a `Peer` row, never a parallel `AddRedis` registration face; the degradation rule, gRPC projection, and probe deadline stay owned by the health fold.
 - It binds the redis sink's shared `IConnectionMultiplexer`, so the connection-string overloads that open a second probe-only multiplexer are the rejected form here.
 - Ping failures, off-`ok` cluster nodes, and connect timeouts fold into a `HealthSnapshot.Entry` as a typed `HealthCheckResult`, never a thrown exception crossing the fold.
-
-[RAIL_LAW]:
-- Package: `AspNetCore.HealthChecks.Redis`
-- Owns: Redis reachability and cluster-state as one `store`-tagged driver probe
-- Accept: a shared sink `IConnectionMultiplexer`, endpoint ping, cluster-state assertion
-- Reject: a probe-only connection-string multiplexer beside the app's sink, or a thrown probe failure crossing the health fold

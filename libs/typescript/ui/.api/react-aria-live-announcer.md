@@ -4,17 +4,7 @@
 
 React-free by construction, it composes at the effect edge, never as a component, over a lazy `document.body`-prepended singleton the `react-aria` barrel and `react-aria-components` share.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@react-aria/live-announcer`
-- package: `@react-aria/live-announcer` (Apache-2.0)
-- module: dual ESM/CJS, `sideEffects: false`; `.` barrel + `./package.json`
-- asset: `dist/types/src/index.d.ts` re-exporting `react-aria`'s `LiveAnnouncer`
-- runtime: vanilla DOM, no React tree — a lazy `document.body`-prepended singleton region, SSR-guarded; peer `react-aria`
-- plane: `plane:runtime` (W4 `ui`), folder-local to `ui`
-- rail: ui/view live-region — the status/toast announcement primitive for status and non-visual toast
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two-value assertiveness axis and the string-or-label-reference message every call routes into one region
 
@@ -25,7 +15,7 @@ React-free by construction, it composes at the effect edge, never as a component
 
 `'assertive'` interrupts the reader for faults and blocking status; `'polite'` waits for a pause for progress and counts. `aria-labelledby` voices an existing node's label, reading an image or graph description without duplicating text.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the imperative singleton surface — push, flush, and teardown, each returning synchronous `void`
 
@@ -38,7 +28,7 @@ React-free by construction, it composes at the effect edge, never as a component
 - `announce`: `timeout` defaults to `7000`ms, the appended node's lifetime before removal; an empty-string message appends but never auto-removes.
 - `clearAnnouncer`: types a required `Assertiveness` though the impl clears both regions on a falsy argument.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `div[data-live-announcer]` prepends to `document.body` on first announce and reuses, holding two `role=log aria-relevant=additions` children (`aria-live=assertive` and its `polite` twin); each announce appends a node into the matching log.
@@ -55,9 +45,3 @@ React-free by construction, it composes at the effect edge, never as a component
 - Announce SR status through one `announce(localizedString, assertiveness)` call from the effect edge; the region is never a React component or portal.
 - Route every message through the intl plane before `announce()`; a raw unlocalized string is the defect.
 - Tear the singleton down in a lifecycle finalizer (`destroyAnnouncer()`); never await the calls (they return synchronous `void`).
-
-[RAIL_LAW]:
-- Package: `@react-aria/live-announcer`
-- Owns: imperative ARIA live-region announcement — `announce()` for SR status/toast, `clearAnnouncer` to flush a region, `destroyAnnouncer` to tear down the global singleton
-- Accept: `announce(localizedString, assertiveness)` from the effect edge (`'assertive'` for faults/blocking, `'polite'` for progress/counts), the `aria-labelledby` form to voice an existing node's label, `destroyAnnouncer()` in a lifecycle finalizer
-- Reject: double-announcing a visible RAC toast (`UNSTABLE_ToastRegion` carries its own live region), building the region as a React component or portal, a raw unlocalized string, awaiting the synchronous `void` calls

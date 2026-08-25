@@ -2,16 +2,7 @@
 
 `Wacton.Unicolour.Datasets` owns named-colour lists, the ColorChecker/Macbeth and academic reference sets, perceptual colourmaps, and the Golden pigment table as static `Unicolour` and `Pigment` tables built on the main `Wacton.Unicolour` colour owner. Observer CMFs, illuminant SPDs, generic reflectance, and every mix, difference, and spectral-upsampling transform stay on that main owner; this package supplies validation and named-reference colour alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Wacton.Unicolour.Datasets`
-- package: `Wacton.Unicolour.Datasets` (MIT)
-- assembly: `Wacton.Unicolour.Datasets`
-- namespace: `Wacton.Unicolour.Datasets`
-- asset: pure-managed `netstandard2.0` runtime library, ALC-safe, no native or extra transitive asset; a `net10.0` consumer binds the netstandard2.0 asset and pulls `Wacton.Unicolour` (the `Unicolour`/`Pigment`/`Configuration` carriers).
-- rail: colour-datasets
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reference and named-colour set carriers
 
@@ -41,7 +32,7 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 [SEABORN_DIVERGING]: `Vlag` `Icefire`
 [STANDALONE]: `Turbo` (Google perceptual) `Cubehelix` (Green procedural monotonic-luminance)
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Colourmap` sampling
 
@@ -98,7 +89,7 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 |  [31]   | `ArtistPaint.All`                       | property | all 19 pigments as `IEnumerable<Pigment>`     |
 |  [32]   | `ArtistPaint.Configuration`             | static   | sRGB D50 pigment `Configuration`              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every dataset is a static table of `Unicolour` or `Pigment` values on the main `Wacton.Unicolour` owner; a new colourmap, reference set, or named-colour list is one static carrier type registered on the surface it joins.
@@ -118,9 +109,3 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 - Library material rows resolve named colours through `Css`, `Xkcd`, or `Nord`, never hand-keyed hex literals.
 - Perceptual ramps sample a `Colourmap`: lookup-backed maps read their `Lookup`, `Cubehelix` uses its procedural `Map`.
 - Paint-mixing pigment reflectance reads `ArtistPaint` `Pigment` values and mixes through the main owner's Kubelka-Munk constructor, whose signature carries no illuminant slot — the working space is the `Configuration` argument's own `XyzConfiguration`.
-
-[RAIL_LAW]:
-- Package: `Wacton.Unicolour.Datasets`
-- Owns: named-colour lists (`Css`, `Xkcd`, `Nord`), the ColorChecker/Macbeth and academic reference sets (`MacAdam`, `EbnerFairchild`, `HungBerns`, `IsccNbs`), the perceptual `Colourmap` family, and the Golden `ArtistPaint` pigment table — all static `Unicolour`/`Pigment` tables on the main owner
-- Accept: a reference patch, named colour, colourmap sample position, or pigment lookup, each read under its set's own `Configuration`
-- Reject: observer CMFs, illuminant SPDs, generic reflectance, the Kubelka-Munk mix, delta-E, and spectral upsampling, which stay on the main `Wacton.Unicolour` owner

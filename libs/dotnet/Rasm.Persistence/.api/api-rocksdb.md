@@ -2,16 +2,7 @@
 
 `rocksdb` (assembly `RocksDbSharp`) owns the embedded LSM-tree write-optimized KV/log engine over the bundled native `librocksdb` — the write-amplification lane where ingest, atomic batches, and merge-resolved registers dominate. It is the write half of the `[EMBEDDED_KV]` pair the `[STORE_BACKENDS]` cluster admits beside `LightningDB` (the read-optimized LMDB lane), above the SQLite relational floor (`api-sqlite`). Span-first `Get`/`Put`/`Merge`/`Remove` carries the snapshot-codec boundary, and `Snapshot`/`Checkpoint`/`GetUpdatesSince` own consistency and the CDC changefeed.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rocksdb`
-- package: `rocksdb` (curiosity-ai line) (BSD-2-Clause)
-- assembly: `RocksDbSharp`
-- namespace: `RocksDbSharp`, `NativeImport`, `Transitional`
-- native: `librocksdb` P/Invoke-loaded through `NativeImport` at first call, RID-resolved at load (`runtimes/osx-arm64/native/librocksdb.dylib`), never AnyCPU
-- rail: embedded-lsm-kv
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: database root and consistency family
 
@@ -72,7 +63,7 @@
 |  [08]   | `PrepopulateBlob`          | blob enum         | blob-cache prepopulation policy                          |
 |  [09]   | `PerfLevel` / `PerfMetric` | perf enum         | per-thread perf-context collection                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open and configure
 
@@ -143,7 +134,7 @@
 |  [08]   | `TransactionLogIterator.GetBatch(out ulong)` / `Valid()` / `Next()` | instance | one WAL batch at its sequence number        |
 |  [09]   | `ColumnFamilies.DefaultName` / `Descriptor(name, options)`          | static   | the seeded default family + one row         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `RocksDb`/options/iterator/batch type is a managed handle over a native pointer, `IDisposable`; `NativeImport` P/Invoke-loads the RID-resolved `librocksdb` at first call.
@@ -171,9 +162,3 @@
 - multi-entity layouts use column families (one family per logical stream/index) opened together via `ColumnFamilies`; the family handle is the operation target, never a key-prefix hack.
 - atomic multi-key transitions use `WriteBatch` (or `WriteBatchWithIndex` for read-your-writes) under one `Write`, never a sequence of single `Put`s on the durable path.
 - `GetUpdatesSince`/`TransactionLogIterator` is the admitted CDC tap; durable cross-process replication stays on the PostgreSQL tier and the messaging-protocol egress.
-
-[RAIL_LAW]:
-- Package: `rocksdb` (`RocksDbSharp`)
-- Owns: embedded LSM-tree write-optimized KV/log storage — column families, atomic `WriteBatch`/`WriteBatchWithIndex`, prefix-seekable iterators, `Snapshot`/`Checkpoint` consistency, custom merge/comparator/prefix/compaction hooks, bulk SST ingest, WAL changefeed
-- Accept: `RocksDb.Open` with typed `ColumnFamilies`, span-first `Get`/`Put`/`Merge`/`Remove`, `WriteBatch` atomicity, `MergeOperators.Create` read-modify-write, `Checkpoint`/`Snapshot` consistency, `GetUpdatesSince` CDC
-- Reject: per-cell byte framing where the span codec exists, single-`Put` sequences where a `WriteBatch` is atomic, a key-prefix hack where a column family is the tool, a read-modify-write loop where a merge operator is native, and the fork-only Raft/replication/WAL-inspector surface as canonical RocksDB

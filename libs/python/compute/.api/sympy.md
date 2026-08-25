@@ -2,16 +2,7 @@
 
 `sympy` owns the compute branch's offline computer-algebra rail: exact calculus, equation solving, simplification, polynomial and matrix algebra, set and assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and multi-language code generation. Every result is offline evidence a .NET owner graduates as emitted source or a numeric callable, never production algebra the Python side runs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `sympy`
-- package: `sympy` (BSD-3-Clause)
-- module: `sympy` (alias `sym`)
-- namespaces: `sympy`, `sympy.geometry`, `sympy.utilities.codegen`, `sympy.utilities.autowrap`
-- rail: symbolic
-- asset: pure Python; bundled `mpmath` backs `evalf`/`N`, and `gmpy2` accelerates ground-domain integer arithmetic when present
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core expression vocabulary
 
@@ -65,7 +56,7 @@
 |  [03]   | `Reals` `Complexes` `Integers` `Naturals` `S.Reals` | named domain  | the `domain=` argument to `solveset`                    |
 |  [04]   | `And` `Or` `Not` `Q` `Piecewise` `Rel`              | logic node    | boolean algebra, `Q` assumption predicates, branch expr |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and conversion
 
@@ -194,7 +185,7 @@
 |  [06]   | `autowrap(expr, language=None, backend='f2py')`     | function | compile + bind an expression to a native extension callable    |
 |  [07]   | `ufuncify(args, expr, backend='numpy')`             | function | emit a broadcasting NumPy ufunc from an expression             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - assumptions (`real`, `positive`, `integer`) declared on `symbols`/`sympify` are derivation inputs, not post-hoc filters, so a derivation constrains its domain at construction.
@@ -211,9 +202,3 @@
 [LOCAL_ADMISSION]:
 - `import sympy as sym` at boundary scope produces the free-variable vocabulary through `symbols`/`sympify`; `cse` precedes any codegen emission.
 - `resultant(p.as_expr(), p.diff(x).as_expr(), x)` is the squarefree-discriminant metric `|res(p, p')|`, recognized as study evidence, never a production numeric path.
-
-[RAIL_LAW]:
-- Package: `sympy`
-- Owns: offline symbolic algebra, calculus, solving, simplification, polynomial/matrix algebra, set/assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and the multi-language code-generation graduation path
-- Accept: exact symbolic derivation producing a graduation candidate or a numeric study callable
-- Reject: wrapper-renames of `diff`/`solve`/`simplify`; numeric kernels SciPy or NumPy owns; any host-document mutation

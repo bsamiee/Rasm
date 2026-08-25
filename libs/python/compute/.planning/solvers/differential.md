@@ -19,7 +19,7 @@ This solve is adjoint-differentiable, so a parametric study reads sensitivities 
 - Growth: a deterministic solver is one `OdeSolver`+`_SOLVER` row; a stochastic solver adds one `SdeSolver`+`_SOLVER` row, a strong-order-1.5/Langevin solver one `_LEVY` row admitting it to the adaptive controller, and a Langevin solver one `_LANGEVIN` member — never a fourth equation case. Each new equation class lands one `DifferentialIntent` case and one `_terms` arm; a new step controller/adjoint/save/event/path is one enum member with its row or ternary; a new integration scalar is one `IntegratePolicy` field; a new termination class is one `_STATUS` row on the `Solve` owner; a new gated module is one `SolveEngine` field and one `gated()` import line.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum

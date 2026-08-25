@@ -257,7 +257,6 @@ Each producer records `BYTE_VOLUME` from its settled domain value. Document prod
 
 Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, and `fabrication.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning.
 
-
 C#-pressed `baked` rides the same `Set` message under its own producer with the `appearance_key`, `provenance`, and `press` columns python leaves absent, and python reads none of it.
 
 Issue lifecycle and transmittal points register onto the runtime `Hooks` registry, and the bench corpus consumes the runtime `Bench` tier. `TransmittalNotice` projects the issued fact onto `runtime/transport/event#MESSAGE`.

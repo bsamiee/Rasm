@@ -24,10 +24,10 @@ Fact payloads compose Component, Appearance, Properties, and seam results. Instr
 - Auto: `At` is the PRIMARY CORRESPONDENCE between this union and the `[03]` roster — the generated total `Map` breaks at compile time on a case with no row or a row with no case, so no call site names a point and the pairing cannot drift. Elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one `MaterialsPoint` row with its `At` arm, and one projection arm at `[04]`.
-- Boundary: facts carry the results the owning pages already mint — `CapacityLift`, `CaptureProvenance`, `WireProvenance`, `ComputedSection`, `PressRun`, `TileRun`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own run, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and golden residual off the executor's own result. `PlaneCodec` and `EnvironmentPrefilter` own no result record, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a result record, and its refusal rows cross TYPED — a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
+- Boundary: facts carry the results the owning pages already mint — `CapacityLift`, `CaptureProvenance`, `WireProvenance`, `ComputedSection`, `PressRun`, `TileRun`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own run, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and reference residual off the executor's own result. `PlaneCodec` and `EnvironmentPrefilter` own no result record, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a result record, and its refusal rows cross TYPED — a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
@@ -97,7 +97,7 @@ public abstract partial record MaterialsFact : IHookFact<MaterialsPoint> {
 - Boundary: ids and modalities live on the roster rows alone, so a Materials point joins any app-tier registry census unrenamed; a subscriber fault parks as `IsolatedFault` on the composition's own bounded cell and the emitter is untouched, the ring shedding oldest-first rather than growing for process lifetime. Veto points carry observe subscribers legally and the capsule dispatches them from the admitted fact alone, so a `[04]` arm on a veto point counts admitted rows and refusal volume rides the cell. Spans are absent by design: this folder's eager constructions carry the `[05]` checkpoint ledger instead, so `Plane` is `None` on every row, no `TraceScope` derives off these ids, and `Live` binds no `IHookSpan`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Threading;
 using LanguageExt;
@@ -167,7 +167,7 @@ public static class MaterialsHooks {
 - Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed results, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write rail and subscribes through the rail's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Diagnostics;
 using LanguageExt;
@@ -403,9 +403,9 @@ public sealed partial class MaterialsInstrument {
             "ONNX graph partitions reached per inference by stage and provider",
             Seq(TenantContext.TenantSlot, StageSlot, ProviderSlot), Some(Buckets.GraphCounts), None, None));
 
-    public static readonly MaterialsInstrument InferGolden = new(
-        "rasm.materials.neural.golden",
-        InstrumentSpec.Create("rasm.materials.neural.golden", InstrumentKind.Distribution, MeasureForm.Real, "1",
+    public static readonly MaterialsInstrument InferResidual = new(
+        "rasm.materials.neural.residual",
+        InstrumentSpec.Create("rasm.materials.neural.residual", InstrumentKind.Distribution, MeasureForm.Real, "1",
             "inference residual against the model's CPU-reference output by stage and provider",
             Seq(TenantContext.TenantSlot, StageSlot, ProviderSlot), Some(Buckets.ResidualDecades), None, None));
 
@@ -632,7 +632,7 @@ public static class MaterialsTap {
                 return bind.Rows.Write(MaterialsInstrument.InferRuns.Row, 1L, admitted)
                     .Bind(_ => bind.Rows.Write(MaterialsInstrument.InferPartitions.Row, (long)f.Result.PartitionCount, lane))
                     .Bind(_ => f.Result.ParityFresh
-                        ? bind.Rows.Write(MaterialsInstrument.InferGolden.Row, f.Result.GoldenDelta, lane)
+                        ? bind.Rows.Write(MaterialsInstrument.InferResidual.Row, f.Result.ReferenceDelta, lane)
                         : Fin.Succ(unit));
             },
             environmentPrefilter: static (bind, f) => Paired(bind.Rows,
@@ -662,7 +662,7 @@ public static class MaterialsTap {
 - Boundary: this folder CONTRIBUTES a latency vocabulary and never registers one — `Checkpoints`, `Measures`, and `Tags` leave as one contributed roster the app root's single `LatencySpine.Register` fold folds beside every peer contributor's, so no package reaches `RegisterCheckpointNames` and splits the table. That registration arms `LatencyContextOptions.ThrowOnUnregisteredNames`, which makes an unregistered name a BOOT FAILURE rather than a positionless token whose writes drop unseen, so deriving both rosters from their row families is the structural half of that guarantee. Libraries take the logger and the ledger by injection and a logger-less composition binds `NullLogger.Instance`, never a nullable handle; the `Code` holes read the band ledger and the kernel `Error` projection, so a reader groups records by the same band a fault series groups by. The instrument rows at `[04]` and the records here are disjoint mandates over one refusal, never two shapes of one record; settlement records in `finally`, so failed or throwing constructions close the same bracket as successful ones. Pivots COMPOSE the `[04]` slot consts, so a ledger pivot and a metric dimension naming one axis are one string. `Freeze` seals at the composition edge after the last write and never inside a bracket a retry re-enters. Duration NEVER derives from a stamp difference — the checkpoint pair is the ledger's own elapsed.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using LanguageExt;
 using LanguageExt.Common;
@@ -786,7 +786,7 @@ public static class MaterialsLatency {
 - Boundary: dashboards, alert provisioning, tenancy, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the IaC plane's — this page carries pack DATA behind the same `rasm.materials.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type. An objective binds only measures the observe rail writes on every occurrence, so a veto-refused admission stays fault-cell evidence and never a denominator; a success share is a partition over the ONE counter its verdict dimension already fans, because a good-half twin doubles the mounted series and strands its denominator on the next arm edit, and `Ratio` stays reserved for genuinely independent counters. The catalogue and library populations override to `Stat` and carry no objective, because a frozen row count reads as a figure against no ceiling; the three fault rows carry none for the same reason.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
@@ -823,7 +823,7 @@ public static class MaterialsDescriptors {
             PanelSpec.Of("Ingest classification", MaterialsInstrument.IngestStems.Key, PanelKind.Table, MaterialsInstrument.VerdictSlot, MaterialsInstrument.ReasonSlot),
             PanelSpec.Of("Plane codec volume", MaterialsInstrument.PlaneBytes.Key, MaterialsInstrument.ContainerSlot, MaterialsInstrument.DirectionSlot),
             PanelSpec.Of("Inference mix by licence", MaterialsInstrument.InferRuns.Key, PanelKind.Table, MaterialsInstrument.LicenceSlot),
-            PanelSpec.Of("Inference residual", MaterialsInstrument.InferGolden.Key, MaterialsInstrument.StageSlot),
+            PanelSpec.Of("Inference residual", MaterialsInstrument.InferResidual.Key, MaterialsInstrument.StageSlot),
             PanelSpec.Of("Inference partitions", MaterialsInstrument.InferPartitions.Key, MaterialsInstrument.ProviderSlot),
             PanelSpec.Of("Prefilter latency", MaterialsInstrument.PrefilterDuration.Key, MaterialsInstrument.SkySlot),
             PanelSpec.Of("Parked fault depth", MaterialsInstrument.Faults.Key, PanelKind.Stat),

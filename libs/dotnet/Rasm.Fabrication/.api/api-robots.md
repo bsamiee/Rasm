@@ -2,24 +2,14 @@
 
 `Robots` (visose) owns host-neutral managed serial-chain robot kinematics and motion-program emission: per-mechanism forward/inverse kinematics, joint-limit, singularity, and reach validation, multi-mechanism and external-axis cells, per-vendor post-processors, a look-ahead-planned `Program`, and a remote upload channel. Its entire geometry vocabulary is `Rhino3dm`'s `Rhino.Geometry.*`, binary-distinct from RhinoCommon, so `plan-cs` boundary-maps at the kinematics seam and never passes a RhinoCommon instance into a `Robots` parameter. Fabrication admits it as the sole robot-kinematics owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Robots`
-- package: `Robots` (MIT)
-- assembly: `Robots` (single `net8.0` asset, binding forward under `net10.0`)
-- namespace: `Robots`, `Robots.Commands`
-- asset: pure-managed AnyCPU IL; the `Rhino3dm` substrate ships the osx-arm64 `librhino3dm_native.dylib`
-- depends: `Rhino3dm` geometry carriers; `SSH.NET` + `BouncyCastle.Cryptography` on the `IRemote` SFTP upload path
-- rail: fabrication
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the robot-cell and solve contracts
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [CAPABILITY]                                    |
 | :-----: | :-------------------- | :----------------- | :---------------------------------------------- |
 |  [01]   | `RobotSystem`         | abstract cell root | the `FileIO`-loaded cell owning the batch solve |
-|  [02]   | `KinematicSolution`   | class solution    | per-waypoint joints, planes, config, errors     |
+|  [02]   | `KinematicSolution`   | class solution     | per-waypoint joints, planes, config, errors     |
 |  [03]   | `RobotConfigurations` | flags enum         | OR-combinable arm-posture branch selection      |
 |  [04]   | `Manufacturers`       | enum               | cell vendor and post-processor dialect          |
 |  [05]   | `MechanicalGroup`     | class              | robot plus track/positioner as one solved chain |
@@ -95,7 +85,7 @@
 - `Speed`: every axis is a ceiling the look-ahead planner respects, so a `Time` above zero pins the waypoint duration and the velocity columns stop governing — a dynamics law writes one or the other, never both.
 - `Zone.Rotation`/`RotationExternal`: nullable ctor parameters defaulting off `Distance`, so a policy setting distance alone still yields a coherent orientation blend; the properties themselves read `double`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cell loading and the batch solve — `FileIO` is the static cell/element factory parsing the visose XML cell library and `File3dm` meshes into a concrete `RobotSystem`; there is no public `RobotSystem` constructor.
 
@@ -179,7 +169,7 @@
 - `RhinoMeshPoser.Pose`: also carries an instance form, `new RhinoMeshPoser(robot).Pose(solutions, tools)`.
 - `IPostProcessor`: `RapidPostProcessor` `KRLPostProcessor` `URScriptPostProcessor` `VAL3PostProcessor` `FanucPostProcessor` `IgusPostProcessor` `JKSPostProcessor` `DrlPostProcessor` `FrankxPostProcessor` emit one dialect each; a custom processor overrides via `LoadRobotSystem`/`ParseRobotSystem`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RobotSystem.Kinematics(targets, prevJoints) -> List<KinematicSolution>` is the public batch solve; the `FileIO`-loaded concrete cell selects the analytic, numerical, external-axis, or group solver internally, so no solver type is a public surface — the public lever is the cell with the `RobotConfigurations` branch hint on `CartesianTarget`.
@@ -196,9 +186,3 @@
 [LOCAL_ADMISSION]:
 - `plan-cs` boundary-maps at the kinematics seam: a RhinoCommon geometry instance never enters a `Robots` parameter, and a `Robots` or `Rhino3dm` instance never escapes into a RhinoCommon-typed sibling signature.
 - Consumers drive the cell through `FileIO.LoadRobotSystem`/`ParseRobotSystem`, pick a `CartesianTarget` or `JointTarget` per waypoint, and read `Joints`/`Planes`/`Errors`/`Configuration` from the `KinematicSolution`.
-
-[RAIL_LAW]:
-- Package: `Robots`
-- Owns: host-neutral serial-chain robot kinematics — the `FileIO`-loaded `RobotSystem` cell, the batch FK/IK `Kinematics` solve with `RobotConfigurations` branch selection and previous-pose continuation, the look-ahead-planned `Program` with its `Duration`, per-`Manufacturers` post emit, and `Animate`/`CurrentSimulationPose` cursor, the `IRemote` upload channel, and the `OnlineLibrary` cell roster.
-- Accept: the `Kinematics/cell` solve over a kernel pose mapped to a `Rhino3dm` `Plane`/`double[]` joint vector, read back from `Program.Targets`/`KinematicSolution` and folded to `FabricationFault` on non-empty `Errors`; the sampled pose census over `Duration` gated on `HasSimulation`; the cell-program emit through the matching `IPostProcessor` dialect.
-- Reject: naming any internal kinematics solver as a public type; passing RhinoCommon geometry into a `Rhino3dm`-typed `Robots` parameter; exception-style control flow over `Errors`/`Warnings`; reading `CurrentSimulationPose` without the `HasSimulation` gate or spelling its ordinal `Index`; and active use of `Program.CheckCollisions` in the cell lane instead of `Toolpath/guard`.

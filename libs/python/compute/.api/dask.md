@@ -2,17 +2,7 @@
 
 `dask` owns lazy chunked parallel collections over a deferred task graph — blocked arrays, partitioned dataframes, unstructured bags, and lifted calls — none materializing until `compute`, `persist`, `store`, or a scheduler submission drives it. `compute` consumes `dask.array.Array` as one passive Array-API backend and imports dask at no runtime point; `data` owns the graph-orchestration surface, feeding the lazy-collections rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `dask`
-- package: `dask` (BSD-3-Clause)
-- module: `dask.array` (`da`), `dask.dataframe` (`dd`), `dask.bag` (`db`)
-- namespaces: `dask`, `dask.delayed`, `dask.base`, `dask.order`, `dask.config`, `dask.distributed`
-- owner: `data` (lazy chunked orchestration), `compute` (`numerics/array` Array-API backend, passive)
-- depends: `dask.dataframe` binds `pandas`/`pyarrow`; `dask.distributed` ships in the `distributed` distribution
-- rail: lazy-collections
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: lazy collection and scheduler types
 
@@ -26,7 +16,7 @@
 |  [06]   | `dask.distributed.Client`  | scheduler client   | submits and tracks graphs on a cluster    |
 |  [07]   | `dask.distributed.Future`  | remote result      | handle to a value computed on the cluster |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: collection-agnostic execution (`dask`)
 - `compute`/`persist`/`optimize`/`visualize` carry: `traverse=True`, `optimize_graph=True`, `**kwargs`.
@@ -110,7 +100,7 @@
 |  [20]   | `wait(fs, timeout, return_when)`                           | static   | block until futures finish                              |
 |  [21]   | `as_completed(futures, with_results, ...)`                 | static   | stream results as they finish                           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every collection is lazy: operations build a high-level task graph and no work runs until `compute`, `persist`, `store`, or a `Client` submission drives a scheduler.
@@ -131,9 +121,3 @@
 [LOCAL_ADMISSION]:
 - A large payload enters as a `dask.array.Array` or `dask.dataframe.DataFrame` capturing chunk/partition count and the scheduler or `Client` class; the graph stays lazy until one `compute` at the boundary, `tokenize`-keyed for dedup.
 - `compute` admits `dask.array.Array` only as a passive `array_namespace` backend recognized by `is_lazy_array`; it owns no `dask.dataframe`, `dask.bag`, `dask.delayed`, or `dask.distributed` consumer and imports dask at no runtime point — those orchestration surfaces are the data tier's alone.
-
-[RAIL_LAW]:
-- Package: `dask`
-- Owns: lazy chunked arrays, query-planned dataframes, bags, the deferred task graph, and local/distributed scheduling
-- Accept: a chunked payload or fan-out graph carrying a captured partition count and scheduler/`Client` class computed once at the boundary, planner-driven pushdown on `dd` ingest, `tokenize`-keyed dedup, and `dask.array.Array` as a passive `array_namespace` backend on the compute rail
-- Reject: eager full-materialization where chunking applies, hand-rolled parallel loops, manual column/predicate pruning the query planner performs, and a compute-side dask import, task graph, or `Client`

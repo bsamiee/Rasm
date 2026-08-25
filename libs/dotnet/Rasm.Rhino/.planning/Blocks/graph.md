@@ -20,7 +20,7 @@ Live placement evidence comes from `GetReferences(0)` and retains every instance
 `GraphFold` canonicalizes vertices through an admitted order before grouping, component ranking, and condensed-edge ordering; equivalent graphs therefore emit identical component and edge sequences.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;

@@ -19,7 +19,7 @@ Observable instruments read one frozen `MetricSnapshot` per collection and each 
 - Boundary: no second `MeterProvider`, no SDK provider, reader, exporter, `View`, or exemplar-reservoir construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — the metric-stream shaping this owner holds is DATA, and the `observability/telemetry#TELEMETRY` install is the one surface that turns a `ViewRow` into an SDK `View`, which is what keeps every SDK type above the composition root. Histogram wire shape is that owner's base2-exponential `WIRE_AGGREGATION` default; the advisory rows here are the explicit-shape fallback a deployment re-arms by naming the instrument, and the tenant ceiling arrives as a policy value rather than a literal minted here. Occupancy arrives the same way: an owner hands in its own read, so no concurrency primitive, lane type, or `anyio` import crosses into this tier to be sampled.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from enum import StrEnum

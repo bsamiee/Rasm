@@ -2,17 +2,7 @@
 
 `cloudpickle` extends stdlib pickle to serialize the callables and types stdlib pickle rejects — lambdas, closures over live cell state, module-local and `__main__` functions, dynamic classes and enums, and by-value modules — shipping a kernel and its captured environment across a worker seam without the target process importing the defining source. `dumps`/`dump` own the extended write path; `loads`/`load` re-export stdlib `pickle`. It is the worker crossing's kernel-shipping codec: the payload the offload seam serializes and `loky` reuses across a warm pool.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cloudpickle`
-- package: `cloudpickle` (BSD-3-Clause)
-- import: `cloudpickle`
-- owner: `runtime`
-- rail: kernel and closure serialization
-- namespaces: `cloudpickle`, `cloudpickle.cloudpickle`
-- capability: extended-pickle serialization of lambdas, closures, module-local and `__main__` functions, dynamic classes and enums, and by-value modules; protocol-5 out-of-band buffer capture via `buffer_callback`; a by-value module registry lifting the by-reference default
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pickler class and protocol anchor
 - rail: serialization
@@ -24,7 +14,7 @@
 |  [02]   | `CloudPickler`     | pickler class | true alias of `Pickler` (same class object)                  |
 |  [03]   | `DEFAULT_PROTOCOL` | `int`         | write protocol floor, equal to `pickle.HIGHEST_PROTOCOL` (5) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot and streamed serialization
 - rail: serialization
@@ -49,7 +39,7 @@
 |  [02]   | `unregister_pickle_by_value(module)` | registry write | restore a module to the by-reference default |
 |  [03]   | `list_registry_pickle_by_value()`    | registry read  | live `set[str]` of by-value module names     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [SERIALIZATION_TOPOLOGY]:
 - `dumps`/`dump` serialize by value what stdlib `pickle.dumps` raises `PicklingError` on — a lambda, a closure over live cell state, a module-local or `__main__` callable, a dynamic class or enum; an importable module attribute still pickles by reference and re-imports at load.
@@ -72,9 +62,3 @@
 [LOCAL_ADMISSION]:
 - a worker kernel defined inline as a closure or local function ships `VALUE` by default; a whole module developed against distributed workers registers once through `register_pickle_by_value` so its defs cross by code, never a re-install per node.
 - direct `cloudpickle.dumps`/`loads` at the `Kernel.of`/`shipped` seam owns the reduce; the estate consumes the first-class package, never loky's vendored copy or a renaming wrapper.
-
-[RAIL_LAW]:
-- Package: `cloudpickle`
-- Owns: extended-pickle serialization of lambdas, closures, module-local and dynamic callables and classes, by-value modules, and protocol-5 out-of-band buffer capture — the kernel-shipping codec across the worker process and subinterpreter seams
-- Accept: `dumps`/`dump` for the extended write path; `loads`/`load` for the stdlib read path with `buffers=`; `register_pickle_by_value` for a module developed against distributed workers; cloudpickle as the `loky` and offload-seam payload codec
-- Reject: cloudpickle for durable or cross-version persistence, a payload from an untrusted producer, a wrapper renaming `dumps`/`loads`, a hand-rolled closure serializer, and `CloudPickler` treated as a second type

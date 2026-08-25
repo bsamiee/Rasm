@@ -2,15 +2,7 @@
 
 `JetBrains.Annotations` carries the attribute vocabulary a declaration states its analyzer contract with: nullability, implicit reachability, declaration order, purity and result consumption, resource ownership, enumeration and collection effect, assertion and termination shape, and string-payload grammar. Every attribute is `[Conditional("JETBRAINS_ANNOTATIONS")]`, so a contract reaches metadata only where the consumer defines that symbol and no runtime dependency follows. `MeansImplicitUse` and `BaseTypeRequired` lift the vocabulary onto a repo marker, which projects its law onto every declaration it marks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `JetBrains.Annotations`
-- package: `JetBrains.Annotations` (MIT)
-- assembly: `JetBrains.Annotations`, attribute and enum declarations alone; `net10.0` consumers bind the `netstandard2.0` asset
-- namespace: `JetBrains.Annotations`
-- rail: source-analysis
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: attributes declaring a member's analyzer contract, and the flag enums their arguments select.
 
@@ -69,7 +61,7 @@
 - `PublicAPIAttribute`: itself carries `[MeansImplicitUse(ImplicitUseTargetFlags.WithMembers)]`, so one application reaches the type and every member.
 - `PureAttribute`: collides with `System.Diagnostics.Contracts.PureAttribute` wherever both namespaces are imported; the application qualifies or aliases.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: argument contracts an application binds — positional constructor overloads and the named properties an attribute exposes.
 
@@ -110,7 +102,7 @@
 - `TerminatesProgram`: states unconditional termination to the analyzer where the inbox `[DoesNotReturn]` states it to nullable flow analysis, so a fail-fast entry carries both.
 - `UriString`: the parameterless form marks any URI payload; the `string` form names the HTTP verb an endpoint route answers.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each attribute's `AttributeUsage` fixes the declaration kinds it binds, so a mis-targeted contract fails at compile time.
@@ -131,9 +123,3 @@
 - `[Pure]` or `[MustUseReturnValue]` marks every rail combinator, while `[InstantHandle]` or `[NoEnumeration]` fixes a sequence or delegate parameter's consumption point.
 - `[RegexPattern]`, `[UriString]`, `[LanguageInjection]`, `[StringFormatMethod]`, and `[StructuredMessageTemplate]` declare a string parameter's foreign grammar at that parameter.
 - `[NoReorder]` marks every owner whose declaration order is load-bearing — generated cases, dispatch rows, migration steps — and `[TerminatesProgram]` marks the fail-fast entry that never hands control back.
-
-[RAIL_LAW]:
-- Package: `JetBrains.Annotations`
-- Owns: the compile-time contract vocabulary for nullability, reachability, declaration order, purity, resource ownership, enumeration and collection effect, assertion and termination shape, and string-payload grammar.
-- Accept: contracts declared at the owning member and lifted onto repo markers through `[MeansImplicitUse]` and `[BaseTypeRequired]`, over one shared package identity.
-- Reject: a local mirror of an attribute this package declares, and a suppression comment standing where an attribute states the contract.

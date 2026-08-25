@@ -2,14 +2,7 @@
 
 `pdal` mints a pipeline-based point-cloud processing engine over the native `libpdal` C++ core: a `Pipeline` stage graph composed from injected `Reader`/`Filter`/`Writer` driver factories under `|`, run batch or streamed, its output read as structured `numpy` arrays, a `meshio.Mesh`, or a `pandas`/`geopandas` frame. Every LAS/LAZ/E57/COPC/EPT ingestion and the filter catalog route through this one scan-processing surface, never a hand-rolled format parser or a direct `libpdal` C++ call.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pdal`
-- package: `pdal`
-- module: `pdal`; import runs `inject_pdal_drivers()`, binding the `Reader`/`Filter`/`Writer` driver factories and the module-level `dimensions`/`info`
-- rail: scan-processing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline and stage family
 
@@ -32,7 +25,7 @@
 |  [02]   | `pdal.info`               | version info     | `getInfo()` namespace: PDAL version, `major`/`minor`/`patch`, `sha1`, plugin path |
 |  [03]   | `drivers.StreamableTypes` | `frozenset[str]` | stage type strings whose driver advertises streaming; `Stage.streamable` reads it |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: injected driver factories (the primary construction surface)
 
@@ -105,7 +98,7 @@ Output members are `libpdalpython.Pipeline` attributes undefined before `execute
 |  [03]   | `infer_reader_driver(path)` / `infer_writer_driver(path)`         | static   | driver inferred from extension (`Reader`/`Writer`) |
 |  [04]   | `getDrivers()` / `getOptions()` / `getDimensions()` / `getInfo()` | static   | registry rows behind injection/`dimensions`/`info` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import pdal` at boundary scope only; the `inject_pdal_drivers` side-effect binds the typed factories, so the import completes before any `Reader.las`/`Filter.range` reference.
@@ -123,9 +116,3 @@ Output members are `libpdalpython.Pipeline` attributes undefined before `execute
 
 [LOCAL_ADMISSION]:
 - Construct stages through the injected `Reader`/`Filter`/`Writer.<driver>` factories under `|`; a raw `Filter(type=...)` where an injected factory exists, a per-format pipeline function family, hand-rolled point-cloud parsing, and a direct `libpdal` C++ call from Python are each rejected.
-
-[RAIL_LAW]:
-- Package: `pdal`
-- Owns: PDAL stage-graph construction via injected factories, pipeline execution (batch/streaming/iterator), the `numpy`/`meshio`/`pandas`/`geopandas` IO seams, and driver/dimension/option introspection
-- Accept: PDAL JSON strings, filename-typed `Reader`/`Writer` stages, explicit-type `Filter` stages, `numpy` structured arrays, and `pandas`/`geopandas` frames
-- Reject: hand-rolled point-cloud parsing, a direct `libpdal` C++ call from Python, a per-format pipeline function family where a driver factory plus `|` composes it, and a raw `Filter(type=...)` shadowing an injected `Filter.<name>`

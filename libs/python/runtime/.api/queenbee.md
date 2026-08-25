@@ -2,16 +2,7 @@
 
 `queenbee` mints the Pollination workflow-language schema graph the runtime recipe owner composes: every node is a `type`-discriminated `pydantic` v2 `BaseModel` carrying a free-form `annotations` dict, and every model round-trips disk YAML, a validated graph, and a wire dict through one serialization spine. It is the schema authority alone — the recipe/workflow vocabulary is admitted, its bundled click CLI and `urllib` transfer/repository-fetch helpers rejected, so `cyclopts` owns the parser and the `httpx`/`obstore` rails own byte movement.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `queenbee`
-- package: `queenbee` (MIT)
-- module: `queenbee`
-- namespaces: `queenbee.base`, `queenbee.io` (`inputs`/`outputs`/`reference`/`artifact_source`/`common`), `queenbee.plugin`, `queenbee.recipe`, `queenbee.job`, `queenbee.repository`, `queenbee.config`
-- abi: pure-Python (`py3-none-any`, no native extension)
-- rail: recipe (workflow schema contract)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: base model + metadata (`queenbee.base`)
 
@@ -82,18 +73,18 @@
 
 [PUBLIC_TYPE_SCOPE]: job submission + run lifecycle (`queenbee.job`)
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]        | [CAPABILITY]                                                                                 |
-| :-----: | :--------------- | :------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Job`            | submission           | job submission: source + per-run argument lists                                              |
-|  [02]   | `JobStatus`      | status               | job-level status + per-run counts                                                            |
-|  [03]   | `RunStatus`      | status (BaseStatus)  | `id`/`job_id`/`entrypoint`/`status: RunStatusEnum`/`steps`/timestamps                        |
-|  [04]   | `StepStatus`     | status (BaseStatus)  | step execution status + DAG position                                                         |
-|  [05]   | `BaseStatus`     | status base          | `inputs`/`outputs`/`message`/`started_at`/`finished_at`/`source`                             |
-|  [06]   | `Results`        | typed list           | `list`-subclass of run results with `from_runs(...)`                                         |
-|  [07]   | `JobStatusEnum`  | enum                 | `Created`/`Pre-Processing`/`Running`/`Failed`/`Cancelled`/`Completed`/`Unknown`              |
-|  [08]   | `RunStatusEnum`  | enum                 | `Created`/`Scheduled`/`Running`/`Post-Processing`/`Failed`/`Cancelled`/`Succeeded`/`Unknown` |
-|  [09]   | `StepStatusEnum` | enum                 | `Scheduled`/`Running`/`Failed`/`Succeeded`/`Skipped`/`Unknown`                               |
-|  [10]   | `StatusType`     | enum                 | `Function`/`DAG`/`Loop`/`Container`/`Unknown` — the step-kind discriminant                   |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]       | [CAPABILITY]                                                                                 |
+| :-----: | :--------------- | :------------------ | :------------------------------------------------------------------------------------------- |
+|  [01]   | `Job`            | submission          | job submission: source + per-run argument lists                                              |
+|  [02]   | `JobStatus`      | status              | job-level status + per-run counts                                                            |
+|  [03]   | `RunStatus`      | status (BaseStatus) | `id`/`job_id`/`entrypoint`/`status: RunStatusEnum`/`steps`/timestamps                        |
+|  [04]   | `StepStatus`     | status (BaseStatus) | step execution status + DAG position                                                         |
+|  [05]   | `BaseStatus`     | status base         | `inputs`/`outputs`/`message`/`started_at`/`finished_at`/`source`                             |
+|  [06]   | `Results`        | typed list          | `list`-subclass of run results with `from_runs(...)`                                         |
+|  [07]   | `JobStatusEnum`  | enum                | `Created`/`Pre-Processing`/`Running`/`Failed`/`Cancelled`/`Completed`/`Unknown`              |
+|  [08]   | `RunStatusEnum`  | enum                | `Created`/`Scheduled`/`Running`/`Post-Processing`/`Failed`/`Cancelled`/`Succeeded`/`Unknown` |
+|  [09]   | `StepStatusEnum` | enum                | `Scheduled`/`Running`/`Failed`/`Succeeded`/`Skipped`/`Unknown`                               |
+|  [10]   | `StatusType`     | enum                | `Function`/`DAG`/`Loop`/`Container`/`Unknown` — the step-kind discriminant                   |
 
 [PUBLIC_TYPE_SCOPE]: package repository + client config (`queenbee.repository` / `queenbee.config`)
 
@@ -106,7 +97,7 @@
 |  [05]   | `BaseAuth` / `JWTAuth` / `HeaderAuth` | client auth         | repository credentials `domain`/`access_token`                   |
 |  [06]   | `RepositoryReference`                 | client config       | `name`/`path` — a named repository endpoint                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serialization spine; surfaces are `BaseModel.*`
 - One round-trip surface: `from_file`/`to_*` wrap pydantic v2 `model_validate`/`model_dump` with the queenbee defaults `by_alias=True` and `exclude_none` on writes.
@@ -147,7 +138,7 @@
 |  [07]   | `RepositoryIndex.package_by_{tag,digest}(...)`               | instance | registry query: resolve a `PackageVersion` by tag or digest    |
 |  [08]   | `RepositoryIndex.search(...)` / `get_latest(versions)`       | static   | registry query: search the index or pick the latest version    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - discriminator law: every node is a `type`-discriminated `BaseModel`; the `type` literal (pinned by `ensure_type_match`) tags the IO/reference/artifact-source unions, so boundary decode resolves the variant from `type`, never an `isinstance` ladder. `annotations` is the free-form extension carrier — never widen a model with fields it can hold.
@@ -167,9 +158,3 @@
 - recipe owner admits the queenbee schema graph alone; the `[cli]` click extra is rejected — `cyclopts` owns the CLI, recipe/job commands composing `Recipe.from_file`/`Job.validate_arguments`.
 - queenbee's bundled transfer/fetch helpers (`base.request.make_request`/`get_uri`/`resolve_local_source`, the `repository`/`config` urllib fetches) stay unused: repository index and package fetch route through the runtime `httpx` client, and `S3`/`HTTP`/`ProjectFolder` movement through the `transport/roots` transfer rails.
 - queenbee models stay at the recipe-definition boundary; crossing the C#↔Python companion wire projects through `to_dict(by_alias=True)`, never a second `msgspec`/protobuf mint of a queenbee schema.
-
-[RAIL_LAW]:
-- Package: `queenbee`
-- Owns: the Pollination workflow-language schema graph — plugin/function templates, recipe/baked-recipe/DAG flow with dependency resolution, the tier×type IO algebra and `${{...}}` reference family, job submission + run/step lifecycle statuses, and the package-repository index, all as `type`-discriminated pydantic v2 models over one JSON/YAML spine
-- Accept: `Recipe`/`BakedRecipe`/`Plugin`/`Job` construction via `from_file`/`from_folder`/`from_recipe`, `model_validate(_json)` at the boundary, `to_dict`/`to_json`/`to_yaml` projection, the tier×type IO matrix, `IOBase` polymorphic accessors, `RepositoryIndex` query methods, `BakedRecipe.from_recipe` as the sole bake path
-- Reject: the queenbee `[cli]` click extra, its urllib `make_request`/`get_uri` transfer + repository fetch, re-minting a queenbee schema as a parallel `msgspec`/protobuf struct, hand-rolled YAML/JSON walks bypassing the spine, bespoke per-recipe IO classes outside the tier×type matrix, and executing an unbaked `Recipe`

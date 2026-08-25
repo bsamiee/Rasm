@@ -2,15 +2,7 @@
 
 `@effect/experimental` owns local-first overlays, storage-backed services, and host-neutral `Machine` actors. Storage services select memory, IndexedDB, key-value, or SQL Layers; `Machine` holds in-process state only. The SQL journal remains the durable authority.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/experimental`
-- package: `@effect/experimental` (MIT)
-- effect-peer: `effect catalog`, `@effect/platform catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`)
-- optional-peer: `ioredis` (Redis `Persistence` backing), `lmdb` (Lmdb backing) — both UNADMITTED
-- runtime: dual — browser-safe client/journal/sync/encryption and host-neutral Machine; node/bun server/queue bindings
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: EventLog local-first event-sourcing family
 - rail: overlay/local-first
@@ -81,7 +73,7 @@
 - `Override(value)` brands a value the `Overrideable(from, to, {...})` property signature admits, so a variant supplies its own computed field without a second schema declaration.
 - `@effect/sql` `Model` IS this constructor applied to the relational variant set — `select`, `insert`, `update`, `json`, `jsonCreate`, `jsonUpdate` — so a relation family derives every projection through `Model.Class` and a bespoke `VariantSchema.make` earns its seat only where the variant axis is not the relational one.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EventLog client assembly
 - rail: overlay/local-first
@@ -140,7 +132,7 @@
 - `Machine.makeWith<State, Input>()` pins the state and input types up front and then takes the same initializer `make` does, which is what admits a recursive or self-referencing state a bare `make` cannot infer.
 - `Machine.retry(self, policy)` wraps the DEFINITION rather than a booted actor: the `Schedule` reads `Machine.InitError<M> | MachineDefect` as its input and the result widens the machine's context by the schedule's `R`, so a boot whose initialization fails re-drives under the policy.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `[OVERLAY_BOUNDARY_RULING]` system-of-record boundary: `journal/append` on `@effect/sql` is the durable authority and the overlay lanes only accelerate local-first reads and offline queues; a record whose loss corrupts state is projected from, or mirrored to, the SQL journal, never held only in an overlay.
@@ -159,9 +151,3 @@
 [LOCAL_ADMISSION]:
 - EventLog client, journal, and Machine are host-neutral or browser-capable; server and persisted-queue bindings select host Layers.
 - every lane bounds its backing at the composition root; a lane imported with no Layer-provided store is the defect.
-
-[RAIL_LAW]:
-- Package: `@effect/experimental`
-- Owns: local-first EventLog, host-neutral Machine, storage services, reactivity, SSE, rate limiting, request batching, and DevTools
-- Accept: Machine for in-process actor execution and encoded snapshots; host owners compose persistence and replay through admitted Layers
-- Reject: automatic Machine persistence, overlays as system of record, hand-rolled protocol loops, unadmitted backings, and fixed storage

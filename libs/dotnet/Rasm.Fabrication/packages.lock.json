@@ -335,6 +335,7 @@
         "type": "Project",
         "dependencies": {
           "Celly.Protovalidate": "[1.2.0, )",
+          "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
@@ -423,12 +424,6 @@
         "dependencies": {
           "Google.Protobuf": "[3.31.1, 4.0.0]"
         }
-      },
-      "Grpc.Core.Api": {
-        "type": "CentralTransitive",
-        "requested": "[2.83.0, )",
-        "resolved": "2.83.0",
-        "contentHash": "xU8BT2bCw4Ct+/qIFJhhjkDEilKUbBOfp4US7l3Xa3hnlkN9l2LgISCbOw4PFYpW5jJFcK7FUAyWOFIQ94Hiqg=="
       },
       "MIConvexHull": {
         "type": "CentralTransitive",

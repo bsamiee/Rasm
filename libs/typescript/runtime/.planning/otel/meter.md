@@ -2,7 +2,6 @@
 
 `Pulse` is the work-plane meter bridge — one lossy projection from durable-work evidence onto Convention-keyed Effect instruments, so queue depth, drain lag, and relay throughput read as OTel series while every dispute settles against the journal. `mark` folds a settlement fact into its counter row at the emitting call site, and `live` runs the sampled census sweep setting every gauge row from one `Probe` port the app root satisfies with the data journal's census statement — fact rows stay the billing truth, instruments stay bounded, and neither plane re-derives the other.
 
-
 ## [01]-[INDEX]
 
 - [02]-[PROJECTION] — the mounted instrument tables, the one polymorphic mount, and the `mark` fold; `Pulse`.

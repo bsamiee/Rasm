@@ -4,16 +4,7 @@
 
 `viewer` brackets `Deck` in a `Scope`, never an Effect service — `new Deck`/`setProps`/`finalize` acquire, update, and release through a React ref, `@deck.gl/react` unadmitted. Every `get*` is one `Accessor`, every screen↔world map a `Viewport`, every pick a `PickingInfo`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@deck.gl/core`
-- package: `@deck.gl/core` (MIT)
-- abi: browser WebGL2 (default) / WebGPU via luma.gl `Device`; needs a `HTMLCanvasElement` and `requestAnimationFrame`
-- runtime: `scope:viewer` project-local; imperative resource bracketed in an Effect `Scope`
-- modules: `Deck`, `Layer`, `CompositeLayer`, `LayerExtension`, `View`/`MapView`/`OrbitView`/`OrthographicView`/`FirstPersonView`/`_GlobeView`, `Viewport`/`WebMercatorViewport`, `Controller` family, `LightingEffect`/`PostProcessEffect`, `Widget`, `FlyToInterpolator`/`LinearInterpolator`, `UNIT`
-- absent: `@deck.gl/react` (bound through the imperative ref), `@deck.gl/aggregation-layers`, `@deck.gl/widgets` (core ships only the `Widget` base); `@deck.gl/extensions` ships only its `LayerExtension` base here, its concrete roster admitted in `.api/deck.gl-extensions.md`
-
-## [02]-[RENDER_ENGINE]
+## [01]-[RENDER_ENGINE]
 
 [TYPE_SCOPE]: the `Deck` root — one instance owns the canvas, device, render loop, and picker, and `setProps` is the single reconciliation entry.
 - `layers`/`effects`/`views`/`viewState`/`initialViewState` and every callback are a partial patch `Deck` diffs against prior props, redrawing only what changed; `viewState` (controlled) vs `initialViewState` (deck-tracked) is the camera-ownership discriminant, both stripped under `@deck.gl/mapbox` where the map owns the camera.
@@ -66,7 +57,7 @@
 |  [21]   | `_framebuffer`                      | `Framebuffer`                                    | offscreen render target                         |
 |  [22]   | `_typedArrayManagerProps`           | overlay                                          | attribute memory tuning                         |
 
-## [03]-[LAYER_MODEL]
+## [02]-[LAYER_MODEL]
 
 [TYPE_SCOPE]: the `Layer`/`CompositeLayer`/`LayerExtension` lattice — every layer is `_XxxProps<DataT> & (Layer|Composite)Props`, generic over the row type, with one lifecycle, one accessor mechanism, one extension hook.
 - primitive `Layer` renders GPU models; `CompositeLayer` renders other layers via `renderLayers()` and bubbles picking through `getSubLayers()`/`getSubLayerProps()`; `LayerExtension` injects shaders/state/props into any layer — the capability-injection seam the viewer uses instead of subclassing.
@@ -104,7 +95,7 @@
 |  [12]   | `onDataLoad` / `onError`                    | data callbacks                            | load-complete + error rail                  |
 |  [13]   | `onHover` / `onClick` / `onDrag*`           | `(info, event) => void`                   | per-layer pointer family                    |
 
-## [04]-[VIEW_AND_CAMERA]
+## [03]-[VIEW_AND_CAMERA]
 
 [TYPE_SCOPE]: `View`→`Viewport` projection + `Controller` interaction + interpolators — the camera the `viewer/geo/project` seam syncs.
 - `View` specs a viewport and controller declaratively and snapshots an immutable `Viewport` from a `viewState`; construct a new one to mutate. `WebMercatorViewport` is the geospatial transform whose `project`/`unproject`/`fitBounds` the overlay-mark and camera-sync rows call. Free-standing `Deck` drives the camera from atom state through `FlyToInterpolator`/`LinearInterpolator`; under `@deck.gl/mapbox` the map owns it.
@@ -129,7 +120,7 @@
 |  [13]   | `LinearInterpolator` / `TransitionInterpolator` | ctor above                         | linear transition + base class                  |
 |  [14]   | `TRANSITION_EVENTS`                             | `{BREAK:1,SNAP_TO_END:2,IGNORE:3}` | transition interruption policy                  |
 
-## [05]-[PICKING_EFFECTS_WIDGETS]
+## [04]-[PICKING_EFFECTS_WIDGETS]
 
 [TYPE_SCOPE]: `PickingInfo` (the pick result), the `Effect` compositing pipeline, and the `Widget` HUD base.
 - `PickingInfo<DataT,ExtraInfo>` is generic — `object: DataT` is the picked row and layers extend `ExtraInfo` (e.g. `MVTLayerPickingInfo` adds the tile). `Effect` is the pre/post-render pass interface: `LightingEffect` composites lights + shadows, `PostProcessEffect` wraps a shadertools `ShaderPass` for screen-space effects — the pinned `@luma.gl/shadertools` ships NO post-process pass roster (the image passes live in the unadmitted `@luma.gl/effects`), so every pass this host runs is viewer-authored `ShaderModule` data. `Widget` is the imperative HUD base — core ships the base only.
@@ -146,7 +137,7 @@
 |  [07]   | `PostProcessEffect<ShaderPassT>`            | `new PostProcessEffect(module, props)` | screen-space pass host; both args REQUIRED    |
 |  [08]   | `Widget<PropsT,ViewsT>`                     | lifecycle above                        | imperative HUD overlays (base only)           |
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `Deck` per surface owns its luma.gl `Device`, `AnimationLoop`, and canvas, rendering outside the Effect/atom fold on its own rAF cadence; a second engine on one canvas is the named defect.
@@ -166,9 +157,3 @@
 - `Deck` is a `Scope`-bracketed resource, never an Effect service — wrapping its imperative render loop in Effect is a category error.
 - `@deck.gl/react` binds through a React ref callback, never `<DeckGL>`; core ships only the `LayerExtension`/`Widget` bases, `@deck.gl/extensions` carries the concrete `LayerExtension` roster (`.api/deck.gl-extensions.md`), and `@deck.gl/aggregation-layers`/`@deck.gl/widgets` stay absent.
 - deck-owned peer substrate (`luma.gl`/`math.gl`/`mjolnir.js`/`loaders.gl`) is reached only through deck props (`device`, `parameters`, `loaders`, `loadOptions`).
-
-[RAIL_LAW]:
-- Package: `@deck.gl/core`
-- Owns: the `Deck` render engine + reconciliation, the `Layer`/`CompositeLayer`/`LayerExtension` lattice, the `Accessor`/`Position`/`Color`/`Unit` data vocab, `View`/`Viewport`/`WebMercatorViewport` projection + `Controller` interaction + camera interpolators, `PickingInfo` + async picking, the `Effect`/`LightingEffect`/`PostProcessEffect` pass pipeline, and the `Widget` HUD base
-- Accept: one `Deck` per surface as a `Scope`-bracketed resource, `setProps` as the single imperative sink for atom-derived `layers`/`viewState`/`effects`, `Accessor` functions + `updateTriggers` as the styling-variation collapse, `WebMercatorViewport` math for anchor/camera work, `pickObjectsAsync`/`onClick` as the pick→`GlobalId` boundary, `LayerExtension` for cross-layer capability injection
-- Reject: a second `Deck` on one canvas, rebuilding `Deck` instead of `setProps`, `<DeckGL>`/`@deck.gl/react`, wrapping the render loop in Effect, importing `luma.gl`/`math.gl` directly, sync point/region picking where the async pair is the WebGPU-safe boundary, per-object styling as parallel props instead of one function accessor, mutating a `Viewport`

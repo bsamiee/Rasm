@@ -1,16 +1,6 @@
 # [PY_ARTIFACTS_API_PILLOW]
 
-
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pillow`
-- package: `pillow` (MIT-CMU)
-- import: `PIL` (distribution `pillow`)
-- owner: `artifacts`
-- rail: image (the `graphic/raster/io#IO` `RasterEngine.PILLOW` working surface; the `graphic/color/managed#MANAGED` soft-proof control; the `exchange/metadata#METADATA` ICC-header reader)
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image, draw, font, palette, and color-management types
 - rail: image
@@ -75,7 +65,7 @@ Each arm keys against a bounded vocabulary — a resample selects a `Resampling`
 - [02]-[TRANSPOSE]: `FLIP_LEFT_RIGHT`/`FLIP_TOP_BOTTOM`/`ROTATE_90`/`ROTATE_180`/`ROTATE_270`/`TRANSPOSE`/`TRANSVERSE` — the diagonal `TRANSPOSE`/`TRANSVERSE` included.
 - [08]-[FLAGS]: `SOFTPROOFING`/`GAMUTCHECK`/`BLACKPOINTCOMPENSATION`/`NOWHITEONWHITEFIXUP`/`HIGHRESPRECALC`/… — the lcms2 `IntFlag` transform flags.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: image open, create, encode, and interop
 - rail: image
@@ -180,7 +170,7 @@ One method per geometric concern, each keyed by a `Resampling`/`Transpose`/`Tran
 - [05]-[GETPROFILE]: `getProfileDescription` / `getProfileManufacturer` / `getProfileModel` / `getProfileCopyright` / `getProfileInfo` read the ICC profile-header fields (the `exchange/metadata` `_icc` reader).
 - [08]-[PROCEDURAL]: `Image.linear_gradient` / `radial_gradient` / `effect_noise` / `effect_mandelbrot` / `Image.Image.effect_spread` seed procedural rasters.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `lazy from PIL import Image, ImageOps, UnidentifiedImageError` (the `graphic/raster/io#IO` worker arm) / `lazy from PIL import ImageCms` (the `exchange/metadata#METADATA` + `graphic/color/managed#MANAGED` arms) inside the worker-arm body only — `PIL` is a host-native worker package, so the import never rides the core page path, and an absent `PIL` `ImportError` folds to `RasterFault.provision`, distinct from a content fault.
@@ -208,9 +198,3 @@ One method per geometric concern, each keyed by a `Resampling`/`Transpose`/`Tran
 [LOCAL_ADMISSION]:
 - Pillow owns in-process raster decode/encode/transform/resample/filter/grade/band-algebra/morphology/draw/measured-text, ICC soft-proof, and ICC profile-header read; the fused decode/downscale/ICC-managed-egress pipeline is `pyvips` (`.api/pyvips.md`), scientific filtering/segmentation/registration `scikit-image`, the typography shaping/merge/freeze plane `uharfbuzz`/`fonttools`/`vharfbuzz`, vector boolean/offset `skia-pathops`, layered PSD/PSB authoring `psd-tools`, CMYK/spectral math `colour-science`, and live UI `ImageQt`/`ImageTk`/`ImageGrab`/`ImageShow`.
 - Embedded-PDF images enter via `pikepdf.models.PdfImage.as_pil_image`; Arrow/NumPy arrays via `fromarrow`/`fromarray`; a build-dependent arm gates on `features.check` before assuming a codec exists.
-
-[RAIL_LAW]:
-- Package: `pillow`
-- Owns: in-process raster decode/encode, geometric transform, `Resampling`-kernel resampling, convolution/rank/multiband filtering and 3D-LUT grading, tone/recolor enhancement, the full `ImageChops` blend-mode and binary channel algebra, band split/merge/extract and premultiplied `alpha_composite`, `point`/`ImageMath` per-pixel and multi-band LUTs, `ImageStat` masked statistics, `ImageMorph` binary morphology, palette quantization and dithering, drawing and measured FreeType text, ICC soft-proof and profile-header read, EXIF/XMP maps, multi-frame sequence and embedded-thumbnail access, procedural generators, NumPy/Arrow zero-copy interop, and the `PyDecoder`/`PyEncoder`/`register_*` codec-plugin extension surface
-- Accept: the `graphic/raster/io#IO` `RasterEngine.PILLOW` working surface on the `WORKER_BAND`; the `exchange/metadata#METADATA` ICC profile-header read; the `graphic/color/managed#MANAGED` soft-proof/gamut-warning control; `pikepdf` images via `as_pil_image`; Arrow/NumPy arrays via `fromarrow`/`fromarray`; build-dependent arms gated on `features.check`
-- Reject: a wrapper-rename of `open`/`save`; a hand-rolled resampler where `Resampling` exists; a per-mode or per-format image type where one `Image` and a registry row suffice; a NumPy round-trip where a Pillow band/stat/`ImageMath` op suffices; a second pillow ICC device-egress engine (`buildTransform`/`profileToProfile`) beside pyvips `icc_transform`; a naive `convert` that discards an ICC profile where the soft-proof/header path applies; a two-member `Dither`/`Transpose` subset where four/seven members exist; the inline-loop or per-owner `CapacityLimiter` crossing where the shared `WORKER_BAND` `to_process` seam owns it; a bare `except Exception` where `UnidentifiedImageError`/`DecompressionBombError`/`PyCMSError` map to a closed fault case

@@ -21,7 +21,7 @@ Tolerances arrive from `Domain/context` lanes rather than page literals: the eig
 - Boundary: `SearchCapsule` confines every platform mutation and native lease; every kNN in the corpus reads `NeighborhoodGraph`, and deterministic index release wraps the index in `Lease<T>.Owned`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms.MinimumSpanningTree;
 using QuikGraph.Algorithms.Observers;

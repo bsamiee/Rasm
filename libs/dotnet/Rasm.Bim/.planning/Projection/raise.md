@@ -22,7 +22,7 @@ Both election tables DERIVE from the ingress rosters — the typed-measure mint 
 - Boundary: a `Bounded`/`List`/`Complex`/`Table` property degrading to its `Render` string is the deleted lossy form — `Text` alone is the string arm; a `Measure` re-authoring as a bare `IfcReal` while its `QuantityType` names a GeometryGym `IfcValue` type or its dimension a base measure is the deleted flattening, and because both mint tables DERIVE from the ingress rosters the two directions cannot drift; a quantity bag re-authoring its `Groups` rows as dotted flat names is the deleted lossy form — the prefix carried the nesting and nothing carried the grouping identity, so a classified takeoff hierarchy re-emitted as one flat set; the three bound slots are ROWS, so the mutable log cell and the three duplicated read-raise-assign bodies that mirrored one another are both deleted — the accumulation is the carrier's own; unit DECLARATION (the `IfcUnitAssignment` the emitted database carries) is `Projection/egress#IFC_EGRESS`, this page raising magnitudes under an already-resolved regime.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
 using GeometryGym.Ifc;

@@ -30,7 +30,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit bridge contracts each boundary registers against these rows (`IMacViewHandler`, `IMacWindow`, and the `MacConversions`/`CGConversions` projection owners) stay at the Grasshopper boundary, because they name `Microsoft.macOS` types the kernel does not reference.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto;
 using Rasm.Domain;
 
@@ -125,7 +125,7 @@ public static class Handlers {
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit view anchors, the vibrancy panes, the CoreAnimation compositor, and the screen-capture estate at both boundaries construct the platform view and hand this owner a value; the kernel becomes Eto-aware, never AppKit-aware.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
@@ -172,7 +172,7 @@ public sealed class PlatformMount : IDisposable {
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target and its accessibility axis stay at that one. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto;
 using Rasm.Domain;
 

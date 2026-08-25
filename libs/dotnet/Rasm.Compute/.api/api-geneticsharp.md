@@ -2,15 +2,7 @@
 
 `GeneticSharp` owns the genetic-algorithm engine behind the `optimizer#OPTIMIZER_LANE` `Nsga2` and `RobustMinimax` rows the exact CP-SAT/MILP lane cannot reach: the full genetic-operator algebra and the parallel-evaluation executor behind one `GeneticAlgorithm`. Every operator is a single-method interface, so one `Optimizer.Optimize` dispatch arm composes the operator set a row declares; `IFitness.Evaluate` is the sole coupling to the solve `evaluate` oracle, `ITaskExecutor` parallelizes fitness onto the bounded compute lanes, and the solve fault lifts to `ComputeFault`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `GeneticSharp`
-- package: `GeneticSharp` (MIT)
-- assembly: `GeneticSharp.Domain` (operator + engine surface) + `GeneticSharp.Infrastructure.Framework` (executor, randomization) — pure-managed AnyCPU IL on `lib/net6.0`, ALC-safe, no native asset
-- namespace: `GeneticSharp`
-- rail: optimizer#OPTIMIZER_LANE (population-based rows)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine and operator contracts — a row selects an operator set, never a subclassed engine
 
@@ -80,7 +72,7 @@
 |  [07]   | `IRandomization` / `BasicRandomization`             | RNG               | seedable randomization base                  |
 |  [08]   | `FastRandomRandomization` / `RandomizationProvider` | RNG               | fast RNG + global provider                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine assembly and run — the ctor binds the required operator quintet, the rest settable
 
@@ -140,7 +132,7 @@
 - `RandomizationProvider.Current` selects WHICH generator; `FastRandomRandomization.ResetSeed` is the only member that pins WHAT it draws — assigning the provider alone leaves a `DateTime.Now.Millisecond`-seeded global feeding every new thread's stream.
 - `ResetSeed` stores the seed and replaces the `ThreadLocal<FastRandom>`, so every worker thread seeds from that ONE value: a seeded parallel evaluation draws the same stream on each thread, which makes a run reproducible and makes per-thread stream independence unreachable on this row.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `GeneticAlgorithm` is the one engine, assembled from an operator set; `Reinsertion`/`Termination`/`TaskExecutor`/`OperatorsStrategy` are settable, so the evolve loop configures from an operator set, never a subclass.
@@ -162,9 +154,3 @@
 - `Nsga2` and the `RobustMinimax` outer search select the GA on the one `Optimize` total `Switch`; `CmaEs`/`Pso`/`SimulatedAnnealing` are genuine in-package covariance/swarm/annealing kernels no package owns, never this engine with swapped operators.
 - genome encoding follows the `DesignVariable` case, the operator set is row data, and termination is a composite `ITermination` — none branched inside a helper.
 - exact integer/combinatorial solve stays the `api-ortools` CP-SAT/MILP lane; routing a genuinely exact problem through the GA is the rejected pick.
-
-[RAIL_LAW]:
-- Package: `GeneticSharp`
-- Owns: the GA engine, chromosome encodings, the full crossover/mutation/selection/reinsertion/termination operator catalog, composite termination, and the parallel/TPL fitness executor — the proposal kernel for the `Nsga2` row and the `RobustMinimax` outer GA.
-- Accept: a `GeneticAlgorithm` assembled from an operator set a population-based `OptimizerKind` row declares, a genome mapped from the `DesignVariable` cases, an `IFitness` bound to the `Solver/contract` evaluate oracle, parallel evaluation on the bounded compute lanes with a deadline, and the best genome folded into `OptimizationResult` and `ParetoFront`.
-- Reject: a per-algorithm engine sibling where one `Optimizer` fold discriminates on `OptimizerKind`; a stringly-typed genome beside the `DesignVariable`-mapped encodings; a hand-rolled objective loop beside `IFitness`; an unbounded parallel fitness loop beside `ITaskExecutor`; an exact integer/combinatorial problem routed through the GA where `api-ortools` solves it; a re-minted Pareto-front/crowding owner.

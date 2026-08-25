@@ -2,16 +2,7 @@
 
 `olca-ipc` drives a running openLCA server through one transport-agnostic client: model CRUD, product-system construction, calculation and Monte-Carlo simulation, and the full result-query surface across inventory, impact, cost, and contribution axes. `olca_schema` carries the typed model graph as a separate package — transport-free dataclasses with `new_*` factories and dict/JSON codecs. It owns the live openLCA compute/interchange leg of the data EPD/LCA rail, never re-implementing the matrix solver openLCA owns nor holding the model as the system of record.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `olca-ipc`
-- package: `olca-ipc` (MPL-2.0)
-- module: `olca_ipc` (client + result) + `olca_schema` (CC0-1.0, the transport-free model graph)
-- owner: `data`
-- rail: epd-lca (openLCA interchange + compute)
-- depends: `olca-schema`, `requests`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: clients and results (`olca_ipc`)
 
@@ -42,7 +33,7 @@
 
 [ERROR_ABSENCE]: neither `olca_ipc` nor `olca_schema` declares an exception type (verified against the installed distribution). Transport is `requests`, so every socket, status, and timeout fault arrives as `requests.exceptions.RequestException` (itself an `OSError`), and the clients raise bare `RuntimeError` for a protocol fault of their own — those two rows plus the stdlib decode rows are the whole catchable set at an IPC fence.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model CRUD — `ProtoClient` instance methods, bound on `Client`/`RestClient`
 
@@ -119,7 +110,7 @@
 |  [12]   | `as_ref(entity)` / `entity.to_ref()` / `o.Ref(ref_type=o.RefType.X, id=...)`             | entity → `Ref`, or construct by ref type + id |
 |  [13]   | `entity.to_dict()` / `Type.from_dict(d)` / `entity.to_json()` / `Type.from_json(s)`      | dataclass wire codecs at the boundary         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ProtoClient` is the abstract contract that `Client` (JSON-RPC over a `requests.Session`), `RestClient` (REST), and the proto client all satisfy; pin a parameter to `ProtoClient` and pick the transport at the boundary, so CRUD and calculation code stays transport-agnostic.
@@ -139,9 +130,3 @@
 
 [LOCAL_ADMISSION]:
 - `olca-ipc` is the sole live-openLCA client on the epd-lca rail; a folder composing it registers `olca-ipc` and `olca-schema` in the branch manifest and this catalog.
-
-[RAIL_LAW]:
-- Package: `olca-ipc` (+ `olca-schema`)
-- Owns: the openLCA IPC/REST/proto client — model CRUD, product-system construction, calculate/simulate, and the full result-query surface — and, via `olca_schema`, the typed model graph with `new_*` factories and dict/JSON codecs.
-- Accept: `import olca_ipc as ipc` + `import olca_schema as o`; `ProtoClient`-typed transport-agnostic code; the `setup → calculate → wait_until_ready → query → dispose` lifecycle with the result disposed in a `finally`; result rows projected into the tabular rail; models authored offline via factories and pushed with `put_all`.
-- Reject: hand-rolled JSON-RPC against the openLCA socket when a client method exists; treating `Result` as a materialized table when it is a lazy server handle; skipping `dispose()`; re-implementing the LCA solver openLCA owns or holding the model as the system of record.

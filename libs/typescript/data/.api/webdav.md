@@ -4,15 +4,7 @@
 
 It is a remote-origin row on the `object/file` plane — origin-addressed, capability-flag dispatched beside the SFTP and FTP rows, carrying server-side `copyFile`/`moveFile` and RFC 4918 locks those rows lack.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `webdav`
-- package: `webdav` (MIT)
-- module: ESM only
-- runtime: isomorphic node + browser; `createReadStream`/`createWriteStream` are node-only and throw in the browser, where `getFileContents`/`putFileContents` carry the transfer
-- rail: remote-origin row on `object/file`; the DAV protocol lane
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client factory, auth rows, and result shapes
 
@@ -35,7 +27,7 @@ It is a remote-origin row on the `object/file` plane — origin-addressed, capab
 [DISK_QUOTA]: `used` `available: "unknown"|"unlimited"|number`
 [LOCK_RESPONSE]: `serverTimeout` `token`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: census, transfer, namespace, and locks
 
@@ -59,7 +51,7 @@ It is a remote-origin row on the `object/file` plane — origin-addressed, capab
 |  [14]   | `getFileDownloadLink(filename)` / `getFileUploadLink(filename)`                                 | presigned basic-auth links         |
 |  [15]   | `registerTagParser(parser)` / `registerAttributeParser(parser)`                                 | custom DAV-prop parser             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `effect` (`.api/effect.md`): promise members lift through `Effect.tryPromise`; `createReadStream` through `NodeStream.fromReadable` and `createWriteStream` through `NodeSink.fromWritable` (`.api/effect-platform-node.md`), so transfers are backpressured `Stream`/`Sink`; a `putFileContents` `false` folds to the typed precondition-refused fact.
@@ -72,9 +64,3 @@ It is a remote-origin row on the `object/file` plane — origin-addressed, capab
 - Select transfer lane by runtime and size: streams on node, `getFileContents`/`putFileContents` in the browser, `range`/`partialUpdateFileContents` for resume where the capability flag proves support.
 - Read with `details: true` wherever the detailed response (status, headers, etag) feeds evidence; a bare body read that later re-stats is the double-round-trip defect.
 - Bound hostile XML through `entityDecoder` (`maxTotalExpansions`/`maxExpandedLength`) on untrusted origins; probe unknown servers with `getDAVCompliance` before relying on lock or search rows.
-
-[RAIL_LAW]:
-- Package: `webdav`
-- Owns: the DAV protocol lane — client factory with auth/transport rows, directory census, whole/ranged/streamed transfer, server-side copy/move, quota, RFC 4918 locks, partial updates, capability probing
-- Accept: scoped per-origin clients, `AuthType` rows over auth forks, `NodeStream`/`NodeSink` lifts on node, etag-diff poll watching, `details: true` responses, capability-flag degrade paths
-- Reject: browser calls into the stubbed stream members, credential literals, a second DAV wrapper, polling bodies where an etag diff suffices, treating a missing capability as an error instead of a degrade row

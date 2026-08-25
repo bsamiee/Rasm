@@ -2,16 +2,7 @@
 
 `scipy` owns the scientific numeric solver surface the compute numeric-intent rail routes onto. Each `NumericIntent` case binds one submodule callable and captures its tolerances and residuals as study evidence that graduates on the one rail, a consumer selecting its own substrate off the `Solve`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `scipy`
-- package: `scipy`
-- module: `scipy` (lint alias `sp`)
-- namespaces: `scipy.fft`, `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats` (`scipy.stats.qmc`), `scipy.spatial` (`scipy.spatial.distance`, `scipy.spatial.transform`)
-- rail: numeric-intent solver
-- capability: scientific solver suite — fast Fourier transforms, dense and sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics (distributions, hypothesis tests, QMC sampling), signal processing, and spatial neighbour/tessellation/rotation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sparse containers and solver result types
 
@@ -53,7 +44,7 @@
 
 `scipy` mints NO package-wide exception root: rows [02]/[03] are builtins the callers narrow on, and rows [01]/[04]/[05] are the only non-builtin classes the admitted surface raises. A `catch` tuple over the `io` lane is `(ValueError, OSError)`; over the `linalg`/`optimize` lane it leads with `LinAlgError`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `scipy.fft` pocketfft discrete Fourier and trigonometric transforms
 - carry: 1-D `(x, n, axis, norm)`; n-D `(x, s, axes, norm)`; `dct`/`dst` add `type`; `fftfreq`/`rfftfreq` `(n, d)`; `fftshift`/`ifftshift` `(x, axes)`.
@@ -246,7 +237,7 @@
 |  [11]   | `RigidTransform` \| `Rotation.align_vectors`                     | rigid / fit        | rigid transform, Kabsch alignment              |
 |  [12]   | `procrustes(data1, data2)` \| `geometric_slerp(start, end, t)`   | alignment / interp | similarity alignment + disparity, sphere slerp |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each `scipy` submodule owns one numeric domain, and the numeric-intent owner routes a `NumericIntent` case to exactly one submodule callable; the `[02]`/`[03]` tables own the member rosters.
@@ -262,9 +253,3 @@
 - routing: `NumericIntent` dense-linear -> `scipy.linalg`; sparse-solve -> `scipy.sparse.linalg`; nonlinear-optimize -> `scipy.optimize`; integrate -> `scipy.integrate`; interpolate -> `scipy.interpolate`.
 - evidence: each solve records the route callable, tolerance inputs, and convergence/residual (`OptimizeResult` flags or solver residual) on `Solve`.
 - boundary: scipy results graduate as evidence on the one rail, and benchmark claims stay branch-local, grading no peer runtime.
-
-[RAIL_LAW]:
-- Package: `scipy`
-- Owns: discrete Fourier transforms, dense/sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics (distributions, hypothesis tests, QMC), signal processing, and spatial query/tessellation/rotation for the numeric-intent rail
-- Accept: a `NumericIntent` case routed to a scipy submodule callable with captured tolerances and residuals
-- Reject: hand-rolled numeric kernels scipy owns (DFT, distance, distribution sampling); wrapper-renames of solver callables; product benchmark claims

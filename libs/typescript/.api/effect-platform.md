@@ -2,17 +2,7 @@
 
 `@effect/platform` mints the platform-neutral service-contract tier every host, wire, and serve boundary composes: the declarative HTTP-API family whose one contract value derives server, typed client, and OpenAPI spec; the system-API contracts as abstract `Context.Tag`s; and the frame codecs typing socket and worker transport end to end. Every contract binds no runtime of its own — a per-runtime package (`platform-node`, `-bun`, `-browser`) satisfies the `Layer` — so a domain folder codes once against `HttpClient`/`FileSystem`/`Worker` and the app root picks the runtime.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/platform`
-- package: `@effect/platform` (MIT)
-- module: ESM + CJS dual (`dist/esm`/`dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`@effect/platform/HttpApi`, `/FileSystem`, …)
-- runtime: platform-neutral abstract contracts — no runtime binding; a `platform-node`/`-bun`/`-browser` `Layer` satisfies each Tag
-- depends: `find-my-way-ts` (router match), `msgpackr` (`MsgPack`), `multipasta` (`Multipart`) bundled; peer `effect`
-- asset: pure-TypeScript runtime library (`.js` + `.d.ts`) — Tag contracts + `Schema`-typed endpoint declarations
-- rail: platform contracts — proc, net, serve, data
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: declarative HTTP-API — the contribution family `serve/api` assembles
 - rail: boundaries
@@ -56,7 +46,7 @@
 |  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail      |
 |  [09]   | `HttpIncomingMessage.withMaxBodySize`           | body policy   | `serve/route`, `net/client` — byte bound |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: declaring, handling, serving, and consuming an `HttpApi`
 - rail: boundaries
@@ -143,7 +133,7 @@
 |  [05]   | `Etag`                              | caching       | `serve/route` static-asset ETag generation and immutable-asset responses       |
 |  [06]   | `HttpTraceContext`                  | trace codec   | `otel` — W3C and B3 span context read from and written to the header frame     |
 
-## [04]-[MEMBER_SIGNATURES]
+## [03]-[MEMBER_SIGNATURES]
 
 Shipped declarations for the platform members whose call shape and behavioral contract a roster cell cannot carry — owning module, generic parameters, parameter lists, return types.
 
@@ -191,7 +181,7 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `HttpApiMiddleware.Tag`'s `security` record keys the credential decoders the implementation receives — `{ bearer: HttpApiSecurity.bearer }` hands it a `bearer: (token: Redacted<string>) => Effect` slot, so the scheme grammar carries the decode rather than a bare `Context.Tag`.
 - `securityDecode` never fails — an absent credential decodes to its scheme's empty carrier, so refusal is the guard implementation's verdict; a cookie-scheme guard decodes through the same member over `HttpApiSecurity.apiKey`'s cookie variant.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every system contract is a `Context.Tag` with no built-in binding: a domain folder yields the Tag inside `Effect.gen` and never imports a runtime, and the app root binds the `platform-node`/`-bun`/`-browser` `Layer`. Runtime portability follows — a bun swap is a `Layer` selection, not a fork.
@@ -215,9 +205,3 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `HttpClient.retryTransient`/`.filterStatusOk`/`.mapRequest` compose as policy on the shared `net/client` client.
 - `Schema` gates every edge — `schemaBodyJson`/`schemaHeaders`/`schemaSearchParams` on ingress, `schemaJson` on egress.
 - `MsgPack.duplexSchema`/`Ndjson.duplexSchema` over `Socket.toChannel` frames transport; `PlatformConfigProvider.layerDotEnv`/`.layerFileTree` behind `Config` sources env.
-
-[RAIL_LAW]:
-- Package: `@effect/platform`
-- Owns: the declarative HTTP-API family, `HttpClient`/`HttpServer`/`HttpRouter`/`HttpLayerRouter`, the web-value codecs (`HttpBody`/`Headers`/`Cookies`/`UrlParams`/`Url`/`Etag`/`Multipart`), the system-API Tags (`FileSystem`/`Path`/`KeyValueStore`/`Command`/`Terminal`/`Socket`/`Worker`), the frame codecs (`MsgPack`/`Ndjson`/`Transferable`/`Template`), and the config/logger/run-main boundary
-- Accept: abstract Tags provided by a runtime `Layer`, `HttpApi*` declarations + `HttpApiBuilder` handlers, `HttpClient` policy transformers, `Schema` decode/encode at every boundary, `MsgPack`/`Ndjson` over `Socket.toChannel`, `PlatformConfigProvider` behind `Config`
-- Reject: direct `node:*`/`undici`/`ws`/`fetch` imports in domain code, hand-rolled routers where a declarative `HttpApi` fits, untyped request/response bodies, raw socket listeners or length-prefix parsers, `process.env` reads outside the config provider

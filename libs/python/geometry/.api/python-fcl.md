@@ -2,16 +2,7 @@
 
 `python-fcl` owns the geometry branch's narrow-phase collision, signed-distance, and continuous-collision engine: a `CollisionObject` pairs a primitive or `BVHModel` mesh with a rigid `Transform`, `collide`/`distance`/`continuousCollide` resolve one request-response query per call, and `DynamicAABBTreeCollisionManager` folds group queries onto a broadphase AABB tree. Its `mesh/spatial` CORE-clearance arm composes signed `distance` with the group manager for exact mesh-mesh separation, falling through to the `manifold3d` `min_gap` scalar when the `fcl` import is unavailable.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-fcl`
-- package: `python-fcl` (BSD-3-Clause)
-- import: `lazy import fcl`
-- owner: `geometry`
-- rail: mesh/spatial / clearance-enrichment
-- capability: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact; primitive and triangular-mesh geometries; rigid `Transform` poses; broadphase AABB-tree collision/distance managers for one-to-many and many-to-many group queries
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry and object family
 
@@ -44,7 +35,7 @@ Each query kind is one request-and-result pair; the manager wraps that pair in a
 |  [08]   | `DynamicAABBTreeCollisionManager` | broadphase       | broadphase AABB tree over the managed `CollisionObject` set               |
 |  [09]   | `CollisionData` / `DistanceData`  | manager carrier  | request-response pair + `done` flag for the recursive callback            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pairwise queries
 
@@ -70,7 +61,7 @@ Each pairwise query populates a request, allocates an empty result, calls the fr
 |  [06]   | `manager.distance(ddata, callback)`                     | internal n²    | closest distance across the managed set                       |
 |  [07]   | `defaultCollisionCallback` / `defaultDistanceCallback`  | callback       | stock recursion-terminating callbacks over the `Data` carrier |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `fcl` binds as one module-scope `lazy import fcl`, the proxy reifying on the first narrow-phase call so a consumer touching no clearance arm never pays the native load; an unavailable import stays a probed capability the fall-through handles, never an unconditional one.
@@ -85,9 +76,3 @@ Each pairwise query populates a request, allocates an empty result, calls the fr
 
 [LOCAL_ADMISSION]:
 - `python-fcl` is the admitted narrow-phase collision and signed-distance backend for the geometry branch; the `mesh/spatial` clearance owner composes it rather than a parallel GJK/EPA or BVH-traversal surface.
-
-[RAIL_LAW]:
-- Package: `python-fcl`
-- Owns: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact, primitive and BVH/Convex/OcTree geometries, rigid poses, and broadphase AABB-tree collision/distance managers
-- Accept: the `mesh/spatial` CORE-clearance arm's exact signed separation and group broadphase clearance
-- Reject: wrapper-renames of `collide`/`distance`; a hand-rolled GJK/EPA or BVH traversal where fcl is admitted; a query-per-geometry function family over the request-result pipeline; treating an unavailable `fcl` import as a hard failure rather than the `manifold3d` fall-through

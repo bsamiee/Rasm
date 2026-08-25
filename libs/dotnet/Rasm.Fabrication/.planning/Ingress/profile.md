@@ -25,7 +25,7 @@
 - Boundary: the notice cell, the byte snapshot, and the disposable partial readers are the provider statement kernel — every `CadDocument` and `Entity` terminates here and no provider type reaches the canonical owner; documented BCL file-availability exceptions lower to caused `IngressProviderUnavailable`, while ACadSharp and callback throws retain the exact exceptional `Error`. `ProfileCensus` holds the provider notifications once, so no later stage re-reads them; `ProfilePolicy` decides which lanes owe closure, so a bend or etch run never fails a healed import and a reference layer is censused then discarded; a rejected notice kind lowers to `IngressTranslation` on the source locus before any contour is built.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
 using System.Linq;

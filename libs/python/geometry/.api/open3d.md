@@ -4,16 +4,7 @@
 
 Its `registration_fgr_based_on_feature_matching` and `registration_ransac_based_on_feature_matching` paths are the coarse global-registration arm of the point-cloud registration union, each emitting a rigid transform that seeds the fine `small_gicp` refinement.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `open3d`
-- package: `open3d` (MIT)
-- import: `import open3d`
-- owner: `geometry`
-- rail: scan / coarse registration / reconstruction
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry roots (`open3d.geometry`)
 
@@ -57,7 +48,7 @@ Its `registration_fgr_based_on_feature_matching` and `registration_ransac_based_
 |  [01]   | `t.geometry.PointCloud`                       | tensor point cloud | `.point` `TensorMap` attributes plus `to_legacy()` bridge      |
 |  [02]   | `t.pipelines.registration.RegistrationResult` | tensor reg result  | `.transformation` `core.Tensor` plus `.fitness`/`.inlier_rmse` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cloud filter, segment, and reconstruct
 
@@ -138,7 +129,7 @@ Array-bridge accessors cross the open3d boundary into numpy: legacy `geometry` b
 |  [06]   | `io.read_pose_graph`             | read           | read a pose graph                  |
 |  [07]   | `io.read_feature`                | read           | read an FPFH feature               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - cloud axis: one `PointCloud` owns points/colors/normals/covariances; downsampling is a method row (`voxel_down_sample`, `uniform_down_sample`, `farthest_point_down_sample`), never parallel subclasses, and `KDTreeSearchParamHybrid`/`KNN`/`Radius` parameterize normal and feature search.
@@ -161,9 +152,3 @@ Array-bridge accessors cross the open3d boundary into numpy: legacy `geometry` b
 [LOCAL_ADMISSION]:
 - import `open3d` at boundary scope only.
 - open3d owns point-cloud registration and reconstruction; triangle-mesh exchange routes to `trimesh`/`meshio`, LAS/LAZ scan IO to `laspy`, E57 to `pye57`, and live visualization stays outside the headless boundary.
-
-[RAIL_LAW]:
-- Package: `open3d`
-- Owns: point-cloud/mesh IO, downsampling, normal estimation, outlier removal, plane and DBSCAN segmentation, ICP and global registration, multiway pose-graph optimization, and surface reconstruction
-- Accept: 3D-scan processing and registration feeding the scan and geometry owners
-- Reject: hand-rolled ICP, FPFH, or Poisson reconstruction where open3d is admitted; an ICP function family over the `TransformationEstimation*` argument row; a per-algorithm reconstruction mode flag; identity minting the runtime owns

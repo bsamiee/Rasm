@@ -2,28 +2,7 @@
 
 `Xaml.Behaviors.Avalonia` attaches declarative behavior, trigger, and action graphs to Avalonia controls, holding view-models free of code-behind gesture, timing, picker, drag, clipboard, and HTTP plumbing. Kernel `Avalonia.Xaml.Interactivity` is the sole derive-from base; every other assembly attaches as a XAML leaf, feeding the behaviors rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Xaml.Behaviors.Avalonia`
-- package: `Xaml.Behaviors.Avalonia` (MIT)
-- assembly: meta-package with no own `lib/`; resolves to `Avalonia` and the `Xaml.Behaviors.*` `lib/net8.0` assemblies the `[01]` table rosters
-- namespace: `Avalonia.Xaml.Interactivity`, `Avalonia.Xaml.Interactions.*` (never the `Xaml.Behaviors.*` package tokens)
-- target: `net8.0` assets bind under the `net10.0` consumer
-- rail: behaviors
-
-Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xaml.` roots.
-
-| [INDEX] | [ASSEMBLY]                 | [NAMESPACE]                            | [CAPABILITY]              |
-| :-----: | :------------------------- | :------------------------------------- | :------------------------ |
-|  [01]   | `Interactivity`            | `Interactivity`                        | kernel and attachment     |
-|  [02]   | `Interactions`             | `Interactions.Core/FileSystem/Network` | core and boundary actions |
-|  [03]   | `Interactions.Custom`      | `Interactions.Custom`                  | custom behavior library   |
-|  [04]   | `Interactions.DragAndDrop` | `Interactions.DragAndDrop`             | managed drag and drop     |
-|  [05]   | `Interactions.Draggable`   | `Interactions.Draggable`               | layout drag and reorder   |
-|  [06]   | `Interactions.Events`      | `Interactions.Events`                  | routed-event pairs        |
-|  [07]   | `Interactions.Responsive`  | `Interactions.Responsive`              | adaptive class setters    |
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [KERNEL_TYPES]: `Avalonia.Xaml.Interactivity` — behavior/trigger/action bases, attach point, comparator enum
 
@@ -149,7 +128,7 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 |  [01]   | `AdaptiveBehavior` / `AdaptiveClassSetter`       | behavior      | dimension breakpoints |
 |  [02]   | `AspectRatioBehavior` / `AspectRatioClassSetter` | behavior      | ratio breakpoints     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ATTACH_ENTRYPOINTS]: `Interaction` static accessors and `Behavior` lifecycle — XAML attaches a `BehaviorCollection` via `i:Interaction.Behaviors`; code paths use the static accessors, and a `DisposingBehavior` keys Rx subscriptions to the lifecycle hooks.
 
@@ -214,7 +193,7 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 |  [10]   | `ListReorderDragBehavior.PlaceholderTemplate`                        | drop placeholder   |
 |  [11]   | `AdaptiveBehavior.ClassSetters` / `AspectRatioBehavior.ClassSetters` | breakpoint classes |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Kernel `…Interactivity` is the sole derive-from surface; every other assembly attaches as a XAML leaf.
@@ -234,9 +213,3 @@ Assembly and namespace cells drop the shared `Xaml.Behaviors.` and `Avalonia.Xam
 - Gate data with `DataTriggerBehavior` (single `ComparisonConditionType` predicate) or `MultiDataTriggerBehavior` (AND of `Condition` rows); `ComparisonConditionType` is the canonical comparator.
 - Route a gesture through its `Interactions.Custom` `<Gesture>GestureTrigger` row: the subclass names the `InputElement` event, so a hand-wired `Tapped`/`Pinch`/`Holding`/touchpad handler and a `GestureRecognizers` fork are both deleted. `RoutedEventTriggerBehavior` is the escape hatch a named-event trigger cannot cover — a tunnelling strategy, a non-self source, or a handled-marking requirement — never a second spelling of an already-minted `<Event>EventTrigger`.
 - Picker, file-system, and network actions stay behind the command and permission boundary, mapping the selected token to a domain path at the command edge rather than mutating the file system in place.
-
-[RAIL_LAW]:
-- Package: `Xaml.Behaviors.Avalonia`
-- Owns: declarative behavior, trigger, and action attachment across command, data, timing, picker, clipboard, file-system, network, drag/drop, routed-event, and responsive concerns
-- Accept: control adaptation expressed as an attached `Behavior`/`Trigger`/`Action`; the base hierarchy for any Rasm-owned behavior
-- Reject: code-behind gesture, timing, or picker forks; re-implementing throttle, debounce, or drag plumbing an admitted behavior owns

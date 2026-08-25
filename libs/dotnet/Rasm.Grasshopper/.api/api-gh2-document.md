@@ -2,18 +2,7 @@
 
 `Grasshopper2` is the Rhino 9 WIP visual-programming host, and its `Document` is the single mutable authority over one canvas definition. Every structural change enters through `DocumentMethods` (or `Grasshopper2.Parameters.Connections` for wire mutation) paired with a `Grasshopper2.Undo.ActionList`, so a mutation and its undo record seal as one act. Graph traversal reads through `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s, and execution runs on `SolutionServer` publishing the solution lifecycle over `Solution`/`SolutionRecord` phase state.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grasshopper2` document graph
-- host: `Grasshopper2.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
-- namespace: `Grasshopper2.Doc` — document graph, object list, connectivity, solution server
-- namespace: `Grasshopper2.Doc` — `IAttributes` layout and draw contract; the concrete `Attributes<T>`/`ComponentAttributes`/`ResizableAttributes<T>` bases are `api-gh2-components.md`'s
-- namespace: `Grasshopper2.Parameters` — wire mutation, parameter and pin endpoints
-- namespace: `Grasshopper2.Undo` / `Grasshopper2.Undo.Actions` — undo history and action records
-- namespace: `Grasshopper2.Framework` / `GrasshopperIO` — snippet and `IWriter`/`IStorable` persistence seam
-- rail: gh2-document-graph
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, mutation verbs, object list
 
@@ -57,7 +46,7 @@
 |  [08]   | `Node` / `Record`              | class        | an undo-tree node and the replayable action record it carries                  |
 |  [09]   | `VerbNoun`                     | struct       | the verb-plus-noun label naming one undoable act                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle, persistence, state
 
@@ -189,7 +178,7 @@ Solution events fire in the listed lifecycle order; document, object-list, and h
 - `SolutionServer.ExpireDelayedObjects` is `private`: the server drains its own deferred queue at run start, and there is no consumer-drivable flush.
 - `SolutionRecord.ExpiredCount`, `SolvedCount`, and `Progress` are auto-properties its only constructor never assigns — every record reads them as zero, so they are a structural zero, not a measurement.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Document` is the single authority over its graph; `ObjectList` is the membership index and `Connectivity` the read view, and no object exists in the graph without an `ObjectList` entry.
@@ -205,9 +194,3 @@ Solution events fire in the listed lifecycle order; document, object-list, and h
 [LOCAL_ADMISSION]:
 - `Rasm.Grasshopper` owns the document graph as its folder domain, composing the Rasm kernel for host-agnostic logic and referencing no sibling Rasm package.
 - Every mutation enters the folder owner through one `ActionList`-carrying verb; a mutation without its undo record is not admitted.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (document graph)
-- Owns: the `Document`/`ObjectList`/`DocumentMethods` graph, `Connectivity` traversal, `Connections` wire mutation, `SolutionServer` execution, and `History` undo branching
-- Accept: graph query, `ActionList`-recorded mutation, solution lifecycle control, and undo-tree navigation over document objects
-- Reject: canvas paint and picking (`api-gh2-canvas`), component execution and pin typing (`api-gh2-components`), and canvas interaction and layout (`api-gh2-interaction`)

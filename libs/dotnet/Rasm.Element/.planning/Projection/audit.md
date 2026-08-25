@@ -26,7 +26,7 @@
 - Boundary: `Quantified` and `Propertied` require a NON-EMPTY bag, not a bound one — an `Assign.PropertyDefinition` edge onto an empty bag is a binding, not evidence, and counting it reads the scaffolding as the content.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph.Algorithms;

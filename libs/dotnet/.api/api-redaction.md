@@ -2,24 +2,7 @@
 
 `Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress seam, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the seam with no intermediate string on the sized path. `Microsoft.Extensions.Compliance.Abstractions` carries the taxonomy, the redactor base, and the provider and builder contracts, so a branch that annotates and reads pins it alone and never sees the registration fold.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
-- package: `Microsoft.Extensions.Compliance.Redaction` (MIT)
-- assembly: `Microsoft.Extensions.Compliance.Redaction`
-- namespace: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library carrying the registration fold and the two configurable redactor implementations
-- rail: redaction
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Abstractions`
-- package: `Microsoft.Extensions.Compliance.Abstractions` (MIT)
-- assembly: `Microsoft.Extensions.Compliance.Abstractions`
-- namespace: `Microsoft.Extensions.Compliance.Classification`, `Microsoft.Extensions.Compliance.Redaction`, `System.Text`
-- asset: contract library a branch pins alone to annotate and to read a redactor it never registers
-- rail: classification
-- ruled gate: `EXTEXP0002` on `DataClassificationTypeConverter`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [REDACTION_TYPES]: redactor base, resolution, and egress contracts (contract assembly)
 
@@ -57,7 +40,7 @@
 
 - `DataClassification`: carries its own `[TypeConverter]`, so a configuration-bound value round-trips `Taxonomy:Value` with no converter registration.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration on `IServiceCollection`, mapping on `IRedactionBuilder`, resolution on `IRedactorProvider`
 
@@ -114,7 +97,7 @@
 
 - `KeyId`: values hashed under different key ids never correlate, so a key rotation cuts correlation at the rotation.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IRedactorProvider` resolves one `Redactor` per set from a frozen map built at registration, so an egress read costs a hash lookup.
@@ -137,9 +120,3 @@
 - `GetRedactor` is the read seam at every exporter and bundle egress; a classified value reaches a sink through the redactor it resolves.
 - Annotate-and-read branches pin `Microsoft.Extensions.Compliance.Abstractions` alone; the composition root pins `Microsoft.Extensions.Compliance.Redaction` and owns the one `AddRedaction` fold.
 - `DataClassificationTypeConverter` binds under `EXTEXP0002` acknowledged as a declared policy value at the owning project row.
-
-[RAIL_LAW]:
-- Packages: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.Compliance.Abstractions`
-- Owns: the classification taxonomy, the span-write redaction contract, and classification-keyed redactor resolution
-- Accept: declared classification sets mapped at one registration fold, HMAC key identity bound from configuration
-- Reject: ad hoc string masking at a call site; a second redaction builder beside the composition-root fold

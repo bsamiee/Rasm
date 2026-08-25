@@ -2,17 +2,7 @@
 
 `@perspective-dev/client` owns the millions-of-rows streaming-analytics engine: a WASM core holds appendable indexed `Table`s from which `View`s materialize, each maintained INCREMENTALLY as updates land. One `Client` API fronts an in-page `worker()`, a remote `websocket(url)` host, or a `VirtualServerHandler` over a foreign SQL source — data location is a wiring decision, never an API fork. Arrow is the wire: `Table` ingests IPC buffers, `View.to_arrow()` emits them, and `with_typed_arrays` lends decoded typed arrays with no copy.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@perspective-dev/client`
-- package: `@perspective-dev/client` (Apache-2.0)
-- module: `sideEffects: false`; `.` condition-splits `node` (synchronous singleton client + `WebSocketServer` host) against the browser Worker/WASM boot; subpaths `./node`, `./inline`, and `./virtual_servers/*`, with the WASM inlined by the consuming bundler
-- inline: `./inline` self-boots on import — it embeds the wasm32 engine and the client wasm and calls `init_server`/`init_client` itself, so it forecloses any bitness registration and a Memory64 surface never rides it
-- runtime: isomorphic browser + node — one `Client`/`Table`/`View` surface, the node build swapping Worker spawn for a required `MessagePort`; no peers
-- depends: `@perspective-dev/server` (the engine binary, lockstep), `pro_self_extracting_wasm`, `ws` + `stoppable` (node host only)
-- plane: `plane:runtime` (W4 `ui`); rail: streaming tabular analytics — the pivot/aggregation engine
-
-## [02]-[CLIENT_AND_TABLE]
+## [01]-[CLIENT_AND_TABLE]
 
 [PERSPECTIVE]: `perspective.worker(Promise<SharedWorker|ServiceWorker|Worker|MessagePort>?) -> Promise<Client>` `perspective.websocket(string|URL) -> Promise<Client>` `perspective.init_client(PerspectiveWasm,boolean?) -> void` `perspective.init_server(ServerWasmSource|ServerWasmRegistration,boolean|InitServerOptions?) -> void` `perspective.getCompiledClientWasm() -> Promise<WebAssembly.Module>` `perspective.host_supports_memory64() -> boolean` `perspective.createMessageHandler(VirtualServerHandler) -> Promise<MessagePort>`
 [CLIENT]: `Client.table(string|ArrayBuffer|Record<string,unknown[]>|Record<string,unknown>[]|Record<string,ColumnType>,TableInitOptions?) -> Promise<Table>` `Client.open_table(string) -> Promise<Table>` `Client.join(Table|string,Table|string,string,JoinOptions?) -> Promise<Table>` `Client.get_hosted_table_names() -> Promise<string[]>` `Client.on_hosted_tables_update(Function) -> Promise<number>` `Client.remove_hosted_tables_update(number) -> Promise<void>` `Client.system_info() -> Promise<SystemInfo>` `Client.new_proxy_session(Function) -> ProxySession` `Client.on_error(Function) -> Promise<number>` `Client.__unsafe_open_view(string) -> View` `Client.terminate() -> any`
@@ -24,7 +14,7 @@
 - `Client`, `Table`, and `View` each implement `[Symbol.dispose]()`, so a `using` binding releases the handle at scope exit and an explicit `delete()`/`terminate()` is the non-lexical path.
 - `Client.__unsafe_open_view` re-opens a `View` by the raw id `View.__unsafe_get_name()` yields, the only route across a Worker boundary the handle wrapper cannot be cloned over; the caller guarantees the id names a live `View` on the connected server.
 
-## [03]-[VIEW_PROTOCOL]
+## [02]-[VIEW_PROTOCOL]
 
 `ViewConfigUpdate` is the whole query surface; `expressions` validate through `Table.validate_expressions`, and `windows` declares rolling computations symmetric with them:
 
@@ -57,7 +47,7 @@ Filter operators: the ordering and identity set (`==` `!=` `>` `<` `>=` `<=` `is
 - `ViewWindow.emit_legacy_row_path_names` names group-by columns `"colname (Group by N)"` when true (the default) and `__ROW_PATH_N__` when false, matching the SQL backend.
 - `TypedArrayWindow` extends `ViewWindow` with `float32`, which is NON-OPTIONAL on the type though the engine defaults it, so every window value spells it. `float32: true` narrows Float64 AND Int64 columns to `Float32Array` — the Int64 narrowing is undocumented — while Date32 and Timestamp DELIBERATELY stay `Float64Array`, because epoch milliseconds in f32 quantize to roughly a quarter second; a consumer expecting narrowed dates reads the wrong array class.
 
-## [04]-[HOST_TOPOLOGY]
+## [03]-[HOST_TOPOLOGY]
 
 - Browser: `worker()` runs the engine in a dedicated/shared Worker off the UI thread; `init_server` registers the engine binary and `getCompiledClientWasm()` hands a spawned Worker a structured-cloneable module to self-instantiate its `Client` with no re-fetch.
 - Bitness: `init_server(ServerWasmSource | { wasm32?, wasm64? })` registers the engine binaries; a `ServerWasmSource` may be a `Uint8Array`, `ArrayBuffer`, `Response`, `WebAssembly.Module`, a promise of those, or a `() => Promise<ArrayBuffer | Response | WebAssembly.Module>` THUNK, and only the thunk form guarantees the losing bitness never downloads. Selection and download DEFER to the first `worker()` call; a registration carrying neither key throws.
@@ -66,7 +56,7 @@ Filter operators: the ordering and identity set (`==` `!=` `>` `<` `>=` `<=` `is
 - Node: `PerspectiveServer` (with `make_session` / `make_client`) and the `WebSocketServer` adapter publish named `Table`s over `ws`; a browser client attaches through `websocket(url)` then `open_table(name)`, and every client's `View`s update incrementally off the server's indexed feed. `WebSocketServer` is a reference integration carrying no authentication, authorization, origin enforcement, or rate limiting.
 - Virtual servers: a `VirtualServerHandler` answers the protocol over any foreign source, `createMessageHandler` binds it to a `MessagePort`, `VirtualDataSlice` accepts the typed column writes, and `Features` declares which pivots, filter operators, aggregates, and window aggregates that source supports. `./virtual_servers/duckdb` ships `DuckDBHandler` over `@duckdb/duckdb-wasm` and `./virtual_servers/clickhouse` ships `ClickhouseHandler`; `GenericSQLVirtualServerModel` builds the SQL a custom handler executes.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `validate_expressions` declares `Promise<any>` and the distribution ships no typed verdict, so a consumer DECODES the report rather than asserting it — refusals ride an `errors` map keyed by expression alias whose value carries the engine's own `error_message`, the accepted half rides `expression_schema`, and `expression_alias` carries the retained aliases; asserting that shape as a type reads a record the package never promised.
@@ -80,9 +70,3 @@ Filter operators: the ordering and identity set (`==` `!=` `>` `<` `>=` `<=` `is
 - `@effect-atom/atom-react`(`.api/effect-atom-atom-react.md`): each handle is a `Scope`-bracketed resource with explicit `delete()`; `on_update`/`on_error` bridge into streams at the async seam and their `remove_update`/`remove_delete` ids are the unsubscribe the bracket releases, and a rendered surface's `ViewConfigUpdate` derives from an atom — a config change creates a new `View` and deletes the old.
 - `@perspective-dev/viewer`(`.api/perspective-dev-viewer.md`): the viewer element consumes this client's `Table` via `load()` and drives its own `View` lifecycle; headless consumers (exports, alerts, derived feeds) hold `View`s directly.
 - `@tanstack/react-table`(`.api/tanstack-react-table.md`): boundary — the `Grid` fold owns interactive accessible grids over client-modeled rows, perspective owns engine-scale streaming pivot/aggregation over a feed; derivation locus decides, client-modeled rows to `Grid` and engine-maintained aggregates to perspective, one surface never both.
-
-[RAIL_LAW]:
-- Package: `@perspective-dev/client`
-- Owns: the streaming analytics engine — engine-binary registration and bitness selection, Client/Table/View lifecycle, indexed / limited / spill / list-flatten table modes, the `ViewConfigUpdate` query vocabulary, the aggregate and window-aggregate rosters, ExprTK expression columns, reactive `join`, Arrow ingress/egress/deltas/typed-array lending, and the worker / websocket / virtual-server / node-publisher host topologies.
-- Accept: Arrow as the only inter-engine format; one explicit idempotent `init_server` owner registering thunk sources per bitness; table modes chosen per feed; view configs as atom-derived values rotated create-new-delete-old; `windows` for rolling computations a hand-folded column would restate, gated locally before they ship; `validate_expressions` before shipping an expression; `open_table` against host-published names; `Scope`-bracketed `delete()` on every handle.
-- Reject: JSON round-trips between Arrow-capable engines; a hand-maintained aggregate, join, or rolling-window copy beside a live `View`; polling where `on_update` streams; engine work on the UI thread when `worker()` exists; a leaked handle or a typed-array view outliving its callback's settlement; a borrowed array crossing a stream boundary; `init_server` as an import side effect or a second registration under a live client; perspective standing in for the `Grid` interactive-collection regime.

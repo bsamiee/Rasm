@@ -2,18 +2,7 @@
 
 `PollinationSDK` owns the Pollination cloud compute transport: the OpenAPI `*Api` REST clients, the `Client.Configuration` token-auth surface, and the `Wrapper` job/run/asset orchestration. Two folders split one run: `Rasm.Compute` holds the `EnergyRoute.Cloud` dispatch policy — which recipe, which `ElementGraph`-derived inputs, and whether the cloud arm or the local `EnergyToolchain` subprocess runs — while the durable result half lands across three `Rasm.Persistence` owners — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the run index at `Query/cache#ARTIFACT_BLOB_INDEX`. Sidecar isolation binds it outside-Rhino behind the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure and a local `Microsoft.Data.Sqlite` cache, never loaded by the plugin assembly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PollinationSDK`
-- package: `PollinationSDK` (MIT)
-- assembly: `PollinationSDK`
-- namespace: `PollinationSDK` (model DTOs), `.Api` (REST clients), `.Client` (config/auth/serialization), `.Wrapper` (orchestration), `.Interface.*` (recipe/job/io model)
-- depends: `LBT.RestSharp` (RestSharp-106 fork; HTTP transport), `LBT.Newtonsoft.Json` (Newtonsoft fork; JSON via `AnyOfJsonConverter`/`OpenAPIDateConverter`), `Microsoft.Data.Sqlite` (the `Wrapper.LocalDatabase` cache; native `e_sqlite3`)
-- target: `netstandard2.0` (the sole TFM; a `net10.0` consumer binds `lib/netstandard2.0`)
-- asset: runtime library, pure-managed AnyCPU; the only native floor is the transitive `Microsoft.Data.Sqlite` `e_sqlite3`
-- rail: cloud-run
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK.Client` infrastructure
 
@@ -59,16 +48,16 @@
 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK` model DTOs (transport payloads)
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------------- | :------------ | :----------------------------------------------- |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------- | :------------ | :------------------------------------------------ |
 |  [01]   | `Job` `CloudJob` `CloudJobList` `CreatedContent`         | job           | job body, cloud state, list page, created content |
-|  [02]   | `Run` `StepStatus` `JobStatusEnum` `RunStatusEnum`       | run           | run state, per-step status, status discriminants |
-|  [03]   | `Project` `ProjectCreate`                                | project       | project transport and create body                |
-|  [04]   | `ProjectRecipeFilter` `ProjectAccessPolicyList`          | access        | recipe-filter and access policy                  |
-|  [05]   | `S3UploadRequest` `KeyRequest` `FileMeta` `FileMetaList` | artifact      | presigned-S3 upload, key request, metadata       |
-|  [06]   | `RecipeInterface` `Inputs` `Outputs` (`.Interface.Io.*`) | recipe        | the recipe interface model `JobInfo` builds from |
+|  [02]   | `Run` `StepStatus` `JobStatusEnum` `RunStatusEnum`       | run           | run state, per-step status, status discriminants  |
+|  [03]   | `Project` `ProjectCreate`                                | project       | project transport and create body                 |
+|  [04]   | `ProjectRecipeFilter` `ProjectAccessPolicyList`          | access        | recipe-filter and access policy                   |
+|  [05]   | `S3UploadRequest` `KeyRequest` `FileMeta` `FileMetaList` | artifact      | presigned-S3 upload, key request, metadata        |
+|  [06]   | `RecipeInterface` `Inputs` `Outputs` (`.Interface.Io.*`) | recipe        | the recipe interface model `JobInfo` builds from  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: auth and client construction over `Configuration`
 
@@ -142,7 +131,7 @@ No shared async tail exists — the progress delegate is named per member and a 
 
 Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHttpInfoAsync` returning `ApiResponse<T>`. Every op leads `(string owner, string name, …)` and closes on `CancellationToken cancellationToken = default` — `ProjectsApi.CreateProjectAsync` leads on `owner` ALONE and `ProjectsApi.ListProjectsAsync` leads on neither, so a positional call written against the two-leader shape binds the wrong argument. `JobsApi.CreateJobAsync` is the sole op carrying `string authorization = null, string xPollinationToken = null` before the token; reading that pair as the shared skeleton mis-positions the token on every other op. `ListJobsAsync` filters are `List<string> ids`, `JobStatusEnum? status`, `DateTime? createdAfter`, `DateTime? createdBefore`, `int? page`, `int? perPage`; the delete legs (`DeleteArtifactAsync`, `DeleteProjectAsync`) return bare `Task` and carry no body to inspect.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the Persistence folder's `Newtonsoft.Json` and its System.Text.Json rails, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
@@ -159,9 +148,3 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 [LOCAL_ADMISSION]:
 - No in-Rhino plugin assembly admits `PollinationSDK` or its RestSharp-106/Newtonsoft-fork closure; the SDK and its SQLite cache load only on the cloud-run sidecar.
 - `EnergyRoute.Cloud` is one dispatch arm of `Analysis/energy`, selected against the local `EnergyToolchain` subprocess arm; token auth is app-root connection input handed to `Configuration`/`TokenRepo`, never a Compute fence member.
-
-[RAIL_LAW]:
-- Package: `PollinationSDK` (MIT)
-- Owns: the Pollination cloud compute transport — the `*Api` REST clients, `Configuration`/`TokenRepo` auth, `Wrapper` job/run/asset orchestration, and the model DTOs
-- Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the dispatch half at `Rasm.Compute`, the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ARTIFACT_BLOB_INDEX`, artifact bytes transferred via the object-store owner
-- Reject: loading the SDK or its forks in the in-Rhino assembly; a second S3 uploader where the object-store owner holds the plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; exception-message reminting into an expected cloud fault; treating the netstandard2.0 floor as a net8+ surface

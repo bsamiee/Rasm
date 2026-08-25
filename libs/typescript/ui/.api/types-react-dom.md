@@ -2,16 +2,7 @@
 
 `@types/react-dom` is the declaration-only `.d.ts` surface for the `react-dom` runtime (`.api/react-dom.md`), peer-locked to `@types/react` (`.api/types-react.md`) and sharing its `ReactNode`/`ReactElement`/`Ref` vocabulary across three disjoint planes: `react-dom/client` mounts (`createRoot`/`hydrateRoot`), `react-dom` the in-tree DOM API a `view` row reaches for (`createPortal`/`flushSync`/resource hints/`useFormStatus`), and `react-dom/server`+`react-dom/static` the SSR/prerender streaming.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@types/react-dom`
-- package: `@types/react-dom` (MIT)
-- module: declaration-only `.d.ts`; subpaths `.` (in-tree DOM API), `./client` (`createRoot`/`hydrateRoot`), `./server` + `./server.{node,browser,bun,edge}` (SSR streaming), `./static` + `./static.{node,browser,edge}` (prerender), `./canary`, `./experimental`
-- asset: no runtime, no ABI — `tsc` is the gate; peer-locked to `@types/react` (`.api/types-react.md`) sharing `ReactNode`/`ReactElement`/`Ref`, and consumed as the `react-dom` runtime's types (`.api/react-dom.md`)
-- marker: the server/static subpaths declare ambient `ReadableStream`/`WritableStream`/`AbortSignal` global stubs — a Node vs Web runtime is selected by subpath, never a flag
-- rail: the DOM-renderer type surface — `tsc` gates the three planes (client mount, in-tree DOM API, server/static render), no runtime output to test
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client mount types, the root + React error triple — `createRoot`/`hydrateRoot` option and result types fold error handling into the root, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` replacing the ad-hoc boundary-only model and `identifierPrefix` scoping `useId`; `ui` never imports `browser`, so these are consumed at the app composition root that boots the tree, not inside a `view` row.
 
@@ -45,7 +36,7 @@ Every row is consumed at app-ssr (edge for the Web stream).
 |  [03]   | `BootstrapScriptDescriptor` / `ReactImportMap`     | shell asset     | bootstrap `src`/`integrity`/`crossOrigin`; importmap     |
 |  [04]   | `PostponedState` / `ResumeOptions`                 | resumable state | opaque prerender state `resume`/`resumeAndPrerender` use |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the client mount — `createRoot` (CSR) and `hydrateRoot` (SSR-hydration) are the only mounts, `ReactDOM.render`/`hydrate` removed; called at the app root that boots `ui` components, where `ui` declares its runtime ports, `browser` binds the Layers, and the app root mounts.
 
@@ -80,7 +71,7 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 |  [03]   | `renderToString` / `renderToStaticMarkup`                                           | sync SSR       | non-streaming string render       |
 |  [04]   | `prerender` / `prerenderToNodeStream` / `resume` / `resumeAndPrerender`             | prerender      | `PostponedState` resume; PPR seam |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Three disjoint planes by subpath: `react-dom/client` mounts (`createRoot`/`hydrateRoot` — app boot), `react-dom` is the in-tree DOM API (`createPortal`/`flushSync`/resource-hints/`useFormStatus` — `view` rows), and `react-dom/server`+`react-dom/static` stream SSR/prerender output (app SSR); a `ui` row touches only the middle plane, the mount and the stream app/`browser`-root concerns because `ui` never imports `browser`.
@@ -105,9 +96,3 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 - Root overlays through `react-aria`'s `Overlay`/`UNSAFE_PortalProvider` (which owns `createPortal`), not a bare `createPortal` call — the aria layer owns dismiss/focus/scroll-lock around the portal.
 - Reach for `flushSync` only where a downstream synchronous read requires it (focus restore, transition capture); default to React's async commit. Never call `unstable_batchedUpdates` — React auto-batches.
 - Hint assets with `preload`/`preinit` + the correct `as`; never inject `<link rel=preload>` by hand or through a head-manager — React hoists metadata natively.
-
-[RAIL_LAW]:
-- Package: `@types/react-dom`
-- Owns: the DOM renderer type surface across three planes — the `react-dom/client` mount (`createRoot`/`hydrateRoot`, `RootOptions`/`HydrationOptions` + the React error triple), the in-tree DOM API (`createPortal`/`flushSync`/`useFormStatus`/`requestFormReset` + the `preload`/`preinit`/`prefetchDNS`/`preconnect` resource-hint space), and the `react-dom/server`+`react-dom/static` render space (`renderToPipeableStream`/`renderToReadableStream`/`renderToString`/`prerender`/`resume`)
-- Accept: `createPortal`/`flushSync` in `view` rows (via `react-aria` overlays), the resource hints discriminated by `as`, `useFormStatus` in a `FormBinding`, `createRoot`/`hydrateRoot` at the app boot root, `renderTo*` behind the `@effect/platform` SSR response, the peer `@types/react` element vocabulary
-- Reject: `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` (removed), an action's own value read here where `react` `useActionState` owns it, `unstable_batchedUpdates` for batching (auto-batched), a bare `createPortal` without the `react-aria` overlay layer, hand-injected `<link rel=preload>`/head-manager metadata, `createRoot`/`renderTo*` inside a `ui` `view` row

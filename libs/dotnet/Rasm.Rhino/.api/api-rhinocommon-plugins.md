@@ -2,15 +2,7 @@
 
 `Rhino.PlugIns` binds managed code into the host through one subclassed `PlugIn` per package, its render, digitizer, and file-dialog specializations, and the license surface that owns the Zoo/CloudZoo entitlement rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon plug-in binding surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- namespace: `Rhino.PlugIns`, `Rhino.FileIO` (`FileType`)
-- asset: `RhinoCommon.dll` — the in-process managed host assembly
-- rail: host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plug-in base and specializations
 
@@ -54,7 +46,7 @@
 - `LicenseBuildType` (`Unspecified`/`Release`/`Evaluation`/`Beta`), `LicenseType` (`Standalone`/`Network`/`NetworkLoanedOut`/`NetworkCheckedOut`/`CloudZoo`), `LicenseCapabilities` (flags, ordinal order: `NoCapabilities`/`CanBePurchased`/`CanBeSpecified`/`CanBeEvaluated`/`EvaluationIsExpired`/`SupportsRhinoAccounts`/`SupportsStandalone`/`SupportsZooPerUser`/`SupportsZooPerCore`/`SupportsLicenseDiscovery`, union `0x1FF`)
 - `DescriptionType` (`Organization`/`Address`/`Country`/`Phone`/`WebSite`/`Email`/`UpdateUrl`/`Fax`/`Icon`) keying `PlugInDescriptionAttribute`, `RenderPlugIn.RenderFeature`, `RenderPlugIn.PreviewRenderTypes`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plug-in identity, discovery, and load
 - `PlugIn.Id -> Guid` / `PlugInId -> Guid` / `Name -> string` / `Version -> string` / `Description -> string` / `Assembly -> Assembly` / `LoadTime -> PlugInLoadTime` / `AddToHelpMenu -> bool` — plug-in facts
@@ -119,7 +111,7 @@
 - `LicenseChangedEventArgs : EventArgs` carries NO member — the change is the signal alone, so a handler re-reads `LicenseUtils.GetLicenseStatus()` rather than destructuring the payload
 - `LicenseLeaseChangedEventArgs.Lease -> LicenseLease` / `new LicenseLeaseChangedEventArgs(LicenseLease lease)` — the CloudZoo lease payload; the type does NOT derive `EventArgs`, each `Lease` read mints a fresh wrapper over the native lease, and the native record is released by a FINALIZER with no `IDisposable`, so the payload is read inside the callback and never retained
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `PlugIn` per package: identity a `Guid`, capability a `protected virtual` hook the host invokes on the declared `PlugInLoadTime` schedule, never a scattered registration call
@@ -140,9 +132,3 @@
 - a package binds into the host through exactly one `PlugIn` subclass per concern, overriding its virtual hooks, never a free-standing registration call
 - file-dialog participation enters through one `FileImportPlugIn`/`FileExportPlugIn` declaring its `FileTypeList`; the registered index is the single dispatch key
 - license acquisition enters through `PlugIn.GetLicense`/`LicenseUtils`, and settings custody routes to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`; direct `File3dm` and engine invocation stay the package-driven path of `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md`
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: the plug-in base and its render/digitizer/file-import/file-export specializations, native file-dialog registration and dispatch, and the full license surface
-- Accept: schedule-driven load, virtual-hook capability, index-keyed file dispatch, per-plug-in document serialization, Zoo/CloudZoo license acquisition
-- Reject: scattered registration outside the plug-in owner, path-string dispatch, standalone archive reads, and re-documentation of the write-policy, persistence, and render-content surfaces other catalogs own

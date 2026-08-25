@@ -2,18 +2,7 @@
 
 `pg_duckdb` embeds DuckDB's columnar-vectorized engine inside the PostgreSQL server, accelerating analytical SQL over live Postgres tables and reading data-lake Parquet, CSV, JSON, Iceberg, and Delta through `SETOF duckdb.row` table functions. `Store/provisioning#SERVER_EXTENSIONS` admits it preload-gated on the `columnar` lane, `FailureRank.Degradable` on absence; the in-process `DuckDB.NET` lane at `api-duckdb` runs the identical SQL dialect inside the .NET process, and every pg_duckdb surface is server-side SQL over the Npgsql/EF boundary — no managed assembly, no per-query engine spawn.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pg_duckdb`
-- package: `pg_duckdb` (MIT)
-- namespace: SQL `duckdb` schema (admin/secret/MotherDuck functions); `public` data-lake table functions; `duckdb.row` result type subscripted `r['col']`; `USING duckdb` table-storage clause
-- abi / runtime: PG18 in-process extension, `shared_preload_libraries`-gated; one embedded DuckDB instance per Postgres connection
-- asset: server extension, preload-gated
-- rail: columnar-provisioning, analytical-lane
-
-Each Postgres connection carries its own embedded DuckDB instance, so every resource setting is a connection-scoped ceiling; `duckdb.recycle_ddb()` resets it without reconnect.
-
-## [02]-[EXECUTION_MODEL]
+## [01]-[EXECUTION_MODEL]
 
 Queries reach DuckDB by touching a DuckDB-only feature — a `read_*` function, a `USING duckdb` table, or a remote `COPY` — or by `SET duckdb.force_execution = true` for a Postgres-only query; results cross back as `SETOF duckdb.row` projected through the `r['col']` subscript.
 
@@ -27,7 +16,7 @@ Queries reach DuckDB by touching a DuckDB-only feature — a `read_*` function, 
 
 Postgres and DuckDB writes never share one transaction, and PG `CREATE TABLE` never mixes with `CREATE TABLE ... USING duckdb` in one transaction; `duckdb.unsafe_allow_mixed_transactions` bypasses the split at a consistency cost.
 
-## [03]-[DATA_LAKE_FUNCTIONS]
+## [02]-[DATA_LAKE_FUNCTIONS]
 
 Each read function takes a `path` (`text` or `text[]`, glob or array) with optional DuckDB parameters passed `param := value`, returning `SETOF duckdb.row` expanded by `*` or the `r['col']` subscript; `iceberg_*`, `delta_scan`, and `read_vortex` need their named DuckDB extension installed first.
 
@@ -44,7 +33,7 @@ Each read function takes a `path` (`text` or `text[]`, glob or array) with optio
 |  [09]   | `iceberg_snapshots` | `(path, ...) -> SETOF iceberg_snapshot_record` | Iceberg snapshot history       |
 |  [10]   | `delta_scan`        | `(path) -> SETOF duckdb.row`                   | Delta Lake read (`delta` ext)  |
 
-## [04]-[ADMIN_SECRETS_MOTHERDUCK]
+## [03]-[ADMIN_SECRETS_MOTHERDUCK]
 
 `duckdb.*` owns the control surface: extension bootstrap, direct-execution escapes, object-store credentials, and MotherDuck cloud compute. Install and execution functions default to superuser or the `duckdb.postgres_role`; `enable_motherduck` is a CALL procedure.
 
@@ -62,7 +51,7 @@ Each read function takes a `path` (`text` or `text[]`, glob or array) with optio
 |  [10]   | `duckdb.is_motherduck_enabled` | `() -> bool`                          | MotherDuck enablement probe       |
 |  [11]   | `duckdb.force_motherduck_sync` | `()`                                  | resync the MotherDuck catalog     |
 
-## [05]-[SETTINGS]
+## [04]-[SETTINGS]
 
 Sealed columnar profiles pin these `postgresql.conf` knobs; `[SCOPE]` names the change authority (`general` any session, `superuser` privileged, `restart` server-restart), and resource settings are per-connection because each connection carries its own embedded instance.
 
@@ -85,7 +74,7 @@ Sealed columnar profiles pin these `postgresql.conf` knobs; `[SCOPE]` names the 
 |  [15]   | `duckdb.max_temp_directory_size`         | `""`                           | superuser | spill size cap                     |
 |  [16]   | `duckdb.unsafe_allow_mixed_transactions` | `false`                        | general   | permit mixed PG/DuckDB writes      |
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every pg_duckdb op enters as server-side SQL over the Npgsql/EF boundary; the per-connection embedded DuckDB instance is the analytical execution root, `duckdb.force_execution` the routing switch, the `read_*`/`duckdb.query` table functions the data-lake root, and `SETOF duckdb.row` the one result carrier subscripted by `r['col']`.
@@ -101,9 +90,3 @@ Sealed columnar profiles pin these `postgresql.conf` knobs; `[SCOPE]` names the 
 - pg_duckdb enters behind the `Store/provisioning` verification fold like every server extension; its `columnar` lane is `FailureRank.Degradable`, so absence folds the DuckDB acceleration out at admission and the query runs on the native Postgres executor rather than faulting at first analytical query.
 - Object-store credentials are `duckdb.create_simple_secret`/`duckdb.create_azure_secret` objects, never inline keys in a path; `enable_external_access` with `allowed_directories` bounds the reachable filesystems, and `postgres_role` scopes DuckDB execution off superuser.
 - Extension loading is `duckdb.install_extension`/`load_extension` SQL at profile bootstrap, never a per-extension package.
-
-[RAIL_LAW]:
-- Package: `pg_duckdb`
-- Owns: in-PostgreSQL DuckDB columnar execution — analytical acceleration over live Postgres tables, data-lake `read_*`/`iceberg_scan`/`delta_scan` table functions, `USING duckdb` MotherDuck-backed storage, and the `duckdb.query` DuckDB-syntax escape, all server-side SQL
-- Accept: the preload-gated `ServerExtension` row, `SET duckdb.force_execution` routing, sealed resource and security settings, `CREATE SECRET` credentials, `duckdb.install_extension` bootstrap, `r['col']` projection over `SETOF duckdb.row`
-- Reject: a managed assembly or per-query engine spawn, inline object-store keys, a self-provisioned `CREATE EXTENSION` without the preload library, mixed PG/DuckDB writes in one transaction, and treating the embedded analytical lane as the consistency owner

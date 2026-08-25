@@ -2,16 +2,7 @@
 
 `@opentelemetry/host-metrics` produces node runtime vitals: `HostMetrics` samples host and process counters on a fixed cadence and registers one observable per metric against a `Meter`. Node counter reads make it composition-root material — one construction seats beside the metric-reader wiring the OTLP lane drains, never inside a library.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/host-metrics`
-- package: `@opentelemetry/host-metrics` (Apache-2.0)
-- module: CJS single entry (`build/src/index.js`); no subpath exports
-- runtime: node only — samples `os`, `process`, and `systeminformation`
-- depends: `@opentelemetry/api` `Meter`/`MeterProvider` peer; instrument names from `@opentelemetry/semantic-conventions`
-- rail: observability/vitals — the node host and process metric producer
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the collector class, its config, and the reading projections
 
@@ -24,7 +15,7 @@
 |  [05]   | `ProcessCpuUsageData`    | interface      | per-process usage reading projection        |
 |  [06]   | `MemoryData`             | interface      | absolute + percentage memory reading        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and the collection lifecycle
 
@@ -35,7 +26,7 @@
 |  [01]   | `new HostMetrics(config?)` | ctor     | one construction at the node root |
 |  [02]   | `HostMetrics.start()`      | instance | starts fixed-cadence collection   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every metric is one observable registered against the single bound `Meter`; `start()` samples the whole roster on one cadence, so a second collector on the same meter double-counts.
@@ -50,9 +41,3 @@
 [LOCAL_ADMISSION]:
 - Construction lives only in the node boot graph under `scope:runtime`; `otel/emit` binds `Hooks.Meter`'s `provider` member.
 - Group gating is deployment policy — a constrained host trims `metricGroups` to the vitals its dashboards read, never forks a second collector.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/host-metrics`
-- Owns: node host and process observable vitals — cpu/memory/network counters and gauges on the meter plane
-- Accept: one node-root construction binding the `otel/emit` `MeterProvider`, group-gated by `metricGroups`
-- Reject: library-altitude construction, a second collector on the same meter, renamed instrument outputs

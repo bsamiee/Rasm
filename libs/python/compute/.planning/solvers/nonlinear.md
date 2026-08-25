@@ -19,7 +19,7 @@ One rail composes `optimistix` over a `lineax` inner linear solve and an `optax`
 - Boundary: the `TOL_ONLY` bracket is the per-solve entry argument (`options=dict(lower=, upper=)`), not a constructor kwarg like the five `SolverPolicy` axes, and rides `NonlinearPolicy` beside `max_steps`/`adjoint`/`has_aux`; a `TOL_ONLY` solve with an absent, non-finite, or unordered bracket raises `NonlinearFault.bracket`, gated in `_dispatch` before the import fork so the gated path and the numpy floor refuse the misconfiguration identically. The numpy central-difference floor is reachable per route when `optimistix` is absent, narrows to `np.ndarray` at its jaxlib-free edge, and REFUSES the two requests it cannot take — a bracketing `TOL_ONLY` search and a `batched` multi-start sweep, neither of which one central-difference probe performs.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum

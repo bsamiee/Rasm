@@ -2,18 +2,7 @@
 
 `zlib-ng` binds the SIMD-accelerated zlib-ng C core as a stdlib `zlib`/`gzip` drop-in, owning the DEFLATE/gzip-container arm of the artifacts compression rail across three import surfaces: the `zlib_ng.zlib_ng` `zlib`-API mirror, the `gzip_ng` container module, and the `gzip_ng_threaded` GIL-escaping multi-threaded reader/writer. `package/codec`'s `GZIP` band binds it when bytes must round-trip with stdlib `zlib`/`gzip` (RFC 1950/1951/1952) at accelerated throughput; it re-implements neither the DEFLATE codec nor gzip framing nor the CRC/Adler checksums the native core owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `zlib-ng`
-- package: `zlib-ng` (`PSF-2.0`, mirrors the CPython `zlib`/`gzip` modules)
-- import: `from zlib_ng import zlib_ng` / `gzip_ng` / `gzip_ng_threaded`
-- owner: `artifacts`
-- rail: compression
-- asset: native wheel binding the bundled zlib-ng C core, GIL-releasing; `zlib_ng.ZLIBNG_RUNTIME_VERSION` and the emulated-zlib-API `ZLIB_RUNTIME_VERSION` are STRING attributes (the `.pyi` `int` annotation is wrong)
-- entry points: `python -m zlib_ng.gzip_ng` (`gzip_ng.main`) mirrors the stdlib `gzip` command; no console entry point
-- capability: SIMD-accelerated DEFLATE/zlib/gzip one-shot, streaming, and file-like compression/decompression, the `_ZlibDecompressor` bytes-feeding decode, Adler-32/CRC-32 checksums with `crc32_combine` block-trailer recombination, and GIL-escaping multi-threaded gzip streaming
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `zlib_ng.zlib_ng` codec carriers and checksums — minted by `compressobj`/`decompressobj`/`_ZlibDecompressor(...)` and bound by the minting factory, never imported by name.
 
@@ -36,7 +25,7 @@
 |  [02]   | `gzip_ng_threaded` writer | threaded gzip writer | fans block compress across threads; `crc32_combine` trailer |
 |  [03]   | `gzip_ng_threaded` reader | threaded gzip reader | GIL-escaping multi-threaded gzip decode reader              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `zlib_ng.zlib_ng` one-shot, streaming, and checksum over the `zlib`-API mirror — `wbits` selects the container: `MAX_WBITS` zlib, `MAX_WBITS | 16` gzip, `-MAX_WBITS` raw DEFLATE.
 
@@ -61,7 +50,7 @@
 
 - `gzip_ng_threaded.open`: `threads<0` resolves to the CPU count and `threads=0` defers to `gzip_ng.open`, so an all-cores profile sentinel is `-1`, never a hand-counted worker number.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `from zlib_ng import zlib_ng` / `gzip_ng` / `gzip_ng_threaded` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -78,7 +67,3 @@
 [LOCAL_ADMISSION]:
 - zlib-ng owns the DEFLATE/zlib/gzip path (`package/codec` `GZIP` band; `package/bundle` `CompressionAlgo` gzip arm); high-ratio archival routes to `zstandard`, hot-path block codecs to `lz4`, web/WOFF2 transport to `brotli`, archive containers to `py7zr`/`stream-zip`.
 - package-plane owners alone consume compression: a scene bundle is `package/archive`'s emit over scene-file content keys, never an import; recovery is bomb-bounded, identity minting the runtime owns, live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `zlib-ng`
-- Owns: SIMD-accelerated DEFLATE/zlib/gzip compression and decompression (one-shot, streaming, file-like, and multi-threaded block-fan), Adler-32/CRC-32 checksums with `crc32_combine` block-trailer recombination, and the stdlib-`zlib`/`gzip` drop-in surface

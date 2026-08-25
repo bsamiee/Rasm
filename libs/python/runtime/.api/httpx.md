@@ -2,15 +2,7 @@
 
 `httpx` owns outbound HTTP transport for the Python branch: one pooled `AsyncClient`/`Client` negotiating HTTP/1.1 and HTTP/2, a generator-based `Auth` signing protocol, request and response streaming, per-phase `Timeout` and pool `Limits`, `event_hooks`, transport and proxy injection, the `codes` status vocabulary, and the full request/transport error taxonomy. It is the branch's sole HTTP client; responses feed the wire-model decode rail and transient faults the resilience rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `httpx`
-- package: `httpx` (BSD-3-Clause)
-- module: `httpx`
-- namespaces: `httpx`
-- rail: transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and message family
 - `Proxy(url, *, ssl_context=None, auth=None, headers=None)` admits the `http`/`https`/`socks5`/`socks5h` schemes alone and raises on any other; url userinfo is stripped into `.auth` as a `(username, password)` pair, so a credential spelled in the url never survives on `.url` and never overrides a passed `auth`.
@@ -71,7 +63,7 @@
 |  [17]   | `StreamError`                                                            | fault base    | base for stream-state faults                |
 |  [18]   | `StreamConsumed` / `StreamClosed` / `ResponseNotRead` / `RequestNotRead` | fault         | stream lifecycle misuse                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and dispatch
 - `AsyncClient` carry: `auth`, `headers`, `params`, `cookies`, `verify`, `cert`, `http1`, `http2`, `proxy`, `mounts`, `timeout`, `follow_redirects`, `limits`, `max_redirects`, `event_hooks`, `base_url`, `transport`, `trust_env`
@@ -106,7 +98,7 @@
 |  [01]   | `httpx.request` / `.get` / `.post` / `.stream`      | one-shot | module-level single-call (constructs a throwaway client) |
 |  [02]   | `httpx.create_ssl_context(verify, cert, trust_env)` | tls      | build the SSL context the transport consumes             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One long-lived `AsyncClient` per endpoint group carries explicit `Timeout(connect=, read=, write=, pool=)`, `Limits`, `Auth`, and `base_url`, then is reused; `Client` mirrors it synchronously and per-request or module-level (`httpx.get`) construction stays in boundary scripts.
@@ -130,9 +122,3 @@
 [LOCAL_ADMISSION]:
 - `AsyncClient` is the sole outbound surface for calls and credential probes; the runtime holds no second HTTP client and no client-per-auth-mode.
 - Boundary decode and status checks lift faults to a `Result`; domain logic never receives a raw `Response` error.
-
-[RAIL_LAW]:
-- Package: `httpx`
-- Owns: async/sync HTTP/1.1 and HTTP/2 transport, connection pooling, the `Auth` flow protocol, streaming bodies, per-phase timeouts and pool limits, event hooks, transport/proxy injection, the `codes` status enum, and the full error taxonomy
-- Accept: one reused `AsyncClient` with explicit `Timeout`/`Limits`/`Auth`/`base_url`, `http2` where negotiated, `stream`+`aiter_*` for large bodies, `event_hooks`, injected `MockTransport`/`ASGITransport`/`mounts`, `Proxy` bound on the carrying `AsyncHTTPTransport`, `stamina`-retried transient faults, `Response.json()` handed to the wire-model decoder, the settled OTel httpx spans
-- Reject: per-request or module-level client construction in service code, bare-float or implicit timeouts, full-body reads of large payloads, transport monkeypatching, `AsyncClient(proxy=)` beside an injected `transport=`, reliance on environment proxies where a transport is injected, hand-rolled auth-challenge or retry ladders, re-parsing `json()` output, a second HTTP client, stdlib `http.client`/`urllib`/`requests`/`urllib3`

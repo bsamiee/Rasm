@@ -5,7 +5,7 @@
  * artifact. App and package configs import createConfig from this file and own their outputs.
  */
 
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 
 import { dirname, resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { DateTime, Effect, Match, Option, pipe, Schema as S } from 'effect';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig, type Plugin, type UserConfig, type ViteBuilder } from 'vite';
+import {
+    defineConfig,
+    type Plugin,
+    type UserConfig,
+    type ViteBuilder,
+} from 'vite';
 import { compression } from 'vite-plugin-compression2';
 import csp from 'vite-plugin-csp-guard';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
@@ -25,7 +30,9 @@ import webfontDownload from 'vite-plugin-webfont-dl';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type EnvironmentConsumer = { readonly config: { readonly consumer: 'client' | 'server' } };
+type EnvironmentConsumer = {
+    readonly config: { readonly consumer: 'client' | 'server' };
+};
 type BuildRuntimeEnv = NodeJS.ProcessEnv & {
     readonly NODE_ENV?: string;
     readonly VITE_API_URL?: string;
@@ -46,12 +53,28 @@ const CfgSchema = S.Union(
             }),
         ),
         compressionThreshold: S.optional(pipe(S.Number, S.int(), S.positive())),
-        cspPolicy: S.optional(S.Record({ key: S.String, value: S.Array(S.String) })),
-        imageQuality: S.optional(S.Struct({ avif: S.Number, jpeg: S.Number, png: S.Number, webp: S.Number })),
+        cspPolicy: S.optional(
+            S.Record({ key: S.String, value: S.Array(S.String) }),
+        ),
+        imageQuality: S.optional(
+            S.Struct({
+                avif: S.Number,
+                jpeg: S.Number,
+                png: S.Number,
+                webp: S.Number,
+            }),
+        ),
         mode: S.Literal('app'),
         name: S.String,
         port: S.optional(pipe(S.Number, S.int(), S.between(1024, 65535))),
-        pwa: S.optional(S.Struct({ description: S.String, name: S.String, shortName: S.String, themeColor: S.String })),
+        pwa: S.optional(
+            S.Struct({
+                description: S.String,
+                name: S.String,
+                shortName: S.String,
+                themeColor: S.String,
+            }),
+        ),
         root: S.optional(S.String),
         warmup: S.optional(S.Array(S.String)),
         webfonts: S.optional(S.Array(S.String)),
@@ -102,21 +125,44 @@ const B = Object.freeze({
         short: 'Workspace',
         theme: '#000000',
     },
-    // Declarative Rolldown code-splitting rows: priority replaces the retired weight-sort walk, and
-    // every test embeds node_modules so app modules never leak into a vendor chunk.
+    // Declarative Rolldown code-splitting rows: priority replaces the retired weight-sort walk, and every test embeds node_modules so app modules never leak into a vendor chunk.
     split: {
         groups: [
-            { name: 'vendor-react', priority: 3, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?react(?:-dom)?\// },
-            { name: 'vendor-effect', priority: 2, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@effect|effect)\// },
+            {
+                name: 'vendor-react',
+                priority: 3,
+                test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?react(?:-dom)?\//,
+            },
+            {
+                name: 'vendor-effect',
+                priority: 2,
+                test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@effect|effect)\//,
+            },
             { name: 'vendor', priority: 1, test: /node_modules/ },
         ],
         minSize: 10240,
     },
     ssr: {
-        ext: ['react', 'react-dom', 'react/jsx-runtime', 'react/compiler-runtime'],
-        noExt: ['@effect/platform', '@effect/platform-browser', '@effect/experimental'],
+        ext: [
+            'react',
+            'react-dom',
+            'react/jsx-runtime',
+            'react/compiler-runtime',
+        ],
+        noExt: [
+            '@effect/platform',
+            '@effect/platform-browser',
+            '@effect/experimental',
+        ],
     },
-    svgr: { exportType: 'default', memo: true, ref: true, svgo: true, titleProp: true, typescript: true },
+    svgr: {
+        exportType: 'default',
+        memo: true,
+        ref: true,
+        svgo: true,
+        titleProp: true,
+        typescript: true,
+    },
     treeshake: {
         moduleSideEffects: 'no-external' as const,
         propertyReadSideEffects: false as const,
@@ -140,9 +186,17 @@ const css = (dev = false) => ({
     devSourcemap: dev,
     transformer: 'lightningcss' as const,
 });
-const cache = <H extends 'CacheFirst' | 'NetworkFirst'>(h: H, n: string, s: number, u: RegExp) => ({
+const cache = <H extends 'CacheFirst' | 'NetworkFirst'>(
+    h: H,
+    n: string,
+    s: number,
+    u: RegExp,
+) => ({
     handler: h,
-    options: { cacheName: n, expiration: { maxAgeSeconds: s, maxEntries: B.cache.max } },
+    options: {
+        cacheName: n,
+        expiration: { maxAgeSeconds: s, maxEntries: B.cache.max },
+    },
     urlPattern: u,
 });
 const output = (p = '') => ({
@@ -151,18 +205,26 @@ const output = (p = '') => ({
     entryFileNames: `${p}${p ? '' : 'entries/'}[name]-[hash].js`,
 });
 const resolve = (browser = false) => ({
-    conditions: browser ? ['import', 'module', 'browser', 'default'] : ['import', 'module', 'default'],
-    ...(browser ? { dedupe: ['react', 'react-dom'], extensions: [...B.exts] } : {}),
+    conditions: browser
+        ? ['import', 'module', 'browser', 'default']
+        : ['import', 'module', 'default'],
+    ...(browser
+        ? { dedupe: ['react', 'react-dom'], extensions: [...B.exts] }
+        : {}),
     tsconfigPaths: true,
 });
 const clientOnly = (plugin: Plugin): Plugin => ({
     ...plugin,
-    applyToEnvironment: (environment: EnvironmentConsumer) => environment.config.consumer === 'client',
+    applyToEnvironment: (environment: EnvironmentConsumer) =>
+        environment.config.consumer === 'client',
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const buildApp = ({ build, environments: { client } }: ViteBuilder): Promise<void> =>
+const buildApp = ({
+    build,
+    environments: { client },
+}: ViteBuilder): Promise<void> =>
     pipe(
         Option.fromNullable(client),
         Option.match({
@@ -178,7 +240,9 @@ const plugins = {
         ...(c.pwa
             ? VitePWA({
                   devOptions: { enabled: false },
-                  includeAssets: (c.assetExts ?? B.assets).map((x) => `**/*.${x}`),
+                  includeAssets: (c.assetExts ?? B.assets).map(
+                      (x) => `**/*.${x}`,
+                  ),
                   manifest: {
                       background_color: B.pwa.bg,
                       description: c.pwa.description,
@@ -190,7 +254,12 @@ const plugins = {
                               src: `/icon-${s}.png`,
                               type: 'image/png',
                           })),
-                          { purpose: 'maskable' as const, sizes: '512x512', src: '/icon-maskable.png', type: 'image/png' },
+                          {
+                              purpose: 'maskable' as const,
+                              sizes: '512x512',
+                              src: '/icon-maskable.png',
+                              type: 'image/png',
+                          },
                       ],
                       name: c.pwa.name,
                       scope: '/',
@@ -203,8 +272,18 @@ const plugins = {
                       clientsClaim: true,
                       globPatterns: [B.glob],
                       runtimeCaching: [
-                          cache('CacheFirst', 'cdn-cache', B.cache.cdn, /^https:\/\/cdn\./),
-                          cache('NetworkFirst', 'api-cache', B.cache.api, /^https:\/\/api\./),
+                          cache(
+                              'CacheFirst',
+                              'cdn-cache',
+                              B.cache.cdn,
+                              /^https:\/\/cdn\./,
+                          ),
+                          cache(
+                              'NetworkFirst',
+                              'api-cache',
+                              B.cache.api,
+                              /^https:\/\/api\./,
+                          ),
                       ],
                       skipWaiting: true,
                   },
@@ -213,19 +292,32 @@ const plugins = {
         svgr({ exclude: '', include: '**/*.svg?react', svgrOptions: B.svgr }),
         clientOnly(
             ViteImageOptimizer({
-                avif: { lossless: false, quality: (c.imageQuality ?? B.img).avif },
+                avif: {
+                    lossless: false,
+                    quality: (c.imageQuality ?? B.img).avif,
+                },
                 exclude: /^(?:virtual:|node_modules)/,
                 includePublic: true,
-                jpeg: { progressive: true, quality: (c.imageQuality ?? B.img).jpeg },
+                jpeg: {
+                    progressive: true,
+                    quality: (c.imageQuality ?? B.img).jpeg,
+                },
                 logStats: true,
                 png: { quality: (c.imageQuality ?? B.img).png },
                 test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
-                webp: { lossless: false, quality: (c.imageQuality ?? B.img).webp },
+                webp: {
+                    lossless: false,
+                    quality: (c.imageQuality ?? B.img).webp,
+                },
             }),
         ),
         clientOnly(webfontDownload([...(c.webfonts ?? [])])),
         clientOnly({
-            ...visualizer({ ...B.viz, exclude: [...B.viz.exclude], projectRoot: process.cwd() }),
+            ...visualizer({
+                ...B.viz,
+                exclude: [...B.viz.exclude],
+                projectRoot: process.cwd(),
+            }),
             apply: 'build',
         } as unknown as Plugin),
         ...(prod
@@ -244,20 +336,43 @@ const plugins = {
             csp({
                 algorithm: 'sha256',
                 build: { sri: true },
-                policy: Object.fromEntries(Object.entries(c.cspPolicy ?? B.csp).map(([k, v]) => [k, [...v]])),
+                policy: Object.fromEntries(
+                    Object.entries(c.cspPolicy ?? B.csp).map(([k, v]) => [
+                        k,
+                        [...v],
+                    ]),
+                ),
             }),
         ),
         // Inspect disabled in dev due to EEXIST race condition on HMR restart
-        ...(prod ? [Inspect({ build: true, dev: false, outputDir: pathResolve(c.root ?? ROOT_DIR, '.cache/vite-inspect') })] : []),
+        ...(prod
+            ? [
+                  Inspect({
+                      build: true,
+                      dev: false,
+                      outputDir: pathResolve(
+                          c.root ?? ROOT_DIR,
+                          '.cache/vite-inspect',
+                      ),
+                  }),
+              ]
+            : []),
     ],
     library: (c: Extract<Cfg, { mode: 'library' }>) => [
-        ...(c.react === true ? [react(), babel({ presets: [reactCompilerPreset()] })] : []),
-        ...(c.css === undefined ? [] : [tailwindcss({ optimize: { minify: true } })]),
+        ...(c.react === true
+            ? [react(), babel({ presets: [reactCompilerPreset()] })]
+            : []),
+        ...(c.css === undefined
+            ? []
+            : [tailwindcss({ optimize: { minify: true } })]),
     ],
     server: () => [],
 } as const;
 const config: {
-    readonly [M in Mode]: (c: Extract<Cfg, { mode: M }>, env: { prod: boolean; time: string; ver: string }) => UserConfig;
+    readonly [M in Mode]: (
+        c: Extract<Cfg, { mode: M }>,
+        env: { prod: boolean; time: string; ver: string },
+    ) => UserConfig;
 } = {
     app: (c, { prod, time, ver }) => ({
         appType: 'spa',
@@ -269,39 +384,58 @@ const config: {
             manifest: true,
             reportCompressedSize: false,
             rolldownOptions: {
-                output: { ...output(), codeSplitting: { groups: [...B.split.groups], minSize: B.split.minSize } },
+                output: {
+                    ...output(),
+                    codeSplitting: {
+                        groups: [...B.split.groups],
+                        minSize: B.split.minSize,
+                    },
+                },
                 treeshake: B.treeshake,
             },
             sourcemap: true,
         },
         builder: {
             buildApp,
-            sharedConfigBuild: c.builder?.sharedConfigBuild ?? B.builder.sharedConfigBuild,
+            sharedConfigBuild:
+                c.builder?.sharedConfigBuild ?? B.builder.sharedConfigBuild,
             sharedPlugins: c.builder?.sharedPlugins ?? B.builder.sharedPlugins,
         },
-        cacheDir: c.root ? pathResolve(c.root, 'node_modules/.vite') : pathResolve(ROOT_DIR, '.cache/vite'),
+        cacheDir: c.root
+            ? pathResolve(c.root, 'node_modules/.vite')
+            : pathResolve(ROOT_DIR, '.cache/vite'),
         css: css(true),
         define: {
             'import.meta.env.APP_VERSION': JSON.stringify(ver),
-            'import.meta.env.BUILD_MODE': JSON.stringify(prod ? 'production' : 'development'),
+            'import.meta.env.BUILD_MODE': JSON.stringify(
+                prod ? 'production' : 'development',
+            ),
             'import.meta.env.BUILD_TIME': JSON.stringify(time),
-            'import.meta.env.VITE_API_URL': JSON.stringify(_ENV.VITE_API_URL ?? '/api'),
+            'import.meta.env.VITE_API_URL': JSON.stringify(
+                _ENV.VITE_API_URL ?? '/api',
+            ),
         },
         devtools: true,
         future: 'warn',
         optimizeDeps: {
             exclude: [...B.ssr.noExt],
-            include: [...B.ssr.ext, 'react-aria-components', '@floating-ui/react', 'effect'],
+            include: [
+                ...B.ssr.ext,
+                'react-aria-components',
+                '@floating-ui/react',
+                'effect',
+            ],
         },
         plugins: plugins.app(c, prod),
-        // strictPort pins the preview endpoint: an e2e target's webServer row keys its readiness URL
-        // on this port, so a silent port drift can never strand the served-product lane.
+        // StrictPort pins the preview endpoint: an e2e target's webServer row keys its readiness URL on this port, so a silent port drift can never strand the served-product lane.
         preview: { port: c.port ?? B.port, strictPort: true },
         resolve: resolve(true),
         server: {
             cors: true,
             port: c.port ?? B.port,
-            ...(c.warmup === undefined ? {} : { warmup: { clientFiles: [...c.warmup] } }),
+            ...(c.warmup === undefined
+                ? {}
+                : { warmup: { clientFiles: [...c.warmup] } }),
             watch: {
                 ignored: [
                     '**/node_modules/**',
@@ -328,12 +462,18 @@ const config: {
             external: [...B.ssr.ext],
             noExternal: [...B.ssr.noExt],
             optimizeDeps: { include: ['@effect/platform'] },
-            resolve: { conditions: ['node', 'import', 'module', 'default'], externalConditions: ['node'] },
+            resolve: {
+                conditions: ['node', 'import', 'module', 'default'],
+                externalConditions: ['node'],
+            },
             target: 'node',
         },
         worker: {
             format: 'es',
-            plugins: () => [react(), babel({ presets: [reactCompilerPreset()] })],
+            plugins: () => [
+                react(),
+                babel({ presets: [reactCompilerPreset()] }),
+            ],
             rolldownOptions: { output: output('workers/') },
         },
     }),
@@ -341,7 +481,8 @@ const config: {
         build: {
             lib: {
                 entry: c.entry,
-                fileName: (f: string, n: string) => (f === 'es' ? `${n}.js` : `${n}.${f}.js`),
+                fileName: (f: string, n: string) =>
+                    f === 'es' ? `${n}.js` : `${n}.${f}.js`,
                 formats: ['es', 'cjs'],
                 name: c.name,
             },
@@ -360,11 +501,20 @@ const config: {
     }),
     server: (c) => ({
         build: {
-            lib: { entry: c.entry, fileName: 'main', formats: ['es'] as const, name: c.name },
+            lib: {
+                entry: c.entry,
+                fileName: 'main',
+                formats: ['es'] as const,
+                name: c.name,
+            },
             rolldownOptions: {
                 // Bare specifiers stay external by default — deps resolve from node_modules at run time — and `bundle` roots opt their subtrees into the artifact.
                 external: (id: string) =>
-                    !id.startsWith('.') && !id.startsWith('/') && !(c.bundle ?? []).some((b) => id === b || id.startsWith(`${b}/`)),
+                    !id.startsWith('.') &&
+                    !id.startsWith('/') &&
+                    !(c.bundle ?? []).some(
+                        (b) => id === b || id.startsWith(`${b}/`),
+                    ),
                 output: { exports: 'named' as const },
             },
             sourcemap: true,
@@ -376,8 +526,9 @@ const config: {
         ssr: { target: 'node' as const },
     }),
 };
-
-const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =>
+const createConfig = (
+    input: unknown,
+): Effect.Effect<UserConfig, never, never> =>
     Effect.map(
         Effect.all({
             c: Effect.orDie(S.decodeUnknown(CfgSchema)(input)),

@@ -2,16 +2,7 @@
 
 `react-aria` mints the headless WAI-ARIA behavior spine — keyboard, focus, pointer/touch normalization, screen-reader semantics, and locale-aware interaction as unstyled hooks imposing zero DOM and zero styling. One pattern owns the whole surface: `use<Widget>(props, state, ref?)` folds the `Aria<Widget>Props` contract and the paired `react-stately` `use<Widget>State` into `DOMAttributes` bundles a `view` row spreads through `mergeProps`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-aria`
-- package: `react-aria` (Apache-2.0)
-- module: ESM+CJS, self-typed; barrels the scoped `@react-aria/*` hooks, selected `react-stately` state hooks, and the `@internationalized/date`/`/string` + `@react-types/shared` type packages
-- runtime: client component — hooks touch `useLayoutEffect`/`document`, so `"use client"`; SSR gates behind `SSRProvider`/`useIsSSR`; peer `react`/`react-dom`
-- asset: the type-level `Aria<Widget>Props`/`<Widget>Aria` prop contracts type every hook call, so `tsc` is the gate
-- rail: the WAI-ARIA behavior spine the `view`/`act`/`intl` planes compose directly
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the per-widget contract — `Aria<Widget>Props`/`Aria<Widget>Options` the hook input, `<Widget>Aria` the spreadable-bundle record it returns (`AriaButtonProps`→`ButtonAria`, `AriaSelectOptions`→`SelectAria`), one pair per widget a `view` row types against.
 
@@ -44,7 +35,7 @@
 |  [09]   | `Intl.NumberFormat` / `Intl.Collator` / `Intl.ListFormat`            | i18n value        | native returns of the formatter hooks         |
 |  [10]   | `CalendarDate` / `CalendarDateTime` / `ZonedDateTime` / `Time`       | date value        | immutable calendar-aware `DateValue` targets  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one call shape, every widget — the families below group `use<Widget>(props, state, ref?)` rows by concern, and a new widget is a new `use<Widget>`/`use<Widget>State` row, never a new abstraction.
 
@@ -96,7 +87,7 @@
 - `useContextMenu` is stable and answers one `ContextMenuEvent` — the flat `{target: Element, x: number, y: number}`, carrying no point object — for a right-click, a long-press, a menu key, and a screen-reader activation alike; `x`/`y` are TARGET-relative, taken against the current target's bounding rect, never viewport coordinates, so anchoring an overlay that positions from the viewport adds the rect back. Its prop/return pair breaks the barrel's own naming convention: `ContextMenuProps`/`ContextMenuAria`, with no `Aria` prefix on the input. Two platform arms ride inside it: iOS fires no `contextmenu` event at all, so the hook merges `useLongPress` there and de-duplicates against the native event when both arrive, and macOS `Ctrl+Enter` is re-synthesized from `onKeyDown` because some WebKit and Chrome versions swallow it.
 - `useToast` hard-codes the note's live semantics: `contentProps` carries `role="alert"` with `aria-atomic`, `toastProps` carries `role="alertdialog"` with `aria-modal="false"`, and `useToastRegion` gives the region `role="region"` and its label alone. No politeness knob exists on `AriaToastProps` or at any tier below it, and `@react-aria/live-announcer` is not in this path — a per-note politeness is an override of the content element's role, never a region option.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each `use<Widget>` owns behavior, semantics, keyboard, and focus; the `view` row owns elements and styling — a new widget is a new `use<Widget>`/`use<Widget>State` pair, never a styled component or config flag.
@@ -114,9 +105,3 @@
 - `react-dom` (`.api/react-dom.md`): overlays root through `createPortal` (via `Overlay`/`UNSAFE_PortalProvider`) to escape the `overflow`/`z-index` context; `flushSync` forces the synchronous commit `FocusScope` restoration and the `act/transition` View-Transition seam depend on.
 - `effect` `Schema` (`libs/typescript/.api/effect.md`): the `FormBinding` boundary — a `Schema.standardSchemaV1` decoder validates field input and its `ParseError` projects into the hook `ValidationResult`/`validationErrors`, one `Schema` owning wire decode and live field validity.
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): the data seam — `useAtomValue` drives the `react-stately` controlled value (options, selected keys, rows) and a `react-aria` `onChange`/selection callback writes intent back via `useAtomSet`; the atom is the one binding, the hook stateless over its value.
-
-[RAIL_LAW]:
-- Package: `react-aria`
-- Owns: the headless WAI-ARIA hook spine — one `use<Widget>(props, state, ref)` pattern across interactions, focus, collections, fields, pickers, overlays, date/time, color, and dnd; the per-widget `Aria<Widget>Props`/`<Widget>Aria` contracts; the `mergeProps`/`chain` composition mechanism; the `KeyboardShortcutBindings` declarative keybinding map and the `keyboardNavigationBehavior`/`focusMode` collection-traversal axis; `I18nProvider` + the native-`Intl` formatter hooks over `@internationalized/date`/`/string`; and the curated re-export of the `@react-types/shared` interaction vocabulary
-- Accept: `use<Widget>` over a `react-stately` state object, `mergeProps` for multi-hook elements, `useObjectRef`/`mergeRefs` for ref reconciliation, `useKeyboard({shortcuts})` as the keybinding declaration, `useContextMenu` as the one context-menu gesture, `Overlay`/`UNSAFE_PortalProvider` through `react-dom` `createPortal`, `useOverlayPosition` or `@floating-ui` for positioning, `ValidationResult` fed by a `Schema` decode, `I18nProvider` + formatter hooks for locale, `useIsSSR` for hydration safety
-- Reject: hand-written `aria-*`/`role`/keyboard/focus-trap logic, a hand-parsed key event where `shortcuts` declares the binding, `Ctrl` spelled in a shortcut where the parser reads only `Control`, a re-bound arrow handler where `keyboardNavigationBehavior`/`focusMode` declares the traversal, ad-hoc `useState` beside a modeled widget state, manual handler concatenation instead of `mergeProps`, `Intl.*`/`new Date()` at a call site, `typeof window` SSR branches, a styled wrapper where `react-aria-components` already owns the composition

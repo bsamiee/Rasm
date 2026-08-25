@@ -2,17 +2,7 @@
 
 `obspec-utils` folds the pieces `obstore` leaves out into one `obspec`-typed companion layer: a longest-prefix multi-store URL router (`ObjectStoreRegistry`), file-handle readers over byte-range stores, transparent read-path wrappers (cache, split, trace), object-store `glob`, and a pure-`aiohttp` `ReadableStore`. Every reader, wrapper, and store types against the `obspec` protocols, so `obstore` stores, `AiohttpStore`, and wrapper stacks compose interchangeably through one registry, re-implementing neither the multi-cloud engine `obstore` owns nor the protocol algebra `obspec` owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `obspec-utils`
-- package: `obspec-utils` (Apache-2.0)
-- module: `obspec_utils`
-- namespaces: `registry`, `readers`, `wrappers`, `protocols`, `stores`, `glob`
-- owner: `data`
-- rail: object-store
-- depends: `obspec` (protocol algebra — `Get`/`GetRange`/`GetRanges`/`Head`/`List` and async mirrors, `ObjectMeta`/`GetResult`/`GetOptions` TypedDicts), `obstore` (concrete stores and the `MemoryStore` reused as cache substrate)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: protocols (`obspec_utils.protocols`, with the `typing` aliases)
 
@@ -55,7 +45,7 @@
 - `RequestTrace`: `add(...)`, `clear()`, `to_dataframe()` (lazy `pandas`), `summary() -> dict`, `total_bytes`, `total_requests`, `requests`.
 - `[RequestRecord]`: `path` `start` `length` `end` `timestamp` `duration` `method` `range_style`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registry operations (`obspec_utils.registry`)
 
@@ -123,7 +113,7 @@ Each wrapper takes a `ReadableStore` as its first `store` argument.
 - `AiohttpStore(base_url, *, headers=None, timeout=30.0)`: an async context manager reusing one `ClientSession`; `get_range` maps obspec end-exclusive to HTTP inclusive; `head` fills `ObjectMeta` size from `Content-Length`/`Content-Range` with `e_tag`/`last_modified`.
 - `AiohttpStore` calls `response.raise_for_status()`, so HTTP errors surface as `aiohttp.ClientResponseError`; underlying `obstore` stores raise `obstore.exceptions.*`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Three-package stack: `obspec` owns the structural protocols, `obstore` the Rust-backed concrete stores and the `MemoryStore` the cache/split wrappers reuse as a buffer, `obspec_utils` the registry, readers, wrappers, glob, and `AiohttpStore` on top — all keyed to the `obspec` protocols, so an `obstore` store, an `AiohttpStore`, and a wrapper stack are mutually substitutable.
@@ -145,9 +135,3 @@ Each wrapper takes a `ReadableStore` as its first `store` argument.
 - Import each owner from its subpackage (`obspec_utils.registry`/`readers`/`wrappers`/`protocols`/`stores`); the top-level surface re-exports only `glob`/`glob_objects`/`glob_async`/`glob_objects_async`, so `from obspec_utils import ObjectStoreRegistry` raises `ImportError`.
 - Annotate a store with `obstore.store.ObjectStore` or a project-pinned `obspec` protocol composition; pin a narrower `class Store(Get, GetRange, GetRanges, Head, Protocol)` rather than the upstream-mutable `ReadableStore` for stable typing.
 - One `ObjectStoreRegistry` routes heterogeneous asset URLs (`s3://`, `gs://`, `https://`) through a single boundary; a reader hands a seekable handle to a file-object library; `CachingReadableStore(SplittingReadableStore(base))` is the cloud-read accelerator.
-
-[RAIL_LAW]:
-- Package: `obspec-utils`
-- Owns: the multi-store URL registry, file-handle readers over byte-range stores, transparent cache/split/trace read wrappers, object-store glob, and a pure-`aiohttp` `ReadableStore`, all typed on `obspec` protocols and composed with `obstore` stores.
-- Accept: `obstore` stores and `AiohttpStore` registered in one `ObjectStoreRegistry`; readers handed to file-object libraries (`h5py`/`zarr`/`netCDF4`); `CachingReadableStore(SplittingReadableStore(base))` as the accelerator; `TracingReadableStore` with `RequestTrace` into the observability and profile rails.
-- Reject: a hand-rolled URL-to-store dispatch dict, HTTP object client, or byte cache when the registry, `AiohttpStore`, and `CachingReadableStore` own them; the top-level `from obspec_utils import ObjectStoreRegistry` import; a second I/O path when an `obstore` store already serves the protocol.

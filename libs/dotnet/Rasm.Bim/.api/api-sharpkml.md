@@ -4,21 +4,7 @@
 
 It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeature` site-context rows project to styled `Placemark`/`GroundOverlay`/`gx:Tour` output for Google Earth and web-globe delivery, the styled model the geometry-only GDAL `KML` driver cannot reach; its `Vector`/`CoordinateCollection` geometry bridges to the NTS `Geometry` algebra at the seam, never shared as a type.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SharpKml.Core`
-- package: `SharpKml.Core` (MIT)
-- assembly: `SharpKml.Core`
-- namespace: `SharpKml.Dom` — the KML element tree (features, geometry, styles, overlays, extended data)
-- namespace: `SharpKml.Dom.GX` — the Google `gx:` extension (`Tour`/`Track`/`MultipleTrack`/`FlyTo`/`Playlist`/`LatLonQuad`)
-- namespace: `SharpKml.Dom.Atom` / `SharpKml.Dom.Xal` — the embedded Atom syndication and xAL address vocabularies
-- namespace: `SharpKml.Engine` — `KmlFile`, `KmzFile`, the `Feature`/`Geometry` extension folds, `StyleResolver`, `BoundingBox`
-- namespace: `SharpKml.Base` — `Serializer`, `Parser`, `KmlFactory`, `Vector`, `Angle`, the attribute/element metadata
-- asset: netstandard2.0 single managed AnyCPU assembly bound by the net10.0 consumer; IL-only, no P/Invoke, zero transitive packages — KMZ compression rides the BCL `System.IO.Compression`
-- consumer: `libs/dotnet/Rasm.Bim` (geospatial site-context KML/KMZ authoring)
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the feature and document tree (`SharpKml.Dom`)
 
@@ -78,7 +64,7 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 |  [02]   | `Track`      | class         | time-stamped moving geometry (`when`+`coord`+`angles`); `MultipleTrack` groups several |
 |  [03]   | `LatLonQuad` | class         | the four-corner ground-overlay placement (a rotated or sheared footprint)              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the file and archive engine — `[01]`-`[04]` on `KmlFile`, `[05]`-`[11]` on `KmzFile` (`SharpKml.Engine`)
 
@@ -110,7 +96,7 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 
 - `Parser.Parse`: `(Stream, bool namespaces = true)` / `(string, bool)`, exposing `Root` and the `ElementAdded` event for streaming inspection during parse.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - SharpKml is one managed `SharpKml.Core.dll`: the in-memory KML DOM with its XML/ZIP round-trip, carrying no rendering and no projection; KMZ compression rides the BCL `System.IO.Compression`.
@@ -126,9 +112,3 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 
 [LOCAL_ADMISSION]:
 - KML authoring enters through the `SharpKml.Dom` tree wrapped by `KmlFile.Create` and archived by `KmzFile`; parse enters through `KmlFile.Load`/`KmzFile.Open`, the raw `Serializer`/`Parser` reserved for a standalone sub-tree round-trip or a streaming `ElementAdded` inspection.
-
-[RAIL_LAW]:
-- Package: `SharpKml.Core`
-- Owns: the OGC-KML (+ `gx:`) object model — features, geometry, styles, overlays, extended data, tours and tracks — the `KmlFile`/`KmzFile` serialize-and-archive engine, and the `Serializer`/`Parser`/`KmlFactory` XML round-trip with extension registration
-- Accept: authoring and parsing styled KML/KMZ, projecting `GeoFeature`/raster/schedule rows to `Placemark`/`GroundOverlay`/`gx:Tour`, packaging KML plus referenced resources into a `.kmz`
-- Reject: the NTS planar `Geometry` algebra and `Feature` shape (`NetTopologySuite` owns them, KML geometry is a bridged model), the geodetic reprojection to EPSG:4326 (`ProjNET`/OSR runs first), universal vector/raster ingest (`MaxRev.Gdal.Core` owns the OGR/GDAL drivers), the MVT vector-tile pyramid and 3D-Tiles tileset (`NetTopologySuite.IO.VectorTiles[.Mapbox]` and `subtree` own them), and a hand-rolled KML XML string builder

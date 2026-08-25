@@ -2,19 +2,7 @@
 
 `ScyllaDBCSharpDriver` owns CQL wide-column store access — the shard-per-core, tunable-consistency backend driving ScyllaDB and Apache Cassandra over the one CQL binary protocol, folding every `DriverException` onto the `Fin` rail. It is the scale-out wide-column class alone; the relational, columnar-OLAP, and dedicated-vector concerns route to their own backends.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ScyllaDBCSharpDriver`
-- package: `ScyllaDBCSharpDriver` (Apache-2.0)
-- assembly: `ScyllaDB` (assembly `ScyllaDB.dll`, distinct from the package id)
-- namespace: `Cassandra` public surface — the fork preserves the DataStax type names, never `ScyllaDB.*`; `Cassandra.Mapping`, `Cassandra.Data.Linq`, `Cassandra.Mapping.Attributes`, `Cassandra.ExecutionProfiles`, `Cassandra.Metrics.Abstractions`
-- target: single-target `netstandard2.0`; the `net10.0` consumer binds `lib/netstandard2.0`
-- asset: pure-managed, AnyCPU, no native runtime payload
-- abi: `Row`/`RowSet` reference-type rows, `Task`-based async, paging via `IPage<T>` + `byte[] pagingState` — no `Span`/`ref struct` row API, no `IAsyncEnumerable` row stream
-- depends: `K4os.Compression.LZ4` (shared with the LZ4 snapshot codec — the driver's `CompressionType.LZ4` wire compression) and driver-internal `Newtonsoft.Json` (the workspace JSON rail stays `System.Text.Json`, never routing through it)
-- rail: store-backend (wide-column / CQL)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cluster, session, configuration (namespace `Cassandra`)
 - ddl: `ISession` runs `ChangeKeyspace`/`CreateKeyspace[IfNotExists]`/`DeleteKeyspace[IfExists]`/`GetMetrics`/`ShutdownAsync`
@@ -131,7 +119,7 @@
 |  [08]   | `HostDistance`               | topology distance | `Local` / `Remote` / `Ignored` (the LB-policy host classification)          |
 |  [09]   | `DriverException` (+ family) | typed faults      | the driver fault family, discriminated at the session edge                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cluster construction + session open
 
@@ -182,7 +170,7 @@
 |  [03]   | `cqlQuery.ExecuteAsync() -> Task<IEnumerable<T>>` / `SetPageSize()` | instance | execute / page size                   |
 |  [04]   | `table.Insert(poco).IfNotExists().SetTTL(n).ExecuteAsync() -> Task` | instance | fluent conditional insert with TTL    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - bootstrap: `Cluster.Builder().AddContactPoints(...).With*(...).Build()` -> `cluster.Connect(keyspace)`; `Cluster` and `ISession` are heavyweight, thread-safe, long-lived singletons — one `ISession` per backend, opened once and reused, never per request.
@@ -208,9 +196,3 @@
 - row expiry rides the mapper insert overload's `int? ttl` parameter — one derivation site converts a policy window to seconds and the driver binds it, so `USING TTL` never enters statement text and a per-call integer literal never enters a call site.
 - execution-profile names bind from the roster the `Builder` declared; an undeclared name fails the first execute by `ArgumentException`, so a call-site-cast string is a deferred crash and a shared closed vocabulary is the admitted form.
 - consistency evidence reads `ExecutionInfo.AchievedConsistency` off an EXECUTED `RowSet` alone — the fresh-instance `Any` default is an unmeasured level and must not be published.
-
-[RAIL_LAW]:
-- Package: `ScyllaDBCSharpDriver`
-- Owns: CQL wide-column store access — cluster/session lifecycle, prepared/bound/batch statement execution (sync + async), the `Cassandra.Mapping` POCO mapper, the `Cassandra.Data.Linq` IQueryable, shard/tablet/token-aware routing, the consistency/retry/reconnection/speculative-execution + execution-profile policy surface, row TTL through the mapper insert parameter, the per-`RowSet` `ExecutionInfo` consistency evidence, `CqlVector<T>` ANN columns, and `IColumnEncryptionPolicy` client-side encryption
-- Accept: a long-lived `Cluster`/`ISession` singleton; prepared `Bind`+`ExecuteAsync` for parameterized queries; the `Mapper`/`Table<T>` mapping layer for domain entities; `ConsistencyLevel`/retry as named execution-profile rows; row expiry through the mapper's `int? ttl` parameter; `AchievedConsistency` read off an executed `RowSet`; `BatchType.Logged` for atomic multi-partition writes; `DriverException` folded into `Fin`
-- Reject: inline string-interpolated CQL; a per-request `Cluster`/`ISession`; `Unlogged` batches treated as atomic; a TTL spelled outside the mapper parameter; an execution-profile name the `Builder` never declared; an `AchievedConsistency` published with no execution behind it or a `QueriedHost` dereferenced unguarded; routing the relational/columnar-OLAP/dedicated-vector concerns through this driver; a `DriverException` crossing the query boundary; domain JSON through the transitive `Newtonsoft.Json`; the netstandard2.0 row API treated as a `Span`/`IAsyncEnumerable` row stream

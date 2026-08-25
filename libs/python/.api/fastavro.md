@@ -2,16 +2,7 @@
 
 `fastavro` is the Cython-accelerated Avro codec: container-file and schemaless read and write, schema parsing with named-schema resolution, JSON-encoded Avro, canonical-form fingerprinting, and a logical-type dispatch table keyed on `"<avro-type>-<logicalType>"`. Six of its modules ship as compiled extensions selected at import time with a pure-Python twin behind each, and the codec roster is a plain dict whose keys exist whether or not the compression dependency does. It is the payload codec beneath the registry Avro serializer and the reader of a standalone `.avsc` schema document.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `fastavro`
-- package: `fastavro` (MIT)
-- module: `fastavro`
-- namespaces: `fastavro.{read,write,schema,validation,json_read,json_write,types,const,utils,repository,io,logical_readers,logical_writers}`
-- target: compiled wheel — six `cpython-315-darwin.so` extensions beside their `_*_py` fallbacks; `py.typed` with `.pyi` stubs standing in for the compiled modules
-- rail: payload-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [TYPE_SCOPE]: `fastavro.types`
 
@@ -61,7 +52,7 @@
 |  [08]   | `int-time-millis`               | `datetime.time`         | `time`              |
 |  [09]   | `long-time-micros`              | `datetime.time`         | `time`              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container-file and schemaless codecs
 
@@ -108,7 +99,7 @@
 |  [06]   | `lz4`       | `lz4.block`                                           | live                                           |
 |  [07]   | `snappy`    | `cramjam`, or the deprecated `python-snappy` fallback | the thunk — neither is installed               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Six modules ship compiled and are selected at IMPORT time by a `try`/`except ImportError` at each shim, with no runtime toggle and no environment switch — `read`, `write`, `schema`, `validation`, `logical_readers`, `logical_writers`. Each pure-Python twin is reachable only by importing `fastavro._read_py` and its siblings directly. `json_read` and `json_write` import the pure-Python halves UNCONDITIONALLY, so the JSON codec path never runs compiled.
@@ -135,9 +126,3 @@
 - Logical values cross as aware `datetime`, `decimal.Decimal`, `uuid.UUID`, and `datetime.date`; a naive datetime never reaches a `timestamp-*` slot, since the writer reads the machine's zone.
 - Codec availability probes the thunk at composition rather than reading a key, and `snappy` refuses by name at this floor.
 - Compiled modules are the only admitted path; a direct `fastavro._read_py` import is the deleted form.
-
-[RAIL_LAW]:
-- Package: `fastavro`
-- Owns: Avro container and schemaless encode/decode, schema parse and resolution, canonical form and fingerprinting, record validation, logical-type dispatch
-- Accept: `parse_schema`, `schemaless_writer`/`schemaless_reader`, `writer`/`reader`/`block_reader`, `Writer`, `schema.load_schema` with a bound repository, `to_parsing_canonical_form`/`fingerprint`, `validation.validate`/`validate_many`
-- Reject: a naive datetime on a `timestamp-*` slot; a per-record `parse_schema`; a direct `_*_py` import; a codec selected off dict-key presence; a mutation of the process-global logical or block dicts

@@ -2,17 +2,7 @@
 
 `skia-pathops` mints the planar boolean, offset, and stroke-to-outline geometry the `graphic/vector` rail lacks: an abi3 binding of Skia `SkPathOps`/`SkStroke`/`SkPath` over one mutable `Path` ingesting cubics/quads/conics/arcs, running N-ary set operations, self-intersection repair, and stroke-to-outline fill. `getPen`/`draw` bridge FontTools pens, making `Path` one geometry spine any pen producer draws into and re-emits from. Its owner composes `op`/`OpBuilder`/`simplify`/`Path.stroke` into the `Vector` arms, never re-implementing set-ops or stroking, and never rasterizing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `skia-pathops`
-- package: `skia-pathops` (BSD-3-Clause)
-- import: `pathops`
-- owner: `artifacts`
-- rail: figure (the `graphic/vector/region#REGION` boolean/offset/outline arms)
-- abi: forward-compatible abi3 wheel (`_pathops.abi3.so`) binding the Skia `pathops`/`core` subset
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Path` accumulator and the pen/builder owners
 
@@ -49,7 +39,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 |  [03]   | `OpenPathError`        | `PathOpsError` | a closed-path operation (or `draw` with `allow_open_paths=False`) met an unclosed contour |
 |  [04]   | `NumberOfPointsError`  | `PathOpsError` | a verb received the wrong control-point count                                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: boolean set operations
 - policy carry: `fix_winding`, `keep_starting_points`, `clockwise`
@@ -131,7 +121,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 |  [05]   | `bits2float(float_as_bits)` / `float2bits(x)`     | helper | IEEE-754 int/float round-trip (exact fidelity)        |
 |  [06]   | `decompose_quadratic_segment(points)`             | helper | split a quadratic chain into renderable quad segments |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import pathops` at boundary scope only, a `lazy import` beside the `svgelements`/`resvg_py` lazies so the abi3 `.so` load stays off the import-time path; the distribution is `skia-pathops`, the import name `pathops`.
@@ -153,9 +143,3 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 - `getPen`/`draw` unifies the spine across typography: `fonttools`/`uharfbuzz` glyph outlines flow through the same `AbstractPen` protocol `getPen()` consumes, so a glyph ∩ clip knockout or a glyph-outline offset composes `pathops` directly onto the `typography/shape`+`typography/font` producers without a serialization hop.
 - Each op rails its provider raise into the page's `RegionFault` `@tagged_union` and returns through the `expression` `Result[RegionResult, RegionFault]` the rail speaks (`Ok`/`Error`, `bind`/`map`, `Block`-collected over a batch) — a typed `RegionResult.document`/`contours`/`extent` case carrying the result `d`/`bounds`/`area`, never an erased `bytes` a consumer re-parses.
 - Geometric queries feed `RegionResult.facts`; boolean and offset arms return `RegionResult.document` through the shared region algebra.
-
-[RAIL_LAW]:
-- Package: `skia-pathops`
-- Owns: planar boolean set operations (`op`/`OpBuilder`, the pen-form wrappers), self-intersection removal + winding repair (`simplify`), stroke-to-outline / fixed-width offset (`Path.stroke`), conic→quad flattening, affine/perspective transform, geometric query, and the FontTools-pen ingest/egress bridge over one mutable `SkPath`
-- Accept: boolean composition of `svgelements`-parsed outlines, stroke-to-outline / offset for `marks`/`diagram` thick connectors and boundaries, glyph-outline booleans/offsets over the `typography/shape`+`typography/font` producers, and the winding/area/hit-test query a hole/toolpath consumer keys per contour — every result `draw`n back to a SVG `d` for one styled egress
-- Reject: a hand-rolled boolean/clip or parallel-curve offset where `op`/`OpBuilder`/`Path.stroke` exist; a re-parsed `d` between ops where the `getPen`/`draw` spine round-trips; five sibling boolean methods where one `PathOp`-keyed arm discriminates; a manual reduce where `OpBuilder` accumulates; a conic-in-SVG emission where `convertConicsToQuads` flattens; SVG parse/transform where `svgelements` owns it; a raster op where `resvg_py`/`pyvips`/`pillow` covers it; glyph-table or shaping I/O where `fonttools`/`uharfbuzz` owns it; identity minting the runtime owns

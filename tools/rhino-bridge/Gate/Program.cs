@@ -191,7 +191,7 @@ internal static partial class Program {
         string journal = Path.Combine(scratch, "quits.jsonl");
         SupervisorRuntime runtime = new(
             Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
-            ArtifactRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
+            ArtifactRoot: scratch, CargoSourceRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
             Bundle: new BundleInfo("/tmp", "GateProbe", "GateProbeExec", "0.0"), Root: CancellationToken.None);
         List<BridgeEvent> published = [];
         Fin<PhaseStatus> outcome = QuitLadder.Run(host, Guid.NewGuid(), published.Add).Run(runtime);
@@ -257,7 +257,7 @@ internal static partial class Program {
             File.SetLastWriteTimeUtc(foreign, DateTime.UtcNow.AddDays(-2));
             SupervisorRuntime runtime = new(
                 Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
-                ArtifactRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
+                ArtifactRoot: scratch, CargoSourceRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
                 Bundle: synthetic, Root: CancellationToken.None);
             Fin<Seq<BridgeEvent>> swept = Reconcile.Run(synthetic, Guid.NewGuid()).Run(runtime);
             Seq<BridgeEvent> facts = swept.IfFail(Seq<BridgeEvent>());
@@ -276,23 +276,20 @@ internal static partial class Program {
     }
 
     private static void RowStagingHash(string scratch) {
-        string closureDir = Path.Combine(scratch, "closure");
-        _ = Directory.CreateDirectory(closureDir);
-        File.WriteAllText(Path.Combine(closureDir, "A.dll"), "alpha");
-        File.WriteAllText(Path.Combine(closureDir, "B.dll"), "beta");
-        string manifest = Path.Combine(closureDir, "bridge-closure.json");
-        File.WriteAllText(manifest, """{"assemblies":["A.dll","B.dll"],"hostPlugins":["b45a29b1-4343-4035-989e-044e8580d9cf"],"builtAgainst":{"bundleVersion":"9.0","rhinoCommonVersion":"9.0","grasshopper2Version":"2.0","runtimeVersion":"10.0"}}""");
+        string payloadDir = Path.Combine(scratch, "payload");
+        _ = Directory.CreateDirectory(payloadDir);
+        File.WriteAllText(Path.Combine(payloadDir, "Rasm.Bridge.Cargo.dll"), "alpha");
+        File.WriteAllText(Path.Combine(payloadDir, "Rasm.Scenarios.dll"), "beta");
         string refs = Path.Combine(scratch, "refs");
         Guid session = Guid.NewGuid();
-        Fin<StagedCargo> first = Evidence.Stage(manifest, session, scratch, refs);
-        Fin<StagedCargo> again = Evidence.Stage(manifest, session, scratch, refs);
-        bool pass = first is Fin<StagedCargo>.Succ(StagedCargo staged)
-            && again is Fin<StagedCargo>.Succ(StagedCargo restaged)
-            && string.Equals(staged.Manifest.ContentHash, restaged.Manifest.ContentHash, StringComparison.Ordinal)
-            && File.Exists(Path.Combine(staged.Manifest.StagePath, "A.dll"))
-            && staged.Manifest.HostPlugins.Length == 1;
+        Fin<CargoManifest> first = Evidence.Stage(payloadDir, session, scratch, refs);
+        Fin<CargoManifest> again = Evidence.Stage(payloadDir, session, scratch, refs);
+        bool pass = first is Fin<CargoManifest>.Succ(CargoManifest staged)
+            && again is Fin<CargoManifest>.Succ(CargoManifest restaged)
+            && string.Equals(staged.ContentHash, restaged.ContentHash, StringComparison.Ordinal)
+            && File.Exists(Path.Combine(staged.StagePath, "Rasm.Bridge.Cargo.dll"));
         Report("xxhash3-staging", pass, new JsonObject {
-            ["contentHash"] = first is Fin<StagedCargo>.Succ(StagedCargo m) ? m.Manifest.ContentHash : "failed",
+            ["contentHash"] = first is Fin<CargoManifest>.Succ(CargoManifest m) ? m.ContentHash : "failed",
             ["deterministic"] = pass,
         });
     }
@@ -387,13 +384,13 @@ internal static partial class Program {
         string root = Environment.CurrentDirectory;
         List<FileStream> locks = [];
         try {
-            foreach (string lockPath in new[] { Path.Combine(root, ".artifacts", "assay", "locks", "bridge.lock"), Path.Combine(root, ".artifacts", "locks", "bridge.lock") }) {
+            foreach (string lockPath in new[] { Path.Combine(root, ".artifacts", "dotnet", "bridge", "bridge.lock"), Path.Combine(root, ".artifacts", "locks", "bridge.lock") }) {
                 if (!File.Exists(lockPath))
                     continue;
                 FileStream stream = new(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
                 if (Flock((int)stream.SafeFileHandle.DangerousGetHandle(), 2 | 4) != 0) {
                     await stream.DisposeAsync().ConfigureAwait(false);
-                    Report("live-lane", pass: false, new JsonObject { ["outcome"] = $"assay bridge lease busy at {lockPath}; live lane skipped" });
+                    Report("live-lane", pass: false, new JsonObject { ["outcome"] = $"bridge lease busy at {lockPath}; live lane skipped" });
                     return;
                 }
                 locks.Add(stream);
@@ -451,7 +448,7 @@ internal static partial class Program {
         using HostWatch watch = HostWatch.Attach(hostPid, _ => { exitSeen = true; raised.Set(); }, policy.WatchPoll, TimeProvider.System);
         SupervisorRuntime runtime = new(
             Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
-            ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
+            ArtifactRoot: Environment.CurrentDirectory, CargoSourceRoot: AppContext.BaseDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle, Root: CancellationToken.None);
         (Option<QuitScrub> scrub, BridgeEvent[] prepEvents) = await DirtyThenPrepareAsync(host, policy).ConfigureAwait(false);
         List<BridgeEvent> published = [.. prepEvents];
@@ -529,7 +526,7 @@ internal static partial class Program {
         Option<CrashSummary> ips = Evidence.IpsDiff(ipsBaseline, bundle);
         SupervisorRuntime runtime = new(
             Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
-            ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
+            ArtifactRoot: Environment.CurrentDirectory, CargoSourceRoot: AppContext.BaseDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle, Root: CancellationToken.None);
         Fin<Seq<BridgeEvent>> swept = Reconcile.Run(bundle, Guid.NewGuid()).Run(runtime);
         Seq<BridgeEvent> facts = swept.IfFail(Seq<BridgeEvent>());

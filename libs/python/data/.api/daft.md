@@ -4,16 +4,7 @@
 
 `data` composes `DataFrame`, `Expression`, and the `read_*` rail into the `DAFT_ELASTICITY` path, never re-implementing the execution, partitioning, or lakehouse readers daft owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `daft`
-- package: `daft` (Apache-2.0)
-- import: `import daft`
-- owner: `data`
-- rail: distributed dataframe
-- capability: lazy logical-plan dataframes over partitioned out-of-core data on native and Ray runners; pushdown; numeric, temporal, nested, and multimodal `tensor`/`image`/`embedding` dtypes; a flat typed `Expression` algebra; Parquet/CSV/JSON/WARC IO with Delta/Iceberg/Hudi/Lance lakehouse readers and writers; catalog and session resolution; SQL over registered frames; scalar and class UDFs; Arrow/pandas/Ray/Dask/PyTorch interop and streaming row/batch/partition iterators
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frame, expression, schema, catalog, and config types
 
@@ -53,7 +44,7 @@
 
 [TRANSIENT_SUBCLASS]: `ConnectTimeoutError` `ReadTimeoutError` `SocketError` `ThrottleError` `ByteStreamError` `MiscTransientError`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingest and source constructors
 
@@ -191,7 +182,7 @@ Streaming sinks pull execution incrementally so an out-of-core result never full
 |  [24]   | `session() -> Session`                                     | static   | the active catalog and runner session   |
 |  [25]   | `get_version() -> str`                                     | static   | installed daft version string           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `read_*`/`from_*` constructor and every transform returns a lazy `DataFrame` carrying a logical plan; execution fires only at a sink (`collect`, `show`, `count_rows`, `iter_rows`, `to_*`, `write_*`), so intermediate frames never materialize the full set and pushdown and partition-parallel evaluation own the cost.
@@ -213,9 +204,3 @@ Streaming sinks pull execution incrementally so an out-of-core result never full
 
 [LOCAL_ADMISSION]:
 - daft admits into `data` as the sole distributed and streaming dataframe owner; `import daft` at boundary scope only, module-level import banned by the manifest import policy.
-
-[RAIL_LAW]:
-- Package: `daft`
-- Owns: lazy distributed and streaming dataframe execution over partitioned out-of-core data, a flat typed `Expression` algebra with multimodal dtypes, native and Ray runners, pushdown ingest from Parquet/CSV/JSON/Delta/Iceberg/Hudi/Lance/SQL, catalog and session table resolution, scalar and class UDFs, and SQL over registered frames.
-- Accept: lazy `DataFrame` plans triggered at a sink, `Expression`/`DataType` as the column and dtype algebra, `read_*`/`from_*` with `io_config` and partition pushdown, `set_runner_native`/`set_runner_ray` for backend selection, `udf(return_dtype=...)` for typed partition UDFs, feeding the `DAFT_ELASTICITY` path and the Arrow interop owner.
-- Reject: wrapper-renames of `read_*`/`select`/`collect`; eager whole-set materialization before a sink; a hand-rolled Parquet/CSV/lakehouse reader where the constructor owns the format; parallel per-format frame or per-domain column types; untyped UDFs without `return_dtype`; duplicate `Get`/`List`/`Read` entry points where one polymorphic constructor discriminates by source; string-interpolated SQL where `sql(**bindings)` binds frames.

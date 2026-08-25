@@ -2,19 +2,7 @@
 
 `python-bidi` (import `bidi`) owns the UAX#9 bidirectional reorder for the artifacts text-shaping rail: `get_display` resolves a logical-order `str`/`bytes` into visual order over the Rust `unicode-bidi` core, and `get_base_level` probes the first paragraph's base direction (`0` LTR / `1` RTL). Both names re-export from `bidi.wrapper` onto the native `bidi.bidi` PyO3 extension; pure-Python `bidi.algorithm` is the reference/diagnostic path. `typography/shape#SHAPE` drives it as the `ShapeOp.BIDI` pre-pass ahead of `uharfbuzz`, gated onto the `runtime` `to_process` subprocess seam.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-bidi`
-- package: `python-bidi` (LGPL-3.0-or-later)
-- import: `bidi`; public `get_display`/`get_base_level` re-export from `bidi.wrapper` onto the native `bidi.bidi` PyO3 extension (`get_display_inner`/`get_base_level_inner`)
-- owner: `artifacts`
-- rail: text-shaping
-- build-floor: native cp315 wheel — the in-process bidi path; `pyicu`'s `Bidi` arm rides the subprocess seam beside it
-- depends-on: none; the `unicode-bidi` Rust core owns UAX#9 resolution, so no Python-side runtime dependency
-- entry points: console script `pybidi` (stdin/argv reorder; `-r`/`--rust` selects the native path, default is the pure-Python `bidi.algorithm`); library use is import-only
-- capability: UAX#9 reorder of a logical-order `str`/`bytes` into visual order (`base_dir` `'L'`/`'R'` override, `debug` levels dump), the `get_base_level` first-paragraph direction probe, and the pure-Python `bidi.algorithm` reference engine (stage pipeline over `get_empty_storage`, `get_embedding_levels`/`calc_level_runs`, `debug_storage`, `upper_is_rtl`) and the `bidi.mirror.MIRRORED` pairing table
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reorder value and direction probe
 - rail: text-shaping
@@ -28,7 +16,7 @@
 |  [03]   | `base_dir` (`'L'`/`'R'`) | direction override     | override pinning the base level vs first-strong compute; 2-member vocabulary         |
 |  [04]   | storage (`dict`)         | reference engine state | `get_empty_storage()` mutable `{'base_level','base_dir','chars','runs'}`             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: reorder and base-direction probe (native path)
 - rail: text-shaping
@@ -80,7 +68,7 @@ These module-level data are what the reference engine folds over — the native 
 |  [05]   | `X6_IGNORED`           | `list`                      | X6: ignored control types                                         |
 |  [06]   | `X9_REMOVED`           | `list`                      | X9: removed types (RLE/LRE/RLO/LRO/PDF, BN)                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - ordering: bidi resolves BEFORE `uharfbuzz` shaping, and the shaping feed is the directional-run decomposition, never the whole-paragraph `get_display` string — the owner splits the paragraph into same-level runs, shapes each run's LOGICAL-order text through `Buffer.add_str`+`shape` with the run-level direction, then orders the shaped runs per UAX#9 L2.
@@ -99,9 +87,3 @@ These module-level data are what the reference engine folds over — the native 
 - `python-bidi` is the locale-free DEFAULT bidi owner and the operative path on this interpreter: `get_display`/`get_base_level` for the whole-paragraph reorder and base-direction probe, owning the mixed-direction pre-pass `uharfbuzz` does not (HarfBuzz shapes a single given direction, never the resolution that splits a mixed run). `uharfbuzz` owns OpenType shaping after reorder, `fonttools` the font model + `SVGPathPen`, `blackrenderer` the COLRv1 raster, `uniseg` UAX#14/#29 segmentation.
 - escalate to `pyicu` `Bidi` only for the surface `python-bidi` cannot give — line-relative reorder (`setLine` after line-break), the explicit visual-run decomposition (`getVisualRun` itemising a mixed run into single-direction spans), or combined reorder+Arabic-join+digit-shape (`BidiTransform.transform`); `python-bidi`'s whole-string `get_display` yields neither a line-scoped nor a visual-run-itemised result.
 - `uniseg` is orthogonal, never redundant: UAX#14/#29 SEGMENTATION beside UAX#9 REORDER, side by side in the pipeline, its `unicodedatawrapper.bidirectional` Bidi_Class read a per-codepoint property, not a reorder. Unlike a `uniseg` pass (pure, offline, inline), the bidi reorder is the one shaping step that REQUIRES the `runtime` worker seam because of the native binding.
-
-[RAIL_LAW]:
-- Package: `python-bidi`
-- Owns: the UAX#9 whole-paragraph reorder of a logical-order `str`/`bytes` into visual order via `get_display` (over the Rust `unicode-bidi` core), the `base_dir='L'|'R'` override, the native `debug` levels dump, the `get_base_level` first-paragraph probe, and the pure-Python `bidi.algorithm` reference engine (the stage pipeline over `get_empty_storage`, `get_embedding_levels`/`calc_level_runs`, `debug_storage`, `upper_is_rtl`) and `bidi.mirror.MIRRORED`
-- Accept: `get_display(text, base_dir=...)` for whole-paragraph visual-order text on the gated `to_process` seam; `get_base_level(text)` for the once-computed paragraph direction threaded into shaping; `bidi.algorithm.get_embedding_levels`/`calc_level_runs` for the same-level run decomposition feeding per-run shaping; `debug_storage` for a level-array diagnostic; `bidi.mirror.MIRRORED` for a single mirrored-pair lookup
-- Reject: a hand-rolled UAX#9 reorder where `get_display` applies; reordering AFTER shaping; passing the whole `get_display` result to one `Buffer.add_str` where per-run logical-order shaping plus L2 run reordering preserves the cluster mapping; a raw `base_dir` character instead of the lifted `'L'`/`'R'` value; the native reorder inline on the event loop instead of the `to_process` worker seam; `bidi.algorithm.get_display` as the production reorder (the reference engine duplicates the gated binding); a hand-rolled visual-run itemiser or line-relative reorder where `pyicu` `Bidi.getVisualRun`/`setLine` owns it

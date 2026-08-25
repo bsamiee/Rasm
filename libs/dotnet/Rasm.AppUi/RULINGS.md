@@ -57,7 +57,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `MaterializeContext` delegate columns are earned ONLY by third-party or host construction — each refusal is named, so absence is closed.
 - `IntentBinding` verbs ATTACH and the gesture column narrows WHICH gesture raises them — read as a gate, an unauthored trigger makes a dead control.
 - Text no admitted face covers REFUSES at the shaping edge — `TextItemizer` demands coverage before it segments, so no notdef box reaches a surface.
-- `RenderPosture` pins per SURFACE CLASS, not per role — a screen golden, a paged export, and a translucent run each pin their own reading.
+- `RenderPosture` pins per SURFACE CLASS, not per role — a headless capture, a paged export, and a translucent run each pin their own reading.
 - `MotionAxis` rows declare their KIND and a CLAMPING channel refuses an overshooting token at the bind — colour, opacity, and corner saturate.
 - `LatencyTier` derives from the operation's EXPECTED duration, never its surface — one latency ladder elects every rung from none to handoff.
 - Floating chrome takes the `MotionLane` of transform and opacity ALONE — animating extent re-enters layout for the plane beneath on every frame.
@@ -113,7 +113,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Domain-scoped artifacts ELECT their own `DraftUnits` over the reader's, and only that — the locale keeps format, denominator, and grammar.
 - `FlameView` and every settled-instrument surface SEAL nothing — every fact is on the message-envelope stream, so they own projection alone.
 - `WedgeSpans` serves every reading of one value tree in UNIT FRACTIONS with a source index per span — two folds diverge on the first repair.
-- Golden captures pin scale, gamut, and posture as `CaptureRow` COLUMNS — an unpinned raster input diffs a golden against its own capture panel.
+- `CaptureRow` pins scale, gamut, and posture as COLUMNS — an unpinned raster input hashes its own capture panel rather than the frame.
 - Surfaces that DISPLAY a `ResultPayload` compute none of it — the only arithmetic admitted is a read provably inside the payload's own range.
 - `AnalysisContext` is the ONE environmental-coordinate owner publishing PROJECTIONS — a scrub track, an absolute range, and a bounded variable.
 - `ContextChannel` easing is LINEAR by construction — a curved playhead accelerates the sun through midday and every derived shadow inherits it.

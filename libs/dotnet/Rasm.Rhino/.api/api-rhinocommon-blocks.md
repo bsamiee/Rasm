@@ -2,17 +2,7 @@
 
 `InstanceDefinitionTable` owns the block-definition graph over shared `InstanceDefinition` geometry that many transform-carrying `InstanceObject` placements reference, so a block is N placements over one definition, never N geometry copies. `ObjectTable` places, replaces, explodes, and bakes instances; `TextFields` composes and extracts block-attribute fields; `File3dm` carries the standalone-archive definition graph. Every live `InstanceDefinition`, `InstanceObject`, and `TextObject` resolves inside its owning document session before a detached value crosses the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon block surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.Runtime`, `Rhino.FileIO`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: block-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: definition and instance
 - rail: block-boundary
@@ -44,7 +34,7 @@
 |  [03]   | `File3dmInstanceDefinitionTable`    | archive table  | standalone-archive instance-definition roster       |
 |  [04]   | `InstanceDefinitionGeometry`        | geometry       | archive-side definition geometry carrier            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DEFINITION_IDENTITY]:
 - `InstanceDefinitionTable.Find(string) -> InstanceDefinition` — case-insensitive name resolve.
@@ -126,7 +116,7 @@
 - `InstanceDefinitionGeometry.GetObjectIds() -> Guid[]` — archive member ids; a linked definition returns empty because its members are not persisted in the containing archive.
 - `InstanceReferenceGeometry.ParentIdefId -> Guid` — referenced definition identity on an archive or live instance-reference geometry.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [BLOCK_TOPOLOGY]:
 - `InstanceDefinitionTable` owns the definition graph; `InstanceDefinition` is the geometry authored once and referenced by many placements; `InstanceObject` is one transform-carrying placement; `ObjectTable` places, replaces, explodes, and bakes.
@@ -142,9 +132,3 @@
 [LOCAL_ADMISSION]:
 - a definition enters through `Add` or `ModifyGeometry` after each geometry source is paired with exactly one `ObjectAttributes`, so the independent host enumerables derive from that paired row sequence and retain equal cardinality; a placement enters through `AddInstanceObject`, and an explode returns detached piece records keyed to the instance id.
 - live `InstanceDefinition`, `InstanceObject`, and `TextObject` values stay inside the document grant; downstream code receives definition references, detached field values, detached facts, or explicitly owned geometry and bitmap leases.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon` block surface
-- Owns: the block-definition graph, linked-source archive state, instance placement and explosion, definition previews, and block-attribute composition and extraction.
-- Accept: definition authoring and lifecycle, linked-source transitions, usage and dependency queries, instance placement, replacement, and explosion, and field composition and extraction projected onto `Fin`/`Option` rails.
-- Reject: copied-geometry blocks, assumed dependency state, exception-style table outcomes, and live document-bound block objects crossing the session boundary.

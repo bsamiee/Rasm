@@ -2,26 +2,7 @@
 
 `MathNet.Numerics.Providers.MKL` and `MathNet.Numerics.Providers.OpenBLAS` are the native adapters behind the branch numeric plane's provider selection: each carries a control class minting an `ILinearAlgebraProvider` off a native payload, a loader reporting availability without throwing, and its own diagnostic surface. Neither owns algebra, and neither ships an osx-arm64 asset — so the Compute numeric lane resolves the managed provider here and the adapters arm only where an x64 payload lands.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
-- package: `MathNet.Numerics.Providers.MKL` (MIT)
-- assembly: `MathNet.Numerics.Providers.MKL`
-- namespace: `MathNet.Numerics.Providers.MKL`, `.MKL.LinearAlgebra`, `.MKL.SparseSolver`, `.MKL.FourierTransform`, `.Common`
-- asset: managed adapter; native binaries ship in the `MathNet.Numerics.MKL.Win-x64` and `.Linux-x64` payload packages, no osx-arm64 asset
-- rail: numeric-provider
-
-[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
-- package: `MathNet.Numerics.Providers.OpenBLAS` (MIT)
-- assembly: `MathNet.Numerics.Providers.OpenBLAS`
-- namespace: `MathNet.Numerics.Providers.OpenBLAS`, `.OpenBLAS.LinearAlgebra`, `.Common`
-- asset: managed adapter; native binaries ship in the x64 OpenBLAS payload packages, no osx-arm64 asset
-- rail: numeric-provider
-
-- Registers `MathNet.Numerics`(`libs/dotnet/.api/api-mathnet-numerics.md`): `Control`, `LinearAlgebraControl`, `ILinearAlgebraProvider`, the dense factorization and sparse ingestion families, and the Krylov solvers all resolve there and are never re-tabled here.
-- Registers `CSparse`(`libs/dotnet/.api/api-csparse.md`): the direct sparse Cholesky, LU, and QR lane the Compute solver selects against the Krylov peer.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: adapter control classes and the payload-tuning vocabulary
 
@@ -41,19 +22,19 @@
 - `MklPrecision`: `Single=0x10` `Double=0x20`. `MklAccuracy`: `Low=1` `High=2`.
 - Every control class implements `IProviderCreator<T>` over its provider interface, so `CreateProvider()` is the uniform mint the branch `LinearAlgebraControl.TryUse` admits.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: payload availability and load — every member static, `IsAvailable` probing without loading and `Load` returning the native revision
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------------------------------------- | :------ | :--------------------------------------------- |
-|  [01]   | `MklProvider.IsAvailable(string hintPath = null) -> bool`               | static  | probe the payload without binding it           |
-|  [02]   | `MklProvider.Load(string hintPath = null) -> int`                       | static  | load at the default consistency triple         |
-|  [03]   | `MklProvider.Load(hintPath, MklConsistency, MklPrecision, MklAccuracy)` | static  | load under an explicit tuning triple           |
-|  [04]   | `MklProvider.Describe() -> string`                                      | static  | active native revision and tuning text        |
-|  [05]   | `OpenBlasProvider.IsAvailable(string hintPath = null) -> bool`          | static  | probe the payload without binding it           |
-|  [06]   | `OpenBlasProvider.Load(string hintPath = null) -> int`                  | static  | load the payload                               |
-|  [07]   | `OpenBlasProvider.Describe() -> string`                                 | static  | active native revision text                    |
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `MklProvider.IsAvailable(string hintPath = null) -> bool`               | static  | probe the payload without binding it   |
+|  [02]   | `MklProvider.Load(string hintPath = null) -> int`                       | static  | load at the default consistency triple |
+|  [03]   | `MklProvider.Load(hintPath, MklConsistency, MklPrecision, MklAccuracy)` | static  | load under an explicit tuning triple   |
+|  [04]   | `MklProvider.Describe() -> string`                                      | static  | active native revision and tuning text |
+|  [05]   | `OpenBlasProvider.IsAvailable(string hintPath = null) -> bool`          | static  | probe the payload without binding it   |
+|  [06]   | `OpenBlasProvider.Load(string hintPath = null) -> int`                  | static  | load the payload                       |
+|  [07]   | `OpenBlasProvider.Describe() -> string`                                 | static  | active native revision text            |
 
 - Both `Load` overloads default `hintPath` to `null`, falling back to the branch `Control.NativeProviderPath` probe root and then the platform default paths.
 - `Load`'s tuning triple defaults to `(MklConsistency.Auto, MklPrecision.Double, MklAccuracy.High)`.
@@ -88,7 +69,7 @@
 
 - `PeakMemoryStatistics` resets the watermark unless the caller passes `false`, so a sampling loop reading it every interval measures per-interval peaks rather than a running maximum.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Selection is a two-step the branch owns end to end: the adapter mints a provider through its control class and the branch `LinearAlgebraControl` admits it, so an adapter never installs itself behind the branch's back and a caller-built provider enters through `LinearAlgebraControl.TryUse` on the same seam.
@@ -110,9 +91,3 @@
 - Numeric composition selects the provider once through `LinearProvider.Select()`, which probes `IsAvailable` per adapter, admits the winner through the branch control, and lets `SolveProvenance` snapshot the selected key and active provider state; a per-call-site `UseNativeMKL()` is the named defect.
 - osx-arm64 resolves no adapter payload and rides the managed provider, so a benchmark claim asserting native rank on this platform fails its gate rather than degrading silently.
 - Cross-machine reproducibility claims bind an explicit `MklConsistency` row; `Auto` is the throughput default and carries no such claim.
-
-[RAIL_LAW]:
-- Package: `MathNet.Numerics.Providers.MKL`, `MathNet.Numerics.Providers.OpenBLAS`
-- Owns: native linear-algebra, sparse-solver, and Fourier provider mints, their payload probe and load, the MKL tuning triple, and MKL native memory custody and telemetry
-- Accept: one composition-time probe-and-select through `LinearProvider.Select()`, an explicit tuning triple where reproducibility is claimed, and native memory reads on the MKL diagnostic surface
-- Reject: a per-call-site provider switch, a re-tabling of the branch numeric plane, a native-rank benchmark claim on a platform carrying no payload, and treating a `Load` return code as a success boolean

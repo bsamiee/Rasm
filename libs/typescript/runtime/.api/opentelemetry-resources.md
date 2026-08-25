@@ -2,16 +2,7 @@
 
 `@opentelemetry/resources` owns the OTLP `Resource`: an immutable, `merge`-composable attribute bundle (`service.name`, `telemetry.sdk.*`, host/os/process facts) every span, metric, and log carries so a backend attributes a signal to its emitter, and `detectResources` folds the `ResourceDetector` family onto that base to enrich it with environment facts. It is the concrete value the facade `Resource.Resource` Tag wraps, so one `AppIdentity`-derived resource reaches both export lanes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/resources`
-- package: `@opentelemetry/resources` (Apache-2.0)
-- module: ESM, single index; a `detectors/platform/{node,browser}` split resolves per runtime
-- runtime: isomorphic — node detectors read `os`/`process`/machine-id, browser detectors degrade to `noop`; the `Resource` value and constructors are runtime-neutral
-- depends: `@opentelemetry/api` (`Attributes`/`AttributeValue`), `@opentelemetry/core` (`SDK_INFO`, env readers), `@opentelemetry/semantic-conventions` (attribute-key vocabulary)
-- rail: observability/resource — the identity bundle both export lanes stamp on every signal
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Resource` value and the detector contract
 
@@ -23,7 +14,7 @@
 |  [04]   | `ResourceDetectionConfig` | interface     | `{ detectors?: ResourceDetector[] }` ordered set `detectResources` runs                   |
 |  [05]   | `RawResourceAttribute`    | tuple         | `[string, MaybePromise<AttributeValue \| undefined>]` unresolved attribute pair           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resource construction and the `Resource` monoid
 
@@ -48,7 +39,7 @@
 |  [03]   | `hostDetector` / `osDetector`                           | static  | `host.*`/`os.*` facts; node reads `os`, browser `noop`              |
 |  [04]   | `processDetector` / `serviceInstanceIdDetector`         | static  | `process.*` / async `service.instance.id`                           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one resource, one identity: both export lanes consume one `Resource` derived from `AppIdentity` — the value `browser` boot and the `store` `StoreHandle` scope share — so a per-app telemetry fork is structurally impossible, this package being that value's concrete carrier.
@@ -66,9 +57,3 @@
 - `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no other folder constructs a `Resource`, and instrumentation emits through Effect's native signals against the one facade `Resource`.
 - design code composes the facade `Resource.layer` over raw `resourceFromAttributes`, reaching for `detectResources` and the detector family only where SDK-only environment attributes (host/os/process) are required.
 - it persists as the native lane's `Resource`-identity substrate; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` survive-and-collapse roster.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/resources`
-- Owns: the immutable `merge`-composable `Resource` value (concrete carrier of the facade `Resource` Tag), the `resourceFromAttributes`/`defaultResource`/`emptyResource` constructors, and the `env`/`host`/`os`/`process`/`serviceInstanceId` `ResourceDetector` family run by `detectResources`
-- Accept: one `AppIdentity`-derived `Resource` via the facade `Resource.layer`; `merge` folding base ⊕ detectors ⊕ env; `detectResources({ detectors })` for SDK-only environment enrichment; the async-attribute barrier before first export
-- Reject: `@opentelemetry/*` imports outside `scope:runtime`, per-app resource forks, a new constructor where a `ResourceDetector` row belongs, mutable attribute accumulation instead of `merge`

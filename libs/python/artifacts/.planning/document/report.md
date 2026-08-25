@@ -19,7 +19,7 @@ Reproducible-report composition binds data and visual outputs into one `document
 - Growth: a new report kind is one `ReportKind` row with one `COMPOSE_ARMS` row and optional `_REQUIRED` row; a new section-body unit is one `SectionBlock` case with one `_block_node` arm; exporter growth arrives through the nbconvert registry; a new result modality is one `ReportFact` case; a new recoverable reflow deposit is one `Placement` field MuPDF already reports with its `_placed_node` arm; a parameter study is one `matrix` grid with its `matrix_comparison` cross-cell section.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from collections.abc import Awaitable, Callable, Iterator
 from enum import StrEnum

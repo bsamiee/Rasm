@@ -22,7 +22,7 @@
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `RhinoDoc.Strings`, `DocumentUserTextCount`, `DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `ObjectTable.FindByUserString`, `ObjectEnumeratorSettings`, `ObjectType`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); `Document/tables` (`ResourceId`); Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`); LanguageExt.Core (`libs/dotnet/.api/api-languageext.md`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.DocObjects;
@@ -267,7 +267,7 @@ public abstract partial record TextQuery {
 - Packages: `Document/tables` (`ResourceId`); `Document/session` (`IDetachedDocumentResult`); Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[UnorderedEquality]`); LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Generator.Equals;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -320,7 +320,7 @@ public abstract partial record UserTextAnswer : IDetachedDocumentResult {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `StringTable.Count`/`GetKey`/`GetValue`/`SetString`/`Delete`/`DocumentUserTextCount`/`DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject.Attributes`/`Geometry`, `GetUserStrings`, `GetUserString`, `SetUserString`, `DeleteUserString`, `UserStringCount`, `ObjectTable.FindId`/`FindByUserString`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`); `Document/tables` (`Tables.Commit`, `TableOp.Amend`/`Replace`, `TableTarget`, `TableTransaction.Recorded`, `AttributeChange`, `ModeRegard`); kernel `Domain/rails` (`Op.Catch`, `Custody`); LanguageExt.Core (`TraverseM`, `Choose`, `HashMap`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Specialized;
 using Rasm.Domain;
 using Rasm.Rhino.Document;

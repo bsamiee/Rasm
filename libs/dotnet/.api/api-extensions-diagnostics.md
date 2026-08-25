@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Diagnostics` mints the provider-owned `IMeterFactory` at a composition root and folds instrument publication through rule rows an `IMetricsListener` consumes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics`
-- package: `Microsoft.Extensions.Diagnostics` (MIT)
-- assembly: `Microsoft.Extensions.Diagnostics.dll`
-- contract assembly: `Microsoft.Extensions.Diagnostics.Abstractions`
-- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Metrics`
-- rail: composition-root meter mint and instrument enablement
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: enablement grammar and listener contracts, carried by the contract assembly
 
@@ -27,7 +18,7 @@
 
 [IMetricsListener]: `Name` `Initialize` `InstrumentPublished` `MeasurementsCompleted` `GetMeasurementHandlers`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: composition-root registration and the builder rows it configures
 
@@ -46,7 +37,7 @@
 
 - `EnableMetrics`/`DisableMetrics`: each carries a `MetricsOptions` receiver overload for the options-configure path.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AddMetrics` registers `IMeterFactory` through `TryAddSingleton`, so one built `ServiceProvider` owns one factory and every meter it mints.
@@ -64,9 +55,3 @@
 
 [LOCAL_ADMISSION]:
 - Hosts and per-ALC capsules call `AddMetrics`; a library takes `IMeterFactory` by injection and composes its rule rows through `IMetricsBuilder`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Diagnostics`
-- Owns: composition-root `IMeterFactory` mint with the instrument-enablement rule and listener grammar
-- Accept: one `AddMetrics` per provider, `InstrumentRule` enable and disable rows, an `IMetricsListener` over published instruments
-- Reject: a library-level `AddMetrics`, a process-static meter factory, a hand-wired `MeterListener` where a rule row fits

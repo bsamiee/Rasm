@@ -2,15 +2,7 @@
 
 `coverlet.MTP` is the Microsoft.Testing.Platform flavor of coverlet: a builder-hook extension that IL-rewrites system-under-test assemblies ahead of load (Mono.Cecil, sequence-point hit recording) and reports on process exit. It is configured exclusively through MTP command-line options and config files — the `coverlet.msbuild` `Coverlet*` MSBuild property family is inert under this flavor. Estate activation runs through the `RasmCoverage=true` gate in `Directory.Build.targets`, which splices the `--coverlet` tail into `TestingPlatformCommandLineArguments` per test executable.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `coverlet.MTP`
-- license: `MIT`
-- namespace: `Coverlet.MTP` (extension host types; no consumer-facing managed API)
-- asset: `lib/net10.0/coverlet.MTP.dll` + `coverlet.core.dll` (Mono.Cecil instrumentation stack); `buildMultiTargeting` props register the `TestingPlatformBuilderHook`
-- rail: evidence — line/branch coverage collection and report emission for MTP test hosts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 `TestingPlatformBuilderHook` wires registration GUID `6C751FC6-00AA-43AD-8265-79C3FED21943` into the generated entry point; the remaining types are extension-host-internal.
 
@@ -21,7 +13,7 @@
 |  [03]   | `CoverletMTPSettings`                                     | config         | resolved settings shape; parsing and providers internal     |
 |  [04]   | `CoverletTestSessionHandler` / `CoverletInProcessHandler` | test-host side | in-process hit flush on session end                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                       | [KIND] | [CAPABILITY]                                                            |
 | :-----: | :---------------------------------------------- | :----- | :---------------------------------------------------------------------- |
@@ -42,7 +34,7 @@
 
 - [14]-[PRECEDENCE]: CLI over `[app].testconfig.json` over `testconfig.json` over `coverlet.mtp.appsettings.json` over defaults.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [ACTIVATION]: `Directory.Build.targets` owns the one activation seam — `RasmCoverage=true` on any `IsTestProject` splices `--coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)` into `TestingPlatformCommandLineArguments`; `RasmCoverageFormat` defaults to `cobertura`, and the report lands beside the run's `--results-directory` as `<prefix>.coverage.<format>.<stamp>.<ext>`.
 
@@ -56,10 +48,4 @@
 
 [LOCAL_ADMISSION]:
 - Coverage activates through the `RasmCoverage` gate only; default test runs stay uninstrumented.
-- A `Coverlet*` MSBuild property row anywhere in the estate is dead configuration and is deleted on sight.
-
-[RAIL_LAW]:
-- Package: `coverlet.MTP`
-- Owns: coverage instrumentation and report emission for every MTP-hosted C# suite.
-- Accept: `RasmCoverage=true` runs with format/filter policy carried by the central splice; config-file authoritative mode when a coverage campaign needs per-key control.
-- Reject: `coverlet.msbuild`/`coverlet.collector` siblings, `Coverlet*` property blocks, or per-csproj coverage wiring.
+- `Coverlet*` MSBuild property rows anywhere in the estate are dead configuration and are deleted on sight.

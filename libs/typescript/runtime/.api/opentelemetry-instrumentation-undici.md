@@ -2,15 +2,7 @@
 
 `@opentelemetry/instrumentation-undici` traces the undici client and the global `fetch` node builds on it, a transport `node:http` patching never sees. It subscribes to undici's diagnostics channel rather than patching a module, so registration order is free, and its parent-presence gate is what keeps an orphan client call from rooting a rival trace.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation-undici`
-- package: `@opentelemetry/instrumentation-undici` (Apache-2.0)
-- module: dual CJS + ESM flat barrel; `@opentelemetry/api` `^1.7.0` is the one peer, `@opentelemetry/instrumentation` the base
-- runtime: node and bun only — undici's diagnostics channel is the substrate; the browser condition traces `fetch` through `@opentelemetry/instrumentation-fetch`
-- rail: observability/tracing — the client span source for `fetch` and every undici dispatcher
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row, its config, and the request and response shapes its hooks receive
 
@@ -29,7 +21,7 @@
 - `UndiciRequest.addHeader(name, value)` opens the injection seam trace-context propagation uses, so a hook adds a header without touching the raw array form.
 - `requireParentforSpans` gates on a live parent rather than suppressing a downstream layer; two different mechanisms, and this package ships the gate.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
@@ -39,7 +31,7 @@
 |  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
 |  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - diagnostics-channel subscription, not module patching — registration order carries no constraint, unlike the `http` row.
@@ -54,9 +46,3 @@
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer.
 - branch-owned outbound HTTP rides `net/client`'s policy `HttpClient` under `Effect.withSpan`, so this row covers foreign libraries dialing out, never the branch's own lanes.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation-undici`
-- Owns: client spans for `fetch` and undici dispatchers under stable HTTP semconv, with origin ignore, parent gating, and a header allow-list
-- Accept: one construction inside the server registration node with collector origin exclusion and the parent gate armed
-- Reject: blanket header capture, a second client-transport row overlapping the `http` surface, use as a substitute for an owning seam's own span

@@ -2,19 +2,12 @@
 
 `trimesh` is the data-tier mesh and scene interchange edge: it reads mesh files into the geometry-owned `Trimesh` root and encodes mesh/scene exchange bytes back out. Data composes only the loaders and `export`, never re-cataloguing or mutating the geometry modeling, repair, boolean, proximity, sampling, or registration surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `trimesh`
-- package: `trimesh`
-- module: `trimesh`
-- rail: data-tier mesh/scene interchange over the geometry canonical `Trimesh`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry-owned load return kinds the data edge receives
 - `load_scene` returns a `Scene`; `load_mesh` returns one `Trimesh`. Scene content spans `Trimesh` `Path2D` `Path3D` `PointCloud`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: mesh/scene load and export over STL/OBJ/PLY/OFF/GLB/GLTF/3MF
 - Every surface carries `file_obj, file_type`; `export` returns bytes only when `file_obj` is None, and `file_type` selects the codec for an extensionless sink.
@@ -29,7 +22,7 @@
 |  [06]   | `Scene.export(file_type) -> bytes`                         | instance | encode a scene with transforms             |
 |  [07]   | `load(file_obj, file_type, *, force) -> Geometry`          | static   | deprecated shim over `load_scene`          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `load_scene` is the polymorphic intake discriminating return content by source; `load_mesh` forces one `Trimesh`. Format rides `file_type` as a policy value, never a `load_<format>`/`export_<format>` family.
@@ -45,9 +38,3 @@
 [LOCAL_ADMISSION]:
 - Unstructured solver mesh routes to `meshio`, point-cloud registration to `open3d`, IFC to `ifcopenshell`; `Trimesh.units` is the nullable interchange unit hint.
 - `Trimesh.units` reads `None` on a mesh whose source declared no unit, so it lifts to an absence posture at the read site and never coalesces to a default — `mesh.units or "m"` publishes a metre declaration this package never produced, and no consumer can tell it from a file that stated metres.
-
-[RAIL_LAW]:
-- Package: `trimesh`
-- Owns: data-tier mesh/scene load and export interchange over the geometry canonical mesh
-- Accept: polymorphic scene load, forced mesh load, scene collapse, export, exchange-evidence read, and the unit hint
-- Reject: geometry modeling/repair/boolean/proximity/sampling re-catalogues, raw vertex-array mutation, loader/export wrapper-renames, a `load_<format>`/`export_<format>` family, and the deprecated `load` shim in any `force` posture where `load_mesh`/`load_scene` name the return

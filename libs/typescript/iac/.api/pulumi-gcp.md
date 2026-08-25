@@ -8,19 +8,9 @@ In `iac` this is a prepared cloud row, not the first-class arm: it instantiates 
 [EXPORTS]: `container` `sql` `storage` `dns` `compute` `cloudrunv2` `cloudrun` `secretmanager` `serviceaccount` `projects` `organizations` `certificatemanager` `artifactregistry` `redis` `pubsub` `kms` `iam` `monitoring` `logging`
 [EXPORTS]: `config` `types`
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[PUBLIC_TYPES]
 
-[PACKAGE_SURFACE]: `@pulumi/gcp`
-- package: `@pulumi/gcp` (Apache-2.0)
-- build-floor: peer `@pulumi/pulumi` — the engine owns `CustomResource`/`Output`/`Input`; the `pulumi-resource-gcp` plugin binary provisions against the Google APIs
-- target: `node` (Automation-API program process; needs GCP credentials — ADC, a `credentials` JSON, or impersonation — at apply)
-- entry: `@pulumi/gcp` with the service sub-paths (`@pulumi/gcp/container`, `/sql`, `/storage`, …) and `config`/`types`
-- asset: generated `CustomResource` classes across every service namespace, per-service `get*`/`get*Output` data sources, the connection `Provider` (project/region/zone/credentials + per-service `*CustomEndpoint` overrides), package-wide `config` readers, and the `types.input`/`types.output` shape namespaces
-- rail: iac / cloud-prepared
-
-## [02]-[PUBLIC_TYPES]
-
-### [02.1]-[THE_GENERATED_RESOURCE_QUADRUPLE_EVERY_SERVICE_RESOURCE]
+### [01.1]-[THE_GENERATED_RESOURCE_QUADRUPLE_EVERY_SERVICE_RESOURCE]
 
 [PUBLIC_TYPE_SCOPE]: resource pattern
 
@@ -38,7 +28,7 @@ Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-brid
 [CLUSTER]: `Cluster.get(string,pulumi.Input<pulumi.ID>,ClusterState?,pulumi.CustomResourceOptions?) -> Cluster` `Cluster.isInstance(any) -> obj is Cluster` `Cluster.name: pulumi.Output<string>` `Cluster.location: pulumi.Output<string>` `Cluster.endpoint: pulumi.Output<string>` `Cluster.masterAuth: pulumi.Output<outputs.container.ClusterMasterAuth>` `Cluster(string,ClusterArgs?,pulumi.CustomResourceOptions?)`
 [CLUSTER_ARGS]: `ClusterArgs.name: pulumi.Input<string|undefined>` `ClusterArgs.location: pulumi.Input<string|undefined>` `ClusterArgs.initialNodeCount: pulumi.Input<number|undefined>` `ClusterArgs.network: pulumi.Input<string|undefined>`
 
-### [02.2]-[SERVICE_EQUIVALENCE_MAP_THE_PREPARED_ROW_VALUE]
+### [01.2]-[SERVICE_EQUIVALENCE_MAP_THE_PREPARED_ROW_VALUE]
 
 [PUBLIC_TYPE_SCOPE]: capability → gcp resource
 
@@ -61,7 +51,7 @@ Integration shape of the prepared row: the `provider/surface` `gcp` column maps 
 
 - Edge-render members (the `Source.edge` surface): `compute.BackendBucket(name, { bucketName, enableCdn })` fronts a GCS bucket; `compute.URLMap` carries `defaultService` + `hostRules: [{ hosts, pathMatcher }]` + `pathMatchers: [{ name, defaultService, routeRules }]`, each route rule `{ priority, service, matchRules, headerAction }` with `headerAction.responseHeadersToAdds: [{ headerName, headerValue, replace }]`; `matchRules` spell `prefixMatch` (leading `/`) or `pathTemplateMatch` (`*` one segment, `**` zero-or-more and last, suffix form `/**.ext` legal) — `regexMatch` is INTERNAL_SELF_MANAGED-only and unspellable on the external managed scheme; `compute.TargetHttpProxy(name, { urlMap })` and `compute.GlobalForwardingRule(name, { target, portRange, loadBalancingScheme: "EXTERNAL_MANAGED" })` complete the chain, route rules evaluating ascending `priority` and binding the first match.
 
-### [02.3]-[PROVIDER_PROJECT_REGION_CREDENTIALS_BOUNDARY]
+### [01.3]-[PROVIDER_PROJECT_REGION_CREDENTIALS_BOUNDARY]
 
 [PUBLIC_TYPE_SCOPE]: provider
 
@@ -84,7 +74,7 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 
 `config` re-exports the provider fields as package-wide reads (`config.project`, `config.region`, `config.credentials`, …) from `gcp:*` stack config; the arm binds an explicit `Provider` from the `StackSpec` value instead. Per-service data sources (`projects.getProject`, `organizations.getClientConfig`, `compute.getNetwork`, …) follow the `get*`/`get*Output` dual that `pulumi-postgresql.md` documents.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every resource is the quadruple: `XArgs` fields are `pulumi.Input<T>`, `X` attributes are `pulumi.Output<T>`, `X.get` adopts, `X.isInstance` brand-checks. Compose cross-resource with `Output.apply`/`pulumi.all`; never read an `Output` synchronously.
@@ -98,9 +88,3 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): the SA-key `credentials` value arrives as a Doppler `getSecrets` `Output`, never a literal.
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): the equivalence map mirrors the `selfhosted-k8s` spine (GKE↔`apiextensions`-declared workloads, Cloud SQL↔CNPG `Cluster`), so an app crosses profiles without touching resource code.
 - within-lib: `provider/dispatch` `Match.exhaustive` selects the `gcp` arm on the `StackSpec` `target`, builds `gcp.Provider` from the value, then the equivalence-map resources for the capability profile — adding `gcp` was one dispatch arm + one `provider/surface` column, and finalizing is app data.
-
-[RAIL_LAW]:
-- Package: `@pulumi/gcp`
-- Owns: every service namespace's `CustomResource` quadruple, the `Provider` credential boundary, and the `selfhosted-k8s`→managed equivalence map — the whole managed-GCP resource surface
-- Accept: `pulumi.Input<T>` for every arg; the discriminated `credentials`/`accessToken`/`impersonateServiceAccount` family; resources instantiated only under the `gcp` dispatch arm, for the capability profile the `StackSpec` names
-- Reject: a bespoke per-resource client; a credential-mode enum where field presence discriminates; an in-arm typed error rail — apply faults map to `DeployFault` at the Automation boundary

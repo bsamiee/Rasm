@@ -2,18 +2,7 @@
 
 `fast-sugiyama` owns layered-graph coordinate assignment: a Rust/PyO3 abi3 Sugiyama pipeline behind one `from_edges(edges, ...)` boundary that int-maps a mixed-type `(source, target)` edge list for the Rust core, runs the crossing-reduction placement, and re-projects the result to the original node ids as a `Layouts`. It computes coordinates and component extents only — SVG stays with `visualization/diagram/draw#DRAW`, graph analysis with the `data/graph/graph#GRAPH` `rustworkx` kernel — and its synchronous native call runs inside the layout owner's `to_thread.run_sync` `CapacityLimiter` lane, off the event loop.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `fast-sugiyama`
-- package: `fast-sugiyama` (MIT)
-- module: `fast_sugiyama` (`fast_sugiyama.layout` re-exports the free-function transforms)
-- owner: `artifacts`
-- rail: diagram-layout
-- abi: abi3 stable-ABI extension `_fast_sugiyama.abi3.so`, interpreter-agnostic
-- native: Rust/PyO3 `_fast_sugiyama` (`_from_edges`); `Layouts.rect_pack_layouts` imports `rpack` at call time — unadmitted, gating the rect-pack composite
-- capability: run the full Sugiyama pipeline (cycle break, layer rank, dummy-vertex routing nodes, ordered crossing minimization, coordinate assignment) over a mixed-type edge list in one native call, returning per-connected-component coordinates, extents, and optional edge-bend points, then re-arrange components through the `Layouts` transform algebra — replacing both a `dot` subprocess and a Python placement loop
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Layouts` placement container and its layout tuple
 
@@ -52,7 +41,7 @@ Mixed-type edge input is by design — `NodeIDType = int | str`, so the boundary
 |  [01]   | `Ranking`              | `"original" \| "minimize" \| "up" \| "down"` | rank: keep-input / minimize-height / longest-path up-down |
 |  [02]   | `CrossingMinimization` | `"median" \| "barycenter"`                   | ordering heuristic for the crossing-reduction sweep       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `from_edges` — the one placement boundary
 
@@ -101,7 +90,7 @@ Every `Layouts` arrange/project/pack method has a free-function twin in `fast_su
 |  [03]   | `get_position_origin(positions)` / `get_origin(layout)` | query    | min-corner `(x, y)` of a position list / one layout            |
 |  [04]   | `get_bboxes(layouts, spacing=None)`                     | query    | per-component `((x,y), w+spacing, h+spacing)` debug/pack boxes |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `from_edges` is fed the `(source, target)` pairs from the `data/graph/graph#GRAPH` adjacency frame or the `rustworkx` `PyDiGraph.edge_list()`, keyed on the same stable integer node index the layout owner assigns and the glyph marks read back on, so no third re-keying enters; the whole synchronous native call runs inside the layout owner's `_render` kernel that `_compute` offloads onto `to_thread.run_sync(self._render, limiter=_LAYOUT_LANES)`, never on the event loop and never under a second limiter.
@@ -116,9 +105,3 @@ Every `Layouts` arrange/project/pack method has a free-function twin in `fast_su
 - Disjoint architectural components arrange through `Layouts.dot_layout()` by default; when dense packing is wanted the component `to_bboxes()` rectangles feed the `Rasm.Fabrication` nesting kernel at the wire, so layered placement and component packing compose without either owner re-implementing the other.
 
 [LOCAL_ADMISSION]:
-
-[RAIL_LAW]:
-- Package: `fast-sugiyama`
-- Owns: layered-graph (Sugiyama) coordinate assignment — cycle break, layer ranking, dummy-vertex long-edge routing-node insertion, ordered crossing minimization, horizontal coordinate assignment — over a mixed-type edge list, returning per-component coordinates, extents, and edge-bend points as a `Layouts`, with the post-placement component-arrangement algebra and the `dot_layout`/`compact_layout` composites
-- Accept: layered/hierarchical diagram placement as the native replacement for any `dot` subprocess, composing the `rustworkx` graph, the `expression.tagged_union` policy, the `anyio` placement lane, and the `xxh3_128` key
-- Reject: a hand-rolled Sugiyama/layer/crossing-minimization loop where `from_edges` owns it; a `dot`/Graphviz subprocess where this native call replaces it; force/radial/topological layout where `rustworkx` owns it; spline edge-route generation where `grandalf` `route_with_splines` owns it; graph analysis where the `data/graph/graph#GRAPH` `rustworkx` kernel owns it; SVG emission where `visualization/diagram/draw#DRAW` owns it; the `rect_pack_layouts`/`compact_layout` `rpack` path while `rpack` is unadmitted; a re-keying of coordinates off the stable node index; a synchronous native placement left on the event loop; identity minting the runtime owns

@@ -4,16 +4,7 @@
 
 `lbt-recipes` holds the executor boundary of the recipe rail: queenbee owns the consumed schema and `pollination-handlers` the bound IO coercion, leaving lbt-recipes the subprocess run and its luigi/error-log evidence; the runtime composes `Recipe` + `RecipeSettings` + `Recipe.run` into the simulation-job owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lbt-recipes`
-- package: `lbt-recipes` (AGPL-3.0)
-- module: `lbt_recipes`
-- abi: pure-Python (`py2.py3-none-any`, purelib; no native extension), shelling out to the Radiance, OpenStudio, and EnergyPlus engines
-- rail: recipe-execution
-- depends: `pollination-handlers` (the IO handler chain), `queenbee-local` (the luigi `queenbee local run` executor — the subprocess target), `click`; transitively honeybee/honeybee-radiance/honeybee-energy/ladybug for `Model`/config/engine folders
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: recipe execution family
 
@@ -48,7 +39,7 @@ Each packaged recipe is a folder — `package.json` contract + `run.py` luigi en
 |  [13]   | `pmv_comfort_map`          | comfort       | PMV thermal-comfort map                   |
 |  [14]   | `utci_comfort_map`         | comfort       | UTCI thermal-comfort map                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: recipe construction and inputs
 
@@ -94,7 +85,7 @@ Each packaged recipe is a folder — `package.json` contract + `run.py` luigi en
 |  [05]   | `version.check_openstudio_version()`                             | static   | assert compatible OpenStudio installed        |
 |  [06]   | `version.check_energyplus_version()`                             | static   | assert compatible EnergyPlus installed        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - subprocess law: `Recipe.run` shells `queenbee local run` (the `queenbee-local` luigi runner) with `--workers`, `--name <simulation_id>`, an `--env PATH/RAYPATH` for the Radiance binaries, and a cleared `PYTHONHOME`, never running the DAG in-process; the runtime drives it through the process-resource lane under a deadline scope and parses the result rather than trusting the exit code alone.
@@ -110,9 +101,3 @@ Each packaged recipe is a folder — `package.json` contract + `run.py` luigi en
 [LOCAL_ADMISSION]:
 - AGPL-3.0: this distribution and its `queenbee-local` executor are network-copyleft, admitted only as a process-boundary subprocess, never linked into a distributed library surface — the license is the binding admission flag.
 - `queenbee-local` reaches only through the `queenbee local run` CLI; it is the subprocess target, not a directly composed library, and carries no catalog of its own.
-
-[RAIL_LAW]:
-- Package: `lbt-recipes`
-- Owns: the recipe execution wrapper, the packaged LBT recipes, handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, engine-version checks, and luigi/error-log parsing
-- Accept: `Recipe(recipe_name)` construction, `input_value_by_name`/`handle_inputs` then `run(settings=RecipeSettings(...))`, `output_value_by_name` for typed results, `version.check_*` engine gates, the run driven through the runtime process-resource lane + deadline scope + `RecipeRun` + OTel span
-- Reject: re-implementing the luigi DAG scheduler or `queenbee local run`, an in-process recipe runner, hand-rolled handler resolution or input casting, trusting the subprocess exit code without parsing the logs, running without an engine precheck

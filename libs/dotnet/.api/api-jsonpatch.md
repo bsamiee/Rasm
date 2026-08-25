@@ -2,15 +2,7 @@
 
 `Microsoft.AspNetCore.JsonPatch.SystemTextJson` owns RFC 6902 patch documents under `System.Text.Json`: an untyped string-pointer document for wire-decoded intake, an `Expression`-pathed typed twin for authored edits, and a break-on-first-error apply folding each failure into a `JsonPatchError`. Extension stops at `IObjectAdapter` — every built-in target adapter and both converters stay assembly-internal, so a non-POCO target enters through a caller-supplied adapter.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (MIT)
-- assembly: `Microsoft.AspNetCore.JsonPatch.SystemTextJson.dll`
-- namespace: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `.Operations`, `.Adapters`, `.Exceptions`
-- rail: boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, operation, adapter, and failure families
 
@@ -28,7 +20,7 @@
 |  [10]   | `JsonPatchError`                  | class         | failure record the log callback receives         |
 |  [11]   | `Exceptions.JsonPatchException`   | class         | throw-path failure carrying operation and target |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `JsonPatchDocument` authoring — each builder normalizes its pointer, appends one operation, and returns the document for chaining
 
@@ -101,7 +93,7 @@
 
 [OperationType]: `Add` `Remove` `Replace` `Move` `Copy` `Test` `Invalid`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Both documents carry an internal `[JsonConverter]`, so STJ round-trips the wire form unregistered, and both implement `IEndpointParameterMetadataProvider`, registering `application/json-patch+json` accepts-metadata for a minimal-API body parameter.
@@ -117,9 +109,3 @@
 - Intake deserializes `application/json-patch+json` into the untyped `JsonPatchDocument`; `JsonPatchDocument<TModel>` is the authoring shape, its `Expression` paths breaking the build on a renamed member.
 - Every apply passes a `logErrorAction` collector, so a failed operation lands on the typed failure rail with prior state intact.
 - Non-POCO targets inject a consumer `IObjectAdapterWithTest` through the adapter overloads.
-
-[RAIL_LAW]:
-- Package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- Owns: RFC 6902 document construction, STJ round-trip, and break-on-first-error application
-- Accept: `Expression` typed paths, a caller `IObjectAdapterWithTest`, the `Action<JsonPatchError>` collector, chained builder authoring
-- Reject: hand-rolled RFC 6902 dispatch, a Newtonsoft-backed patch document, RFC 7386 merge-patch

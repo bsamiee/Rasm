@@ -2,19 +2,7 @@
 
 `GeometryGymIFC_Core` owns a pure-managed buildingSMART IFC object model: the `DatabaseIfc` repository, schema-versioned read/write across STEP, IFC-XML, and IFC-JSON, the full IFC4.3 entity vocabulary, and `Extract<T>` graph traversal feeding the geometry-interchange rail. It holds the STEP/IFC data graph alone — no tessellation, BREP evaluation, or geometry kernel.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `GeometryGymIFC_Core`
-- package: `GeometryGymIFC_Core` (MIT)
-- assembly: `GeometryGymIFCcore`
-- namespace: `GeometryGym.Ifc`
-- namespace: `GeometryGym.STEP`
-- asset: net8.0, net7.0, net6.0, netstandard2.0
-- asset: IL-only AnyCPU managed assembly; no `runtimes/` folder, no native binaries
-- asset: zero declared package dependencies on every target framework
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: repository, factory, and serialization roots
 
@@ -693,7 +681,7 @@
 
 [CIRCLE_PROFILE_USE]: `IfcCircleProfileDef.Radius` is the fastener or tendon nominal-diameter carrier reached through `IfcRelAssociatesMaterial.RelatingMaterial`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DatabaseIfc — construction and read
 
@@ -860,7 +848,7 @@
 
 [REINFORCING_BAR_SURFACE_READ]: `IfcReinforcingBar.BarSurface` is a get/set `IfcReinforcingBarSurfaceEnum`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One managed `GeometryGymIFCcore.dll` per TFM holds the STEP/IFC data graph alone — no P/Invoke, no native binary, no geometry kernel; I/O is text serialization (STEP, IFC-XML, IFC-JSON) over `string`/`Stream`/`TextReader`/`XmlDocument`.
@@ -888,9 +876,3 @@
 - IFC import enters through `new DatabaseIfc(path\|stream)` or the format-explicit `Read*` calls.
 - IFC export enters through `DatabaseIfc.WriteFile` or `DatabaseIfc.ToString(FormatIfcSerialization)`.
 - Model queries enter through `DatabaseIfc` indexing/enumeration and `BaseClassIfc.Extract<T>`.
-
-[RAIL_LAW]:
-- Package: `GeometryGymIFC_Core`
-- Owns: buildingSMART IFC object model, schema-versioned STEP/XML/JSON serialization
-- Accept: IFC data exchange, model authoring, model traversal and query
-- Reject: tessellation, BREP evaluation, geometry kernel, native rendering

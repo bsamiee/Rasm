@@ -2,17 +2,7 @@
 
 `CSparse` owns the direct sparse solve lane over compressed-column storage: pattern-phase fill-reducing ordering and structural block decomposition, numeric factorization, and in-place triangular solve. Its boundary is the CSC matrix and the caller-owned result span; dense factorization and Krylov iteration stay outside.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse` (LGPL-2.1-only)
-- assembly: `CSparse`
-- namespace: `CSparse`, `CSparse.Storage`, `CSparse.Ordering`, `CSparse.Factorization`, `CSparse.IO`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Complex`, `CSparse.Complex.Factorization`
-- asset: runtime library, pure managed, zero native dependency
-- abi: every generic carrier constrains `T : struct, IEquatable<T>, IFormattable`; `CSparse.Double` and `CSparse.Complex` carry mirror rosters over one generic surface
-- rail: numeric
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: storage carriers, solver contracts, and the concrete realizations
 
@@ -47,7 +37,7 @@
 |  [03]   | `MinimumDegreeStS`     | `SparseLU`, `SparseQR` | AMD on `A'*A` with dense rows dropped   |
 |  [04]   | `MinimumDegreeAtA`     | `SparseLU`, `SparseQR` | AMD on `A'*A`                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `CompressedColumnStorage<T>` static ingestion — one family discriminating on input shape
 
@@ -162,7 +152,7 @@
 [CONSTANTS]: `MachineEpsilon` `EqualsThreshold` `SizeOfDouble` `SizeOfInt` `SizeOfComplex`
 [DENSE_COLUMN_MAJOR_STORAGE]: `OfArray` `OfJaggedArray` `OfRowMajor` `OfColumnMajor` `OfMatrix` `OfIndexed` `OfDiagonalArray` `CreateIdentity` `CreateDiagonal` `SubMatrix` `SetSubMatrix` `SetRow` `SetColumn` `LowerTriangle` `UpperTriangle` `Transpose` `PointwiseMultiply` `ParallelMultiply`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `CompressedColumnStorage<T>` is the only factorization-ready form and `CoordinateStorage<T>` the accumulator finalizing into it; a new input form lands as one `Of*` overload on that static family.
@@ -194,9 +184,3 @@
 - `MatrixMarketWriter.WriteMatrix<T>` honours `symmetric` on the `StreamWriter` overload ALONE; the `string` and `Stream` overloads drop the argument on their way to it and emit a `general` header.
 - `ReadStorage<T>(TextReader, bool autoExpand = true)` reads the coordinate form only and throws `NotSupportedException` on a Matrix Market ARRAY file; `autoExpand: false` returns one stored triangle of a symmetric file, which reads as structural rank deficiency downstream.
 - `CSparse` stays a referenced assembly under its LGPL-2.1-only license — never IL-merged, statically embedded, or source-vendored into a Rasm assembly.
-
-[RAIL_LAW]:
-- Package: `CSparse`
-- Owns: CSC and COO storage, polymorphic ingestion, fill-reducing ordering, structural block decomposition, direct Cholesky/LDL'/LU/QR factorization and solve, factor amortization, sparse GEMV and GEMM
-- Accept: `CompressedColumnStorage<double>` at the factorization boundary, the `Of*` family and `CoordinateStorage<T>` for assembly, a caller-minted `int[]` permutation, `IProgress<double>` phase reporting, span `Solve` over a reused buffer
-- Reject: a hand-rolled sparse factorization or minimum-degree ordering, per-element indexed access as the solve path, a fresh result buffer per iterate where `Refactorize` and buffer reuse apply

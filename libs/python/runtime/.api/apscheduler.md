@@ -2,15 +2,7 @@
 
 `APScheduler` owns runtime's in-process job scheduling: one scheduler instance drives a bounded trigger vocabulary against a `Job` handle over pluggable persistent stores and executors, routes runs through a listener event bus, and migrates schedules by import/export. It is the sole `scheduled`-source owner on the one `AsyncIOScheduler`, each trigger type closing one row of the `execution/lanes` `Trigger` union.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `APScheduler`
-- package: `APScheduler` (MIT)
-- module: `apscheduler`
-- namespaces: `apscheduler.schedulers`, `apscheduler.triggers`, `apscheduler.jobstores`, `apscheduler.executors`, `apscheduler.events`, `apscheduler.job`
-- rail: scheduling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scheduler family
 
@@ -64,7 +56,7 @@
 - [04]-[SUBMISSION_EVENT]: `JobSubmissionEvent(code, job_id, jobstore, scheduled_run_times)`.
 - [05]-[EXECUTION_EVENT]: `JobExecutionEvent(code, job_id, jobstore, scheduled_run_time, retval=None, exception=None, traceback=None)`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: job management
 - defined on `BaseScheduler` (PUBLIC_TYPES [01]); all three concrete schedulers inherit these.
@@ -151,7 +143,7 @@
 |  [08]   | `EVENT_JOB_EXECUTED` / `_ERROR` / `_MISSED`         | event code | ran / raised / missed its fire time               |
 |  [09]   | `EVENT_ALL`                                         | event code | bitmask OR of every event (default listener mask) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One scheduler instance owns every job. Responsive service code binds `AsyncIOScheduler` on the anyio lane, never `BlockingScheduler`. `running` reports `state != STATE_STOPPED`, true even while paused; a paused-vs-active test reads `state` against `STATE_PAUSED`.
@@ -169,9 +161,3 @@
 - One scheduler constructs once, registers infrastructure, then `start()`s inside the host lifecycle, and `shutdown(wait=True)` joins the host drain.
 - `export_jobs`/`import_jobs` is the store-to-store migration seam; a populated persistent store is never re-seeded by re-running registration.
 - A job body returns a `Result`; the listener maps `EVENT_JOB_ERROR` to a `BoundaryFault`, capturing the executor's exception.
-
-[RAIL_LAW]:
-- Package: `APScheduler`
-- Owns: in-process scheduled execution across the trigger vocabulary, the `Job` lifecycle, pluggable persistent stores and executors, the listener event bus, and job import/export
-- Accept: `AsyncIOScheduler`/`BackgroundScheduler` non-blocking use, `add_job`/`scheduled_job` registration, `CronTrigger.from_crontab` for external strings, `configure` before `start`, persistent jobstores for durable schedules, `add_listener` bitmask observability, `export_jobs`/`import_jobs` migration
-- Reject: hand-rolled `threading.Timer`/`asyncio.call_later` loops, `aiocron`, `BlockingScheduler` in responsive code, re-registration against a populated store, `<undefined>` treated as `None`, inline return inspection over the event bus

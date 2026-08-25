@@ -2,15 +2,7 @@
 
 `react-compiler-runtime` is the runtime half of the React Compiler pair — `babel-plugin-react-compiler` rewrites every component and hook to allocate a memo cache with `const $ = _c(N)` and thread stable values through `$[i]`, where `_c` is this package's `c`. On React 19 `c` forwards to React's built-in `React.__COMPILER_RUNTIME.c` (`useMemoCache`); below 19 a `useMemo`-backed allocation polyfills it, and opt-in `environment` flags emit dev-mode validators stripped from production.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-compiler-runtime`
-- package: `react-compiler-runtime` (MIT)
-- module: CJS `dist/index.js` exporting the compiler-emitted `_c`/`$*` symbols; no `types` field, so `dist/index.d.ts` resolves by path
-- runtime: React peer; `c` forwards to `React.__COMPILER_RUNTIME.c` (`useMemoCache`) on React 19, else a `React.useMemo` polyfill — the plugin `target` (`17`/`18` vs `19`) selects whether emitted `_c` imports this package or React's built-in `react/compiler-runtime`
-- rail: ui/compiler-runtime — the runtime the React Compiler's `_c(N)` output binds to, paired with `babel-plugin-react-compiler`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the memo-cache representation and dev-guard discriminant, internal to the compiler contract — a caller never names them; the emitted `$[i]` reads them and the dev validators dispatch on them.
 
@@ -22,7 +14,7 @@
 
 [GuardKind]: `PushGuardContext` `PopGuardContext` `PushExpectHook` `PopExpectHook`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the emitted memoization allocator, the only surface a production build reaches — one `c(N)` per compiled component/hook body.
 
@@ -41,7 +33,7 @@
 |  [04]   | `renderCounterRegistry` / `clearRenderCounterRegistry()` | property | the shared render-count registry and its reset               |
 |  [05]   | `$makeReadOnly()`                                        | static   | unimplemented stub reserved for `enableEmitFreeze`           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `babel-plugin-react-compiler` owns memoization: it analyzes each component/hook, decides which values are stable across renders, and emits cache reads/writes against `$ = _c(N)`.
@@ -56,9 +48,3 @@
 [LOCAL_ADMISSION]:
 - Memoization is compiled: no `view`/`act`/`atom` row carries a `useMemo`/`useCallback`/`React.memo` or a dependency array — hand-memoization obstructs the compiler's analysis — and every `c`/`$*` reference is compiler-emitted, so a source-level import is the named defect.
 - Keep every memoized value immutable; a post-render mutation is what `$structuralCheck` flags in dev and silently breaks reuse in production. Read the dev validators as diagnostics — `console.error` output and `renderCounterRegistry` — never call them.
-
-[RAIL_LAW]:
-- Package: `react-compiler-runtime`
-- Owns: the `c(N)` memo-cache allocator the React Compiler emits against, the `$reset` invalidator, and the dev-mode `$dispatcherGuard`/`$structuralCheck`/`useRenderCounter` validators
-- Accept: compiler-emitted `_c(N)` allocation, React-19 delegation to the built-in `useMemoCache`, the dev validators as erasable diagnostics, `babel-plugin-react-compiler` as the paired emitter
-- Reject: hand-written `useMemo`/`useCallback`/`React.memo`/dependency arrays, source-level imports of `c`/`$*`, post-render mutation of memoized values, calling the dev validators as API

@@ -2,17 +2,7 @@
 
 `Riok.Mapperly` transcribes one declared shape into another at compile time: a `[Mapper]` partial class declares mapping-method signatures and configuration attributes, and the Roslyn generator fills each body with ordinary assignment, construction, loop, and type-switch C#. Boundary transcription between the canonical graph vocabulary and wire, DTO, and row shapes is its whole charter — identity, hashing, equality, and the failure rail stay with their owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Riok.Mapperly`
-- package: `Riok.Mapperly` (Apache-2.0)
-- assembly: `Riok.Mapperly.Abstractions` carries the attribute and enum surface; `Riok.Mapperly` ships the Roslyn generator under `analyzers/dotnet/cs` and never binds at runtime
-- asset: ONE package carries both halves — the generator as an analyzer asset and the abstractions as `lib/netstandard2.0` — so there is no separate abstractions package to reference and the reference lands per consuming project rather than once at `Directory.Build.props`
-- build: `build/Riok.Mapperly.targets` defines `MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME` only when the consumer sets `MapperlyAbstractionsScope` to `runtime`; left unset, every attribute's `[Conditional]` elides it from the emitted IL
-- namespace: `Riok.Mapperly.Abstractions`, `Riok.Mapperly.Abstractions.ReferenceHandling`
-- rail: mapping (boundary transcription)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: every attribute the generator reads — declaration and composition at class and assembly level, member and enum configuration at method level, each cell carrying the abbreviated constructor shape.
 
@@ -100,7 +90,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 - `IReferenceHandler`: resolves through `TryGetReference<TSource, TTarget>(TSource, out TTarget?)` and records through `SetReference<TSource, TTarget>(TSource, TTarget)`, both constraining source and target to `notnull`.
 - `ReferenceHandlerAttribute` seats in this namespace, NOT `Riok.Mapperly.Abstractions` with the rest of the attribute surface, so a mapping method taking a handler parameter carries a second `using`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the generation contract — declare the `partial` method shape on a `[Mapper] partial class` or `[Mapper] static partial class`, and the generator emits its body.
 
@@ -134,7 +124,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 
 - `[ObjectFactory]`: admits any non-void method with zero or one parameter; type parameters stand for the source, the target, or both, and the source object is passed wherever the parameter exists.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every attribute carries `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]` and the package's own `.targets` defines that constant ONLY under `MapperlyAbstractionsScope=runtime`, so at the default the compiler reads each attribute's syntax and emits none of it: no consuming assembly can observe an abstractions type, and the abstractions assembly is a compile-time input that never becomes a runtime dependency. This is what makes the per-project `PrivateAssets="all"` reference complete rather than merely tidy — the build asset still reaches the declaring project and does its elision there, while nothing survives to flow transitively in the first place. Setting the scope to `runtime` inverts that and puts the attributes into IL for a reflection consumer, which is a deliberate opt-in and not a default this branch takes.
@@ -169,9 +159,3 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 - Boundary policy declares on the mapper attribute: `[FormatProvider(Default = true)]` carries the culture, `ThrowOnPropertyMappingNullMismatch` and `AllowNullPropertyAssignment` carry the null contract, `EnumNamingStrategy.SerializationEnumMemberAttribute` aligns enum strings with the wire schema.
 - `EnabledConversions` narrows the automatic set where an implicit conversion masks a real mismatch — `All & ~ToStringMethod` keeps every conversion but the silent `ToString` fallback.
 - An `extern alias`-gated boundary — the parity-spread geometry packages among them — takes hand-written copyists by construction, so a seam crossing one is never carded as owed transcription.
-
-[RAIL_LAW]:
-- Package: `Riok.Mapperly`
-- Owns: compile-time transcription between a declared source shape and a declared target shape, generated from attributed partial declarations.
-- Accept: boundary transcription between the canonical graph vocabulary and wire, DTO, and row shapes; `[MapDerivedType]` dispatch where source and target hierarchies share a base type; in-store `IQueryable` projection; existing-target update; `[ObjectFactory]` activation.
-- Reject: a hand-rolled switch or assignment mapper over a type pair `[Mapper]` generates, a runtime or reflection mapper, a forwarding wrapper around a generated mapper, identity/hashing/equality/result-rail logic inside a mapper body, and `PreserveReferenceHandler` treated as a stable hand-authored surface.

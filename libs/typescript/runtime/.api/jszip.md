@@ -2,16 +2,7 @@
 
 `jszip` assembles and reads a ZIP container as one mutable tree — a polymorphic `file` that adds, fetches, or pattern-matches an entry by argument shape, `folder` scoping, and a type-indexed `generateAsync<T>`/`loadAsync` serialization narrowing through `OutputByType`. `report` folds artifacts into one archive inside `Effect.sync`, crosses to the rail once via `Effect.tryPromise`, and streams a large bundle through `generateNodeStream` rather than buffering.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jszip`
-- package: `jszip` (MIT)
-- module: CJS (`main: lib/index`, no `exports` map); `JSZip` is `export =` — import as `import JSZip = require("jszip")` or an esModuleInterop default; no deep-import subpaths
-- runtime: isomorphic, no native addon; DEFLATE is pure-JS `pako`, CPU-bound, off the main path for a large archive
-- asset: JS runtime + bundled `.d.ts`; static `support` (`JSZipSupport`) reports the runtime's available `arraybuffer`/`uint8array`/`blob`/`nodebuffer` output types
-- rail: document egress — folder-tier, internalized once at `runtime/src/work/report.ts`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the container tree and its entries — `InputByType` keys span `string`/`uint8array`/`arraybuffer`/`blob`/`nodebuffer`/`base64`/`array`/`binarystring`/`stream` (direct or `Promise`); `OutputByType` keys span `uint8array`/`nodebuffer`/`blob`/`base64`/`arraybuffer`/`string`
 
@@ -40,7 +31,7 @@
 - [04]-[JSZIPGENERATOROPTIONS]: `type`, `compression`/`compressionOptions`, `mimeType`, `comment`, `platform` (`DOS`/`UNIX`), `streamFiles`, `encodeFileName`.
 - [05]-[JSZIPLOADOPTIONS]: `checkCRC32`, `base64`, `optimizedBinaryString`, `createFolders`, `decodeFileName`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build, traverse, and read the tree
 
@@ -66,7 +57,7 @@
 |  [04]   | `JSZip.support` / `JSZip.version`    | static   | `support.uint8array`/`nodebuffer` gate the output `type`; `version` string    |
 |  [05]   | `JSZip.external.Promise`             | static   | the promise-implementation slot, left at the native `Promise`                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `file` is one polymorphic method: `(path, data, options?)` adds and returns the tree for chaining, `(path)` fetches one entry or `null`, `(RegExp)` returns matches. `report` folds the artifact list through the add arm and reads through the accessor arm.
@@ -89,9 +80,3 @@
 - `generateNodeStream` carries an unbounded bundle under real backpressure; `Path.resolve` against a fixed root validates every `unsafeOriginalName` before extraction.
 - `Stream.async` over `JSZipStreamHelper` events backpressures NOTHING: the helper pushes on `resume` while that constructor's undeclared bound is `Queue.bounded(16)` whose enqueues run detached, so every chunk past sixteen parks a fiber holding it and the whole archive lands on the heap. Push bridges over the helper hold only where the fence reads each emit's accepted flag and drives `pause`/`resume` off it; `generateNodeStream` already owns that loop, so the pulled read is the form.
 - `loadAsync` stamps `unsafeOriginalName` on FILE rows alone — `if (!input.dir)` in the loader — so it is `undefined` on every directory row and a resolver handed it throws `ERR_INVALID_ARG_TYPE` before any guard runs. Traversal folds therefore drop `entry.dir` rows first and fall back to the loader-sanitized `name` where no raw name survives.
-
-[RAIL_LAW]:
-- Package: `jszip`
-- Owns: ZIP container assembly and reading — the polymorphic `file`/`folder`/`filter` tree, the type-indexed `generateAsync`/`generateNodeStream`/`generateInternalStream` egress, `loadAsync` with CRC integrity, per-entry lazy byte access, the `STORE`/`DEFLATE` policy, and the `JSZipMetadata` progress report
-- Accept: `Effect.tryPromise`-lifted generate/load, `Effect.sync` tree folds, `Stream.fromAsyncIterable`/`NodeStream.fromReadable` over `generateNodeStream`, `uint8array` bytes to `FileSystem`/`HttpBody`/a `nodemailer` attachment, compression as a policy value, `unsafeOriginalName` validated against a resolved root
-- Reject: `addFile`/`getFile` proliferation, a serializer method per output format, the mutable tree crossing the `Effect` boundary, whole-archive buffering for unbounded bundles, unvalidated extraction of a loaded entry path

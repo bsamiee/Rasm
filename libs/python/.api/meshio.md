@@ -2,15 +2,7 @@
 
 `meshio` owns branch unstructured-mesh file exchange: one `Mesh` value carries points, typed `CellBlock` connectivity, point/cell/field data, and named sets across solver, visualization, CAD-adjacent, and FEM formats through a single shape, no per-format container.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `meshio`
-- package: `meshio` (MIT)
-- module: `meshio`
-- asset: pure-Python; `Mesh` point/cell arrays are NumPy buffers
-- rail: mesh file exchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mesh value and failures
 
@@ -38,7 +30,7 @@
 |  [11]   | `point_data_to_sets`                               | conversion    | point data field to named sets                     |
 |  [12]   | `point_sets_to_data`                               | conversion    | named sets to point data field                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, write, and registry
 
@@ -65,7 +57,7 @@
 |  [06]   | `med` / `abaqus` / `nastran` / `ansys` / `su2` / `permas` / `mdpa`             | format codec   | FEA and solver decks          |
 |  [07]   | `tetgen` / `netgen` / `ugrid` / `cgns` / `exodus` / `h5m` / `hmf` / `dolfin`   | format codec   | HDF5/NetCDF and FE frameworks |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Mesh.points` is an `(n, 3)` or `(n, 2)` float array; `Mesh.cells` is an ordered list of `CellBlock(cell_type, data, tags=None)`.
@@ -83,9 +75,3 @@
 [LOCAL_ADMISSION]:
 - `meshio` is the sole mesh-file exchange owner; a new format enters through `register_format`, never a bespoke parser or per-format container.
 - HDF5-backed formats (`med`, `xdmf`, `h5m`, CGNS) bind the optional HDF5/NetCDF stack.
-
-[RAIL_LAW]:
-- Package: `meshio`
-- Owns: unstructured mesh file exchange, the canonical `Mesh` shape, cell/set/data conversions, per-format codec dispatch, Gmsh type mapping, and XDMF time-series IO
-- Accept: paths or buffers with detected or declared `file_format`, NumPy point arrays, `CellBlock` connectivity, named point/cell data, physical-group sets, and FEM handoff through `Mesh` values
-- Reject: hand-rolled mesh parsers, per-format mesh containers, array-only exchange dropping point/cell data, wrapper-renames of `read` / `write`, and mutation through merged read views

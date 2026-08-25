@@ -1,19 +1,6 @@
 # [PY_ARTIFACTS_API_ZIAMATH]
 
-
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ziamath`
-- package: `ziamath` (MIT)
-- module: `ziamath`
-- owner: `artifacts`
-- rail: figure
-- bundled asset: `ziamath/fonts/STIXTwoMath-Regular.ttf` — the default MATH font, so no system font is bound
-- depends: `ziafont` (glyph/outline substrate — the local `ziafont` catalog); `latex2mathml` (LaTeX->MathML front-end the `Latex`/`Text` paths bind, unused by the pure-MathML `Math` path)
-- entry points: library only; a `python -m ziamath <latex>` CLI exists, the design composes the in-process API
-- capability: MathML/LaTeX -> SVG typesetting, in-place `drawon` onto a caller `ET.Element`, mixed text+`$math$` multi-line paragraphs, equation auto-numbering, OpenType-MATH exploitation (italic-correction kerning, glyph-variant selection, stretchy-delimiter assembly, math constants), custom LaTeX operators, and unicode math-variant styling
-
-## [02]-[RENDER_VOCABULARY]
+## [01]-[RENDER_VOCABULARY]
 
 [RENDER_TYPE_SCOPE]: the bounded `Math`/`Latex`/`Text` render trio
 
@@ -36,7 +23,7 @@
 |  [03]   | `<renderer>.getsize() -> tuple[float, float]`                 | geometry | laid-out `(width, height)` in SVG px (bbox extent)            |
 |  [04]   | `<renderer>.getyofst() -> float`                              | geometry | y-shift from bbox bottom to baseline (`bbox.ymin`)            |
 
-## [03]-[EGRESS]
+## [02]-[EGRESS]
 
 [ENTRYPOINT_SCOPE]: SVG document and in-place draw egress
 
@@ -62,7 +49,7 @@
 |  [02]   | `Math.fromlatex(latex, …)` | construct | classmethod twin of `Latex`                           |
 |  [03]   | `Text(s, …)`               | construct | mixed multi-line text + `$..$`/`$$..$$` math          |
 
-## [04]-[CONFIG_AND_STYLE]
+## [03]-[CONFIG_AND_STYLE]
 
 [CONFIG_SCOPE]: the global `config` singleton
 
@@ -102,7 +89,7 @@
 |  [03]   | `MathVariant(style='serif', …)`                | style  | the math-variant descriptor `mathstyle`/`mathvariant` resolve to |
 |  [04]   | `auto_italic(char) -> bool`                    | style  | whether a single-char identifier auto-italicizes (MathML rule)   |
 
-## [05]-[FONT_AND_MATH_TABLE]
+## [04]-[FONT_AND_MATH_TABLE]
 
 [FONT_SCOPE]: `MathFont` and the OpenType MATH table
 
@@ -128,7 +115,7 @@
 |  [01]   | `declareoperator(name: str)`        | tex    | register a custom upright LaTeX operator (`DeclareMathOperator`) |
 |  [02]   | `tex2mml(tex, inline=False) -> str` | tex    | LaTeX -> MathML string (with ziamath preprocessing)              |
 
-## [06]-[NODE_TREE]
+## [05]-[NODE_TREE]
 
 [NODE_SCOPE]: the laid-out math node tree (advanced/internal)
 
@@ -141,7 +128,7 @@
 |  [03]   | `nodes.{Mrow, Mfrac, Msqrt, …, Mphantom}` (lead rosters all) | tree   | the closed MathML-element node family                          |
 |  [04]   | `drawable.{Glyph,HLine,VLine,Box,Diagonal,Ellipse}`          | leaf   | primitive marks the tree composes (bars, radicals, enclosures) |
 
-## [07]-[IMPLEMENTATION_LAW]
+## [06]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - render trio: `Math` (MathML), `Latex` IS-A `Math` (one LaTeX expression), `Text` (mixed multi-line); a consumer constructs one with its source and reads the shared egress, never a per-output-format render class.
@@ -161,9 +148,3 @@
 - `zm.Latex(formula).svg()` renders a formula, or `zm.Math(...).drawon(tree, x, y, halign, valign)` when sharing one `ET.Element` tree — never a hand-built MathML->SVG layout where the render trio owns it.
 - mixed text-and-math is `zm.Text(...)` and a single expression is `zm.Latex(...)`; font, style, and numbering ride the constructor where the render trio exposes them, and the two process-global surfaces the trio does not — `config.svg2` and the `declareoperator` vocabulary — are set and restored per render inside one lock, never registered once at module init where a second caller inherits the first's profile and operator set.
 - `styledchr`/`MathVariant`/`tex2mml` serve a typography/symbol owner composing math glyph runs directly, hooks the surface-level `Latex(...).svg()` path never reaches.
-
-[RAIL_LAW]:
-- Package: `ziamath`
-- Owns: math/LaTeX -> SVG typesetting, the `Math`/`Latex`/`Text` render trio, the OpenType-MATH-table layout (italic correction, stretchy delimiters, big-operator variants, math constants via `MathFont`/`MathTable`), equation auto-numbering (`config.numbering`/`reset_numbering`), unicode math-variant styling (`styledchr`/`MathVariant`), custom LaTeX operator registration (`declareoperator`), and the SVG-string/`ET.Element`/in-place-`drawon` egress with SVG 2.0/1.1 profile control (`config.svg2`)
-- Accept: mathematical/engineering formulas rendered as `Fragment` SVG for the `drawsvg` canvas, document equation flow, and typography annotation plane under the `to_thread` offload and `Result` rail
-- Reject: glyph outline extraction and the base `Font`/`Text` substrate where `ziafont` owns it; LaTeX->MathML front-end parsing where `latex2mathml` owns it; SVG-fragment layout/transform/bbox alongside other marks where `drawsvg`/`svgelements` own it; rasterization of the emitted SVG where `resvg-py`/`vl-convert`/`pyvips` own it; plain non-math shaped text where `typography/shape`/`uharfbuzz` owns it; a per-output-format render-class family where the one trio + shared egress discriminates; a raised exception crossing the async edge where the boundary `Result` rail owns failure; a subinterpreter offload arm where the global mutable `config` and C-extension neighbors force `to_thread`; identity minting the runtime owns

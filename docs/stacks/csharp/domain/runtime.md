@@ -66,8 +66,8 @@ public static class Boot {
         ArgumentNullException.ThrowIfNull(modality);
         ArgumentNullException.ThrowIfNull(contribute);
         ignore(modality.Preboot());
-        var settings = modality.Identity(args);
-        var builder = settings.DisableDefaults ? Host.CreateEmptyApplicationBuilder(settings) : Host.CreateApplicationBuilder(settings);
+        HostApplicationBuilderSettings settings = modality.Identity(args);
+        HostApplicationBuilder builder = settings.DisableDefaults ? Host.CreateEmptyApplicationBuilder(settings) : Host.CreateApplicationBuilder(settings);
         builder.ConfigureContainer(new DefaultServiceProviderFactory(Validated));
         contribute(modality.Signals(builder.Services));
         return Op.Of().Catch(() => Fin.Succ(builder.Build()));
@@ -235,7 +235,7 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
         return Task.CompletedTask;
     }
     public async Task StoppingAsync(CancellationToken cancellationToken) {
-        var ledger = await bands.Fold(
+        Seq<BandFact> ledger = await bands.Fold(
             Task.FromResult(Seq<BandFact>()),
             (acc, band) => acc.Bind(carried => Walk(carried, band, cancellationToken))).ConfigureAwait(false);
         ignore(Cell.Swap(_ => new Phase.Stopped(ledger)));
@@ -243,10 +243,10 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
 
     async Task<Seq<BandFact>> Walk(Seq<BandFact> ledger, Band band, CancellationToken cancellationToken) {
         ignore(Cell.Swap(_ => new Phase.Draining(band.Name)));
-        var budget = options.Value.ShutdownTimeout * band.Share;
-        using var forced = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        TimeSpan budget = options.Value.ShutdownTimeout * band.Share;
+        using CancellationTokenSource forced = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         forced.CancelAfter(budget);
-        var mark = clock.GetTimestamp();
+        long mark = clock.GetTimestamp();
         try { await band.Settle(forced.Token).ConfigureAwait(false); return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: false)); }
         catch (OperationCanceledException) when (forced.IsCancellationRequested) {
             return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: true));
@@ -279,7 +279,7 @@ public sealed partial class Rank {
             .Zip(Items.OrderBy(static rank => rank.Key).Skip(1), static (less, more) => KeyValuePair.Create(more.Key, less))
             .ToFrozenDictionary());
 
-    public Rank Recovered => Predecessor.Value.TryGetValue(Key, out var milder) ? milder : this;
+    public Rank Recovered => Predecessor.Value.TryGetValue(Key, out Rank milder) ? milder : this;
     public static Rank Worst(Rank left, Rank right) => left.Key >= right.Key ? left : right;
 }
 
@@ -307,8 +307,8 @@ public sealed class DegradationFold : IHealthCheckPublisher {
     static RankState Advance(RankState state, Rank candidate) =>
         (Delta: candidate.Key.CompareTo(state.Current.Key), state.Calm) switch {
             ( > 0, _) => new RankState(candidate, Calm: 0),
-            ( < 0, var calm) when calm + 1 >= state.Current.Window => new RankState(state.Current.Recovered, Calm: 0),
-            ( < 0, var calm) => state with { Calm = calm + 1 },
+            ( < 0, int calm) when calm + 1 >= state.Current.Window => new RankState(state.Current.Recovered, Calm: 0),
+            ( < 0, int calm) => state with { Calm = calm + 1 },
             _ => state with { Calm = 0 },
         };
 }
@@ -408,7 +408,7 @@ public sealed record ScheduleRow(string Key, CronExpression Cron, DateTimeZone Z
 public static class Cadence {
     public static Option<ScheduleRow> Row(string key, string expression, int jitterSeed, string zoneId, Misfire policy, int band) =>
         (DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId),
-         CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out var cron) ? Optional(cron) : None) switch {
+         CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out CronExpression cron) ? Optional(cron) : None) switch {
             ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(key, parsed, zone, policy, band),
             _ => None,
         };

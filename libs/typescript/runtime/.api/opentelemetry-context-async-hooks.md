@@ -2,15 +2,7 @@
 
 `@opentelemetry/context-async-hooks` owns node async-context continuity: two `ContextManager` implementations carry a span's context across promises, timers, and callbacks, so a library reading `context.active()` inside an async hop sees the live span instead of ROOT. `AsyncLocalStorageContextManager` rides `node:async_hooks`' `AsyncLocalStorage` and is the standing row; `AsyncHooksContextManager` is the raw-hook implementation kept for runtimes without `AsyncLocalStorage`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/context-async-hooks`
-- package: `@opentelemetry/context-async-hooks` (Apache-2.0)
-- module: dual CJS + ESM flat barrel, no subpath exports; `@opentelemetry/api` `>=1.0.0 <1.10.0` is the one peer
-- runtime: node and bun only — `node:async_hooks` is the substrate; the browser condition binds `@opentelemetry/context-zone` instead
-- rail: observability/context
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two manager implementations of the api `ContextManager` contract
 
@@ -19,7 +11,7 @@
 |  [01]   | `AsyncLocalStorageContextManager` | class         | `ContextManager` over `AsyncLocalStorage`           |
 |  [02]   | `AsyncHooksContextManager`        | class         | `ContextManager` over raw `async_hooks` bookkeeping |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and the context lifecycle — the shape both classes share
 
@@ -34,7 +26,7 @@
 - `.with(context, fn, thisArg?, …args)` runs `fn` inside the storage frame; every async continuation created within it inherits the frame.
 - `.disable()` clears the storage and the tracked bindings, so scope teardown releases the process-global hook.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - composition-root only — the manager installs process-globally through `context.setGlobalContextManager`, so exactly one module binds it and a library install fights the host for one global slot.
@@ -48,9 +40,3 @@
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer, and the condition split keeps a browser bundle from resolving `node:async_hooks`.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/context-async-hooks`
-- Owns: node async-context continuity for foreign instrumentation rows
-- Accept: one `AsyncLocalStorageContextManager` construction at the server registration node, enabled into the api global and disabled on scope close
-- Reject: library-altitude install, both managers at once, browser-condition resolution, reading the global back inside branch code

@@ -4,16 +4,7 @@
 
 `@effect/opentelemetry` constructs NO provider — it seats a `MetricProducer` draining Effect `Metric` values straight onto a `PeriodicExportingMetricReader` — so a consumer supplies readers, views, and exporters for that path and constructs the provider itself wherever a third-party instrument plane needs one.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/sdk-metrics`
-- package: `@opentelemetry/sdk-metrics` (Apache-2.0)
-- module: ESM (`build/esm`) + CJS (`build/src`) mirror; one flat barrel, no subpath export map
-- runtime: runtime-neutral — `PeriodicExportingMetricReader` drives a plain interval, no platform-conditional export
-- depends: `@opentelemetry/api` (`Meter`/`ValueType`/`Attributes`/`HrTime` peer), `@opentelemetry/core` (`ExportResult`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`)
-- rail: observability/metric-sdk — the `MetricReader`/`View` roster behind the facade `Configuration.metricReader`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the collect→export pipeline — provider, reader, exporter, and their option records
 
@@ -68,7 +59,7 @@
 - `DataPoint<T>`: `T` resolves to `number` for `Sum`/`Gauge`, `Histogram` for the explicit-bucket point, `ExponentialHistogram` for the exponential point — one parameterized point, never a per-instrument struct.
 - `Histogram`: `buckets` (`boundaries`/`counts`, `n+1` counts for `n` boundaries) and `count` always present; `sum`/`min`/`max` optional.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider construction and meter minting
 
@@ -100,7 +91,7 @@
 |  [01]   | `createAllowListAttributesProcessor(string[]) -> IAttributesProcessor` | factory | keep only listed attribute keys |
 |  [02]   | `createDenyListAttributesProcessor(string[]) -> IAttributesProcessor`  | factory | drop listed attribute keys      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Aggregation temporality is per-instrument policy: an `AggregationTemporalitySelector` maps each `InstrumentType` to `DELTA` or `CUMULATIVE`, defaulting to `CUMULATIVE` for every instrument when unset, and a `PushMetricExporter.selectAggregationTemporality` overrides the reader's selection.
@@ -123,9 +114,3 @@
 - `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); the `otel/` folder composes this surface, and every other folder emits through Effect's native `Metric` rather than importing `sdk-metrics`.
 - design code reaches the reader/exporter/view surface through the `@effect/opentelemetry` `Configuration.metricReader`; `new MeterProvider` stands at exactly two seats — `otel/emit`'s scoped raw plane, because the facade exposes no provider for third-party instruments to bind, and an SDK-only spec harness, which `InMemoryMetricExporter` backs.
 - it persists as an `[OTEL_PIN_BLOCK]` member retiring when native `OtlpMetrics` reaches parity; `.api/effect-opentelemetry.md` owns the collapse roster.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/sdk-metrics`
-- Owns: the metric collect→export pipeline — `MeterProvider`, `MetricReader`/`PeriodicExportingMetricReader` with the per-instrument-type aggregation/temporality/cardinality selectors, the `PushMetricExporter` contract with `Console`/`InMemory` rows, the `ViewOptions`/`AggregationOption`/`IAttributesProcessor` reshaping algebra, and the `MetricData` discriminated-union wire shape
-- Accept: `PeriodicExportingMetricReader` wrapping an `OTLPMetricExporter` reached through `@effect/opentelemetry` `Configuration.metricReader`; `ViewOptions` with `AggregationOption` + `createAllowList`/`createDenyList` + `aggregationCardinalityLimit` for cardinality control; the exporter's `selectAggregationTemporality` for `DELTA`/`CUMULATIVE`; `InMemoryMetricExporter(temporality)` for specs; one `AppIdentity`-derived `Resource` at construction
-- Reject: a second `new MeterProvider` beside the one scoped raw plane, or a provider stood up to govern producer-sourced series it structurally cannot reach; a reader or aggregator subclass where a selector value or `AggregationOption` suffices; a new metric struct where `MetricData` + `DataPoint<T>` discriminates; `@opentelemetry/*` outside `scope:runtime`; mutable attribute accumulation instead of an `IAttributesProcessor` fold

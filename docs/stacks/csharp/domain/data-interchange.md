@@ -46,7 +46,7 @@ public sealed record EnginePosture(string Source, int Threads, string MemoryCap,
 
     public string Composed {
         get {
-            var rows = new DuckDBConnectionStringBuilder { DataSource = Source };
+            DuckDBConnectionStringBuilder rows = new() { DataSource = Source };
             (rows["threads"], rows["memory_limit"], rows["temp_directory"], rows["max_temp_directory_size"], rows["preserve_insertion_order"]) =
                 (Threads, MemoryCap, SpillRoot, SpillCap, PreserveOrder);
             return rows.ConnectionString;
@@ -64,7 +64,7 @@ public sealed class Session : IDisposable {
         return Op.Of().Catch(() => {
             pending = new DuckDBConnection(posture.Composed);
             pending.Open();
-            var admitted = new Session(pending);
+            Session admitted = new(pending);
             pending = null;
             return Fin.Succ(admitted);
         }).Rollback(pending);
@@ -73,11 +73,11 @@ public sealed class Session : IDisposable {
     public Fin<Unit> Mount(string alias, string store) => Run($"ATTACH IF NOT EXISTS '{store}' AS {alias} (READ_ONLY)");
     public Fin<Unit> Unmount(string alias) => Run($"DETACH {alias}");
     public DuckDBConnection Lane() => anchor.Duplicate();
-    public Option<double> Progress() => anchor.GetQueryProgress() is { Percentage: >= 0 and var alive } ? Some(alive) : None;
+    public Option<double> Progress() => anchor.GetQueryProgress() is { Percentage: >= 0 and double alive } ? Some(alive) : None;
     public void Dispose() => anchor.Dispose();
 
     Fin<Unit> Run(string sql) => Op.Of().Catch(() => {
-        using var command = anchor.CreateCommand();
+        using DuckDBCommand command = anchor.CreateCommand();
         command.CommandText = sql;
         _ = command.ExecuteNonQuery();
         return Fin.Succ(unit);
@@ -110,7 +110,7 @@ public static class BulkLane {
     public static Fin<int> Commit(DuckDBConnection lane, Seq<Sample> batch) {
         ArgumentNullException.ThrowIfNull(lane);
         return Op.Of().Catch(() => {
-            using var bulk = lane.CreateAppender<Sample, SampleMap>("<table-a>");
+            using DuckDBMappedAppender<Sample, SampleMap> bulk = lane.CreateAppender<Sample, SampleMap>("<table-a>");
             bulk.AppendRecords(batch);
             bulk.Close();
             return Fin.Succ(batch.Count);
@@ -119,10 +119,10 @@ public static class BulkLane {
 
     public static Fin<Seq<Sample>> Drain(DuckDBConnection lane, string projection) =>
         Op.Of().Catch(() => {
-            using var command = lane.CreateCommand();
+            using DuckDBCommand command = lane.CreateCommand();
             (command.CommandText, command.UseStreamingMode) = (projection, true);
-            using var stream = command.ExecuteReader();
-            var drained = new List<Sample>();
+            using DuckDBDataReader stream = command.ExecuteReader();
+            List<Sample> drained = [];
             while (stream.Read()) {                                                // Exemption: the chunk drain fills a seam-local list frozen once by toSeq; per-row Seq.Add forcing is the rejected O(n²) form
                 drained.Add(new Sample(
                     stream.GetFieldValue<string>(0), stream.GetFieldValue<double>(1), stream.GetFieldValue<DateOnly>(2)));
@@ -181,7 +181,7 @@ public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int 
 public static class ProjectionRail {
     public static Fin<Unit> Publish(DuckDBConnection lane, ArtifactClass artifact, string projection, string destination, string stamp) =>
         Op.Of().Catch(() => {
-            using var command = lane.CreateCommand();
+            using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = artifact.Egress(projection, destination, stamp);
             _ = command.ExecuteNonQuery();
             return Fin.Succ(unit);
@@ -189,7 +189,7 @@ public static class ProjectionRail {
 
     public static Fin<string> StampOf(DuckDBConnection lane, string artifact) =>
         Op.Of().Catch(() => {
-            using var command = lane.CreateCommand();
+            using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", artifact));
             return Fin.Succ(Optional(command.ExecuteScalar()).Map(static held => (string)held));
@@ -246,8 +246,8 @@ public sealed record ExchangeProfile(char Separator, int PoolCap, Seq<ColumnRow>
 public static class ExchangeSeam {
     public static Seq<Fin<Measure>> Sift(ExchangeProfile profile, string payload) {
         ArgumentNullException.ThrowIfNull(profile);
-        using var reader = profile.Reader.FromText(payload);
-        var keys = reader.Header.IndicesOf([.. profile.Columns.Map(static row => row.Name)]);
+        using SepReader reader = profile.Reader.FromText(payload);
+        int[] keys = reader.Header.IndicesOf([.. profile.Columns.Map(static row => row.Name)]);
         return toSeq(reader.Enumerate(row =>
             row[keys[1]].TryParse<double>() is { } score
                 ? Fin.Succ(new Measure(row[keys[0]].ToString(), score))
@@ -257,9 +257,9 @@ public static class ExchangeSeam {
 
     public static string Emit(ExchangeProfile profile, Seq<Measure> admitted) {
         ArgumentNullException.ThrowIfNull(profile);
-        using var writer = profile.Writer.ToText(capacity: 1024);
+        using SepWriter writer = profile.Writer.ToText(capacity: 1024);
         admitted.Iter(measure => {
-            using var line = writer.NewRow();
+            using SepWriter.Row line = writer.NewRow();
             line[profile.Columns[0].Name].Set(measure.Key);
             line[profile.Columns[1].Name].Format(measure.Score);
         });
@@ -341,7 +341,7 @@ public abstract partial record Delivery {
 
     public Fin<(string Locator, string Identity, Seq<string> Added)> Admit(Lattice lattice, Descriptor held) {
         ArgumentNullException.ThrowIfNull(lattice);
-        var (locator, stamp, identity) = Provenance;
+        (string locator, Descriptor stamp, string identity) = Provenance;
         return lattice.Diff(held, stamp).Switch(
             compatible:    static (s, arm) => Fin.Succ((s.Locator, s.Identity, arm.Added)),
             staleProducer: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8401, $"<stale-producer:{s.Identity}:{arm.Observed}<{arm.Held}>")),
@@ -360,7 +360,7 @@ public abstract partial record Delivery {
 - Law: ring orientation enforcement is write-only — `EnforceRfc9746` reverses mis-oriented rings at emission while reads admit any orientation — so a kernel deriving sign from ring direction normalizes at admission, because the wire law will not have done it.
 - Law: malformed JSON and an unrecognized `type` literal enter through the same exact-capture boundary; an owner may classify either documented refusal into a cause-carrying typed fault, while every unmatched exception stays exceptional unchanged. JSON null is null geometry, the rail's one null, projected to absence immediately, and unknown members and comments skip structurally.
 - Law: CRS posture is fixed by the format — WGS84 longitude/latitude, no CRS member — so reprojection happens in the interior, and emitting projected coordinates is silent corruption no reader can detect.
-- Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out var typed)` re-runs the passed `JsonSerializerOptions` over the deferred property object and a false return is absence — and walking the loose `IAttributesTable` in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
+- Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out T typed)` re-runs the passed `JsonSerializerOptions` over the deferred property object and a false return is absence — and walking the loose `IAttributesTable` in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
 
 ```csharp
 public sealed record GeoProfile(double Precision, bool WriteBBox, string IdProperty) {
@@ -369,7 +369,7 @@ public sealed record GeoProfile(double Precision, bool WriteBBox, string IdPrope
     public GeometryFactory Admission => new(new PrecisionModel(Precision), 4326);
 
     public JsonSerializerOptions Compose(IJsonTypeInfoResolver resolver) {
-        var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
+        JsonSerializerOptions options = new() { TypeInfoResolver = resolver };
         options.Converters.Add(new GeoJsonConverterFactory(Admission, WriteBBox, IdProperty,
             RingOrientationOption.EnforceRfc9746, allowModifyingAttributesTables: false));
         options.MakeReadOnly();
@@ -416,7 +416,7 @@ public static class BlobGate {
 
     public static Fin<byte[]> Emit(BlobCodec codec, Geometry admitted) =>
         Op.Of().Catch(() => {
-            using var sink = new MemoryStream();
+            using MemoryStream sink = new();
             codec.Writer.Write(admitted, sink);
             return Fin.Succ(sink.ToArray());
         });

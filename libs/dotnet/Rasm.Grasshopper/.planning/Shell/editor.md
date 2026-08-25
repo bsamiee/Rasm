@@ -41,7 +41,7 @@
 - Growth: a new shell command is one `ShellOp` case with its `Switch` arm breaking loudly at the gate; zero new entrypoints on any axis.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Interaction;
@@ -225,15 +225,15 @@ flowchart LR
 
 `Resolve`, `Read`, `Write`, and `Target` are internal columns behind the public gates `Apply`, `Snapshot`, `Grab`, and `Mount`.
 
-| [INDEX] | [CONCERN]         | [OWNER]                  | [KIND]                         | [RAIL]                          | [CASES] |
-| :-----: | :---------------- | :----------------------- | :----------------------------- | :------------------------------ | :-----: |
-|  [01]   | pane family       | `ShellPane`              | `[Union]`, case per pane       | `Resolve → Fin<ShellPane>`      |    7    |
-|  [02]   | pane slots        | `ShellSlot`              | resolve column                 | `Resolve → Fin<ShellPane>`      |    7    |
-|  [03]   | swing intent      | `ToggleIntent`           | target column (E-G46)          | `Target(current) → bool`        |    3    |
-|  [04]   | shell axes        | `ShellToggle`            | capability rows, r/w columns   | `CapabilitySet` membership      |    3    |
-|  [05]   | shell commands    | `ShellOp`                | `[Union]` `[GenerateUnionOps]` | `Apply` → direct `ShellFacts`   |    2    |
-|  [06]   | shell posture     | `ShellFacts`             | one `Shown` set, no bools      | `Snapshot → Fin<ShellFacts>`    |    1    |
-|  [07]   | typed pane egress | `EditorShell.Grab<TOut>` | total-`Switch`, one marshal    | `Grab → Fin<TOut>`              |    1    |
+| [INDEX] | [CONCERN]         | [OWNER]                  | [KIND]                         | [RAIL]                           | [CASES] |
+| :-----: | :---------------- | :----------------------- | :----------------------------- | :------------------------------- | :-----: |
+|  [01]   | pane family       | `ShellPane`              | `[Union]`, case per pane       | `Resolve → Fin<ShellPane>`       |    7    |
+|  [02]   | pane slots        | `ShellSlot`              | resolve column                 | `Resolve → Fin<ShellPane>`       |    7    |
+|  [03]   | swing intent      | `ToggleIntent`           | target column (E-G46)          | `Target(current) → bool`         |    3    |
+|  [04]   | shell axes        | `ShellToggle`            | capability rows, r/w columns   | `CapabilitySet` membership       |    3    |
+|  [05]   | shell commands    | `ShellOp`                | `[Union]` `[GenerateUnionOps]` | `Apply` → direct `ShellFacts`    |    2    |
+|  [06]   | shell posture     | `ShellFacts`             | one `Shown` set, no bools      | `Snapshot → Fin<ShellFacts>`     |    1    |
+|  [07]   | typed pane egress | `EditorShell.Grab<TOut>` | total-`Switch`, one marshal    | `Grab → Fin<TOut>`               |    1    |
 |  [08]   | standing mount    | `EditorShell.Mount`      | capture-apply-restore lease    | `Mount → Fin<Lease<ShellFacts>>` |    1    |
 
 `ScopeTarget`, `GhScope`, kernel `UiThread`/`UiFault`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; the boolean shell triple, the bare-bool toggle target, the dual-direction `Option<bool>` swing column, the folder-local command wrapper, the `nameof` verb strings, and the `EtoDispatch` marshal are all deleted. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.

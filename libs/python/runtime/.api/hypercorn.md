@@ -2,16 +2,7 @@
 
 `hypercorn` owns the ASGI host beneath the Connect serve rail: one `Config` declares listeners, TLS, protocol limits, and lifecycle timeouts, and `hypercorn.asyncio.serve` or `hypercorn.trio.serve` runs an ASGI or WSGI application on them inside the caller's event loop. One `bind` grammar spells TCP, UNIX-socket, and inherited-descriptor listeners; HTTP/2 arrives by ALPN over TLS and as h2c over plaintext.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `hypercorn`
-- package: `hypercorn` (MIT)
-- module: `hypercorn`
-- namespaces: `hypercorn.config`, `hypercorn.asyncio`, `hypercorn.trio`, `hypercorn.middleware`, `hypercorn.typing`, `hypercorn.logging`, `hypercorn.statsd`, `hypercorn.events`, `hypercorn.app_wrappers`, `hypercorn.utils`, `hypercorn.run`
-- abi: pure-Python over `h11`, `h2`, `wsproto`, and `priority`; the `h3` extra adds `aioquic` for `quic_bind`, `trio` the trio worker, `uvloop` the uvloop worker
-- rail: transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration and host
 
@@ -75,7 +66,7 @@
 |  [05]   | `SocketTypeError(expected, actual)`    | exception     | `fd://<n>` named a descriptor of the wrong socket kind           |
 |  [06]   | `ShutdownError`                        | exception     | `raise_shutdown` fires it; `worker_serve` swallows it            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serving
 - `hypercorn.asyncio` and `hypercorn.trio` each export `serve` and `worker_serve`, and the trio flavour of both adds `task_status`.
@@ -215,7 +206,7 @@
 |  [10]   | `include_date_header = True` / `include_server_header = True` | instance | `date` and `server: hypercorn-<protocol>` rows        |
 |  [11]   | `alt_svc_headers = []`                                        | instance | empty derives H3 rows from the bound QUIC ports       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `serve` runs inside the caller's event loop and returns when `shutdown_trigger` resolves, so the composition root owns the loop and `hypercorn.run.run` stays outside every fence.
@@ -237,9 +228,3 @@
 - one `Config` built at the composition root from typed settings; the `Config.from_*` loaders and the `hypercorn` CLI stay outside every fence.
 - `asyncio` is the loop flavour the serve rail runs; `hypercorn.trio.serve` hosts no Connect application, whose server runs asyncio primitives, so it stays outside the branch fences.
 - TLS client verification rides `verify_mode` and `verify_flags`; the UNIX-socket h2c seam is a plaintext `bind`, and `insecure_bind` exists beside a TLS `bind` alone.
-
-[RAIL_LAW]:
-- Package: `hypercorn`
-- Owns: ASGI and WSGI hosting over HTTP/1.1, HTTP/2, h2c, and websockets, listener binding, TLS termination, lifespan and drain timeouts, and mount-path dispatch
-- Accept: `hypercorn.asyncio.serve(app, config, shutdown_trigger=...)` or the `create_sockets` + `worker_serve` pair in-process over an attribute-assigned `Config`, `bind=['unix:<path>']` for local seams, `DispatcherMiddleware` for multi-service listeners
-- Reject: a hand-rolled `asyncio.start_server` HTTP host, `hypercorn.run.run` inside a fence, an HTTP/1.1-only host beneath gRPC or bidi streams

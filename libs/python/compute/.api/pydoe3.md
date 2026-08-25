@@ -2,19 +2,7 @@
 
 `pyDOE3` mints classical design-of-experiments matrices — factorial, response-surface, screening, orthogonal-array, and Doehlert families — beside low-discrepancy and quasi-random samplers, filling the coded response-surface DOE gap left open between the SALib variance-based samplers and the `scipy.stats.qmc` space-filling engines for the compute `Study` design rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyDOE3`
-- package: `pyDOE3` (dist name `pydoe3`, import name `pyDOE3`)
-- owner: `compute`
-- module: `pyDOE3`; submodules `pyDOE3.doe_factorial`, `pyDOE3.doe_box_behnken`, `pyDOE3.doe_composite`, `pyDOE3.doe_plackett_burman`, `pyDOE3.doe_gsd`, `pyDOE3.doe_taguchi`, `pyDOE3.doe_doehlert`, `pyDOE3.doe_lhs`, `pyDOE3.doe_sparse_grid`, `pyDOE3.utils`
-- asset: runtime library
-- rail: experiment-design
-- namespace: `pyDOE3` — generators, samplers, and `TaguchiObjective` re-export at the top level, each generator returning a `numpy.ndarray` in its family coordinate system; `ORTHOGONAL_ARRAY_NAMES` and `build_regression_matrix` resolve under `pyDOE3.doe_taguchi` / `pyDOE3.build_regression_matrix`
-- requires: `numpy`, `scipy`
-- capability: coded design matrices over a factor count with per-generator level, center, and axial controls, design folding, aliasing analysis, regression-variance evaluation, and unit-hypercube samplers
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: design vocabulary
 
@@ -23,7 +11,7 @@
 |  [01]   | `TaguchiObjective`       | enum          | Taguchi loss goal — larger / smaller / nominal is best |
 |  [02]   | `ORTHOGONAL_ARRAY_NAMES` | literal       | admitted Taguchi array ids (`L4(2^3)`, `L9(3^4)`, ...) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: coded factorial designs
 
@@ -82,7 +70,7 @@
 |  [05]   | `build_regression_matrix(H, model, build)`    | expand a design into the regression matrix     |
 |  [06]   | `scale_samples(samples, bounds)`              | affine-scale unit samples into `bounds`        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Rows are runs, columns are factors: `fullfact`/`gsd` carry integer level indices, `ff2n`/`fracfact*`/`pbdesign` carry `{-1, +1}`, `bbdesign` adds `0`, `ccdesign`/`star` add `+/- alpha`, and `fold` appends the sign-reversed mirror of its input levels — each family coordinate system maps onto physical factor bounds through the study per-axis fold.
@@ -99,9 +87,3 @@
 - Generate classical DOE cohorts through the coded factorial/response-surface generators; route pure space-filling QMC to `scipy.stats.qmc` and variance-based sensitivity to the SALib samplers.
 - Map each family's coordinates onto physical bounds through the study per-axis fold; a bare unit-hypercube sample uses `scale_samples` directly.
 - Capture the design, responses, method, center/star controls, and `seed` on `StudyRun` so resume reads the original cohort directly.
-
-[RAIL_LAW]:
-- Package: `pyDOE3`
-- Owns: classical design-of-experiments matrix generation across factorial, response-surface, screening, orthogonal-array, and Doehlert families, with design folding, aliasing analysis, regression-variance evaluation, and low-discrepancy/quasi-random sampling.
-- Accept: design generators returning family-coded `numpy.ndarray` matrices as `StudyMethod` arms; per-axis mapping of coded matrices with `scale_samples` for unit-hypercube samples; `fracfact*`/`fracfact_aliasing` for resolution and confounding control; `saltelli_sampling`/`morris_sampling` where a normalized screening cohort feeds the SALib analyzers.
-- Reject: hand-rolled Box-Behnken/central-composite/Plackett-Burman/fractional-factorial construction where the admitted generator owns it; a pyDOE3 sensitivity-index reimplementation where SALib owns the analyzer; a second coded-to-physical scaling surface beside the study `rescale` fold.

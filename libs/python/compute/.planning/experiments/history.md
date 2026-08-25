@@ -19,7 +19,7 @@ Experiment-run persistence, resume, and comparison rail on the study spine: `exp
 - Growth: a new resume state is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row naming its estimator; a new interior position is one `ResumeStage` member and one `beat` call; a new sync entrypoint shares the `_traced` weave by passing its own `FaultRow`, provider raise set, and rail-returning thunk.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from math import isfinite

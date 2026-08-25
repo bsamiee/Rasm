@@ -2,16 +2,7 @@
 
 `xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid or a zonal-reduction table. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `xarray-spatial`
-- package: `xarray-spatial`
-- module: `xrspatial`
-- namespaces: `xrspatial` (flat; every operator re-exported from its owning submodule)
-- owner: `data`
-- rail: terrain
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: grid carrier and dispatch backends
 
@@ -23,7 +14,7 @@ Every operator accepts and returns a `DataArray` (or a `Dataset`, applied per da
 |  [02]   | `xarray.Dataset`   | grid carrier   | multi-variable raster; operators apply independently per variable  |
 |  [03]   | `numpy.ndarray`    | kernel carrier | 2D binary/weight kernel produced by `convolution` and fed to focal |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: surface terrain operators
 
@@ -130,7 +121,7 @@ Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits grad
 |  [06]   | `mahalanobis.mahalanobis`                   | per-cell Mahalanobis distance (multiband anomaly)                     |
 |  [07]   | `normalize.rescale` / `standardize`         | min-max rescale / z-score standardization                             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import xrspatial` (or `from xrspatial import slope, aspect, hillshade`) at boundary scope only per the manifest import policy.
@@ -151,9 +142,3 @@ Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits grad
 
 [LOCAL_ADMISSION]:
 - A raster terrain, hydrology, focal, zonal, or multispectral computation on a `DataArray`/`Dataset` grid admits here under GEOSPATIAL_TERRAIN_GATED; raster read/write, reprojection, and vector bridging admit at the `rioxarray`/`rasterio` owners.
-
-[RAIL_LAW]:
-- Package: `xarray-spatial`
-- Owns: Numba raster analytics over `xarray` grids — surface and terrain metrics, classification breaks, focal/convolution neighborhood statistics, the d8/dinf/mfd hydrology stack, morphology, edge detection, interpolation/KDE, proximity/surface-distance/corridor fields, zonal reductions, multispectral indices, and A*/multi-stop pathfinding, with NumPy/Dask/CuPy dispatch
-- Accept: raster terrain/DEM/hydrology analysis on `DataArray`/`Dataset` grids feeding the data, persistence, and visuals owners under GEOSPATIAL_TERRAIN_GATED
-- Reject: wrapper-renames of `slope`/`aspect`/`hillshade`/`zonal.stats`/`flow_accumulation`; a hand-rolled finite-difference, Jenks, or flow-routing kernel where xarray-spatial owns it; GeoTIFF IO, reprojection, mosaic, or rasterize where the `rioxarray`/`rasterio` coverage rail owns it; a per-backend operator family where Numba dispatch handles NumPy/Dask/CuPy; a per-flow-model module where the `_d8`/`_dinf`/`_mfd` suffix discriminates; a parallel result class per operator

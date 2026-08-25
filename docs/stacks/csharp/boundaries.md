@@ -49,7 +49,7 @@ public static class ForeignAdmission {
             (RawState.Ready, { } value) => Payload.AdmittedFin(value).Map(Optional),
             (RawState.Ready, null) => Fin.Fail<Option<Payload>>(new Fault.Absent(Detail: nameof(RawRow.Value))),
             (RawState.Detached, _) => Fin.Fail<Option<Payload>>(new Fault.Unavailable(Detail: nameof(RawState.Detached))),
-            var (state, _) => Fin.Fail<Option<Payload>>(new Fault.Unavailable(Detail: $"<unmapped:{state}>")),
+            (RawState state, _) => Fin.Fail<Option<Payload>>(new Fault.Unavailable(Detail: $"<unmapped:{state}>")),
         };
 }
 ```
@@ -109,9 +109,9 @@ public abstract partial record Lease {
         state: unit);
 
     static unsafe Fin<int> Patch(nint address, int extent, Seq<(int Offset, ReadOnlyMemory<byte> Patch)> edits) {
-        var window = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<byte>((void*)address), extent);
-        var written = 0;
-        foreach (var (offset, patch) in edits) {                          // Exemption: the borrow kernel mutates one owned window in place; per-edit rebind is the rejected O(n·size) recopy
+        Span<byte> window = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<byte>((void*)address), extent);
+        int written = 0;
+        foreach ((int offset, ReadOnlyMemory<byte> patch) in edits) {                          // Exemption: the borrow kernel mutates one owned window in place; per-edit rebind is the rejected O(n·size) recopy
             patch.Span.CopyTo(window[offset..]);
             written += patch.Length;
         }
@@ -119,7 +119,7 @@ public abstract partial record Lease {
     }
 
     static Fin<TResult> Within<TResult>(ResourceHandle handle, Func<nint, Fin<TResult>> body) {
-        var added = false;
+        bool added = false;
         try { handle.DangerousAddRef(ref added); return body(handle.DangerousGetHandle()); }
         catch (SEHException seh) {
             Exception raised = seh;
@@ -145,7 +145,7 @@ public abstract partial record Lease {
 ```csharp
 public readonly ref struct BoundaryView(ReadOnlySpan<byte> bytes) {
     public int Length => bytes.Length;
-    public Option<int> Leading => bytes is [var lo, var hi, ..] ? Optional(lo | hi << 8) : None;
+    public Option<int> Leading => bytes is [byte lo, byte hi, ..] ? Optional(lo | hi << 8) : None;
     public ImmutableArray<byte> Detached(Range slice) => [.. bytes[slice]];
 }
 
@@ -157,7 +157,7 @@ public static class ViewBoundary {
 
     public static Fin<Digest> Capture(ReadOnlyMemory<byte> memory) =>
         Project(memory, static Fin<Digest> (view) => (view.Length, view.Leading, view.Detached(..view.Length)) switch {
-            (var length, { IsSome: true, Case: int head }, var owned) => new Digest(length, head, owned),
+            (int length, { IsSome: true, Case: int head }, ImmutableArray<byte> owned) => new Digest(length, head, owned),
             (_, _, _) => new Fault.Absent(Detail: nameof(BoundaryView)),
         });
 }
@@ -200,12 +200,12 @@ public readonly record struct Subscription(Action Detach, Task<Signal> FirstSign
 
 public static class SignalBoundary {
     public static Subscription Attach(Emitter emitter, ResourceHandle handle, ChannelWriter<Signal> sink) {
-        var added = false;
+        bool added = false;
         handle.DangerousAddRef(ref added);
         try {
-            var gate = new TaskCompletionSource<Signal>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<Signal> gate = new TaskCompletionSource<Signal>(TaskCreationOptions.RunContinuationsAsynchronously);
             EventHandler<SignalArgs> handler = (_, args) => {
-                var signal = Signal.From(handle.DangerousGetHandle(), args);
+                Signal signal = Signal.From(handle.DangerousGetHandle(), args);
                 _ = sink.TryWrite(signal);
                 gate.TrySetResult(signal);
             };
@@ -353,11 +353,12 @@ public static partial class FrameMap {
 
 public sealed class FrameConverter : JsonConverter<Frame> {
     public override Frame Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) {
-        using var buffered = JsonDocument.ParseValue(ref reader);
+        using JsonDocument buffered = JsonDocument.ParseValue(ref reader);
         return buffered.RootElement.GetProperty(nameof(Frame.Single.Kind)).GetString() switch {
             Frame.KindA => buffered.RootElement.Deserialize(WireContext.Default.FrameSingle) ?? throw new JsonException("<null-frame>"),
             Frame.KindB => FrameMap.ToDomain(buffered.RootElement.Deserialize(WireContext.Default.BlockWire) ?? throw new JsonException("<null-frame>")),
-            var kind => throw new JsonException($"<unknown-kind:{kind}>"),
+            { } kind => throw new JsonException($"<unknown-kind:{kind}>"),
+            null => throw new JsonException("<null-kind>"),
         };
     }
 
@@ -397,7 +398,7 @@ public static class SignedBoundary {
         left.Form == right.Form && left.Hash == right.Hash;
 
     static SignedBytes Probed(ReadOnlyMemory<byte> octets, CanonicalForm form) {
-        using var probe = JsonDocument.Parse(octets);
+        using JsonDocument probe = JsonDocument.Parse(octets);
         return new SignedBytes(octets, Convert.ToHexString(SHA256.HashData(octets.Span)), form);
     }
 }

@@ -2,25 +2,7 @@
 
 `Ara3D.BimOpenSchema` owns the columnar struct-of-arrays BIM analytics schema: a string-interned, typed-index entity/parameter/relation graph (`BimData`) authored through `BimDataBuilder` and projected by `ToDataSet` to the generic `Ara3D.DataTable` `IDataSet`. `Ara3D.BimOpenSchema.IO` owns the codec leg — the `IDataSet` written to and read from a Parquet-zip, a DuckDB file, an Excel workbook, and gzipped JSON. Managed writer and native reader meet at the file format, never the assembly: the folder's own DuckDB, ParquetSharp/Arrow, and MiniExcel rails read what this surface writes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Ara3D.BimOpenSchema`
-- package: `Ara3D.BimOpenSchema` (MIT)
-- assembly: `Ara3D.BimOpenSchema`
-- namespace: `Ara3D.BimOpenSchema`
-- asset: pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds `lib/net8.0`
-- depends: `Ara3D.SDK` — the `Ara3D.DataTable` `IDataSet`/`IDataTable`/`DataTableExtensions` columnar abstraction the model projects to
-- rail: analytics-exchange (BIM)
-
-[PACKAGE_SURFACE]: `Ara3D.BimOpenSchema.IO`
-- package: `Ara3D.BimOpenSchema.IO` (MIT)
-- assembly: `Ara3D.BimOpenSchema.IO`
-- namespace: `Ara3D.BimOpenSchema.IO`
-- asset: pure-managed AnyCPU; the native floor rides `DuckDB.NET.Data.Full` (osx-arm64 `duckdb` dylib), `Parquet.Net`/`ClosedXML` pure-managed
-- depends: `Ara3D.BimOpenSchema`, `Ara3D.SDK`, `ClosedXML` (Excel codec), `DuckDB.NET.Data.Full` (DuckDB codec + dylib), `Parquet.Net` (managed Parquet codec)
-- rail: analytics-exchange (BIM)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Ara3D.BimOpenSchema` columnar model
 
@@ -59,7 +41,7 @@
 |  [04]   | `ParquetUtils.ParquetColumnAdpater` | adapter       | `: IDataColumn` wrapping a Parquet `DataColumn` on read [sic]    |
 |  [05]   | `ExcelUtils`                        | static        | `IDataSet`/`IDataTable`/ADO.NET `DataSet`→Excel over `ClosedXML` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: author a `BimData` — `BimDataBuilder` (string interning, typed-index return)
 - every `Add*` interns its value into the matching column via a backing `Dictionary` (de-dup) and returns the typed index. `AddParameter` carries 6 value overloads (`double`/`int`/`string`/`EntityIndex`/`PointIndex`/`Point`) × 2 descriptor forms — a pre-interned `DescriptorIndex`, or a `(name, units, group)` triple interned inline; `PointIndex` binds a pre-interned point, `Point` interns inline.
@@ -116,7 +98,7 @@
 |  [10]   | `fp.ReadParquetFromZipAsync` | `Task<IDataSet> ReadParquetFromZipAsync(this FilePath)`                                           |
 |  [11]   | `set.WriteToExcel`           | `void WriteToExcel(this IDataSet\|IDataTable, FilePath)`                                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `BimData` is a struct-of-arrays star schema: eleven parallel `List<T>` columns, every cross-reference a typed `long`-backed index enum (never an object pointer); strings intern once into `Strings` and resolve by `StringIndex`.
@@ -144,9 +126,3 @@
 [LOCAL_ADMISSION]:
 - This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the `Query/columnar` case algebra, content-key projection, and columnar query rail are the design pages'.
 - Codecs meet only at the file boundary, never substitute at the API: `Parquet.Net` (managed write) and `ParquetSharp` (native read) are distinct engines over one `.parquet`; `ClosedXML` writes and `MiniExcel` reads one `.xlsx`; the DuckDB writer and the folder query rail share the one pinned `DuckDB.NET.Data.Full`, and the `<Name>_<n>` suffix is a serializer fact a direct SQL consumer honors.
-
-[RAIL_LAW]:
-- Package: `Ara3D.BimOpenSchema` + `Ara3D.BimOpenSchema.IO` (MIT)
-- Owns: the columnar SoA BIM schema (`BimData` + typed indices + EAV parameter columns + `EntityRelation` graph), the interning `BimDataBuilder`, the `ExpandedBIMData` join view, the `IDataSet` bridge, and the JSON/Parquet-zip/DuckDB/Excel codecs over `Ara3D.DataTable`
-- Accept: a BIM model authored through `BimDataBuilder` and exported via `ToDataSet()` to the analytics codecs; a `.duckdb`/`.parquet` queried by the folder's own DuckDB/ParquetSharp/Arrow rails at the file boundary
-- Reject: a hand-rolled BIM-to-tabular flattener where `BimData`/`ExpandedBIMData` + `ToDataSet()` model it; a second Parquet/DuckDB runtime where the folder pins own the engine; referencing the written DuckDB tables by bare name where the `<Name>_<n>` projection-ordinal suffix is the real identity

@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Instrumentation.EntityFrameworkCore` mints the ORM-layer db-semconv span: it subscribes EF Core's `Microsoft.EntityFrameworkCore` `DiagnosticSource` and folds each command lifecycle event onto one `Client`-kind span named `OpenTelemetry.Instrumentation.EntityFrameworkCore.Execute`, its `ActivitySource` name matching the package.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.EntityFrameworkCore`
-- package: `OpenTelemetry.Instrumentation.EntityFrameworkCore`
-- assembly: `OpenTelemetry.Instrumentation.EntityFrameworkCore`
-- namespace: `OpenTelemetry.Trace`, `OpenTelemetry.Instrumentation.EntityFrameworkCore`
-- rail: storage instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options carrier with its delegate slots
 
@@ -20,7 +12,7 @@
 |  [02]   | `Filter(string, IDbCommand) -> bool`         | delegate      | provider-name command gate    |
 |  [03]   | `EnrichWithIDbCommand(Activity, IDbCommand)` | delegate      | span tagging from the command |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `TracerProviderBuilderExtensions` over `TracerProviderBuilder`, every overload folding to the named-slot leg
 
@@ -30,7 +22,7 @@
 |  [02]   | `AddEntityFrameworkCoreInstrumentation(Action<EntityFrameworkInstrumentationOptions>)`         | static  | default options slot  |
 |  [03]   | `AddEntityFrameworkCoreInstrumentation(string, Action<EntityFrameworkInstrumentationOptions>)` | static  | named options slot    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - command span: `CommandCreated` starts the `Client` span and names it after the database, `CommandExecuted` and `CommandError` stop it, and an error stamps `ActivityStatusCode.Error` from the payload exception.
@@ -46,9 +38,3 @@
 [LOCAL_ADMISSION]:
 - Composition-root-only, at the AppHost root that owns the EF contexts; that root reaches the source name alone, never the EF assembly Persistence carries.
 - `Filter` and `EnrichWithIDbCommand` run on the command hot path, so both stay unset on high-fanout query lanes unless the drop or tag earns the per-command delegate cost.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.EntityFrameworkCore`
-- Owns: EF Core command spans and the `Microsoft.EntityFrameworkCore` diagnostic-source subscription at the composition root
-- Accept: `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql`, named options scoping policy per context
-- Reject: hand-rolled db-semconv spans over EF command interceptors; a bare `AddSource` naming the source without installing the subscriber

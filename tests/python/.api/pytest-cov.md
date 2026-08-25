@@ -1,15 +1,8 @@
 # [PY_TESTS_API_PYTEST_COV]
 
-`pytest-cov` boots a `coverage.Coverage` instance from `[tool.coverage.*]`, starts it before collection, and folds child-process and xdist-worker data into one report at session end. It contributes no coverage vocabulary of its own beyond the `--cov*` CLI: source selection, branch mode, contexts, and the fail-under floor all delegate to coverage.py, which owns the measurement (`.api/coverage.md`). Rasm's default lane runs through this driver; the mutmut lane bypasses it, driving coverage directly against the absolute-path side-file `.config/coverage-mutmut.ini`.
+`pytest-cov` boots a `coverage.Coverage` instance from `[tool.coverage.*]`, starts it before collection, and folds child-process and xdist-worker data into one report at session end. It contributes no coverage vocabulary of its own beyond the `--cov*` CLI: source selection, branch mode, contexts, and the fail-under floor all delegate to coverage.py, which owns the measurement (`.api/coverage.md`). Rasm's default lane runs through this driver.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pytest-cov` · license `MIT`
-- namespace: `pytest_cov`; `pytest11` entry point `pytest_cov = pytest_cov.plugin`
-- asset: `pytest_cov/{plugin,engine}.py`; the `cov` fixture and the `--cov*` option group
-- rail: the coverage-session lane — starts `coverage.Coverage` under pytest, drives xdist/subprocess combination, and applies `--cov-fail-under`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]            | [KIND]            | [CAPABILITY]                                                               |
 | :-----: | :------------------ | :---------------- | :------------------------------------------------------------------------- |
@@ -30,7 +23,7 @@ class TestContextPlugin:
     def switch_context(self, item: pytest.Item, when: str) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                       | [KIND]     | [CAPABILITY]                                                                 |
 | :-----: | :------------------------------ | :--------- | :--------------------------------------------------------------------------- |
@@ -47,7 +40,7 @@ class TestContextPlugin:
 ```python
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PYTEST_COV_TOPOLOGY]:
 - Engine controller starts a `coverage.Coverage` before collection and stops it inside `CovPlugin.pytest_runtestloop` after the yielded run loop, then calls the report writers named by `--cov-report` against the combined data.
@@ -56,15 +49,6 @@ class TestContextPlugin:
 
 [STACKING]:
 - `coverage`(`.api/coverage.md`): pytest-cov constructs the `Coverage` object and delegates all measurement, remapping, and report generation to it; `--cov-fail-under` mirrors the config `fail_under = 90`.
-- `pyproject.toml`(`../../../pyproject.toml`): `[tool.coverage.run]` sets `source = ["tools/assay"]`, `branch`, `core = "sysmon"`, and `patch = ["subprocess"]`, so child interpreters auto-measure without pytest-cov's legacy subprocess hook.
-- `coverage-mutmut.ini`(`../../../.config/coverage-mutmut.ini`): the mutmut lane runs coverage directly through this absolute-path side-file (`relative_files = false`), never through the pytest-cov session; mutmut consumes its absolute-keyed covered-line map.
 
 [LOCAL_ADMISSION]:
 - Admitted at the shared test tier through the `pytest11` entry point; `required_plugins` lists `pytest-cov`, so a coverage run cannot start without the driver present.
-- `--cov` rides the assay quality rail, not default `addopts`; a bare pytest run measures nothing until the rail supplies the source scope.
-
-[RAIL_LAW]:
-- Package: `pytest-cov`
-- Owns: the coverage session lifecycle under pytest, xdist worker seeding and combination, dynamic test contexts, and the fail-under gate.
-- Accept: `[tool.coverage.*]` as the source of truth; `--cov`/`--cov-report`/`--cov-context` as the session driver; the `cov` fixture for a test that asserts on live coverage state.
-- Reject: coverage policy duplicated in CLI flags where the config already carries it; pytest-cov driving the mutmut lane (mutmut owns coverage directly through the absolute side-file); a report writer reinvented where `--cov-report` names one.

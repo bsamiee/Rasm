@@ -4,17 +4,7 @@
 
 `PlatformIO` is the one ingress/egress with three platform subclasses; a `Transform` is a plain `(doc, context?) => void` the document folds. Nothing here encodes an image, compresses a buffer, or knows an extension — those ride the extension and function packages over this graph.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@gltf-transform/core`
-- package: `@gltf-transform/core` (MIT)
-- module: `exports["."]` condition-selects `dist/index.cjs` for `require` against the `dist/index.js` default; types at `dist/index.d.ts`
-- runtime: both lanes — `NodeIO` binds `node:fs` on the server, `WebIO` binds `fetch` in the browser, `DenoIO` the third host; the graph itself is host-free
-- depends: `property-graph` — the reference-counted graph substrate `Property` extends
-- rail: `object` container surgery, lifted into the `Effect` rail at the boundary where a `.glb` byte plane is read or written
-- boundary: the graph and its IO alone; codecs, compression, and extension vocabulary land in the sibling packages
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the document, its root, and the IO shapes
 
@@ -55,7 +45,7 @@
 
 `[REFERENCE_SHAPE]: `Ref` `RefList` `RefMap` `RefSet` `Graph` `GraphEdge` `Nullable` `PropertyResolver` `COPY_IDENTITY`` — the `property-graph` reference primitives a property declares its links with.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the document, its property mints, and the transform fold
 
@@ -102,7 +92,7 @@
 
 `[IMAGE_PROBE]: `ImageUtils.getMimeType` `ImageUtils.getSize` `ImageUtils.getChannels` `ImageUtils.getVRAMByteLength` `ImageUtils.registerFormat` `ImageUtils.mimeTypeToExtension` `ImageUtils.extensionToMimeType`` — sniffing over a registered `ImageUtilsFormat` table, never a suffix read.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Graph values rule and the JSON never does: properties hold typed references and the writer re-derives every index, so an edit never renumbers accessors, buffer views, or texture indices and a dangling index stays unrepresentable.
@@ -124,9 +114,3 @@
 - `setVertexLayout` is stated per pipeline rather than inherited, so a write states its buffer-view geometry instead of taking a silent default.
 - `getImage()` returns the encoded bytes, never a decoded plane; extent and channel count come from `ImageUtils` under a registered impl, and pixel work belongs to the raster owner.
 - Round-tripping through an IO whose roster omits an extension the source used drops that extension's properties, so every roster is stated closed and proven against `Root.listExtensionsUsed()` after read.
-
-[RAIL_LAW]:
-- Package: `@gltf-transform/core`
-- Owns: the glTF 2.0 property graph — `Document` and `Root`, every property family, typed references in place of indices, the `PlatformIO` read/write surface with its three hosts, the `Transform` fold, the extension base class, and the image/buffer/path/math statics
-- Accept: `readBinary`/`writeBinary` over bytes already in hand, `Effect`-lifted terminals with tagged faults, a closed `registerExtensions` roster with `registerDependencies` codec instances, `document.transform(...)` over an ordered row list, content-addressed output through the object store
-- Reject: JSON index arithmetic done by hand, a network-resolving IO on the server lane, an implicit vertex layout, `getImage()` treated as a decoded plane, a per-operation entry beside the one transform fold, an extension consumed without its roster row

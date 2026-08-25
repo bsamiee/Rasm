@@ -2,17 +2,7 @@
 
 `psdtags` owns the Photoshop-compatible layered-TIFF tag structure — the `ImageSourceData` (tag `37724`) and `ImageResources` (tag `34377`) object graph a flat RGB TIFF carries so Photoshop/Affinity/Krita read it as a separable, re-orderable layer stack. It authors the graph and emits each tag as a `tifftag(...)` extratag `tifffile` lays into the IFD, never compressing a channel byte (`imagecodecs`) nor writing the TIFF directory (`tifffile`). It is `export/layered`'s `TIFF`-arm structure author for the layered-TIFF container only — native `.psd`/`.psb` authority is `psd-tools`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `psdtags`
-- package: `psdtags` (BSD-3-Clause)
-- module: `psdtags`
-- rail: layered — the `ImageSourceData`/`ImageResources` tag-structure authority for the `export/layered` `TIFF` arm
-- abi: pure-Python `py3-none-any`, no native extension, no cp gate
-- depends: optional `imagecodecs` (channel codecs), `tifffile` (container IO), `matplotlib` (the `python -m psdtags <file.tif>` layer/mask/resource viewer) — imported only when the dependent path runs
-- target: a layered TIFF path or `BinaryIO`/`bytes` buffer at the boundary; contiguous 2-D `numpy` channel arrays and the typed `Psd*` graph in memory
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the layered-TIFF tag owners, the layer/channel/mask graph, and the tagged-block/resource-block families
 
@@ -56,7 +46,7 @@ Both tag owners `TiffImageSourceData`/`TiffImageResources` are the only construc
 |  [17]   | `PsdRectangle`              | geometry tuple    | `PsdRectangle(top, left, bottom, right)` layer/mask bbox in canvas space            |
 |  [18]   | `PsdPoint`                  | geometry tuple    | `PsdPoint(y, x)` coordinate                                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the layered-TIFF author/parse round-trip, the channel-codec bridge, and the low-level stream primitives
 
@@ -86,7 +76,7 @@ Both tag owners `TiffImageSourceData`/`TiffImageResources` are the only construc
 |  [18]   | `write_psdblocks(fh, /, *blocks) -> int`                                   | function    | serialize a resource-block list        |
 |  [19]   | `read_tifftag(filename, tag, /, pageindex=0) -> Any`                       | function    | read one raw TIFF tag via `tifffile`   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - three disjoint owners meet at typed seams: `psdtags` authors the `TiffImageSourceData`/`PsdLayers`/`PsdLayer`/`PsdChannel` graph and emits the `tifftag(...)` extratag; `imagecodecs` compresses each `PsdChannel.data` (`RAW`→none, `RLE`→packbits, `ZIP`→deflate, `ZIP_PREDICTED`→delta+deflate, via `compress`/`decompress`); `tifffile` lays the extratag into the IFD; the `_psd_layer` arm builds the graph, `compress` the channel bytes, `tifftag` the IFD value — none re-implements another's concern.
@@ -105,9 +95,3 @@ Both tag owners `TiffImageSourceData`/`TiffImageResources` are the only construc
 [LOCAL_ADMISSION]:
 - boundary-scope `lazy import psdtags` only — module-level import is banned by the manifest import policy, so the `export/layered` page reifies it on first `TIFF`-arm use (as it does `tifffile`/`pyvips`/`numpy`) and `psdtags` never loads on the runtime loader path.
 - one layered-format owner per editor family: a Photoshop-compatible layered TIFF routes through `psdtags`+`tifffile`, a native `.psd`/`.psb` through `psd-tools`, an editable PDF through `pymupdf`/`pikepdf`, a GIMP/Krita raster stack through the `ORA` arm.
-
-[RAIL_LAW]:
-- Package: `psdtags`
-- Owns: the layered-TIFF `ImageSourceData` (tag 37724) + `ImageResources` (tag 34377) structure — the `TiffImageSourceData`/`PsdLayers`/`PsdLayer`/`PsdChannel` graph, the `PsdLayerMask`/`PsdUserMask`/`PsdFilterMask` masks, the `PsdKey`/`PsdKeyABC` block family (incl. `PsdSectionDividerSetting` group folders) and the `PsdResourceId`/`PsdResourceBlockABC` resource-block family, the closed enum vocabularies, the `compress`/`decompress` codec bridge into `imagecodecs`, the `tifftag`/`fromtiff` seam into `tifffile`, and the `overlay` unassociated-alpha compositor
-- Accept: authoring a `TiffImageSourceData` from a placed canvas RGBA array and per-layer bboxes; each `PsdLayer` as `CHANNEL0/1/2`+`TRANSPARENCY_MASK` `PsdChannel`s over a `PsdRectangle`; the name-aligned `PsdBlendMode[blend.name]` index + the `PsdLayerFlag` derivation; `tifftag(maxworkers=…)` emitted for `tifffile.imwrite` with `byteorder=isd.byteorder`; group folders as `PsdSectionDividerSetting` dividers on `PsdLayer.info` in list order; `unknown=True` lossless parse + the `fromtiff`-round-trip oracle; the `TIFF` arm crossing the `export/layered` `HOSTILE` process seam with the channel `maxworkers` fan bounded inside it
-- Reject: re-implementing a channel codec, a TIFF directory write, or a canvas composite (`imagecodecs`/`tifffile`/`pyvips` own them); authoring a native `.psd`/`.psb` with `psdtags` where `psd-tools` is categorical-best; hardcoding `byteorder='>'` independently of `isd.byteorder`; a `getattr(PsdBlendMode, name, default)` or raw 4-char literal where the total name-aligned index derives; a nesting tree where the format is a flat `PsdSectionDividerSetting`-divided list; a stride/non-contiguous channel view reaching `PsdChannel.data`/`compress` without `.copy()`; `unknown=False` dropping unmodeled blocks; `@retry` around a pure author/parse/codec; a second `anyio` worker on the channel pool; module-level import

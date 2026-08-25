@@ -21,7 +21,7 @@
 - Boundary: the typed leaf lifts bare; `.ToError()`, `Error.New(code, message)`, category mirrors, and compatibility factories are deleted forms. Foreign exceptions enter only through the capture funnel and retain their opaque message as evidence.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt.Common;
 using Rasm.Domain;
 using Thinktecture;

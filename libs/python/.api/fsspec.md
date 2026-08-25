@@ -2,18 +2,7 @@
 
 `fsspec` is the branch filesystem substrate beneath `universal-pathlib`: one protocol URL resolves through the registry to one cached `AbstractFileSystem`, and every runtime, data, and compute consumer composes that filesystem rather than constructing per-scheme clients.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `fsspec`
-- package: `fsspec` (BSD-3-Clause)
-- import: `fsspec`
-- owner: `shared`
-- rail: transport
-- asset: pure Python; backend extras (`s3fs`/`gcsfs`/`adlfs`/`aiohttp`) pull concrete drivers
-- namespaces: `fsspec`, `fsspec.asyn`, `fsspec.registry`, `fsspec.spec`, `fsspec.mapping`, `fsspec.caching`, `fsspec.generic`
-- capability: registry-cached protocol filesystem resolution, sync/async reads, byte-range and multi-range reads, mutation and transactions, block/read-ahead caches, mapping views, generic sync
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: filesystem family
 
@@ -36,7 +25,7 @@
 |  [05]   | `FirstChunkCache`             | cache         | caches the file's leading block for header reads                   |
 |  [06]   | filesystem transaction object | transaction   | `fs.transaction` context manager plus explicit start/end lifecycle |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolution and registry
 
@@ -67,7 +56,7 @@
 |  [03]   | `fsspec.open_files(...)` / `open_local(...)`               | static   | multi-file open and local staging |
 |  [04]   | `fsspec.generic.rsync(source, destination, ...)`           | static   | backend-generic directory sync    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - resolution: `url_to_fs(root_url, **storage_options)` or `filesystem(protocol, **storage_options)` is the single filesystem construction boundary; the resulting `AbstractFileSystem` serves every consumer of that root.
@@ -85,9 +74,3 @@
 - Accept `FSMap`, transactions, `open_files`/`open_local`, and generic transfer only behind an owner declaring mutable mapping, atomic write, multi-file staging, or bulk sync — each is a SYNC single-use context whose internal fan runs on the backend's own concurrency, outside whatever bound the calling owner accounts for, so an owner holding a concurrency budget composes its own fan over the single-path surface instead.
 - Data declines these at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges` or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk`, and bulk movement is content-keyed `obstore` put.
 - Reject per-scheme `os`/cloud-client branching, inline credentials, direct construction of cloud extra drivers in folder code, blocking reads on an event loop, and wrapper-renames of filesystem operations.
-
-[RAIL_LAW]:
-- Package: `fsspec`
-- Owns: branch-wide protocol filesystem resolution, cached `AbstractFileSystem` handles, read/mutation/range/map/transaction surfaces, cache policies, and async filesystem mirrors
-- Accept: one resolved filesystem shared by `UPath`, runtime roots, DuckDB scan registration, and compute asset reads
-- Reject: duplicated filesystem handles, hand-rolled backend clients, per-folder re-catalogues of package surface, and scheme switches where the registry owns dispatch

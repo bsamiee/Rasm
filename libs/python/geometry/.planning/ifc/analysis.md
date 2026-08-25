@@ -21,7 +21,7 @@ Every selecting verb admits its query through `IfcSelector`; a malformed selecto
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the result where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here; no HTTP client, cache posture, or egress policy minted for the registry leg, the `TransportResource` arriving built from the composition exactly as the sibling lifecycle owner's lane does.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 
 from pathlib import Path

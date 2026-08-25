@@ -2,15 +2,7 @@
 
 `adbc_driver_manager` owns ADBC driver loading and the PEP 249 DBAPI front end for the query rail: `dbapi.connect` opens a `Connection` that mints `Cursor` objects returning Arrow tables and record-batch readers over the low-level `AdbcDatabase`/`AdbcConnection`/`AdbcStatement` handle layer bound to the ADBC C Data Interface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `adbc_driver_manager`
-- package: `adbc-driver-manager` (Apache-2.0)
-- module: `adbc_driver_manager`
-- namespaces: `dbapi`
-- rail: query
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: DBAPI class surface
 - DBAPI attributes: `apilevel='2.0'`, `paramstyle='qmark'`, `threadsafety=1`
@@ -59,7 +51,7 @@
 |  [05]   | `IntegrityError`    | error         | constraint violation                      |
 |  [06]   | `NotSupportedError` | error         | unsupported feature or driver call        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DBAPI connection lifecycle
 - `connect` carry: `connect(driver=None, uri=None, *, profile=None, entrypoint=None, db_kwargs=None, conn_kwargs=None, autocommit=False)`
@@ -144,7 +136,7 @@
 |  [17]   | `AdbcStatement.execute_schema()`         | instance | result schema without execution       |
 |  [18]   | `AdbcStatement.cancel()`                 | instance | cancel the in-flight statement        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two layers stack: `dbapi.connect` -> `Connection` -> `Cursor` wraps the handle layer `AdbcDatabase` -> `AdbcConnection` -> `AdbcStatement`; this driver-agnostic manager is the shared core every concrete driver (`adbc_driver_flightsql`, `adbc_driver_postgresql`, `adbc_driver_sqlite`) loads through.
@@ -166,9 +158,3 @@
 - Pull results as Arrow tables or record-batch readers feeding arro3/polars; tuple `fetchall` serves only small scalar results.
 - Bulk-load through `Cursor.adbc_ingest` with an explicit `mode`.
 - Reserve the handle layer for driver authors, partition reads, and zero-copy stream export; ordinary query work stays on the DBAPI surface.
-
-[RAIL_LAW]:
-- Package: `adbc_driver_manager`
-- Owns: ADBC driver loading, PEP 249 connectivity, Arrow-native query results, bulk ingest, partition reads, and database metadata introspection
-- Accept: driver libraries via `connect`; Arrow bind and ingest; results as Arrow tables or streams feeding arro3/polars
-- Reject: hand-rolled DBAPI shims; per-row insert loops where `adbc_ingest` applies; hand-stitched partition fetch loops where `adbc_read_partition` applies; wrapper-renames of `connect`/`Cursor`

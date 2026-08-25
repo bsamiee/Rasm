@@ -2,17 +2,7 @@
 
 `weasyprint` owns pure-Python HTML/CSS-to-PDF rendering for the artifacts pdf rail: one `HTML` source lays out through `pydyf` into a paged `Document`/`Page` tree, and one `write_pdf` `**options` policy selects every archival, tagged, forms, and font variant. Supplemental CSS Paged Media and GCPM own running heads/feet and cross-references, a per-render `FontConfiguration`/`CounterStyle` owns `@font-face` and `@counter-style`, and a `finisher(document, pydyf.PDF)` hook owns post-layout injection. It never re-parses PDF, forks a writer per variant, or draws page furniture from Python.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `weasyprint`
-- package: `weasyprint` (BSD-3-Clause)
-- module: `weasyprint`
-- namespaces: `weasyprint`, `weasyprint.document`, `weasyprint.text.fonts`, `weasyprint.css.counters`, `weasyprint.urls`
-- asset: pure-Python PDF assembly through `pydyf`; text layout/shaping binds native `pango`/`harfbuzz`/`fontconfig` via `cffi` and `pillow` for raster decode at render time
-- depends: `pydyf`, `cssselect2`, `tinycss2`, `tinyhtml5`, `fonttools[woff]`, `pyphen`, `pillow`, `cffi`
-- rail: pdf
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document input classes; one source of `filename`/`url`/`file_obj`/`string`
 
@@ -76,7 +66,7 @@
 |  [04]   | `URLFetcherResponse`  | class         | response wrapper a custom fetcher returns                     |
 |  [05]   | `default_url_fetcher` | function      | default resource loader for URLs and data URIs                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document construction; pass exactly one source argument
 
@@ -153,7 +143,7 @@ Archival profiles set `pdf_variant`; `pdf_tags=True` adds the structure tree PDF
 - [02]-[COUNTER_STYLE]: `CounterStyle`, a `dict` subclass, assigns `name -> @counter-style` rules, then `resolve_counter(values, previous_types)`, `render_value(counter_value, counter_name)`, and `render_marker(counter_name, counter_value)` resolve markers while `copy()` clones the registry.
 - [04]-[DEFAULT_FETCHER]: `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` is the module function; `allow_redirects`/`fail_on_errors` live on the `URLFetcher` class, not this function.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One-shot `HTML(...).write_pdf(target)` parses, lays out, and writes in a single call; the two-phase `HTML(...).render(font_config=...)` returns a `Document` that `Document.write_pdf` or `Document.copy(pages=...)` finishes for paged output.
@@ -175,9 +165,3 @@ Archival profiles set `pdf_variant`; `pdf_tags=True` adds the structure tree PDF
 - Share one `FontConfiguration` per render and register `@font-face` through it; take the two-phase `render` + `Document` path when paging, bookmark trees, or page-subset copies are needed.
 - Author running heads/feet, TOC page references, and section-aware headers as CSS Paged Media in a supplemental `CSS` sheet; inject custom PDF objects through a `finisher(document, pdf)`, never post-processing the byte stream out of band.
 - Select archival output through `pdf_variant`/`pdf_tags`/`output_intent`; construct a `URLFetcher` (or override `url_fetcher`) to sandbox or cache remote loads, `allowed_protocols` gating `http`/`https`/`data`.
-
-[RAIL_LAW]:
-- Package: `weasyprint`
-- Owns: HTML/CSS-to-PDF rendering via `pydyf`, paged layout, font/counter resolution, bookmark/link/anchor/form extraction, embedded attachments, and PDF/A + PDF/UA archival and accessible variant emission
-- Accept: a single HTML source with `base_url`; supplemental `CSS`; a per-render `FontConfiguration`/`CounterStyle`; archival output via `pdf_variant`/`pdf_tags`/`output_intent`; a `pydyf.PDF` `finisher`
-- Reject: hand-rolled HTML-to-PDF conversion; a parallel layout engine; driving the low-level `Page.paint(stream, scale=1)` primitive directly where `write_pdf`/`render` own the page-to-PDF path; a wrapper-rename of `write_pdf`/`render`; a forked code path per PDF variant where a `**options` row suffices

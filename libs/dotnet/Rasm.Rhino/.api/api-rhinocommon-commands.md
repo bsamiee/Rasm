@@ -2,17 +2,7 @@
 
 This catalog owns the interactive command boundary: the `Rhino.Commands.Command` lifecycle, `RhinoApp` UI-thread marshalling and script dispatch, `RhinoGet` one-shot modal acquisition, and the `Rhino.Input.Custom` getter family carrying command-line options, selection policy, constrained point picking, and transform capture. Every acquisition resolves to a `GetResult`/`Result` the boundary projects onto `LanguageExt` rails; every geometry payload crosses at the geometry catalog's boundary, and the closed host vocabularies wrap as `Thinktecture` generated owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon command surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Commands`, `Rhino`, `Rhino.Input`, `Rhino.Input.Custom`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.UI`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: command-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: lifecycle and dispatch
 - rail: command-boundary
@@ -61,7 +51,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `GetResult` — `NoResult`/`Cancel`/`Nothing`/`Option`/`Number`/`Color`/`Undo`/`Miss`/`Point`/`Point2d`/`Line2d`/`Rectangle2d`/`Object`/`String`/`CustomMessage`/`Timeout`/`Circle`/`Plane`/`Cylinder`/`Sphere`/`Angle`/`Distance`/`Direction`/`Frame`/`User1`–`User5`/`ExitRhino`.
 - `CommandLineOptionType` — `Simple`/`Number`/`Toggle`/`Color`/`List`/`Hidden`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [COMMAND_LIFECYCLE]:
 - `Rhino.Commands.Command.EnglishName -> string` — invariant English command identity used for lookup and history.
@@ -250,7 +240,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetTransform.CalculateTransform(RhinoViewport viewport, Point3d point) -> Transform` — resolves the transform from the current pick.
 - `Rhino.Input.Custom.GetTransform.GetXform() -> GetResult` — runs interactive transform acquisition.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [COMMAND_TOPOLOGY]:
 - `Command` owns identity and the `RunCommand`/`ReplayHistory` execution seam; `RhinoApp` owns thread affinity and script dispatch; `RhinoGet` owns one-shot modal acquisition; the `Rhino.Input.Custom` getters own multi-step acquisition with options, constraints, and dynamic draw. Acquisition state (`InGet`/`InGetPoint`/`InGetObject`) reads from `RhinoGet` and `RhinoDoc`, never inferred.
@@ -266,9 +256,3 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 [LOCAL_ADMISSION]:
 - a command enters through a `Command`-derived owner whose `RunCommand` returns a projected `Result`; interactive acquisition enters through a getter owner that registers options and defaults, applies the accept policy, runs `Get`/`GetMultiple`/`GetXform`, and projects the `GetResult` onto a `Fin` rail keyed to the payload.
 - host getter and option carrier types never leak past the boundary; downstream code holds the projected rail value and the canonical geometry payload the geometry catalog admits.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Commands` + `Rhino.Input` + `Rhino.Input.Custom`
-- Owns: the command lifecycle, UI-thread and script dispatch, modal acquisition, and the interactive getter family with options, constraints, and dynamic draw.
-- Accept: command execution and history, one-shot and multi-step acquisition, command-line options, selection policy, constrained point picking, and transform capture projected onto `Fin`/`Validation` rails.
-- Reject: exception-style getter outcomes (the `GetResult` discriminant is the rail), inferred acquisition state, off-thread prompt or mutation calls, and leaking host getter/option types past the boundary.

@@ -2,15 +2,7 @@
 
 `@opentelemetry/otlp-exporter-base` owns the configuration substrate every OTLP exporter shares: the transport option records the six `exporter-{trace,metrics,logs}-otlp-{http,proto}` classes extend, the `CompressionAlgorithm` vocabulary their `compression` field takes, the export-delegate and transport contracts, and the retry and bounded-queue machinery behind each `export` call. Every signal exporter's constructor argument is one of this package's records, so a shared transport row lands once and every signal inherits it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/otlp-exporter-base`
-- package: `@opentelemetry/otlp-exporter-base` (Apache-2.0)
-- module: dual CJS + ESM with a node-http platform split (`index-node-http`); `@opentelemetry/api` `^1.3.0` is the one peer
-- runtime: runtime-neutral base with node-only fields (`compression`, `keepAlive`, `httpAgentOptions`, `userAgent`) on the node config record
-- rail: observability/export transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the exporter configuration records and the transport contracts
 
@@ -29,7 +21,7 @@
 - `OtlpSharedConfiguration` is the merged result the exporter runs on, so every option resolves to those three transport facts beside signal-specific rows.
 - `HeadersFactory` resolves per export, so a rotating bearer never bakes into construction; a factory must not throw, and it must not statically import `http`/`https` ahead of the http instrumentation's patch.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration merge and delegate construction — the surface exporters build on
 
@@ -43,7 +35,7 @@
 
 - `createOtlpNetworkExportDelegate`: slot three takes the `ExporterMetrics` self-observation handle.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one config record per signal exporter — each signal package's `./platform` node class takes `OTLPExporterNodeConfigBase` widened by that signal's own fields, so compression, timeout, concurrency, keep-alive, and headers are one shared row spelled once per signal.
@@ -60,9 +52,3 @@
 [LOCAL_ADMISSION]:
 - `scope:runtime`, the `otel/` folder alone — every other folder emits through Effect's own signal surfaces and never constructs an exporter.
 - construction stays at the composition-root Layer; a per-call exporter mint re-opens a connection pool the keep-alive row exists to hold.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/otlp-exporter-base`
-- Owns: the OTLP exporter configuration records, the compression vocabulary, the transport and delegate contracts, and the retry and bounded-queue machinery
-- Accept: one shared transport projection feeding every signal exporter with timeout, concurrency, and headers from policy, and the node-only compression and keep-alive columns folded in per sender
-- Reject: a raw `"gzip"` string, a per-signal transport divergence, node sender columns passed on a browser row, a per-call exporter construction, a header factory that throws or statically imports `http`

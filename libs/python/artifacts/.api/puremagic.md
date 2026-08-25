@@ -2,16 +2,7 @@
 
 `puremagic` mints content identity from a self-contained signature table: it carries the head and foot of bytes, a path, or a seekable stream against the table and returns a confidence-ranked roster of `(extension, mime_type, name)` matches. Its `scanners/` deep-scan layer disambiguates the ambiguous `PK\x03\x04` ZIP and `\xd0\xcf\x11\xe0` CFBF containers to the exact OOXML/ODF/EPUB/USDZ or legacy-Office subtype. It is the artifacts file-control rail's default sniffer: pure-Python with a bundled `magic_data.json`, running in-process on the event loop with no native dependency.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `puremagic`
-- package: `puremagic` (MIT)
-- module: `puremagic` — re-exports `puremagic.main`, the implementation module
-- namespaces: `puremagic`, `puremagic.main`, `puremagic.scanners`
-- abi: pure-Python `py3-none-any`, no native extension
-- rail: file control
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the match record and fault rail
 
@@ -24,7 +15,7 @@
 |  [03]   | `PureError`               | exception     | `LookupError` — no signature matched                                       |
 |  [04]   | `PureValueError`          | exception     | `ValueError` — empty input                                                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cooked single-answer detection
 
@@ -78,7 +69,7 @@ Each `scanners.<name>` module exposes a `match_bytes` constant and `main(file_pa
 |  [05]   | `pdf`/`json`/`hdf5`/`python` | first-match chain         | confirm a true PDF/JSON/HDF5/Python payload past a generic signature    |
 |  [06]   | `text_scanner`               | `decode_any`; `eml_check` | charset (utf-8/cp1252), line-terminator + CSV + RFC-822 `.eml` recovery |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Detection runs in-process on the event loop: pure-Python with a bundled `magic_data.json`, so no native library reifies in a worker and an `import` fault is a packaging defect, never a missing-host-lib gap. `get_max_lengths()` bounds the head+foot read, keeping even a multi-gigabyte path off the heap; only a deliberately latency-bounded sniff moves to `anyio.to_thread.run_sync`, never a process.
@@ -96,8 +87,3 @@ Each `scanners.<name>` module exposes a `match_bytes` constant and `main(file_pa
 
 [LOCAL_ADMISSION]:
 - Admitted MIT and pure-Python, no native provisioning and no `.mgc` loader, as the default `artifacts` file-control sniffer. `python-magic`/libmagic joins only for the broad-leaf-signature fallback its compiled database owns, never the default sniff.
-
-[RAIL_LAW]:
-- Package: `puremagic`
-- Owns: pure-Python signature-table content identification (bytes/path/stream → confidence-ranked `(extension, mime_type, name, confidence)` roster) with multi-part header+footer correlation, double-extension recovery, extension↔MIME reverse lookup, and the per-container deep-scan resolving OOXML/ODF/EPUB/USDZ/legacy-Office/EBML/Ogg/ASF/MPEG/JSON/HDF5/text to the exact subtype — the default in-process artifacts sniffer
-- Accept: producing the `exchange/detect` `DetectIdentity` fold from the `magic_string`/`magic_file`/`magic_stream` ranked roster, in-process under `async_boundary`; using `single_deep_scan`'s OOXML/CFBF resolution to close the generic-container floor; setting `PUREMAGIC_DEEPSCAN=0` for an untrusted or latency-bounded table-only pass

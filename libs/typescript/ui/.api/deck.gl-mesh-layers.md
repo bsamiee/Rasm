@@ -2,15 +2,7 @@
 
 `@deck.gl/mesh-layers` instances a 3D asset over N anchors through two primitive `Layer` subclasses — `SimpleMeshLayer` for one arbitrary mesh, `ScenegraphLayer` for a full glTF scenegraph — on one shared placement axis, so a 3D-asset-over-map need is one parameterized choice, not two prop vocabularies. `@deck.gl/geo-layers` `Tile3DLayer` renders its 3D-tile content through these, so this tier resolves or mesh tiles fail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@deck.gl/mesh-layers`
-- package: `@deck.gl/mesh-layers` (MIT)
-- abi: browser WebGL2/WebGPU via `@deck.gl/core`'s luma.gl `Device`; glTF/mesh parse worker-backed via loaders.gl
-- runtime: `scope:viewer` project-local; layer instances are declarative values in `Deck.layers`
-- modules: `SimpleMeshLayer`, `ScenegraphLayer`
-
-## [02]-[INSTANCED_MESH_ROWS]
+## [01]-[INSTANCED_MESH_ROWS]
 
 [TYPE_SCOPE]: two `Layer<DataT>` subclasses instancing one asset over N anchors — an arbitrary mesh or a full glTF scenegraph.
 
@@ -25,7 +17,7 @@
 - [01]-[SIMPLEMESHLAYER]: `mesh: string|Mesh|Promise<Mesh>|null` (`Mesh = Geometry | {attributes: MeshAttributes, indices?} | MeshAttributes`), `texture?`, `textureParameters?: SamplerProps`, `wireframe`, `material`, `_instanced`.
 - [02]-[SCENEGRAPHLAYER]: `scenegraph` (glTF url/parsed), `getScene?`, `getAnimator?`, `_animations`, `_lighting: 'flat'|'pbr'`, `_imageBasedLightingEnvironment: PBREnvironment|fn`, `sizeMinPixels`/`sizeMaxPixels`.
 
-## [03]-[INSTANCE_TRANSFORM_FAMILY]
+## [02]-[INSTANCE_TRANSFORM_FAMILY]
 
 [TYPE_SCOPE]: shared placement axis both layers inherit — one anchor accessor, the orientation/scale/translation triple or a matrix override, and a size multiplier; identical semantics across both layers.
 
@@ -38,7 +30,7 @@
 |  [05]   | `sizeScale`                   | `number` (default 1)                           | global multiplier over every instance          |
 |  [06]   | `getColor`                    | `Accessor<DataT, Color>`                       | per-instance tint; ignored when `texture` set  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one placement pattern, two payloads: both layers share the `getPosition` + orientation/scale/translation/matrix + `sizeScale` axis; `SimpleMeshLayer` fixes the payload to one mesh, `ScenegraphLayer` to one glTF scene, and a new instanced-asset need chooses between the two.
@@ -56,9 +48,3 @@
 [LOCAL_ADMISSION]:
 - imported only inside `ui/viewer` (`scope:viewer`); heavy (glTF parse + PBR shading), compile-time excluded from the non-spatial core.
 - required peer of `@deck.gl/geo-layers` `Tile3DLayer`; central admission resolves 3D-tile mesh rendering concretely.
-
-[RAIL_LAW]:
-- Package: `@deck.gl/mesh-layers`
-- Owns: the instanced 3D-mesh (`SimpleMeshLayer`) and glTF-scenegraph (`ScenegraphLayer`) layers, the shared `getPosition`+orientation/scale/translation/matrix+`sizeScale` transform axis, PBR `material` + glTF animation/IBL, and the `Tile3DLayer` mesh/scenegraph render seam
-- Accept: one of the two layers per instanced-asset need over the shared axis, `getTransformMatrix` or the orientation/scale/translation triple, worker-backed glTF parse, `_animations` under an atom clock + `_animate`, instance pick → `GlobalId`
-- Reject: a third transform vocabulary, supplying both `getTransformMatrix` and the triple, re-deriving placement props per layer, importing luma.gl/loaders.gl directly instead of through deck props, hand-parsing glTF off the worker pool

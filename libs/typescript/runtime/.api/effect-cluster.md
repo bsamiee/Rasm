@@ -2,16 +2,7 @@
 
 `@effect/cluster` is the durable-actor runtime `work/entity` composes: an `Entity` gives an `@effect/rpc` `RpcGroup` sharded, persistent, singleton-per-id identity; `Sharding` routes messages to runners; `MessageStorage` replays them for at-least-once, deduped delivery. Message durability is a per-Rpc `ClusterSchema.Persisted` annotation, faults are the closed `ClusterError` family, and `SqlMessageStorage.layer` binds storage to the `store`-owned `SqlClient` at the app root.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/cluster`
-- package: `@effect/cluster` (MIT)
-- module: ESM; one subpath export per cluster concern
-- runtime: node/bun durable lanes — runners ride `@effect/platform` `Socket`/`HttpClient`/`FileSystem`, storage rides a `store`-owned `@effect/sql` driver; no browser lane
-- rail: durable-actor — the sharded persistent-actor + message-replay engine
-- depends: `kubernetes-types` (the K8s pod shapes `K8sHttpClient` discovery types against)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Entity` + `Sharding` durable-actor core
 - An `Entity` binds an `@effect/rpc` `RpcGroup` to a sharded per-id-singleton actor; `Sharding` registers entities, assigns ids to shards, and routes messages. `work/entity` builds one entity per durable-actor family.
@@ -52,7 +43,7 @@
 - `ClusterSchema` policy: interrupt policy (`boolean`\|`"client"`\|`"server"`), per-tenant shard-group fn, client-span toggle.
 - [WIRE]: `Message` `Envelope` `Reply` — the persisted message wire types; `ClusterMetrics` the cluster telemetry surface.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: define an entity + register it with sharding
 - `Entity.make`/`fromRpcGroup` declares the actor from its RPC protocol; `.toLayer(handlers, options)` registers it and bounds its mailbox/concurrency/idle-time; `.client` yields the typed per-id client.
@@ -105,7 +96,7 @@
 - `K8sHttpClient.layer`: `Layer<K8sHttpClient, never, HttpClient | FileSystem>` over the service-account token mount, discovery never provisioning.
 - `ClusterCron.make`: `shardGroup?`/`calculateNextRunFromPrevious?`/`skipIfOlderThan?` set the misfire + window policy; `ClusterWorkflowEngine.layer` is `Layer<WorkflowEngine, never, Sharding | MessageStorage>`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - An entity is an RPC group with durable identity: `Entity.make` binds an `@effect/rpc` `RpcGroup`'s payload/success/error `Schema`s as the message contract to a sharded per-id singleton, and `.toLayer(handlers)` registers the exhaustively-checked handler map with `Sharding`. `work/entity` codes the actor, never the mailbox or shard math.
@@ -127,9 +118,3 @@
 - Compose `MessageStorage` and `SqlClient` as Tags satisfied at the app root, the `store` SQL driver staying outside `work`.
 - Mark durability with `ClusterSchema.Persisted` and partition tenants with `ShardGroup`, every entity bounded by `mailboxCapacity`/`concurrency`/`maxIdleTime` on `.toLayer`.
 - Route faults through the `ClusterError` `catchTag` rail, and select the runner entrypoint at the app root via `proc/exec`, `K8sHttpClient` reserved for discovery.
-
-[RAIL_LAW]:
-- Package: `@effect/cluster`
-- Owns: the `Entity` durable-actor definition and `Sharding` routing, the `MessageStorage`/`SqlMessageStorage` persist-and-replay boundary, the `ClusterSchema` durability/interrupt/shard-group annotations, the closed `ClusterError` fault family, `ShardingConfig` topology, the runner family (`HttpRunner`/`SocketRunner`/`SingleRunner`/`TestRunner`, `RunnerHealth`, `RunnerStorage`), `K8sHttpClient` discovery, `ClusterCron`, `Singleton`, `Snowflake`/`DeliverAt`, `EntityProxy`/`EntityProxyServer` wire exposure, and the `ClusterWorkflowEngine` bridge
-- Accept: an entity as an `@effect/rpc` `RpcGroup` with `.toLayer` fenced bounds, `MessageStorage`/`SqlClient` as app-root-satisfied Tags, `ClusterSchema.Persisted`/`ShardGroup` for durability + tenant fencing, `ClusterError` `catchTag` handling, `ShardingConfig.layerFromEnv` from the `iac` seam, runner Layers selected via `proc/exec`, `K8sHttpClient` for discovery, `ClusterWorkflowEngine.layer` bridging `@effect/workflow`
-- Reject: a hand-rolled actor mailbox, shard assigner, or message-replay store; a `store` SQL-driver import inside `work`; unconditional message persistence or an unfenced entity; a thrown cluster fault; a `platform-node/bun` binding imported into a `work` page; `K8sHttpClient` used for provisioning

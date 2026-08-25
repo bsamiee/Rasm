@@ -2,18 +2,7 @@
 
 `BACnet` (ela-compil `System.IO.BACnet`) owns managed building-automation capability: one `BacnetClient` bound to an `IBacnetTransport` discovers devices, reads and writes object properties, and subscribes to change-of-value pushes. Confirmed services ride awaitable `*Async` members that throw, a `Begin`/`End` pair returning refusal through `out Exception`, and typed client events carrying the device verdict as enums. AppHost binds the `bacnet` live-wire row behind one `TransportRow` adapter, decoding metered observations to `ExternalValue` for the twin-calibration lane.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `BACnet`
-- package: `BACnet` (MIT)
-- assembly: `BACnet`
-- namespace: `System.IO.BACnet`, `System.IO.BACnet.Serialize`, `System.IO.BACnet.Storage`, `System.IO.BACnet.Base`
-- target: `net10.0`, `net8.0`, `netstandard2.0`, `net48`
-- depends: `Microsoft.Extensions.Logging.Abstractions` (the `ILogger` the stack writes through), `Microsoft.CSharp`
-- asset: runtime library
-- rail: live-wire
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and transport surfaces
 
@@ -77,7 +66,7 @@
 
 - Every member of this family implements `ASN1.IEncode`/`ASN1.IDecode`, so a schedule reads and writes through the same `Encode(EncodeBuffer)`/`Decode(byte[], int, uint)` pair the property codec uses — no second serializer.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifecycle and discovery
 
@@ -252,7 +241,7 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 - `BacnetLogRecord` is a struct carrying `DateTime timestamp`, `BacnetTrendLogValueType type`, the `object Value` its type column decodes (`TL_TYPE_ANY`/`BITS`/`BOOL`/`DELTA`/`ENUM`/`ERROR`/`REAL`/`SIGN`/`STATUS`/`UNSIGN`), and `BacnetStatusFlags statusFlags`; `GetValue<T>()` is the typed read off the boxed value, and the ctor is `BacnetLogRecord(BacnetTrendLogValueType, object, DateTime, BacnetStatusFlags)`.
 - `DecodeLogRecord` returns the consumed byte count and fills `nCurves` records, so the `BacnetReadRangeResult.Range` a `ReadRangeAsync` produces decodes with no second parser and its `ItemCount` bounds the record count.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `BacnetClient` binds one `IBacnetTransport` and is `IDisposable`; the AppHost binding holds it in the token-gated state cell the OPC-UA/MQTT/serial clients share, so a reconnect replaces the whole cell.
@@ -289,9 +278,3 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 - Hosts owning the native UDP line bind `BacnetIpUdpProtocolTransport` (or `BacnetIpV6UdpProtocolTransport`) directly; a host reaching a bus instead supplies its own `IBacnetSerialTransport` to the MS/TP or PTP transport, and a host reaching neither selects the `OutboundHop.CompanionSpawn` hop — three peer rows host fact selects.
 - `BACnet` is the ONLY admitted identifier of the line: its physical companions `BACnet.Serial` (the `System.IO.Ports` `IBacnetSerialTransport` implementation and the `SerialTransport.Mstp`/`Ptp` factories) and `BACnet.Ethernet` (raw Ethernet over libpcap, carrying `PacketDotNet`/`SharpPcap`) stay unadmitted, so an MS/TP binding implements `IBacnetSerialTransport` over the serialport owner's already-admitted `SerialPort` rather than pulling a fourth package for five members.
 - Schedule and calendar objects read and write through the `BacnetCalendarEntry`/`BacnetDailySchedule`/`BacnetSpecialEvent` family over the same property rail, so a setpoint ladder crosses as its own encoded object and never as a hand-built ASN.1 buffer.
-
-[RAIL_LAW]:
-- Package: `BACnet`
-- Owns: BACnet/IP device discovery, awaited confirmed property read/write, COV subscription, trend-range and file reads, vendor private transfer, and the schedule/calendar object codec as one live-wire transport row
-- Accept: a `BacnetIpUdpProtocolTransport`-bound `BacnetClient`, an awaited `*Async` call under the caller's `CancellationToken`, a point map as binding-spec policy, a host-supplied `IBacnetSerialTransport` for a bus binding, and COV push decoded to `ExternalValue` at the boundary
-- Reject: a second BACnet poller, a thrown confirmed-request failure crossing into the interior, the `bool`-plus-`out` request rail where the awaited member returns its result, a host timeout loop beside the member's own `CancellationToken`, or the boxed `BacnetValue` tag entering the interior

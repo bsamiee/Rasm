@@ -2,15 +2,7 @@
 
 `NodaTime.Serialization.Protobuf` owns temporal conversion at the remote-contract boundary: NodaTime values project onto protobuf messages outward and back inward through paired inverses. Message ownership, codecs, and wire frames stay with their owning packages.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NodaTime.Serialization.Protobuf`
-- package: `NodaTime.Serialization.Protobuf` (Apache-2.0)
-- assembly: `NodaTime.Serialization.Protobuf` (binds `lib/netstandard2.0`)
-- namespace: `NodaTime.Serialization.Protobuf`
-- rail: remote-contracts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: paired conversion owners
 
@@ -19,7 +11,7 @@
 |  [01]   | `NodaExtensions`     | class         | projects NodaTime onto the wire |
 |  [02]   | `ProtobufExtensions` | class         | projects the wire onto NodaTime |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: outward projection (`NodaExtensions`)
 
@@ -41,7 +33,7 @@
 |  [04]   | `ToLocalDate(Date) -> LocalDate`                               | static  | rejects zero-valued fields         |
 |  [05]   | `ToIsoDayOfWeek(DayOfWeek) -> IsoDayOfWeek`                    | static  | `Unspecified` maps to `None`       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Out-of-range values throw `ArgumentOutOfRangeException`; a malformed or null message throws `ArgumentException` or `ArgumentNullException`.
@@ -58,10 +50,3 @@
 [LOCAL_ADMISSION]:
 - Temporal values cross remote contracts as protobuf messages and convert once at the seam, so interior owners hold NodaTime values alone.
 - Seam call sites project each conversion throw onto the typed rail.
-
-[RAIL_LAW]:
-- Package: `NodaTime.Serialization.Protobuf`
-- Owns: temporal conversion between NodaTime values and protobuf wire messages
-- Accept: paired boundary extension calls on the seam's inward and outward legs
-- Reject: hand-rolled epoch arithmetic between NodaTime values and wire payloads
-- `Rasm.Element` (`Graph/wire`): `NodaExtensions` + `ProtobufExtensions` registered WHOLESALE through `[UseStaticMapper]` on `SeamConverters`'s composing mapper, so `ToTimestamp`/`ToInstant`/`ToProtobufDuration`/`ToNodaDuration` cross with no per-member codec row; hand bodies keep only the crossings that encode a CHOICE (Interval flattening, Option presence, wire-fixed ISO patterns).

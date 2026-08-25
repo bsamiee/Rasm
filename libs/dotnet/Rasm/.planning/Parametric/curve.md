@@ -23,7 +23,7 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 - Boundary: OP altitude composes `nurbs.md`'s ENGINE members — an op union there, or a basis/insertion/arc-length/RMF kernel re-minted here instead of the vendored instance surface, is the altitude violation. Runtime reciprocals hold one anchor each: `projections.md` Rhino evaluation, `locate.md` Rhino location, `relations.md` the host-deferred SSI/surface-plane/curve-surface triple; a second location algebra or a kernel SSI beside them is the double-owner defect. `Intersect2D` existence is EXACT and coordinates are refined `double` — an unrefined crossing or unescalated near-tangent verdict downstream is the precision defect. `Fill` DELEGATES — a local winding fill or re-derived overlay is the deleted form. `Offset` trims by exact `SegmentSegment` verdicts on neighbor-excluded pairs — trusting the raw fit or trimming by float chords is the G8 regression. `StationField` binds the Generation seam directly as SoA columns; a row-object re-pack is the rejected layout. Composite planar outlines are DERIVED ONCE here — a host path backend and a NURBS emission both read the `Outline` run, so a host composite factory on one arm and a hand-derived corner walk on the other, two derivations of one shape that silently disagree, is the deleted form; the run is frame-local and radian-valued, and the pixel or degree conversion is the consuming boundary's own.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Numerics.Tensors;

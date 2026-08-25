@@ -4,16 +4,7 @@
 
 Admission owners project each violation onto their typed fault rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Celly.Protovalidate`
-- package: `Celly.Protovalidate` (Apache-2.0)
-- assembly: `Celly.Protovalidate`
-- namespace: `Celly.Protovalidate`, `Buf.Validate`
-- depends: `Celly`, `Celly.Protobuf`, `Google.Protobuf`
-- rail: remote-contracts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluator owners
 
@@ -36,7 +27,7 @@ Admission owners project each violation onto their typed fault rail.
 |  [07]   | `FieldRules`                          | message       | per-field rule union                                   |
 |  [08]   | `MessageRules`                        | message       | message CEL rules and oneof requirements               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: validation lifecycle
 
@@ -57,7 +48,7 @@ Admission owners project each violation onto their typed fault rail.
 |  [13]   | `FieldPathElement.UintKey`                                 | property | unsigned map key                     |
 |  [14]   | `FieldPathElement.StringKey`                               | property | string map key                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Validator` caches compiled programs and admits concurrent calls; one process owner constructs it from the closed descriptor-root set.
@@ -73,9 +64,3 @@ Admission owners project each violation onto their typed fault rail.
 [LOCAL_ADMISSION]:
 - Validation runs once at each wire admission before the interior receives the message.
 - The allowed descriptor-name set rejects messages outside the process contract before validation.
-
-[RAIL_LAW]:
-- Package: `Celly.Protovalidate`
-- Owns: runtime evaluation of generated-message constraints authored as `buf.validate` rules
-- Accept: one warmed concurrent validator and one exhaustive field-path projection per boundary owner
-- Reject: hand-written field checks or an alternate CEL evaluator beside the descriptor-owned rule set

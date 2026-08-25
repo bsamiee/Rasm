@@ -22,7 +22,7 @@
 - Boundary: `SignedHeatSpine` owns one heat→divergence→Poisson→calibrate law, and each row states its own heat-time scale — `0.5·MeanEdgeLength` for the boundary-source row, the source mesh's `MeanEdgeLength` for the closed grid, and the mean tet face-barycenter pair spacing for the tet row — so no row inherits another's clock. Boundary-source rows reject flipped intrinsic snapshots; closed-grid rows admit only closed, oriented topology and carry the orientation integer onto every source normal instead of a heuristic interior flip. Lattice-backed samples outside the grid take the exact eikonal extension off the clamped point, never a fabricated far constant nor a clamp-to-edge interior reading. `Mesh.IsPointInside` is BARRED — it is the tolerance-bearing approximate predicate the generalized winding test `|w| > 0.5` replaces, and the winding test is the only inside test on this page. Native evaluator callbacks count failures with `Interlocked` and return `NaN`, which the extractor absorbs as inside, so that tally is the sole failure evidence; every linear solve routes through `Numerics/matrix`, and `Op.Catch` converts the native callback boundary. Comment mass on this page is SPECIFICATION, not narration: `[OPERATIONS]` declares bodiless kernel signatures and each block's comment IS that kernel's algorithm — trimming it deletes the design, so only narration and card restatements retire.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -914,11 +914,11 @@ Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis col
 |  [03]   | Signed-heat spine | `SignedHeatDiscretization` → `SignedHeatSpine.Solve`  | `Solve → Fin<SignedHeatOutcome>`              |    3    |
 |  [04]   | Mesh SDF          | `SdfMeshPolicy` → `MeshSdf`                           | `SignedDistanceDetailed → Fin<SdfMeshSample>` |    3    |
 |  [05]   | Tet domain        | `TetMeshDomain`                                       | `Of → Fin<TetMeshDomain>`                     |    1    |
-|  [06]   | Volume grid       | `VolumeGridPolicy` / `VolumeSolve`                       | `VolumeSolveOf → Fin<VolumeSolve>`            |    —    |
+|  [06]   | Volume grid       | `VolumeGridPolicy` / `VolumeSolve`                    | `VolumeSolveOf → Fin<VolumeSolve>`            |    —    |
 |  [07]   | Iso extraction    | `IsoSurface`                                          | `Detailed → Fin<IsoSurfaceResult>`            |    3    |
 |  [08]   | Iso contouring    | `IsoContour`                                          | `Detailed → Fin<IsoContourResult>`            |    —    |
 |  [09]   | Policy family     | `SignedHeatTime` … `PoissonPolicy`                    | `Of → Fin<policy>` per record                 |    —    |
-|  [10]   | Levin frame       | `PlaneSeat` / `NormalPosture`                         | policy rows (`LevinFit` witnesses the seat)      |  2 / 2  |
+|  [10]   | Levin frame       | `PlaneSeat` / `NormalPosture`                         | policy rows (`LevinFit` witnesses the seat)   |  2 / 2  |
 
 - [01]-[CONSTRUCTION]: `[Union]` policy discriminant, one entry, per-case admission.
 - [02]-[MODE_VOCABULARY]: `[SmartEnum<int>]` with normals/sparse/degree/status columns, the normal column read by the one admission fold.

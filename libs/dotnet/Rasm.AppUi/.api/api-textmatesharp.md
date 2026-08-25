@@ -2,26 +2,7 @@
 
 `TextMateSharp` ports the VS Code TextMate tokenizer to .NET: a `Registry` drives an `IGrammar` over a line into scope-tagged `IToken` runs or a binary-packed `int[]`, a `Theme` resolves each scope stack to token paint and exposes its VS Code chrome key map, and `TMModel` re-tokenizes a line-list off the UI thread. `TextMateSharp.Grammars` ships the bundled grammar and theme corpus behind `RegistryOptions`, the reference `IRegistryOptions` locator, and the VS Code grammar-extension model.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TextMateSharp`
-- package: `TextMateSharp` (MIT)
-- assembly: `TextMateSharp`
-- target: `netstandard2.0`
-- namespace: `TextMateSharp.Registry` locator+engine, `TextMateSharp.Grammars` tokenize surface, `TextMateSharp.Themes` color resolution, `TextMateSharp.Model` background tokenizer
-- rail: tokenizer
-- depends: `Onigwrap` — Oniguruma native regex; the `IGrammar` match loop is native, and the native binary ships with the app.
-
-[PACKAGE_SURFACE]: `TextMateSharp.Grammars`
-- package: `TextMateSharp.Grammars` (MIT)
-- assembly: `TextMateSharp.Grammars`
-- target: `netstandard2.0`
-- namespace: `TextMateSharp.Grammars`
-- asset: embedded grammar and theme JSON resources
-- rail: tokenizer
-- depends: `TextMateSharp` — supplies `IRegistryOptions`, `IRawTheme`, and the tokenize and model surface.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [REGISTRY_TYPE_SCOPE]: the locator contract, its bundled reference implementation, and the tokenizer engine
 
@@ -110,7 +91,7 @@
 
 `TMModel` runs a background `TokenizerThread` that revalidates invalidated lines and emits `ModelTokensChangedEvent` ranges to listeners; `GetLineTokens(lineIndex)` reads cached tokens, `InvalidateLineRange` re-queues a span after an edit. Incremental tokenization without an editor drives `TMModel` directly over the host's own `IModelLines`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [REGISTRY_ENTRY_SCOPE]: `RegistryOptions` corpus query, theme load, and custom-grammar loading
 
@@ -212,7 +193,7 @@ Workspace-relevant scopes cover `CSharp` (`source.cs`), `Cpp`/`HLSL`/`ShaderLab`
 
 Registering a listener, `SetGrammar`, then reading `GetLineTokens` as `ModelTokensChanged` ranges arrive is the off-UI-thread loop; after an edit `InvalidateLineRange` re-queues the span, and `ForceTokenization` carries a start/end range overload.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `IRegistryOptions` owns every scope the app tokenizes; each grammar and theme handle flows from that single locator, scope strings are corpus scopes (`"source.cs"`) or registered custom scopes (`"source.rasm"`), and themes are `ThemeName` cases resolved through `LoadTheme`.
@@ -226,9 +207,3 @@ Registering a listener, `SetGrammar`, then reading `GetLineTokens` as `ModelToke
 
 [LOCAL_ADMISSION]:
 - Custom scopes (`source.rasm`, `source.rasm-expression`) register on the same locator the app installs: implement the four `IRegistryOptions` members, or `LoadFromLocalFile` a file-backed grammar extension.
-
-[RAIL_LAW]:
-- Package: `TextMateSharp`, `TextMateSharp.Grammars`
-- Owns: TextMate tokenization — grammar resolution, scope-tagged token runs, scope-to-color theming, the theme's VS Code chrome key map, and off-thread incremental re-tokenization.
-- Accept: every grammar and theme handle from one `IRegistryOptions`; multi-line state via `IStateStack`; one id-keyed brush cache per applied theme; every chrome key read as an optional lookup behind a consumer fallback; the native `Onigwrap` binary shipped with the app.
-- Reject: a second locator per scope; a hand-rolled regex tokenizer where a bundled or custom TextMate grammar exists; hardcoded color literals where `Theme.Match`/`GetColor` resolves the scope; a `GetColor` call per token where the brush cache answers; a chrome key treated as guaranteed across themes; a separate `Registry`/`TMModel` alongside an `InstallTextMate` editor, which already owns one.

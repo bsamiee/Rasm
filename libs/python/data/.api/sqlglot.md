@@ -2,15 +2,7 @@
 
 `sqlglot` is the pure-Python SQL tokenizer, parser, transpiler, and optimizer for the data rail's query-IR, SQL-gate, and lineage concerns, with no database connection. `parse_one` builds an `Expr` syntax tree, `Expr.sql`/`transpile` regenerate it under any dialect, `optimizer.optimize` canonicalizes against a schema, `lineage.lineage` traces a column to its sources, and `diff` computes the AST edit set between two trees. `Dialect.get_or_raise` gates every dialect over the closed `Dialects` vocabulary, and every failure descends from `SqlglotError`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `sqlglot`
-- package: `sqlglot`
-- module: `sqlglot`
-- owner: `data`
-- rail: query-ir
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: AST node, dialect gate, engine triad, scope, lineage, diff, and the error rail
 
@@ -32,7 +24,7 @@
 
 [Error rail]: `SqlglotError` (root) `ParseError` (`errors` detail list) `TokenError` `UnsupportedError` `OptimizeError` `SchemaError`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse, transpile, build, and dialect gate
 
@@ -65,7 +57,7 @@
 
 [OPTIMIZER_RULES]: `optimizer.RULES` is the ordered pipeline `optimize` runs, each rule dispatched by introspected parameter name and a sliced `rules=` tuple running a subset — `qualify` (mandatory first) `pushdown_projections` `normalize` `unnest_subqueries` `pushdown_predicates` `optimize_joins` `eliminate_subqueries` `merge_subqueries` `eliminate_joins` `eliminate_ctes` `quote_identifiers` `annotate_types` `canonicalize` `simplify`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `import sqlglot` at module scope; the pure-Python parse/transpile plane is a module-top substrate corpus-wide.
@@ -86,9 +78,3 @@
 
 [LOCAL_ADMISSION]:
 - Build new SQL through the builder DSL; parse and rewrite through `parse_one`/`Expr.transform`; gate every dialect through `Dialect.get_or_raise` over `Dialects`; trace provenance through `lineage.lineage` and query change through `diff`.
-
-[RAIL_LAW]:
-- Package: `sqlglot`
-- Owns: dialect-aware SQL parsing into a typed `Expr` AST; AST traversal, search, and in-place rewrite; the typed builder DSL; schema-driven optimization across the `RULES` pipeline; scope analysis; column-level lineage; AST diffing; cross-dialect transpilation; the `Dialects` gate; the `SqlglotError` rail
-- Accept: parse/transpile/optimize/qualify/lineage/diff and dialect admission feeding the query-IR, SQL-gate, and provenance owners; the builder DSL for programmatic construction; scope analysis for source resolution
-- Reject: wrapper-renames of `parse_one`/`transpile`/`optimize`/`lineage`/`diff`; a hand-rolled tokenizer, parser, generator, scope-resolver, or lineage tracer; regex SQL rewriting where the AST owns structure; f-string SQL construction where the builder DSL applies; a free-string dialect bypassing `Dialect.get_or_raise`; a bare `Exception` rail in place of the `SqlglotError` descendants

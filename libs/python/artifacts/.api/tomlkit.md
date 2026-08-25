@@ -2,17 +2,7 @@
 
 `tomlkit` owns the style-preserving TOML surface of the artifacts structured-documents rail across two axes the design pages compose. Egress lowers a `msgspec`-flattened structure to deterministic bytes through `dumps(to_builtins(node), sort_keys=True)`; ingress reads source to a `TOMLDocument` and projects a plain `dict`/`list`/scalar map through `parse(payload).unwrap()`. Styled-item factories and the `register_encoder` hook hold the comment-preserving round-trip depth a config-rewrite rail mutates in place; TOML routes here, XML to `lxml`, YAML to `ruamel-yaml`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tomlkit`
-- package: `tomlkit` (MIT)
-- import: `import tomlkit`
-- owner: `artifacts`
-- rail: structured documents
-- entry points: none (library only)
-- capability: style-preserving TOML round-trip (comments, whitespace, order, quoting retained), deterministic `sort_keys` emission, plain-builtins `dumps`/`parse().unwrap()` bridge, the styled-item factory family with polymorphic `item()` wrap, multiline-array and super-table style control, out-of-order-table flattening, lossy `unwrap()` projection, and value-encoder registration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, container, and styled-item types
 - rail: structured documents
@@ -64,7 +54,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [18]   | `exceptions.ConvertError`             | build fault    | `TypeError + ValueError + TOMLKitError`; un-encodable value       |
 |  [19]   | `exceptions.InvalidStringError`       | build fault    | `ValueError + TOMLKitError`; invalid styled-string request        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse, dump, and document build
 - rail: structured documents
@@ -130,7 +120,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [10]   | `AoT.body` / `AoT.insert(index, value)`                | the `list[Table]` backing; positional table insert                      |
 |  [11]   | `Item.trivia` / `comment(text)` / `indent(n)`          | per-item trivia access and mutation                                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import tomlkit` (with `items`/`exceptions`/`container` for the typed vocabulary) at boundary scope only; the emit/lens owners declare `lazy import tomlkit`.
@@ -155,9 +145,3 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 
 [LOCAL_ADMISSION]:
 - style-preserving TOML processing feeding the structured-documents owner; a parse/edit/dump cycle that must keep comments, order, or quoting admits here, never the read-only stdlib `tomllib`.
-
-[RAIL_LAW]:
-- Package: `tomlkit`
-- Owns: style-preserving TOML parse/dump, deterministic `sort_keys` emission, the plain-builtins `dumps`/`parse().unwrap()` bridge, programmatic styled-document building over the container/scalar/key/trivia factory family, polymorphic `item()` wrap, multiline-array and super-table style control, out-of-order-table flattening, lossy `unwrap()` projection, and value-encoder registration
-- Accept: deterministic plain-builtins TOML emission (`dumps(to_builtins(node), sort_keys=True)`) and `parse().unwrap()` recovery feeding the `document` emit/lens seam; lossless styled round-trip for a config-rewrite rail; validation layered over `unwrap()` or per-key reads
-- Reject: wrapper-renames of `parse`/`dumps`; a hand-walked `dict`->styled-item build where `dumps` accepts the builtins directly on egress; a raw-`dict` rebuild dropping style on the styled path; a per-type build family where `item()` discriminates on shape; a `tomllib` fallback where styled round-trip is admitted; a hand-special-cased value branch where a `to_builtins` `enc_hook` or `register_encoder` owns the encoding; cross-parsing TOML through the XML/YAML owners; identity minting the runtime owns

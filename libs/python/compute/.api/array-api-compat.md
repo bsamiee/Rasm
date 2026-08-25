@@ -2,15 +2,7 @@
 
 `array-api-compat` resolves one backend-agnostic `xp` namespace across every admitted array backend, narrows array and namespace type per backend, and shims each backend to Array API conformance so a compute owner writes against `xp` alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `array-api-compat`
-- package: `array-api-compat` (MIT)
-- module: `array_api_compat`
-- owner: `compute`
-- rail: array-api
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: namespace resolver and backend/execution-model guards
 
@@ -40,7 +32,7 @@
 |  [02]   | `UniqueCountsResult`  | `values`, `counts`                               |
 |  [03]   | `UniqueInverseResult` | `values`, `inverse_indices`                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: namespace resolution and device transfer
 
@@ -67,7 +59,7 @@
 |  [09]   | `is_lazy_array(x) -> TypeGuard[_ArrayApiObj]`      | graph-traced (JAX/Dask) narrowing |
 |  [10]   | `is_writeable_array(x) -> TypeGuard[_ArrayApiObj]` | eager-mutable buffer narrowing    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `array_api_compat` is the namespace root; `.numpy`/`.cupy`/`.torch`/`.dask` wrappers re-export each backend patched to Array API conformance (`xp.unique_all`, positional-only argument shapes, spec gaps backfilled).
@@ -83,9 +75,3 @@
 [LOCAL_ADMISSION]:
 - Compute owners resolve `xp = array_namespace(*arrays)` once at operation entry and route every array op through `xp.<op>`.
 - `use_compat=None` injects the compat wrapper only when the raw backend lags the spec — `False` forces the bare namespace, `True` forces the wrapper — and `api_version` pins the spec revision a kernel targets.
-
-[RAIL_LAW]:
-- Package: `array-api-compat`
-- Owns: Array API namespace resolution, spec-conformance wrappers, and backend/execution-model predicate guards
-- Accept: `xp = array_namespace(*arrays)` at boundary scope, `xp` threaded into every standard and `array-api-extra` op, `is_writeable_array`/`is_lazy_array` gating the mutate/copy and eager/lazy forks
-- Reject: a hardcoded backend import in a generic kernel, a locally re-implemented namespace detector or unique-result tuple, `xp` re-resolved inside an inner loop

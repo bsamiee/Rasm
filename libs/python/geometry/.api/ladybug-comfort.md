@@ -2,20 +2,7 @@
 
 `ladybug-comfort` is the thermal-comfort layer over `ladybug-core`: pointwise heat-balance model functions (PMV, UTCI, PET, adaptive, SolarCal, and the simple heat/cold indices), `DataCollection`-wrapping `ComfortCollection` calculators that map those functions across time-series, serializable `Parameter` configs carrying thresholds and standard selection, the psychrometric comfort polygons, and the spatial `map.*` MRT/TCP/air kernels the `lbt-recipes` comfort-map recipes drive. It computes comfort physics over `ladybug-core` collections, driving no simulation in-process.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ladybug-comfort`
-- package: `ladybug-comfort` (AGPL-3.0)
-- module: `ladybug_comfort` — pure Python; submodule import at boundary scope
-- namespaces: `ladybug_comfort.{pmv,utci,pet,adaptive,solarcal,at,di,hi,humidex,wbgt,wc,ts,degreetime,clo}`, `ladybug_comfort.collection.*`, `ladybug_comfort.parameter.*`, `ladybug_comfort.chart.*`, `ladybug_comfort.map.*`
-- rail: energy-companion (thermal-comfort calculation)
-- owner: `geometry`
-- consumer: `.planning/energy/climate.md` (PMV/UTCI/PET, SolarCal MRT, the comfort-map rows)
-- depends: `ladybug-core` (consumes `DataCollection`/`EPW`/`datatype`); `numpy` under the `mapping` extra (the spatial `map` kernels)
-- entry points: `ladybug-comfort` console script (`datacollection`/`epw`/`map`/`mtx`/`sql` groups); the rail composes the API
-- scope-law: owns the comfort model functions, `ComfortCollection` calculators, `Parameter` configs, chart polygons, and spatial map kernels; not the `DataCollection` algebra (`ladybug-core`), the radiance matrices (honeybee-radiance via `lbt-recipes`), or comfort-map orchestration (`lbt-recipes`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: comfort collections (`ladybug_comfort.collection`)
 
@@ -48,7 +35,7 @@ All subclass `collection.base.ComfortCollection`: each takes aligned `ladybug-co
 |  [08]   | `chart.polygonutci.PolygonUTCI`                   | class         | UTCI comfort polygon                                        |
 |  [09]   | `chart.adaptive.AdaptiveChart`                    | class         | adaptive comfort chart                                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pointwise comfort model functions
 
@@ -107,7 +94,7 @@ A `ComfortCollection` takes aligned collections (or an `EPW` via `from_epw`) wit
 |  [06]   | `map.tcp.tcp_total(condition_csv, schedule)` / `tcp_model_schedules(...)`   | static       | thermal-comfort-percent map            |
 |  [07]   | `map.air.air_map(enclosure_info, sql, epw, ...)`                            | static       | air-temperature map                    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Comfort computes over `ladybug-core` `DataCollection`s and drives no in-process simulation: a `ComfortCollection` maps the pointwise model function element-wise across aligned collections and exposes each result as a `DataCollection` with the right `Header`. SolarCal MRT feeds the `rad_temperature` of the thermal models; every categorical output (`thermal_condition`, `pet_category`) carries a `ladybug.datatype` registry `data_type`, sharing the climate visualization rail.
@@ -122,10 +109,3 @@ A `ComfortCollection` takes aligned collections (or an `EPW` via `from_epw`) wit
 
 [LOCAL_ADMISSION]:
 - Admitted as a process-boundary companion on `ladybug-core`; the honeybee-radiance matrices and recipe orchestration are the design page's provisioning obligation, not a pip dependency of this catalog.
-
-[RAIL_LAW]:
-- Package: `ladybug-comfort`
-- Owns: the pointwise PMV/SET/PPD, UTCI, PET, ASHRAE-55/EN-15251 adaptive (with EN-16798 cooling effect), SolarCal MRT model functions, and the simple heat/cold indices; the `ComfortCollection` calculators with `from_epw` constructors; the serializable `Parameter` configs; the psychrometric-chart comfort polygons; and the spatial MRT/TCP/air comfort-map kernels
-- Accept: comfort calculation stacked on `ladybug-core` `DataCollection`s/`EPW`; the `Parameter` serialized into recipe inputs; the `map` kernels driven by the `lbt-recipes` comfort-map recipes; the categorical `thermal_condition` flowing through the shared `ladybug.datatype` registry
-- Reject: wrapper-renames of the model functions or `ComfortCollection`; a hand-rolled PMV/UTCI/PET/adaptive/SolarCal heat-balance, comfort-threshold logic, or MRT map this package owns; a per-result method family over the result-property collection; a re-derivation of the `DataCollection` algebra (owned by `ladybug-core`); identity minting the runtime owns
-- Note: AGPL-3.0 copyleft — the comfort rail runs out-of-process and carries comfort `DataCollection`/map values across the wire, never linked into a distributed host binary

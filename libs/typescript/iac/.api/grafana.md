@@ -2,16 +2,7 @@
 
 `grafana` is the board plane's server. This estate installs the chart for the RUNTIME alone — datasources, dashboards, folders, orgs, and alert rules all arrive afterwards through the Grafana provider against the running instance, so the chart's own provisioning surface stays unused and the values body is one credential row plus the placement the profile states.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `grafana`
-- chart: `grafana` from `https://grafana.github.io/helm-charts` (Apache-2.0), chart and `appVersion` versioned independently
-- asset: the server Deployment or StatefulSet with its Service, ServiceAccount, RBAC cell, config ConfigMap, and admin Secret, beside an optional PVC, Ingress, Route, ServiceMonitor, PDB, and the dashboard-download init container
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / board plane
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                 | [CAPABILITY]                                                                         |
 | :-----: | :------------------------------------ | :----------------------------------------------------------------------------------- |
@@ -34,7 +25,7 @@
 [SERVICE_NAME]: `<fullname>` UNSUFFIXED, ClusterIP, port 80 onto container 3000 with port name `service`. The address therefore carries no port, and `headlessService: true` adds `<fullname>-headless` for the gossip ring alone.
 [PROVISIONING_SPLIT]: the chart provisions datasources, dashboards, folders, and alert rules from values or from watched ConfigMaps; the estate declines all of it. Board content is code compiled through the Foundation SDK and applied by the Grafana provider against the running server, so a values-side dashboard would be a second content authority with its own drift.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The chart owns the RUNTIME and nothing above it: one instance, one credential, one door. Every datasource key names the PLANE it answers rather than the engine behind it, and every board is compiled content the provider applies — so a store swap re-points a datasource and edits no dashboard.
@@ -53,9 +44,3 @@
 - Leave every provisioning key empty; content is code applied by the provider, and a values-side dashboard is a second authority.
 - Arm `persistence` wherever the instance holds state the provider does not re-apply; without it a restart is a blank server.
 - Reach secret material through the `env*` carriers alone — values render into a ConfigMap.
-
-[RAIL_LAW]:
-- Contract: `grafana` chart values
-- Owns: the board-plane runtime — the server, its admin credential, the rendered door, persistence, plugins, and the `grafana.ini` document
-- Accept: `fullnameOverride` pinned to the release; `adminPassword` from the in-graph credential read; an empty provisioning surface; `persistence` armed where state must survive; secret material through the `env*` carriers
-- Reject: an address carrying `:3000`; a hand-minted admin Secret beside the chart's; datasources, dashboards, folders, or alert rules provisioned from values or watched ConfigMaps; a plaintext credential in any values key; a datasource keyed by engine rather than by plane

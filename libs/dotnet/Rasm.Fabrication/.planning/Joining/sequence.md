@@ -27,7 +27,7 @@ Precedence is a partial order, never a serial rank: `JointPrecedence` folds `Ass
 - Boundary: weld geometry, station, and realized heat input remain `WeldPlan` evidence, assembly remains the precedence authority, and motion compilation remains a kinematics concern.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
 using LanguageExt;

@@ -33,9 +33,9 @@
 - `set#SET_BIND` `Average` MEASURES every summary row — only a box fold's `1×1` tail is the mean, so a pyramid read fabricates the seam key.
 - Every GPU preview covers its subject's FULL algebra or refuses at admission — a substituted basis shows a field the bake will not produce.
 - WGSL bodies whose CPU twin exists TRANSCRIBE that twin's own members and constants — a second derivation is the deleted form even where both agree.
-- WGSL constants DERIVE by interpolation off the CPU owner's declared consts — a re-typed literal is the drift the goldens cannot see.
+- WGSL constants DERIVE by interpolation off the CPU owner's declared consts — a re-typed literal is the drift the oracle vectors cannot see.
 - Codec probes catch only documented no-format throws into `Option` absence — malformed or provider failures retain exact causes on the raster rail.
-- GPU uniforms cross as WORDS through one `KernelUniform` writer and each golden pins the kernel's OWN sum — `4f` in a `u32` word reads as a billion.
+- GPU uniforms cross as WORDS through one `KernelUniform` writer and each oracle vector pins the kernel's OWN sum — `4f` in a `u32` word reads as a billion.
 - GPU planes are never content-keyed — the veto is STRUCTURAL, since `f32` cannot reproduce the CPU `f64` lattice the content key takes as preimage.
 - Tiling periodicity is a SOURCE property — `NoisePeriod` wraps the lattice and `tile#TILE_SYNTH` heals only what cannot; `Noise.Of` proves it whole.
 - `KtxPayload` decides WIRE LEGALITY — no corpus transcoder reads `rawBcn`, so both `Of` mints refuse it and a desktop reader fetches by address.

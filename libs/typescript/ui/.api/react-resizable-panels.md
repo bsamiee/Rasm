@@ -4,15 +4,7 @@
 
 Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `defaultLayout` and `onLayoutChanged`, so persistence, restore, and workspace tokens ride the estate's own storage rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-resizable-panels`
-- package: `react-resizable-panels` (MIT)
-- module: ESM (`type: module`) + CJS, one bundled `.d.ts`, `.` only — no subpaths
-- runtime: React DOM in the browser — flexbox layout, `ResizeObserver`, pointer capture, and `matchMedia` for pointer coarseness; peer `react`/`react-dom` through the folder React spine, zero runtime dependencies
-- rail: view shell plane — the pane engine behind application chrome, sidebars, and inspector splits
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the layout value model — the data crossing the persistence boundary
 
@@ -36,7 +28,7 @@ Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `
 |  [05]   | `PanelImperativeHandle`                 | interface     | `collapse()` `expand()` `getSize()` `isCollapsed()` `resize(size)`             |
 |  [06]   | `OnGroupLayoutChange` / `OnPanelResize` | delegate      | the extracted callback types for a typed consumer signature                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the three components — every element must be a direct DOM child of its group
 
@@ -66,7 +58,7 @@ Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `
 - `useDefaultLayout`: takes `id`, `storage`, `panelIds`, and `onlySaveAfterUserInteractions`; `storage` defaults to `localStorage` and reads through `useSyncExternalStore`, so both port members return and commit synchronously.
 - `useDefaultLayout`: `panelIds` keys a second layout under the conditionally-rendered panel set, so a collapsed-away panel restores its own arrangement.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One solve per interaction covers the whole group: a drag, key step, double-click reset, or `setLayout` call re-derives every panel's flex-grow against the full constraint set — per-panel `minSize`, `maxSize`, `collapsedSize`, `disabled`, and each panel's `groupResizeBehavior` — so the row always sums exactly and no panel escapes its bounds through an intermediate state.
@@ -92,10 +84,3 @@ Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `
 - Keep `Panel` and `Separator` as direct DOM children of their `Group` — an intervening wrapper breaks the flex solve.
 - Style through the `data-group`/`data-panel`/`data-separator` attributes and let `Panel` apply `className`/`style` to its nested child.
 - Render a `Separator` between every adjacent panel pair; edge dragging alone leaves the split unreachable by keyboard.
-
-[RAIL_LAW]:
-- Package: `react-resizable-panels`
-- Owns: the N-panel constraint solver over mixed units, collapse and expand behavior, group-resize distribution policy, pointer and keyboard resize interaction with coarse-aware hit targets, the complete `role="separator"` aria property set and its arrow/Home/End/Enter/F6 key model, the `Layout` value and its `isUserInteraction`-tagged change stream, and the imperative group and panel handles
-- Accept: explicit stable panel ids, mixed-unit constraints with one relative-behavior panel per group, `defaultLayout` + `onLayoutChanged` persistence through an atom-backed workspace token, `useDefaultLayout` over a synchronous browser store, `data-*` attribute styling through the `cn` rail, a `Separator` between every adjacent pane
-- Reject: a hand-rolled drag-to-resize with percentage math, hand-authored separator aria or key handling, an async storage adapter behind `useDefaultLayout`, a gesture engine bound to a `Separator`, a wrapper element between `Group` and its children, `className`/`style` expected on the `data-panel` root, and a persisted layout written back on a programmatic restore
-

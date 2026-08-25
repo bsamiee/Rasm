@@ -29,7 +29,7 @@ Each operation folds into one `MeshCensus` whose `Literal` `tag` IS the operatio
 - Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case, one product-carrying `MeshCensus` case, and one `_TRAIT` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row, a wrapper or mixed element the same row naming its inner kinds, so an H(div), H(curl), plate, or DG family lands as rows with no builder edit; a new meshable cell shape is one `_DIM` row and, where the kernel reaches it only by recombination, one `_RECOMBINED` member; a new generation source is one `GmshSource` case and one `build` arm; a new density rule is one `SizeField` case and one `install` arm; a new OpenCASCADE primitive is one `GmshSolid` row carrying its own arity; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container and never a solve on this owner.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from math import isfinite
 from pathlib import Path
 from typing import Any, Final, Literal, Self, assert_never

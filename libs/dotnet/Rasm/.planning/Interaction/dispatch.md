@@ -26,7 +26,7 @@ Both host boundaries reach this owner directly and neither adapts it: the Rhino 
 - Boundary: Rhino's command-thread affinity (`HostThread`/`HostWork<T>`) is a DIFFERENT axis over the Rhino command queue and stays plural at that boundary; what re-points here are its marshal lane and its latency gauge, which were this owner's shape all along.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Parametric;
 using Thinktecture;
 
@@ -87,7 +87,7 @@ public sealed partial class DispatchLane : IGaugeLane<DispatchLane> {
 - Boundary: `Application.Instance` is read at the entry and never stored — a captured instance outlives a host restart and marshals onto a dead context that never re-posts.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Rasm.Parametric;
@@ -124,7 +124,7 @@ public static class UiThread {
 - Boundary: the pulse is EVIDENCE and never a gate — no crossing branches on a prior pulse, because a budget that steers the next crossing turns a measurement into a feedback loop nothing declared.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Parametric;
 
@@ -175,7 +175,7 @@ public readonly record struct DispatchEcho(Op Operation, Fin<Unit> Outcome);
 - Boundary: a documented platform raise funnels through `FaultRail.Host` and lands as `HostRejected` carrying the exact captured `Error` cause; a returned failed rail passes through unchanged.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 

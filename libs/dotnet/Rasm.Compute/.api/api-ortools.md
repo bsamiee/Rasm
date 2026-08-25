@@ -2,17 +2,7 @@
 
 `Google.OrTools` owns three exact-solver rails behind the `OptimizerKind` rows: the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP optimizer across pluggable backends, and the ConstraintSolver vehicle-routing engine, over per-RID native solver libraries. Its wire carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks onto the `Runtime/wire` remote lane; a solve fault lifts to `ComputeFault` at the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Google.OrTools`
-- package: `Google.OrTools` (Apache-2.0)
-- assembly: `Google.OrTools` (managed SWIG/protobuf wrapper, `lib/net8.0` bound on `net10.0`)
-- namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Graph`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
-- asset: managed wrapper + per-RID native solver libs (`Google.OrTools.runtime.{osx-arm64,osx-x64,linux-arm64,linux-x64,win-x64}`); a solve with no matching RID payload faults at native load
-- transitive: bundles `Google.Protobuf` for the proto carriers, composing `api-protobuf`
-- rail: solver
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: CP-SAT model and value contracts
 
@@ -89,7 +79,7 @@
 |  [09]   | `Assignment`                           | assignment value   | solved route assignment          |
 |  [10]   | `RoutingModel.ResourceGroup`           | resource group     | shared-resource constraints      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: CP-SAT model construction — instance methods on `CpModel`; `Add*` factories return the section-2 constraint families
 
@@ -273,7 +263,7 @@
 - `MaxFlow.Flow`: saturated arcs (`Flow == Capacity`) read the min-cut; `MaxFlow` exposes no capacity accessor, so a caller comparing against the capacity retains the value it passed to `AddArcWithCapacity`.
 - `MinCostFlow.Status`: declared on the shared `MinCostFlowBase`, so a `switch` over it spells the base type.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - expression algebra: arithmetic operators build `LinearExpr`, relational operators (`==`/`!=`/`>=`/`>`/`<=`/`<`) build `BoundedLinearExpression`, and `CpModel.Add(BoundedLinearExpression)` intakes the relational carrier — a model composes the operator algebra, never a parallel constraint DSL.
@@ -297,9 +287,3 @@
 - `OptimizerKind` rows select the rail — CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, routing through `RoutingModel`; one canonical solve discriminates on the row.
 - Variables, constraints, and objective remain solver-model inputs; the solve returns `OptimizationResult`, and status enums classify its outcome.
 - Native handles enter only through declared `IDisposable` roots and release deterministically; the SWIG `SWIGTYPE_p_*`/`*PINVOKE` interop types stay out of canonical owners.
-
-[RAIL_LAW]:
-- Package: `Google.OrTools`
-- Owns: CP-SAT constraint programming (reification, structural-family builders, `Domain` algebra), MIP/LP exact optimization across pluggable backends, vehicle-routing search, and the `Google.OrTools.Graph` network-flow engines (max-flow/min-cut, min-cost-flow, linear-sum-assignment); the proto carriers are `api-protobuf` messages
-- Accept: declared decision variables, typed constraints reified through `OnlyEnforceIf`, admissible sets as `Domain` algebra, and an objective solved to a classified status — stacked onto the `OptimizerKind` row, the proto wire, and the NodaTime deadline budget
-- Reject: hand-rolled branch-and-bound, simplex, or routing search; float-equality feasibility outside the solver; per-backend solve entrypoints where one `Solve` discriminates on `OptimizerKind`; a managed solve DTO beside the proto carriers; SWIG `SWIGTYPE_p_*`/`*PINVOKE` types in canonical owners; a solve with no matching native RID payload

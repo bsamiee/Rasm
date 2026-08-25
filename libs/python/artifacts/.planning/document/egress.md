@@ -16,7 +16,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm; a new policy concern is one `Finishing` field carrying its own value object; a new measured fact is one `FinishFact` field with its `combined` column; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterator
 from enum import StrEnum
 from functools import partial, reduce

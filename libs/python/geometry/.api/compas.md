@@ -2,17 +2,7 @@
 
 `compas` owns the computational-geometry and datastructure surface of the geometry algebra rail: the `compas.geometry` primitive/shape/NURBS/BREP algebra, the `compas.datastructures` half-edge mesh/graph/volmesh family, COMPAS-JSON `Data` serialization, file exchange, and the out-of-process `compas.rpc.Proxy` solver bridge. It is the spine of the COMPAS form-finding band — `compas_dr` and `compas_tna` ride its `Mesh` and its `json_dumps`/`json_loads` round-trip. It never re-implements vector algebra, best-fit, boolean operations, or the form-finding solvers its companions own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `compas`
-- package: `compas` (MIT)
-- module: `compas`; namespaces `compas.geometry`, `compas.datastructures`, `compas.files`, `compas.rpc`
-- owner: `geometry`
-- rail: algebra
-- entry points: none (library only)
-- capability: geometric primitives, shapes, NURBS curves/surfaces, BREP, transformations, vector and `_numpy`-accelerated best-fit/hull algebra, mesh/graph/network/volmesh datastructures, boolean operations, OBJ/PLY/STL/OFF/GLTF/DXF read/write, COMPAS-JSON `Data` serialization, the `rpc.Proxy` out-of-process CPython solver bridge, and host-modality detection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry primitives and shapes (`compas.geometry`)
 
@@ -47,7 +37,7 @@
 |  [08]   | `HashTree` / `HashNode` | hash tree       | content-addressed hierarchy                  |
 |  [09]   | `Datastructure`         | base            | shared datastructure data/serialization base |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: algebra and best-fit functions (`compas.geometry`)
 
@@ -134,7 +124,7 @@ Construction routes through `from_*` classmethods, never positional constructors
 |  [04]   | `Proxy.restart_server()` / `stop_server()`         | instance | `restart_server` = `stop_server` then `start_server` |
 |  [05]   | `compas.rpc.RPCServerError` / `RPCClientError`     | class    | fault surface; a timeout raises `RPCServerError`     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - primitives, shapes, curves, surfaces, and BREP are pure-Python value objects; the `_numpy`-suffixed functions (`bestfit_frame_numpy`, `bbox_numpy`, `convex_hull_numpy`, `oriented_bounding_box_numpy`) are SciPy-accelerated variants over the same coordinate inputs, never a parallel hierarchy.
@@ -152,9 +142,3 @@ Construction routes through `from_*` classmethods, never positional constructors
 
 [LOCAL_ADMISSION]:
 - compas is the admitted computational-geometry and datastructure spine for the geometry branch; the `compas_dr`/`compas_tna` form-finding companions and the `_numpy` heavy band compose against it rather than a parallel surface.
-
-[RAIL_LAW]:
-- Package: `compas`
-- Owns: geometric primitives/shapes/transforms, NURBS and BREP, vector and best-fit algebra, mesh/graph/volmesh datastructures, boolean operations, file exchange, COMPAS-JSON serialization, the `rpc.Proxy` solver bridge, and host detection
-- Accept: AEC computational geometry, networks, and form-finding feeding the algebra and geometry owners
-- Reject: wrapper-renames of primitives or `json_dump`; a hand-rolled vector, best-fit, boolean, or form-finding solver where compas and its companions are admitted; positional datastructure constructors over `from_*`; a parallel transform page where the transform rows are `NumericalOp` table entries; an in-process re-entry where the `rpc.Proxy` offload is the heavy-band path

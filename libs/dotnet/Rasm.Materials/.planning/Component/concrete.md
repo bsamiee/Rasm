@@ -21,7 +21,7 @@ THE CAST-IN-PLACE CONCRETE SEED FAMILY and THE EXPOSURE-DRIVEN COVER REGIME. A C
 - Boundary: the grade arm carries fck and the printed cube twin and derives fcm by the standard's own generator — it carries NO Ecm column, because the `concrete.<class>` substance row (`Properties/properties#MATERIAL_PROPERTY_CATALOGUE`) owns the mean modulus and the `EnConcreteFactory` linear-elastic E is the fck/0.00175 secant design line (decompile-verified), so a stiffness read here shadows one owner or imports the wrong one. US strength grades ride the `[03]` correspondence rows as ADVISORY data — `ACI318ConcreteGrade` enum rows exist but every non-EN factory arm throws (probe-confirmed), so no US grade reaches a factory. Member dimensions are this estate's realized selection and seed under `EvidenceGrade.User`; the grade columns transcribe the print. `ComponentAuthority` publishes no ACI row, so the US cover table cites its clause in place and the seed rows stand EN-bodied under `ComponentAuthority.En`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

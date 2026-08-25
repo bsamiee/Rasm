@@ -2,17 +2,7 @@
 
 `altair` mints the declarative Vega-Lite chart-specification surface for the artifacts visuals rail: one `Chart` builder folds the `mark_*`/`encode`/`transform_*`/`configure_*` method families, the `param`/`when`/`condition`/`binding_*` interaction algebra, and the `layer`/`hconcat`/`vconcat`/`concat`/`facet`/`repeat` operators into Vega-Lite JSON over any narwhals frame. altair constructs and emits the spec alone — `transformed_data` pre-executes transforms locally and the plugin registries own every backend; rasterization, pre-aggregation, and self-render defer to the sibling render band.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `altair`
-- package: `altair` (BSD-3-Clause)
-- module: `altair` (canonical alias `import altair as alt`)
-- owner: `artifacts`
-- rail: visuals
-- asset: pure-Python wheel (`py3-none-any`, `Root-Is-Purelib: true`, no cp-gate). Hard deps `narwhals` (polars/pandas/pyarrow frame interchange), `jinja2` (HTML template), `jsonschema` (spec validation), `packaging`; the render/transform backends `vl-convert-python`, `vegafusion`, `anywidget`, and `pandas`/`pyarrow`/`numpy` are optional extras reached only as registered plugins, admitted separately in the manifest.
-- capability: declarative Vega-Lite chart construction over narwhals frames — the `mark_*`/`encode`/`transform_*`/`configure_*` builder families, the `param`/`when` interaction algebra, composition with `resolve_*` conflict resolution, the `project` geo configurator, local `transformed_data` execution, the `expr` algebra, the plugin registries, the `JupyterChart` widget, and the `to_dict`/`save` emit family.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: chart and composition roots
 
@@ -60,7 +50,7 @@ Encoding constructors (`X`/`Y`/`Color`/…) and guides (`Scale`/`Axis`/`Legend`)
 |  [13]   | `Parameter` / `When` / `Then` / `ChainedWhen`                     | interaction objects | `param`/selection + `when` chain return types |
 |  [14]   | `PredicateComposition` / `FieldName`                              | predicate / field   | predicate composition + field-name VO         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 `Chart(data)` admits any narwhals-native frame, a `pandas`/`polars`/`pyarrow` frame, a URL string, or a `Data` object, and every `Chart.*` builder method returns `Self` for chaining. `mark_*`, `transform_*`, and `configure_*` family rosters ride the fence below. `transform_regression` fits `method` ∈ `linear`/`log`/`exp`/`pow`/`quad`/`poly` with `order`/`params`, `params=True` emitting `rSquared`/coefficient rows; `transform_density` carries `counts`/`maxsteps`/`minsteps`/`resolve` beyond the shown knobs.
 
@@ -127,7 +117,7 @@ Encoding constructors (`X`/`Y`/`Color`/…) and guides (`Scale`/`Axis`/`Legend`)
 |  [20]   | `to_values` / `to_json` / `to_csv`                                   | static   | `data_transformers` frame serializers |
 |  [21]   | `expr.<vega_fn>(...)` / `expr.<CONST>` -> ASTs                       | factory  | typed Vega-expression algebra         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Chart` builder owns the single-view grammar; `mark_*`, `encode`, `transform_*`, and `configure_*` are chainable method families returning `Self`, never parallel chart types per mark, and a new mark, transform, or config arm is one method on the builder.
@@ -149,9 +139,3 @@ Encoding constructors (`X`/`Y`/`Color`/…) and guides (`Scale`/`Axis`/`Legend`)
 
 [LOCAL_ADMISSION]:
 - altair is admitted for Vega-Lite spec construction; static rendering routes to `vl-convert-python`, large-data pre-transform to `vegafusion`, publication display tables to `great-tables`, host-free self-render to `lets-plot`, non-COLR SVG rasterization to `resvg-py`, and a genuine columnar data export to the columnar data owner; live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `altair`
-- Owns: declarative Vega-Lite chart construction over narwhals frames — the `param`/`when` interaction algebra, statistical/geo transforms, `configure_*`/`project`/`resolve_*` configuration, composition, local `transformed_data` execution, the `expr` algebra, the `JupyterChart` bidirectional widget, and spec/multi-format export through the registered `vl-convert`/`vegafusion` backends.
-- Accept: a `Chart` spec built from the admitted method families, emitted through `to_dict`/`save`, and rendered by the registered compiler.
-- Reject: a hand-built Vega-Lite dict where the builder is admitted; a pandas-only ingest where `narwhals` owns interchange; a re-minted rasterizer, JS bundler, or numpy statistical fit where `vl-convert` and server-side transforms render; an `inline_datasets=` feed to `vl-convert` that does not exist; identity minting the runtime owns.

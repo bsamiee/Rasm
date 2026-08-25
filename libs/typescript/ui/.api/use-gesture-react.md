@@ -2,15 +2,7 @@
 
 `@use-gesture/react` recognizes continuous pointer, wheel, touch, and keyboard input as typed gesture state — cumulative `offset`, per-gesture `movement`, `velocity`, `direction`, and swipe/tap classification — the analog interaction layer `act/gesture` composes and the `viewer` camera rows drive. It wraps `@use-gesture/core` as React hooks and re-exports the engine's config, state, and handler type algebra; `react-aria` owns discrete accessible interaction and `vaul` owns sheet-drag, neither routing through here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@use-gesture/react`
-- package: `@use-gesture/react` (MIT)
-- module: ESM + CJS (`dist/use-gesture-react.esm.js` / `.cjs.js`), `.d.ts` under `dist/declarations/src`, `sideEffects: false`; single `.` entry, no subpaths
-- runtime: React DOM in the browser; peer `react`, dep `@use-gesture/core` — the framework-agnostic engine this package wraps as hooks and re-exports (`/utils`, `/actions`, `/types`); binds pointer/wheel/touch/keyboard events on a DOM node or ref
-- rail: interaction (`act/gesture`; the `viewer` camera-control rows `viewer/geo/project`, `viewer/scene/glb`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: config family — the per-gesture option algebra re-exported from `@use-gesture/core/types`
 
@@ -54,7 +46,7 @@
 |  [03]   | `NativeHandlers`                      | native DOM passthrough; `AnyHandlerEventTypes`/`InternalHandlers` the engine maps     |
 |  [04]   | `ReactDOMAttributes`                  | the prop object `bind()` returns, spread onto the JSX element                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: per-gesture hooks — one recognizer per interaction, each `useX(handler, config?)` returning a `bind` function spread on JSX, or `void` when `config.target` is set for imperative native binding
 
@@ -84,7 +76,7 @@
 |  [02]   | `EngineMap` / `ConfigResolverMap`                        | registry  | the gesture-key→engine and gesture-key→resolver maps           |
 |  [03]   | `rubberbandIfOutOfBounds(position, min, max, constant?)` | math util | elastic-overflow behind `rubberband`; reuse for a custom clamp |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two binding modes resolve on `config.target`: absent, the hook returns a `bind` function spread on JSX (`<div {...bind()} />`) through React's passive synthetic events; set to a ref/DOM node, the hook returns `void` and binds natively under `config.eventOptions`.
@@ -106,9 +98,3 @@
 - `memo` carries per-gesture start state, `from` binds the offset origin, `bounds`+`rubberband` clamp, and `transform` maps to domain space — never an external mutable ref for accumulation.
 - `createUseGesture([…actions])` tree-shakes when only a subset of gestures is used; the full `useGesture` pulls every engine.
 - Continuous analog gestures bind here; discrete accessible interaction is react-aria and sheet-drag is vaul.
-
-[RAIL_LAW]:
-- Package: `@use-gesture/react`
-- Owns: the continuous-pointer recognizers (`useDrag`/`usePinch`/`useWheel`/`useScroll`/`useMove`/`useHover`), the combined `useGesture`, the `createUseGesture` tree-shake factory, the action registry (`dragAction`…`hoverAction`, `registerAction`), and the gesture state/config/handler type algebra re-exported from `@use-gesture/core`
-- Accept: the bind-function or `target`-ref binding mode, `memo` accumulation, `from`/`bounds`/`rubberband`/`transform` model-space binding, `eventOptions: { passive: false }` for preventable gestures, atom-backed offset/camera state, react-aria as the discrete-interaction peer
-- Reject: a discrete press/focus routed through a pointer gesture, a JSX-spread bind where `preventDefault` is needed, an external mutable ref where `memo` fits, a second gesture hook on one element, a gesture on a vaul sheet, and the full `useGesture` where `createUseGesture` tree-shakes

@@ -2,16 +2,7 @@
 
 `DynamicData` owns the live change-set rail: a keyed cache or ordered list mutates through `Edit`, one `Connect()` fans an `IChangeSet` stream, and every query, bind, and aggregate operator folds that stream into a projection a screen binds. One cache is the single source of truth, each surface a projection off it, never a parallel mutation path.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DynamicData`
-- package: `DynamicData` (MIT)
-- assembly: `DynamicData`
-- namespaces: `DynamicData`, `DynamicData.Binding`, `DynamicData.Aggregation`, `DynamicData.Diagnostics`
-- depends: `System.Reactive` (the `IObservable<IChangeSet<…>>` substrate), `Splat`
-- rail: live-data
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CACHE_AND_LIST_TYPES]: mutable and observable live-data sources
 
@@ -82,7 +73,7 @@
 
 - `IKeyValueCollection<TObject,TKey>` IS an `IReadOnlyList<KeyValuePair<TKey,TObject>>` in sort order, carrying `Comparer`, `SortReason`, and `Optimisations` beside it.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CACHE_ENTRYPOINTS]: instance mutation and connection on the source and updater types
 
@@ -179,7 +170,7 @@
 
 - `CollectUpdateStats<TObject,TKey>()`/`CollectUpdateStats<TObject>()` scan from `ChangeSummary.Empty`, emitting one summary per change-set: `Latest` is THAT change-set's tally and `Overall` the cumulative run, so a per-delta consumer reads `Latest` and re-publishing `Overall` re-counts every earlier delta. The keyed overload maps `Refreshes` from the change-set's own refresh count; the list overload has no refresh reason and pins that axis to `0` while reading `Replaced` as `Updates`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every state update flows through an `IChangeSet` before a screen sees it; a view never mutates a bound collection directly.
@@ -200,9 +191,3 @@
 
 [LOCAL_ADMISSION]:
 - A live collection in the AppUi shell is admitted only as a projection off a `SourceCache`/`SourceList`; a screen binding raw mutable state instead of a change-set stream is rejected.
-
-[RAIL_LAW]:
-- Package: `DynamicData`
-- Owns: the keyed-cache, ordered-list, binding, query, aggregate, page, virtual, and diagnostic change-set rails.
-- Accept: state reaches every host panel, companion window, sidecar, diagnostic, and shell as a projection off one shared change-set stream, sorted binding through the fused `SortAndBind`.
-- Reject: manual `ObservableCollection` mutation, a per-view-modality mutation path, and the `Sort().Bind()` chain `SortAndBind` collapses.

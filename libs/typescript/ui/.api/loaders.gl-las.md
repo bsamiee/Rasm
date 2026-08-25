@@ -2,15 +2,7 @@
 
 `@loaders.gl/las` owns LAS/LAZ point-cloud decoding for the `ui/viewer/geo` plane: stateless loader-descriptor consts pass to `@loaders.gl/core` or a deck layer and decode to `LASMesh` columnar buffers or an Arrow table. Shared format identity across every descriptor blocks content-sniff selection, so a caller passes one descriptor explicitly, and `scope:viewer` admission compile-time excludes the package from the `ui` core.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@loaders.gl/las`
-- package: `@loaders.gl/las` (MIT)
-- module: esm barrel of loader-descriptor consts and the `LASLoaderOptions` type
-- runtime: isomorphic browser/node, `scope:viewer`; the mesh lane runs LAZ decompression worker-backed in laz-perf (C++) or laz-rs (Rust) WASM through core's parse engine (`options.worker`), while the Arrow lane declares `worker: false` and decodes on the calling thread
-- rail: LAS/LAZ decoder descriptors `PointCloudLayer` receives through its loader props
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the option bag threaded to the loaders and the decoded shapes they return.
 - `LASLoaderOptions` — `LoaderOptions & { las?, onProgress? }`; the base bag (`worker`/`fetch`/`CDN`) lives in `.api/loaders.gl-core.md`, and `las` carries `shape` (DEAD — see below), `skip` decimation stride for LOD ingest, `fp64` 64-bit position precision, `colorDepth` `COLOR_0` RGB scale, and `workerUrl` self-hosted worker bundle.
@@ -19,7 +11,7 @@
 - `LASHeader` — `pointsCount`/`pointsFormatId`/`pointsStructSize`, `scale`/`offset` triples, optional `mins`/`maxs` bounds, `hasColor`/`isCompressed`, `versionAsString`, and `totalRead`/`totalToRead` progress ride the parsed `loaderData`.
 - `ArrowTable` (`@loaders.gl/schema`) — `{ shape: 'arrow-table'; schema?: Schema; data: arrow.Table }`; `data` is a real `apache-arrow` `Table`, arrow being a hard dependency of the schema package rather than a structural stand-in, so a columnar consumer projects `.data` with no cast.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: every export is a stateless loader-descriptor const passed to core or deck, or called through its own `parse`.
 
@@ -37,7 +29,7 @@
 - `LASArrowLoader.parse` declares the bare `ArrayBuffer` and DROPS the options argument core passes it, re-entering `LAZPerfLoader.parse` with the buffer alone — `las.skip`/`fp64`/`colorDepth` never reach the Arrow lane even through `load(url, LASArrowLoader, options)`, which decodes at the package defaults. Thinning an Arrow frame slices the decoded table rather than selecting a loader row.
 - `LASArrowLoader.parseSync`: spread-inherited, returns `LASMesh` not `ArrowTable`; Arrow consumers never call it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Shared format identity across every descriptor blocks `selectLoader`; a caller passes one descriptor explicitly, and unknown input takes one caller-owned dispatcher that reads the LAS header and branches.
@@ -52,9 +44,3 @@
 - imported only inside the `ui/viewer` Nx project (`scope:viewer`); the `ui` core never resolves it, keeping the WASM decoder and worker deps out of non-spatial apps.
 - pick laz-perf for the sync-capable common path, laz-rs for the LAS 1.4 extended formats, and `LASArrowLoader` for Arrow egress; pass one descriptor per call and never register into core's host-global registry.
 - mesh-lane loaders carry the `las` policy rows; the Arrow lane carries none, so a policy bag spread onto that call is a dead knob the reader mistakes for a live one.
-
-[RAIL_LAW]:
-- Package: `@loaders.gl/las`
-- Owns: the LAS/LAZ decoder descriptors, their mesh and Arrow outputs, the worker delegate, format identity, `LASLoaderOptions`, and the `LASMesh`/`LASHeader` shapes
-- Accept: explicit descriptor selection by point-record format and output, `LASMesh` attributes feeding deck's binary `LayerDataSource`, the main-thread `LASArrowLoader` feeding Arrow consumers off the envelope's `data` member, a self-hosted `las.workerUrl` on the mesh lane
-- Reject: host-global registration in reusable code, `selectLoader` as backend/output dispatch, `LASArrowLoader.parseSync`, streaming claims over the whole-file batch fallback, reliance on `las.shape`, a `las` policy bag handed to the Arrow lane, a worker-side Arrow route, foreign worker URLs, hand-parsed LAS/LAZ bytes

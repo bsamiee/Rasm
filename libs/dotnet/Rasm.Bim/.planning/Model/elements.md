@@ -19,7 +19,7 @@
 - Boundary: `AdmitPredefined` is the whole gate and NO whole-model preflight sits beside it — the retired `AuditTarget` folded these same two reads over every `"ifc"`-classified node against a CALLER-CHOSEN target schema, and every entry in this folder emits at `graph.Header.Schema` alone, so it previewed a gate no caller reaches. NAMED LOSS: the accumulated complete-violation set a schema-retarget deliverable decision reads ahead of the emit. WITNESS: `Admits` and `AdmitPredefined` hold the per-node authority, and a retarget entry folds them over `graph.ObjectNodes` in one `Traverse` on the accumulating rail the moment such an entry lands.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
@@ -183,7 +183,7 @@ public sealed partial class IfcClass {
 - Boundary: the geometry reference is the content-keyed map [M2] and an inlined geometry blob, a stored `GeometryHandle`, or an IFC representation name on the seam node is the deleted form; the content key composes the kernel hasher over `CanonicalWriter` and a second hasher (or the strata-violating `Rasm.Compute` `InterchangeIdentity` consumed up-stratum) is the named defect [H7]; a separator-joined preimage is the retired form — a space inside a STEP string shifts the split, so the framing is the writer's, never a `string.Concat`; the representation STEP is keyed, NOT evaluated — an in-process BRep tessellation here is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the type representation-map instancing shares one content key across occurrences and a per-occurrence re-key is the deleted form; the content-stable realized-geometry identity across distinct entities is the kernel `GeometryHash` at the GLB wire, a separate key this serialization key never duplicates.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Domain;

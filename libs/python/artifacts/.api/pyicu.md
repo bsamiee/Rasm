@@ -2,17 +2,7 @@
 
 `PyICU` (import `icu`) binds ICU4C as the artifacts locale-aware text layer — CLDR-tailored dictionary-backed segmentation, the complete UAX#9 bidirectional engine, CLDR collation with sort-key and alphabetic-index bucketing, UAX#15 normalization, script itemisation, and transliteration — over the `Locale`/`UnicodeString`/`UnicodeSet` substrate. It stacks UNDER `uharfbuzz` shaping as the locale/CLDR upgrade of the locale-free default `uniseg` (UAX#14) and `python-bidi` (UAX#9 reorder) own, and never re-implements the UCA, UAX#9/#14/#15, or CLDR-segmentation cores the ICU4C C++ owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PyICU`
-- package: `PyICU` (MIT)
-- module: `icu` (the `icu` package re-exports the `_icu` C++ extension: `from _icu import *`)
-- owner: `artifacts`
-- rail: text-locale
-- build: sdist-only C++ extension over ICU4C (`icu-i18n`/`icu-uc`/`icu-io` via `pkg-config`, C++11); the `icu` row in Forge `scientific-tools.nix` supplies the headers and libraries
-- entry points: none; the `_icu` extension is import-only
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: locale, string, and set substrate
 
@@ -64,7 +54,7 @@ Normalization, script, transliteration, case, property, search, and confusable-d
 |  [10]   | `SearchIterator`      | search cursor        | grapheme-boundary match traversal             |
 |  [11]   | `SpoofChecker`        | confusable detection | mixed-script and restriction checks           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: locale-tailored line/word segmentation
 
@@ -141,7 +131,7 @@ Normalization, script, transliteration, case, property, search, and confusable-d
 - `StringSearch`: `StringSearch(pattern, text, collator_or_locale, break_iterator)` `first()` `next()` `getMatchedLength()` `setAttribute()`.
 - `SpoofChecker`: `SpoofChecker()` `setChecks(checks)` `setRestrictionLevel(level)` `check(s)` `areConfusable(a, b)` `getSkeleton(s)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - translation: `icu` is a hand-written C++ extension mirroring the ICU4C C++ API class-for-class — a `UErrorCode &`/`ParseError &` out-arg drops and raises `icu.ICUError`, a `UnicodeString &` result returns as `str` (or passes in for in-place mutation), and `UDate` is milliseconds since epoch (Python `time()` × 1000 at the boundary).
@@ -162,9 +152,3 @@ Normalization, script, transliteration, case, property, search, and confusable-d
 - collation: `Collator.createInstance(locale)` + `getSortKey`/`compare` is the locale-correct sort no other admitted package owns and `AlphabeticIndex` the bucketing; `RuleBasedCollator(rules)`/`cloneBinary()` are the custom and precompiled paths; sort once with `getSortKey`, use `compare`/`CollationKey` only when one string matches many.
 - normalization: `Normalizer2.getNFCInstance().normalize(s)` is the pre-shaping canonical composition, `getNFKCCasefoldInstance` the case-fold-and-compatibility key, `FilteredNormalizer2` the `UnicodeSet`-scoped restriction.
 - itemisation: `Script.getScript(cp).getShortName()` over a `StringCharacterIterator` is the font-fallback script split, `Transliterator.createInstance(id)`/`transliterate` the rule-based conversion, `CaseMap.toUpper(locale, s, Edits())` locale-correct casing with the change-span map.
-
-[RAIL_LAW]:
-- Package: `PyICU`
-- Owns: the locale/CLDR-tailored Unicode text layer — dictionary-backed `BreakIterator` segmentation, the complete UAX#9 `Bidi`/`BidiTransform` engine, CLDR `Collator`/`RuleBasedCollator` collation with `AlphabeticIndex` bucketing, `Normalizer2`/`FilteredNormalizer2` UAX#15 normalization, `Script.getScript` itemisation, `Transliterator` conversion, `CaseMap`/`Edits` casing, `Char` properties, `UnicodeSet` membership, `StringSearch` search, and `SpoofChecker` confusable detection, over the `Locale`/`UnicodeString` substrate
-- Accept: `createLineInstance(locale)` + dictionary segmentation where the script needs CLDR tailoring or has no spaces; `Bidi.setPara`/`getVisualRun`/`setLine` for explicit-level, line-relative, or index-mapped bidi; `Collator.getSortKey`/`AlphabeticIndex` for locale-correct sort and bucketing; `Normalizer2` NFC pre-shaping; `Script.getScript` font-fallback itemisation — each one engine row on the existing shape/layout step, dispatched on the gated `to_process` seam through `RuntimeRail`
-- Reject: re-implementing the UCA weights, the UAX#9 resolution, the UAX#14 break rules, the UAX#15 tables, or the CLDR dictionary segmentation ICU4C owns; a second shaping/layout owner where the ICU engine is one `BidiEngine`/`SegmentEngine` row; the locale-free `uniseg`/`python-bidi` path on a plain-LTR run; a bare `icu.ICUError` across the interpreter boundary where `RuntimeRail` owns the fault

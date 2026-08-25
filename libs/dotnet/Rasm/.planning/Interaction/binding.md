@@ -26,7 +26,7 @@ Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`,
 - Boundary: the two host enums appear on this row set and nowhere else on the sub-domain — every interior consumer reads `FlowMode`, never `DualBindingMode`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Numerics;
 using Thinktecture;
@@ -118,7 +118,7 @@ public abstract partial record Cadence {
 - Boundary: the reflected `Named` arm is the one site a model member is addressed by text, and every call site spells it through `nameof`, so a renamed property breaks at compile time rather than at first bind.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Eto.Forms;
@@ -239,7 +239,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 - Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement seam, and all four cross `UiThread` on the immediate lane.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using Eto.Forms;
@@ -410,7 +410,7 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
 - Boundary: control realization retains links and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Thinktecture;
@@ -506,7 +506,7 @@ public static class DataScope {
 - Boundary: Rhino mounted data through its grid plan alone and carried no list or tree store mount and no virtual carrier; all three gaps close here, and its boundary edit is a deletion.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using Eto.Forms;
 using Rasm.Domain;

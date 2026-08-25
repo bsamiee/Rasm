@@ -2,17 +2,7 @@
 
 `compas_dr` owns dynamic-relaxation form-finding for axial-force networks on the COMPAS spine. `InputData` and `Constraint` extend `compas.data.Data` and serialize through `json_dumps`/`json_loads`; `InputData.from_mesh` consumes `compas.datastructures.Mesh`. Its numpy band offloads through `compas.rpc.Proxy`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `compas_dr`
-- package: `compas_dr` (MIT)
-- import: `import compas_dr`
-- owner: `geometry`
-- rail: form-finding
-- entry points: none (library only)
-- capability: pure-Python and numpy/scipy dynamic-relaxation form-finding with selectable RK order, geometric constraint projection by registered geometry type, tributary-area selfweight loads, and COMPAS `Data` serialization of the input and constraint carriers
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver data carriers — `compas_dr.numdata`
 
@@ -42,7 +32,7 @@
 | :-----: | :--------------------- | :-------------- | :-------------------------------------------------------------------------------------------- |
 |  [01]   | `SelfweightCalculator` | load calculator | called as `calculator(xyz) -> FloatNx1` = `tributary_area * (thickness * density)` per vertex |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solvers — `compas_dr.solvers`
 
@@ -99,7 +89,7 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 |  [03]   | `SelfweightCalculator.compute_tributary_areas(xyz) -> FloatNx1`         | instance | per-vertex tributary area over loaded faces      |
 |  [04]   | `SelfweightCalculator.compute_face_matrix() -> scipy.sparse.csr_matrix` | instance | normalized face-vertex centroid matrix           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import surface: solvers from `compas_dr.solvers`, carriers from `compas_dr.numdata`, constraints from `compas_dr.constraints`, the calculator from `compas_dr.loads`; the package root exports only `HOME`/`DATA`/`DOCS`/`TEMP` path anchors, no API.
@@ -115,9 +105,3 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 [LOCAL_ADMISSION]:
 - form-finding pipeline: build `InputData.from_mesh(mesh, fixed, loads, qpre, ...)`, run `dr_numpy(indata)` or `dr_constrained_numpy(indata=..., constraints=[Constraint(geometry), ...])`, then `ResultData.update_mesh(mesh)`; constraints attach by node index, built polymorphically via `Constraint(geometry)`.
 - `Mesh` seam: `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` touch-points; the solver never reads mesh topology directly.
-
-[RAIL_LAW]:
-- Package: `compas_dr`
-- Owns: dynamic-relaxation form-finding, geometric constraint projection by registered geometry type, tributary-area selfweight loads
-- Accept: `InputData` from a `compas` `Mesh`, constraint sequences built via `Constraint(geometry)`, numpy position arrays
-- Reject: hand-rolled dynamic-relaxation or RK-integration loops, direct scipy sparse assembly outside this package, parallel `*Constraint` selection that bypasses the `Constraint(geometry)` registry factory

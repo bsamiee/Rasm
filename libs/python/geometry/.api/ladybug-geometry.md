@@ -4,18 +4,7 @@
 
 Beyond the primitives it owns its own pure-Python 2D boolean, intersection, bounding, ear-clipping triangulation, projection, a directed-graph network, and OBJ/STL interop; robust watertight-CSG, mesh repair, and registration route out to `manifold3d`/`trimesh`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ladybug-geometry`
-- package: `ladybug-geometry` (AGPL-3.0)
-- module: `import ladybug_geometry`
-- namespaces: `geometry2d`, `geometry3d`, `boolean`, `intersection2d`, `intersection3d`, `bounding`, `triangulation`, `network`, `interop`, `dictutil`
-- owner: `geometry`
-- rail: energy / geometry-substrate
-- consumer: `.planning/energy/model.md` (`Face3D`/`Polyface3D` BIM-to-BEM lift), `.planning/energy/district.md` (footprint rings)
-- abi: pure-Python (`py2.py3-none-any`, purelib)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: planar primitives (`ladybug_geometry.geometry2d`)
 
@@ -52,7 +41,7 @@ Beyond the primitives it owns its own pure-Python 2D boolean, intersection, boun
 |  [02]   | `interop.obj.OBJ`                               | mesh codec    | vertex texture/normal/color + material structure                     |
 |  [03]   | `interop.stl.STL`                               | mesh codec    | `face_vertices`/`face_normals`, binary/ASCII STL                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: polymorphic deserialization and the shared value-object contract
 
@@ -131,7 +120,7 @@ Beyond the primitives it owns its own pure-Python 2D boolean, intersection, boun
 |  [06]   | `STL.from_mesh3d(mesh)` / `STL.to_file(folder, name)`             | factory  | STL build / write                          |
 |  [07]   | `network.coordinates_hash(point, tolerance)`                      | static   | coordinate hash for vertex dedup / node id |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every primitive is an immutable value object folding through one contract: `type`-tagged `from_dict`/`to_dict`, `from_array`/`to_array`, `duplicate`, `is_equivalent(other, tolerance)`, and the `move`/`rotate`/`rotate_xy`/`reflect`/`scale` transform algebra returning a new object — the operation kind is the named method, never a transformed subclass.
@@ -149,9 +138,3 @@ Beyond the primitives it owns its own pure-Python 2D boolean, intersection, boun
 
 [LOCAL_ADMISSION]:
 - AGPL-3.0 strong copyleft binds admission: consume the honeybee/ladybug/dragonfly band out-of-process as a companion rail, exchanging HBJSON/result evidence across the wire, its code never linked into a distributed host binary.
-
-[RAIL_LAW]:
-- Package: `ladybug-geometry`
-- Owns: immutable 2D/3D primitive value objects with uniform `type`-tagged serialization and transform algebra; `geometry_dict_to_object`; `Face3D` aperture/shade/split/coplanar-boolean generation; `Polyface3D` closed-solid modeling; `Mesh3D` analysis grids; pure-Python 2D boolean, intersection, bounding, ear-clipping triangulation, and projection; the directed-graph network; OBJ/STL interop; and tolerance-bucketed coordinate hashing
-- Accept: the geometric substrate feeding the energy-geometry owner; the `type` discriminator shared with the honeybee model decoder; the analysis-grid centroids feeding the radiance/comfort sensor rails; the solar geometry `ladybug-core` mints in these primitives
-- Reject: wrapper-renames of the value objects or `geometry_dict_to_object`; a hand-rolled vector/boolean/intersection/triangulation/bounding kernel this package already owns; a `from_<type>` decode ladder over the `type` discriminator; a watertight-CSG/repair re-implementation where `manifold3d`/`trimesh` are admitted; a parallel transformed-geometry subclass over the transform methods; identity minting the runtime owns

@@ -19,7 +19,7 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 - Boundary: no C# `Expected` clone and no exception taxonomy copied from a .NET owner. Retriability keys on the fault's own roster row and `FaultTag`, and never imports `reliability/resilience#RESILIENCE` `RetryClass` — resilience depends on faults, never the reverse; the rail maps exceptions to fault classes, the policy table maps retry classes to exception sets, and the two meet through the rail outcome, the `Recovery` value, and the exported `spelled` matcher alone, which resilience reads and never re-derives. Precedence for retriability is TWO rungs with one declared source each, the row's declared posture over the tag-set derivation; a peer-STATED posture is a third rung above both and has no carrier here, since it decodes at `transport/serve#SERVE` and rides `Option[Recovery]` where a legacy frame states nothing.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import inspect
 import sys
 from collections.abc import Awaitable, Callable
@@ -67,7 +67,6 @@ class Scope(StrEnum):
     SERVICE = "service"
     RESILIENCE = "resilience"
     IDENTITY = "identity"
-    EVIDENCE = "evidence"
     RECIPE = "recipe"
     WORKERS = "workers"
     PROFILES = "profiles"
@@ -104,7 +103,6 @@ class RuntimeLeg(StrEnum):
     CLOCK = "runtime.clock"
     IDENTITY = "runtime.identity"
     REPRODUCTION = "runtime.reproduction"
-    EVIDENCE = "runtime.evidence"
 
 
 @runtime_checkable
@@ -627,19 +625,6 @@ EVENT_SOURCE: Final[FaultRow[RuntimeLeg]] = FaultRow(
 EVENT_TYPE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.EVENT, point="type", arm="config", defect="malformed-type", retriability=TERMINAL, slots=("spelling",)
 )
-EVIDENCE_BUDGET: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVIDENCE, point="budget", arm="boundary", defect="tree-budget-spent", retriability=TERMINAL
-)
-EVIDENCE_GRAMMAR: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVIDENCE, point="grammar", arm="config", defect="uncovered-grammar", retriability=TERMINAL, slots=("probe", "language")
-)
-EVIDENCE_MATCHES: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVIDENCE, point="matches", arm="resource", defect="match-limit-truncated", retriability=TRANSIENT,
-    slots=("probe", "language")
-)
-EVIDENCE_REFLECT: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVIDENCE, point="reflect", arm="import_", defect="distribution-unreachable", retriability=TERMINAL
-)
 HOOKS_REGISTER: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.HOOKS, point="register", arm="config", defect="roster-refused", retriability=TERMINAL
 )
@@ -966,8 +951,7 @@ RAISES: Final[Block[FaultRow[RuntimeLeg]]] = rostered(Block.of_seq([
     BINDING_TRANSACTION, CLOCK_CARRIER, CLOCK_LAYOUT,
     CLOCK_SEALED, EVENT_DECODE,
     EVENT_DOMAIN, EVENT_ENCODE, EVENT_EXTENSION, EVENT_FORMAT,
-    EVENT_LAG, EVENT_MINT, EVENT_NAIVE, EVENT_SOURCE, EVENT_TYPE, EVIDENCE_BUDGET, EVIDENCE_GRAMMAR, EVIDENCE_MATCHES,
-    EVIDENCE_REFLECT, FILTER_PARSE, FILTER_SETTINGS,
+    EVENT_LAG, EVENT_MINT, EVENT_NAIVE, EVENT_SOURCE, EVENT_TYPE, FILTER_PARSE, FILTER_SETTINGS,
     HOOKS_ISOLATED, HOOKS_PAYLOAD, HOOKS_REGISTER, HOOKS_RELEASE, HOOKS_SUBSCRIBE, HOOKS_TAP, IDENTITY_DERIVE, IDENTITY_FMT, JOURNAL_APPEND, JOURNAL_CENSUS, JOURNAL_CHARGE, JOURNAL_CRYPTO, JOURNAL_CUSTODY, JOURNAL_DERIVED,
     JOURNAL_DRAIN, JOURNAL_HEX, JOURNAL_INSTANT, JOURNAL_KEK, JOURNAL_OFFER, JOURNAL_PERIOD, JOURNAL_PORT, JOURNAL_RATE, JOURNAL_RETIRED,
     JOURNAL_UNBOUND, JOURNAL_UNDRAINED, LANES_EXPORT, LANES_FRONT, LANES_INLINE, LANES_ISOLATION, LANES_OFFLOAD, LOGGING_DOOR, LOGGING_SHIP,
@@ -992,7 +976,6 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.SERVICE, "rasm.companion"),
     (Scope.RESILIENCE, "rasm.runtime.resilience"),
     (Scope.IDENTITY, "rasm.runtime.identity"),
-    (Scope.EVIDENCE, "rasm.runtime.evidence"),
     (Scope.RECIPE, "rasm.runtime.recipe"),
     (Scope.WORKERS, "rasm.runtime.workers"),
     (Scope.PROFILES, "rasm.runtime.profiles"),

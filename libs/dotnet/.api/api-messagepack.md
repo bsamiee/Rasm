@@ -2,17 +2,7 @@
 
 `MessagePack` owns the schemaless binary wire: `ref struct` reader and writer tokens over `ReadOnlySequence<byte>`, an attribute-declared contract whose formatters and resolver a source generator emits, and one immutable `MessagePackSerializerOptions` folding the resolver chain, the security ceilings, and in-codec LZ4 framing into a single profile value. Two folders bind disjoint PROFILES of one codec: `Rasm.Persistence` the snapshot axis — attribute-declared wire types, the framed `MessagePackStreamReader` ingest, and the content-identity encoding — and `Rasm.Materials` the appearance-interchange wire: the source-generated, IL-emit-free resolver chain the appearance and material model serializes through. The two profiles differ in resolver chain and security preset alone, never in codec spelling. Only an attribute-carrying wire type enters a row; an attribute-free seam graph rides its own codec and a content-stable blob rides canonical CBOR.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MessagePack`
-- package: `MessagePack` (MIT; MessagePack-CSharp / neuecc)
-- assembly: `MessagePack` (engine), `MessagePack.Annotations` (attribute markers, pure-managed)
-- namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
-- target: multi-target `net9.0`/`net8.0`/`netstandard2.1`/`netstandard2.0`/`net472`; the `net10.0` consumer binds `lib/net9.0/MessagePack.dll`, `MessagePack.Annotations` binds `lib/netstandard2.0`
-- depends: `MessagePack.Annotations` (contract attributes); `MessagePackAnalyzer` (`api-messagepack-analyzer.md`) is the build-only source-generator companion every consumer pairs
-- rail: snapshot-codec and branch-interior stage-crossing binary frames
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: token, profile, and framing surfaces
 
@@ -52,7 +42,7 @@
 - `CompositeResolverAttribute(params Type[])` generates a resolver from resolver TYPES; a standalone `IMessagePackFormatter<T>` instance seats through `CompositeResolver.Create` instead.
 - `MessagePackKnownFormatterAttribute` admits a hand-written formatter into the generated resolver, `ExcludeFormatterFromSourceGeneratedResolverAttribute` withholds one for `[MessagePackFormatter]` selection, and `MessagePackAssumedFormattableAttribute` declares a type the program registers itself.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `MessagePackSerializer` codec root; every op takes a trailing `MessagePackSerializerOptions?` and `CancellationToken`
 - typed write: `Serialize<T>(IBufferWriter<byte>, T)` `Serialize<T>(ref MessagePackWriter, T)` `Serialize<T>(T) -> byte[]` `Serialize<T>(Stream, T)` `SerializeAsync<T>(Stream, T) -> Task`
@@ -117,7 +107,7 @@
 - `MessagePackStreamReader` is not thread-safe: one call completes, including its asynchronous tail, before the next begins.
 - `SequencePool` throws `ArgumentNullException` on a null argument; `SequencePool.Shared` is the default rental.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `MessagePackSerializerOptions` value carries the resolver chain, the security ceilings, and the compression row; a profile builds it once and threads it through every op — per-call construction and a mutated `MessagePackSerializer.DefaultOptions` are both the deleted form.
@@ -141,9 +131,3 @@
 - JSON projection is diagnostic output and never owns a payload — the human-readable JSON peers are the folder JSON rails, and `ConvertToJson`/`SerializeToJson` stay diagnostic bridges.
 - This is the neuecc `MessagePack-CSharp` engine; the PolyType-based `Nerdbank.MessagePack` is a different package — its attributes, resolvers, and formatters never mix with this one's.
 - `UnitsNet` quantities and `Wacton.Unicolour` colors serialize as member values through the standard resolver or a small `IMessagePackFormatter<T>`, never a re-minted quantity or color codec the standard chain already covers.
-
-[RAIL_LAW]:
-- Package: `MessagePack`
-- Owns: the schemaless binary snapshot, cache, sync, and branch-interior stage-crossing frames with in-codec LZ4 framing
-- Accept: profile-declared serialization of attribute-carrying wire types, bounded untrusted decode, generated-resolver AOT composition, one shared immutable options value per profile
-- Reject: hand-rolled msgpack framing, an outer compressor over an in-codec-compressed payload, a serializer-branded type on a public folder surface, per-call options construction, a runtime reflection-emit resolver as the AOT path, `TrustedData` on external input, and `ConvertToJson` as a JSON system of record

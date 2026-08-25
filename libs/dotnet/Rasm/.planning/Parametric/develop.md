@@ -23,7 +23,7 @@
 - Boundary: this owner holds the EXACT-ISOMETRY tier — re-deriving a conformal or distortion-minimizing solve here, or claiming isometry without the `ddouble` witness, is the tier violation; the input is the `UvTessellation` TYPE and an unbound mesh cannot enter, so the provenance law is structural; rails are `GeodesicGrade.Exact` by law — a heat-grade rail is the drift defect, rail error becoming strip skew becoming witness noise; ruling normals read the surface BINDING at provenance UV — a mesh-normal approximation is the substitution defect; the unroll is rigid placement on exact edge lengths — a spring relaxation, an ARAP pass, or any distortion-minimizing solve here is the tier regression; the witness accumulates in `ddouble` and narrows ONLY at readout — a `double` running sum re-introduces the cancellation the fold exists to kill; QuikGraph containers are transient and the layout leaves as `Component`/`LayoutParent` columns — a stored graph field or leaked `IEdge` type is the lane violation; every failure routes `Strip` with the strip unit and the isometry or torsal measure, no exception crossing the surface.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using DoubleDouble;
@@ -177,7 +177,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |  [02]   | Result carrier      | `DevelopmentResult`         | carrier (drained at the consumer) |    2    |
 |  [03]   | Strip wire          | `StripField`                | value                             |    —    |
 |  [04]   | Policy row          | `DevelopPolicy`             | value (`IValidityEvidence`)       |    —    |
-|  [05]   | Evidence            | `Isometry`        | value                             |    —    |
+|  [05]   | Evidence            | `Isometry`                  | value                             |    —    |
 
 One transcription-complete source file carries the op algebra, carriers, and kernels; each signature-pinned kernel's contract rides its in-fence comment. Distance field, projection arithmetic, graph algorithms, moment bands, and atlas types are composed owners; the only local mathematics is the torsal residual and the rigid placement, the pair no admitted surface carries.
 

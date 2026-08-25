@@ -2,16 +2,7 @@
 
 `rustworkx` owns the Rust-core graph surface for the data graph rail: `PyGraph`/`PyDiGraph`/`PyDAG` containers over stable, never-recycled integer indices, with a polymorphic bare-name algorithm suite dispatching on graph type beside the `graph_*`/`digraph_*` type-bound forms. Data graph callers route through the bare name, consume the typed result carrier (`PathMapping`/`CentralityMapping`/`NodeMap`/`Pos2DMapping`) directly, drive event-stepped search through the `visit.*` visitor base classes, and fold the Rust-core traversal over re-walking a BFS/DFS/Dijkstra loop in Python.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rustworkx`
-- package: `rustworkx` (Apache-2.0)
-- module: `import rustworkx as rx`
-- rail: graph — permissive-license Rust-core graph algorithm engine for the data plane
-- asset: native compiled Rust extension over a PyO3 core; `generators` and `visit` submodules
-- entry points: import-only; no console script
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph containers
 - integer indices are stable and never recycled after removal, so `NodeIndices`/`EdgeIndices` are durable keys into sibling tables; node/edge payloads are arbitrary Python objects
@@ -64,7 +55,7 @@
 [EXC_CODEC]: `JSONSerializationError` `JSONDeserializationError` — the `node_link_json`/`from_node_link_json` codec pair
 [EXC_ROOT_LAW]: rustworkx publishes NO exception base — every one of the twelve derives from `Exception` DIRECTLY (verified against the installed distribution), so a fence over a kernel run NAMES the rows it reaches and no single catch covers the package.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: shortest-path, simple-path, and DAG algorithms
 - module-level functions; the bare name dispatches on graph type while `graph_*`/`digraph_*` forms bind one type; `weight_fn` is a callback over the edge payload, not a stored attribute; result carriers are the `[02]` typed rows
@@ -221,7 +212,7 @@
 
 [GENERATORS_SUBMODULE]: `rustworkx.generators` synthetic-graph builders, each with a `directed_*` mirror where directedness applies — `complete_graph` `cycle_graph` `grid_graph` `path_graph` `star_graph` `mesh_graph` `full_rary_tree` `binomial_tree_graph` `barbell_graph` `lollipop_graph` `hexagonal_lattice_graph` `heavy_hex_graph` `heavy_square_graph` `generalized_petersen_graph` `dorogovtsev_goltsev_mendes_graph` `karate_club_graph` `empty_graph` `directed_empty_graph`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Bare-name forms dispatch on graph type; a single-type kernel binds a `graph_*`/`digraph_*` form, every other caller routes through the bare name.
@@ -240,9 +231,3 @@
 
 [LOCAL_ADMISSION]:
 - Apache-2.0 links safely into a host-distributed plugin; import at boundary scope, and route community detection to the GPL `igraph`(`.api/igraph.md`) sibling.
-
-[RAIL_LAW]:
-- Package: `rustworkx`
-- Owns: undirected/directed/DAG containers over stable integer indices and the Rust-core graph algorithm suite, with `visit.*` visitor-driven search, `TopologicalSorter`, the `generators` submodule, and one-way NetworkX conversion
-- Accept: polymorphic bare-name dispatch, `visit.*` visitors with `PruneSearch`/`StopSearch`, `ColoringStrategy`-parameterized coloring, direct typed result carriers, stable node index lowered into the `node`-keyed Arrow frame, `networkx_converter` at the read-side boundary, and `igraph` for the community-detection split
-- Reject: per-graph-type entrypoints where the polymorphic form covers both, a hand-rolled BFS/DFS/Dijkstra loop, a post-hoc cycle scan where `check_cycle` rejects at mutation, re-keying centrality output off the stable node index, a thin rename wrapper over a result carrier, and community detection routed here instead of `igraph`

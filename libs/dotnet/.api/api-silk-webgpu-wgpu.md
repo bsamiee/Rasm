@@ -2,16 +2,7 @@
 
 `Wgpu : NativeExtension<WebGPU>` mints the wgpu-native (`wgpu.h`) function table layered over the portable `Silk.NET.WebGPU` core (`webgpu.h`) — the native-only entrypoints a desktop render loop demands past the WebGPU standard. One call site holds one `WebGPU` core and one `Wgpu` view over the one loaded `wgpu_native` runtime, never a second binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
-- package: `Silk.NET.WebGPU.Extensions.WGPU` (MIT)
-- assembly: `Silk.NET.WebGPU.Extensions.WGPU`
-- namespace: `Silk.NET.WebGPU.Extensions.WGPU`
-- asset: managed binding only — P/Invokes the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` restores
-- rail: gpu device
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: function-table root and its Span/managed overload mirror
 
@@ -97,7 +88,7 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 - `RegistryReport`: `NumAllocated` `NumKeptFromUser` `NumReleasedFromUser` `NumError` `ElementSize` — all `nuint`
 - `NativeLimits`: `MaxPushConstantSize:uint` `MaxNonSamplerBindings:uint`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: extension load, non-blocking poll, diagnostics, adapter enumeration, GPU-driven draw, and pipeline-statistics queries
 
@@ -125,7 +116,7 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 |  [18]   | `ComputePassEncoderBeginPipelineStatisticsQuery(QuerySet*, uint)`                            | instance | compute stats begin        |
 |  [19]   | `ComputePassEncoderEndPipelineStatisticsQuery()`                                             | instance | compute stats end          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Wgpu` loads through the `NativeExtension<WebGPU>` convention against the live core — `webgpu.TryGetDeviceExtension<Wgpu>(device, out var wgpu)` gates on the `wgpu.h` probe and constructs, and `new Wgpu(webgpu.Context)` binds the same context directly; either yields a second function-table view over the one loaded `wgpu_native` runtime.
@@ -144,9 +135,3 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 - `Wgpu` carries no native runtime of its own, P/Invoking the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` already restores, so admission adds the vendor function table at zero native-asset cost.
 - Every `*Extras` rides the owning standard descriptor's `NextInChain`: `InstanceExtras` selects backend, D3D12 compiler, and validation on `InstanceDescriptor`; `DeviceExtras` carries the trace path; `SurfaceConfigurationExtras` carries present latency.
 - The ten `NativeSType` chain tags cover device, limits, pipeline-layout, GLSL shader, instance, bind-group, bind-group-layout, query-set, and surface extras; none tags a buffer import, so the `next` chain cannot adopt a foreign allocation onto a `BufferDescriptor`.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.WebGPU.Extensions.WGPU`
-- Owns: the wgpu-native vendor surface over the standard binding — non-blocking `DevicePoll`, native log routing through `PfnLogCallback`, full-adapter enumeration, indirect/count-buffer multi-draw and push constants, bindless descriptor arrays via the `Extras` chain, pipeline-statistics profiling, the `GenerateReport` residency snapshot, and the submission-index handshake.
-- Accept: `TryGetDeviceExtension<Wgpu>`/`new Wgpu(webgpu.Context)` second function-table view; `DevicePoll` per-frame non-blocking advance; native log via the function-pointer `new PfnLogCallback(&Body)` over an `[UnmanagedCallersOnly]` body into typed diagnostics (`PfnLogCallback.From` admits only a once-per-process route — it pins one marshalling thunk per construction); `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.
-- Reject: a second wgpu binding beside the core; a `GetApi()` static on this table, which carries none — `GetApi` is the core's alone; `SetLogCallback` bound to a bare `LogCallback` in place of `PfnLogCallback`; a blocking fence busy-spin where `DevicePoll` advances; a power-preference single-adapter select ignoring the compositor LUID; N per-meshlet draws where one indirect multi-draw issues; a per-meshlet rebind where a bindless array binds once. `BufferDestroy`/`TextureDestroy` release lives on the core binding.

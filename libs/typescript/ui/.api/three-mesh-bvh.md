@@ -2,16 +2,7 @@
 
 `three-mesh-bvh` accelerates raycast, distance, and overlap queries over `three` `BufferGeometry`: a bounding-volume hierarchy collapsing brute-force per-triangle scans on merged CAD meshes and dense point clouds into logarithmic tree descents. One `shapecast` descent — a bounds test and a per-primitive callback — owns every query, and `raycast`/`closestPointToPoint`/`intersectsGeometry` are its named specializations, never a per-shape method family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `three-mesh-bvh`
-- package: `three-mesh-bvh` (MIT)
-- module: ESM subpath exports — `.` (BVH family, prototype extensions, GLSL + math utilities), `./worker` (off-thread builders), `./webgpu` (`BVHComputeData` compute descriptor); ships first-party `src/index.d.ts` as member truth, no `@types/*` companion
-- runtime: browser render thread, peer `three` (`.api/three.md`); worker builders run on a `Worker`, and `useSharedArrayBuffer` node buffers cross to the render thread zero-copy
-- abi: typed-array node buffer — `Float32Array` bounds with `Int32Array`/`Uint32Array` index — `Worker`-transferable, `SharedArrayBuffer`-shareable
-- rail: BVH acceleration over `three` geometry — `viewer/mark` pick pipes and `viewer/scene` section/measure compose; `scope:viewer` project-local
-
-## [02]-[BVH_FAMILY]
+## [01]-[BVH_FAMILY]
 
 [TYPE_SCOPE]: the acceleration-structure class tree — `BVH` is the topology-agnostic traversal base, `GeometryBVH` binds it to one `BufferGeometry`, and each leaf specializes the per-primitive `shapecast` callback. Topology discriminates the leaf class; one tree per geometry, queried by descent, and every constructor takes `(source, options?: BVHOptions)`.
 
@@ -54,7 +45,7 @@
 |  [08]   | `MeshBVH.resolveTriangleIndex(number) -> number`                              | property | indirect-build hit → source triangle  |
 |  [09]   | `MeshBVH.shiftTriangleOffsets(number)`                                        | instance | re-base indices after a merged graft  |
 
-## [03]-[EXTENSION_AND_OPTIONS]
+## [02]-[EXTENSION_AND_OPTIONS]
 
 [ENTRY_SCOPE]: the prototype-extension functions patch host-wide `three` prototypes — every `three` consumer in the process observes the mutation, so a multi-owner host constructs and queries `MeshBVH` explicitly or leases the patch (see `[06]`).
 
@@ -101,7 +92,7 @@
 
 - `ShapecastIntersection`: `NOT_INTERSECTED` prunes the subtree / `INTERSECTED` descends / `CONTAINED` accepts the whole subtree without further bounds tests.
 
-## [04]-[WORKER_GPU_SERIALIZE]
+## [03]-[WORKER_GPU_SERIALIZE]
 
 [OFF_THREAD_BUILD]: `three-mesh-bvh/worker` moves the build over a dense cloud or merged CAD assembly off the main thread, handing back a `SharedArrayBuffer`-backed `MeshBVH`.
 
@@ -131,7 +122,7 @@
 |  [01]   | `MeshBVH.serialize(MeshBVH, {cloneBuffers?}) -> SerializedBVH`               | static  | snapshot a built tree                |
 |  [02]   | `MeshBVH.deserialize(SerializedBVH, BufferGeometry, {setIndex?}) -> MeshBVH` | static  | rebuild-free re-open from a snapshot |
 
-## [05]-[MATH_DEBUG_MERGE]
+## [04]-[MATH_DEBUG_MERGE]
 
 [MATH_PRIMITIVES]: the exact-intersection value objects leaf callbacks and clash queries return — extended `three` math types carrying the tests the base library omits, `OrientedBox` the arbitrarily-rotated box a section plane or brush volume tests against.
 
@@ -165,7 +156,7 @@
 - `BVHHelper` fields: `opacity`, `depth`, `color`, `displayParents`, `displayEdges`, `edgeMaterial`, `meshMaterial`.
 - `getBVHExtremes` → `ExtremeInfo[]`: `nodeCount`, `leafNodeCount`, `surfaceAreaScore`, `depth`, `primitives`, `splits`.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One tree per residency-loaded geometry, built once at graft and parked on `geometry.boundsTree`; a vertex-buffer mutation calls `refit`, never a rebuild.
@@ -182,9 +173,3 @@
 - imported only inside the `ui/viewer` Nx project (`scope:viewer`); the `ui` core never resolves the BVH engine or its worker/GPU deps.
 - `three` prototype patching is host-wide: a multi-owner host constructs `MeshBVH` explicitly, or admits one patch owner or a ref-counted lease that snapshots each patched prototype member and restores it after the final release.
 - pick the leaf class by geometry topology and query through the one `shapecast` descent — never fork a per-shape query method the library already specializes.
-
-[RAIL_LAW]:
-- Package: `three-mesh-bvh`
-- Owns: BVH spatial acceleration over `three` geometry — the `BVH`→`GeometryBVH` class tree and its leaves, the `shapecast`/`bvhcast`/`refit`/`traverse` core, the `MeshBVH` raycast/distance/overlap queries, the `computeBoundsTree`/`acceleratedRaycast` prototype extensions and batched twins, the `BVHOptions` build bag, the worker builders, the GPU-shader surface (`MeshBVHUniformStruct`/`BVHShaderGLSL`/`BVHComputeData`), the `ExtendedTriangle`/`OrientedBox`/`StaticGeometryGenerator` math and merge primitives, `SerializedBVH` serialization, and the debug/inspection utilities
-- Accept: one tree per residency-loaded geometry, `refit` on mutation, `raycastFirst` as the pick hot path, merged-assembly and point-cloud trees, worker-built `SharedArrayBuffer` trees, explicit construction or one ref-counted host patch owner
-- Reject: brute-force per-triangle raycast or distance scans where a tree serves, a module-load global prototype patch two apps contend over, a per-shape query method family instead of `shapecast`, rebuilding where `refit` re-fits mutated bounds, blocking the render thread on a large-geometry build the worker builders move off-thread

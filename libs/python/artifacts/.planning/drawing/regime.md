@@ -19,7 +19,7 @@ No `ezdxf` lowering crosses this owner: `Terminator.lowering` publishes the line
 - Boundary: no `ezdxf` or host-resource authoring (`drawing/standard#STANDARD`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no colour conversion (`graphic/color/derive#DERIVE` — pen rows carry coordinates, never a conversion arm); no font-binary read (`typography/font#FONT` — the fold consumes the `FaceMetrics` value); no theme selection (`graphic/style#STYLE`); no sheet placement, plan node, or rail beyond the codec `Result` — the substrate is total.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from enum import StrEnum
 from typing import Annotated, Final, Literal, Self, assert_never

@@ -2,17 +2,7 @@
 
 `rustworkx` (artifacts overlay) owns presentation-graph BUILD, coordinate LAYOUT, DAG-ORDER for AEC cross-reference dependency graphs, and the `node_link_json` content-key WIRE. Graph-ANALYSIS — path, centrality, coloring, matching, cut, isomorphism, community — stays the `data/graph/graph#GRAPH` owner's, the two `.api` tiers splitting by concern; `libs/python/data/.api/rustworkx.md` carries the full Rust-core surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rustworkx`
-- package: `rustworkx` (Apache-2.0)
-- module: `import rustworkx as rx`; `rustworkx.visualization` / `rustworkx.generators` submodules
-- owner: `artifacts`
-- rail: figure
-- role: figure + AEC-documentation overlay of the data-tier canonical surface — BUILD, LAYOUT, DAG-ORDER, WIRE
-- abi: abi3 wheel, interpreter-independent
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph containers — `_as_graph` build targets over arbitrary node/edge payloads with stable, never-recycled integer indices, so a `NodeIndices` value is the durable key the resolved `Pos2DMapping`, the emitted `DiagramGlyph`, and a sibling node-attribute frame all share unre-keyed
 
@@ -50,7 +40,7 @@
 |  [04]   | `rx.JSONSerializationError` / `rx.JSONDeserializationError` | exception     | `node_link_json` / `parse_node_link_json` round-trip    |
 |  [05]   | `rx.InvalidNode` / `rx.NoEdgeBetweenNodes` / `rx.NullGraph` | exception     | invalid index / missing edge / empty-graph precondition |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: presentation-graph construction from the `data/graph/graph#GRAPH` adjacency frame — the container build and derive members are `[02]`; the module-level ingress functions below feed the `_as_graph` fold
 
@@ -107,7 +97,7 @@
 |  [05]   | `rx.visualization.graphviz_draw`                  | egress  | Graphviz-rendered `PIL.Image` fallback raster, not the bound `drawsvg`  |
 |  [06]   | `rx.generators.{grid_graph, full_rary_tree, ...}` | static  | synthetic layout / figure fixtures; `directed_*` return a `PyDiGraph`   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Import at boundary scope inside the `to_thread.run_sync` offload kernel; this owner never subclasses the `rustworkx.visit` bases — event-stepped walks are the data plane.
@@ -126,8 +116,3 @@
 
 [LOCAL_ADMISSION]:
 - Admitted through the data-tier canonical catalog and registered for artifacts, never re-catalogued; this overlay scopes only the figure and AEC-documentation BUILD/LAYOUT/DAG-ORDER/WIRE surface, the graph-ANALYSIS kernel staying the `data/graph/graph#GRAPH` owner's as the no-overlap line between the two tiers.
-
-[RAIL_LAW]:
-- Package: `rustworkx`
-- Owns: the figure and AEC presentation/dependency graph containers, the container BUILD and derive surface, the coordinate LAYOUT family returning `Pos2DMapping`, the DAG-ORDER surface for cross-reference dependency graphs, the `node_link_json` content-key and round-trip WIRE, and the DOT / preview egress.
-- Reject: a second graph-ANALYSIS kernel where `data/graph/graph#GRAPH` holds it; a per-graph-type or per-diagram-kind layout family where the bare polymorphic form discriminates; a hand-rolled spring/Fruchterman-Reingold or Sugiyama loop where `spring_layout` / `grandalf` own them; a re-keying of layout coordinates away from the stable node index; a bare `node_link_json` call whose null `data` collapses glyph-distinct graphs; a post-hoc cross-reference cycle scan where `PyDAG` / `check_cycle` rejects at mutation; a synchronous native layout left on the event loop; the `visualization.graphviz_draw` / `mpl_draw` bundled drawers as the bound figure renderer where `visualization/diagram/draw#DRAW` owns SVG emission; rustworkx as the ISO 19650 or CSI classification authority; re-exporting result carriers through thin rename wrappers.

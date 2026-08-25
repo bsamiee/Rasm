@@ -12,7 +12,7 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 ## [02]-[VECTOR_LATTICE]
 
 [VECTOR_LATTICE]:
-- Law: `Vector` encodes with its slots SORTED by replica id, the canonical order the peer runtimes hold, so one causal position yields one byte string wherever it is hashed; bucket or insertion order forks every digest taken over an encoded vector and is what leaves a cross-runtime fixture unfreezable.
+- Law: `Vector` encodes with its slots SORTED by replica id, the canonical order the peer runtimes hold, so one causal position yields one byte string wherever it is hashed; bucket or insertion order forks every digest taken over an encoded vector, so two runtimes standing at one causal position disagree on its key.
 - Boundary: `Envelope.identity` is a content digest and the `Dot` is the operation identity, and the two never merge — a dot repeating under a DIFFERENT content digest is an equivocation the buffer reports, where a log keying entries on content reads two peers writing identical bytes as one operation and discards the second.
 
 ```typescript

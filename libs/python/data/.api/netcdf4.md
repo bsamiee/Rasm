@@ -2,17 +2,7 @@
 
 `netCDF4` binds the Unidata netCDF-4 C library: hierarchical group/dimension/variable containers, CF time conversion through `cftime`, multi-file aggregation, MPI-collective I/O, in-memory datasets, and HDF5 compression/quantization filters. `xarray.open_dataset(engine="netcdf4")` is the `data` field-dataset CF entry, and this owner is reached directly for low-level CF metadata, structure authoring, and byte-payload round-trips `xarray` does not expose.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `netCDF4`
-- package: `netcdf4` (MIT)
-- import: `import netCDF4`
-- owner: `data`
-- rail: field-dataset — the CF reader engine over netCDF-4/HDF5
-- asset: C extension `_netCDF4` links netCDF-C over HDF5; blosc/bzip2/zstd/szip filter plugins ship bundled, gated to whichever the Forge build enabled
-- capability: netCDF-4/HDF5 file I/O, group/dimension/variable authoring, CF time conversion (`cftime`), multi-file aggregation, MPI-collective I/O, in-memory datasets, and compression/quantization filters
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and group containers
 
@@ -43,7 +33,7 @@
 
 [Variable members]: `dimensions` `dtype` `datatype` `ndim` `shape` `size` `mask` `scale` `always_mask` `name`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Dataset lifecycle — the ctor, the `fromcdl` factory, and `Dataset` instance methods
 - ctor carry: `mode`, `clobber`, `format`, `diskless`, `persist`, `memory`, `keepweakref`, `parallel`, `comm`, `info`, `auto_complex`
@@ -129,7 +119,7 @@ Ctor kwarg groups: `diskless`/`persist`/`memory` open an in-memory dataset, `par
 |  [13]   | `rc_get(key)`                                                   | get runtime configuration value                |
 |  [14]   | `rc_set(key, value)`                                            | set runtime configuration value                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Dataset` and `Group` share one method surface; `Group` is a child container obtained via `createGroup` or `groups[name]`.
@@ -153,9 +143,3 @@ Ctor kwarg groups: `diskless`/`persist`/`memory` open an in-memory dataset, `par
 - Route CF time through `date2num`/`num2date` with explicit `units` and `calendar`; `auto_complex=True` reconstructs paired real/imag complex variables, and `dtype_is_complex` classifies a dtype string.
 - Variable reads return masked, scaled arrays; drop to `set_auto_mask(False)`/`set_auto_scale(False)`/`set_auto_maskandscale(False)` only where downstream owns fill values and `scale_factor`/`add_offset`.
 - Gate every `compression=` codec and `parallel=True` on the matching `__has_*` flag, since the build links only the native filters and MPI the Forge toolchain enabled.
-
-[RAIL_LAW]:
-- Package: `netCDF4`
-- Owns: netCDF-4/HDF5 file I/O, dimension/variable authoring, CF time conversion via `cftime`, multi-file aggregation, MPI-collective I/O, in-memory datasets, and compression/quantization filters
-- Accept: context-manager open; `date2num`/`num2date` for CF time; `createVariable` with build-flag-gated compression and chunksizes; `memory=`/`diskless=` for object-store round-trips; `parallel=True` under `__has_parallel_support__`
-- Reject: hand-rolled netCDF byte parsing; direct HDF5 manipulation netCDF4 already covers; hand-decoded CF unit strings `cftime` owns; a second engine path when `xarray` `engine='netcdf4'` already routes here

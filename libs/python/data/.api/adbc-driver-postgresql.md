@@ -2,15 +2,7 @@
 
 `adbc-driver-postgresql` supplies the native ADBC PostgreSQL driver for the data partition rail: a `connect` factory binding `libadbc_driver_postgresql.so` to a libpq URI as an `AdbcDatabase`, and two `enum.Enum` option vocabularies `ConnectionOptions`/`StatementOptions` keying `adbc.postgresql.*` settings. Its distinctive capability is `COPY`-path bulk ingest under `StatementOptions.USE_COPY`; partitioned execution refuses outright. `adbc_driver_manager` owns the DBAPI, ingest, partition, and metadata surface; this catalog adds the postgres option vocabulary and `COPY` law.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `adbc-driver-postgresql`
-- package: `adbc-driver-postgresql` (Apache-2.0)
-- module: `adbc_driver_postgresql`
-- owner: `data`
-- rail: partition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: factory and option vocabularies
 
@@ -20,7 +12,7 @@
 |  [02]   | `ConnectionOptions` | option enum   | connection-scoped `adbc.postgresql.*` setting keys        |
 |  [03]   | `StatementOptions`  | option enum   | statement-scoped keys — `COPY` toggle and batch-size hint |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection factories
 
@@ -51,7 +43,7 @@
 | :-----: | :------------------- | :------- | :----------------------------------------------------- |
 |  [01]   | `Cursor.adbc_ingest` | instance | stream an Arrow table into postgres over binary `COPY` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - concrete ADBC driver: `connect` pre-binds `libadbc_driver_postgresql.so`; this catalog owns the postgres `adbc.postgresql.*` option vocabulary and the binary `COPY` ingest/read law, delegating driver loading, the DBAPI surface, transaction control, partition reads, metadata, and Arrow delivery to `adbc_driver_manager`.
@@ -74,9 +66,3 @@
 - catalog, schema, table, and column discovery route through the manager's `adbc_get_objects` at the requested `depth`, with `adbc_get_table_schema` and `adbc_get_statistics` returning Arrow — never a hand-written `information_schema`/`pg_catalog` query.
 - each connection exposes partition metadata: resolved URI with credentials redacted, applied option keys, ingest mode and row count, and Arrow schema.
 - `adbc_driver_postgresql` owns libpq transport, `COPY` ingest, option application, and streamed Arrow result delivery, emitting Arrow record batches to the data partition owner; result materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
-
-[RAIL_LAW]:
-- Package: `adbc-driver-postgresql`
-- Owns: libpq endpoint binding, Arrow `COPY`-path bulk ingest, streamed Arrow result delivery, and the postgres `adbc.postgresql.*` option vocabulary
-- Accept: remote postgres reads feeding Arrow record batches to the data partition, query, and dataframe owners; Arrow-table bulk load over binary `COPY`
-- Reject: a partitioned-read plan over postgres where `AdbcStatementExecutePartitions` refuses; wrapper-renames of `connect`/`dbapi.connect`; a hand-stitched `COPY` encoder or per-row insert loop where `adbc_ingest` streams the whole Arrow table; a hand-written `pg_catalog` query where the manager's `adbc_get_objects` returns Arrow; a `DatabaseOptions`-style table duplicating libpq URI keywords; string-literal option keys bypassing `ConnectionOptions`/`StatementOptions`

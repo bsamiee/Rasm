@@ -4,15 +4,7 @@
 
 C# `Rasm.AppUi/Shell/solver` produces the authoritative solve; the TS replay reproduces its tableau bit-for-bit over the identical ordered program, so positional drift is a program-construction defect, never a re-solve tolerance.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@lume/kiwi`
-- package: `@lume/kiwi` (BSD-3-Clause)
-- module: `@lume/kiwi` ESM barrel (`kiwi.d.ts`), self-contained; no peer, no runtime dependency
-- runtime: CPU-only, no DOM, GL context, or React binding; the `ui/viewer` Nx project admits it and the core `ui` never imports it
-- rail: viewer/panel/layout
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: constraint algebra and incremental tableau solver
 
@@ -27,7 +19,7 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 |  [05]   | `Strength.create(a, b, c, w?)`          | class         | numeric strength algebra seeding `required`/`strong`/`medium`/`weak`    |
 |  [06]   | `Solver`                                | class         | the incremental simplex re-solve engine                                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fold the wire program into a solver, re-solve, read positions
 
@@ -46,7 +38,7 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 |  [09]   | `suggestValue(v, value)` then `updateVariables()`        | instance | per-frame drag target, then incremental re-solve        |
 |  [10]   | `v.value()` after `updateVariables()`                    | instance | the solved coordinate the panel binds — the seam output |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one incremental solver: `Solver` holds a simplex tableau; `addConstraint`/`removeConstraint`/`suggestValue` mutate it and `updateVariables()` re-optimizes without a rebuild, while `maxIterations` (default `10000`) caps iteration to fail loud on a pathological program.
@@ -65,9 +57,3 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 - `scope:viewer` project-local, pure numeric solve with no DOM or GL; the core `ui` never imports it.
 - `ui` draws every constraint from the wire program and adds only edit-variable suggestions, never a structural constraint.
 - strengths resolve through `Strength.create` or the named constants, never a hardcoded magic number.
-
-[RAIL_LAW]:
-- Package: `@lume/kiwi`
-- Owns: the incremental Cassowary re-solve of the ordered `LayoutConstraintWire` program, the `Variable`/`Expression`/`Constraint`/`Strength` algebra, and the edit-variable drag protocol
-- Accept: one `Solver` folding the decoded program in wire order, `Strength.create` or named constants for every strength, `addEditVariable`+`suggestValue`+`updateVariables` for live drag, `Variable.value()` as the seam-verified position read
-- Reject: authoring/reordering/re-strengthening constraints in `ui`, a TS-side algebra re-mint diverging from wire order, `required`-strength edit variables, a re-solve-until-close loop hiding a construction defect, importing it into the core `ui`, hand-rolling a linear solver

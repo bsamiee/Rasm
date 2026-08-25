@@ -4,15 +4,7 @@
 
 Domain state is the `@effect-atom` fold reached only through the mutable data hooks; react-aria-components is the default consumer, a standalone hook the escape hatch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-stately`
-- package: `react-stately` (Apache-2.0)
-- module: ESM/CJS dual with a per-hook `./*` subpath mirroring each `@react-stately/*` module; `sideEffects`-clean, so the barrel tree-shakes to the used hooks
-- runtime: isomorphic — renderer-agnostic state, no DOM; pairs with react-aria for behavior and a renderer for DOM
-- rail: the headless plane — `system/primitive` composes a state hook with its react-aria behavior hook, `view/table` drives dynamic collections through the data hooks
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the shared collection + selection substrate every collection-backed pattern folds over, defined once and reused across list/tree/table/menu/combobox
 
@@ -50,7 +42,7 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 - `TokenFieldValue<T>` is a persistent immutable class, not a state bag: `segments` is a readonly array of `TextSegment {type:'text', text}` and `TokenSegment<T> {type:'token', text, value?}`; `caretPosition` is a `Position {index, offset}` (offset in UTF-16 code units) with `withCaretPosition`; editing is `replaceRange(start, end, text, coalesce?)`, `replaceRangeWithSegments`, `delete(position, segmenter, direction, coalesce?)`, `deleteLine`, and `slice`; search is `findBoundaryWithSegmenter(position, Intl.Segmenter, direction)`, `findLineBoundary`, and `findText(position, direction, string | RegExp)`; history is `undo()`/`redo()` with the `coalesce?` flag opening a window `endCoalescing()` closes. Every mutator answers a NEW `this`-typed instance. `TokenFieldValue.Direction` (`Forward = 1`, `Backward = -1`) types the direction argument, and the barrel carries those values only through that static. Two protected members carry the subclass seam — `tokenize(text)` states the grammar and `createFieldValue(segments)` preserves the subclass type through every mutator; overriding the first alone widens each edit back to the base class.
 - `useTokenFieldState` is deliberately thin — `{value, setValue, isComposing, setComposing}` and nothing else — because the value class already owns the caret, the history, and the grammar.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the mutable client-collection data hooks — react-stately's one seam to app data
 
@@ -101,7 +93,7 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 |  [19]   | `Rect` / `Size` / `Point` / `LayoutInfo` / `ReusableView`             | layout geometry | virtualizer geometry + recycled view    |
 |  [20]   | `FormValidationContext`                                               | validation ctx  | `Schema`→aria `FormBinding` error sink  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `use<P>State` owns one ARIA pattern's interaction state and nothing else; a new pattern is a new hook over the shared substrate, never a fork of the selection engine or a god-object.
@@ -124,9 +116,3 @@ Domain state is the `@effect-atom` fold reached only through the mutable data ho
 - Hold only interaction-local state in a `<P>State`; domain data is the `@effect-atom` fold, bridged by `useListData`/`useAsyncList`/`useTreeData`.
 - Drive dynamic/server collections through `useAsyncList.load` (the Effect-run boundary) or an atom-fed `useListData`, never a hand-rolled `useEffect`+`useState` fetch lifecycle.
 - Reference `SelectionMode`/`SelectionBehavior`/`DisabledBehavior`/`SortDescriptor` by value and let the shared `.selectionManager` own selection; feed field validity through `FormValidationContext` from the `Schema` `FormBinding`.
-
-[RAIL_LAW]:
-- Package: `react-stately`
-- Owns: the framework-agnostic interaction-state layer — the shared `Collection`/`Node`/`MultipleSelectionManager` substrate, the mutable client data hooks, the collection builders (`Item`/`Section`/`useCollection`), and one `use<P>State` hook per ARIA pattern across collections, fields, triggers, date/color/toast, dnd, and virtualizer/layout
-- Accept: react-aria-components as the default consumer, standalone `use<P>State` for custom primitives, interaction-local state only, `useAsyncList`/`useListData`/`useTreeData` as the Effect-plane data bridge, value-referenced selection vocabulary over the shared `SelectionManager`
-- Reject: react-stately as a domain store, domain state mirrored into a `<P>State`, hand-rolled selection/focus/collection logic, a manual async-fetch lifecycle replacing `useAsyncList`, and both the built-in virtualizer and TanStack virtual on one collection

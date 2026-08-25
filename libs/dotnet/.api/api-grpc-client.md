@@ -2,15 +2,7 @@
 
 `Grpc.Net.Client` owns the client half of the gRPC wire — one long-lived `GrpcChannel` per endpoint over an HTTP/2 transport, the `CallInvoker` chain policy layers under, and the `ServiceConfig` data tree driving retry, hedging, resolution, and balancing without a call-site branch. Server hosting stops at this boundary, and every remote fault leaves as one `RpcException` carrying `Status` with trailers, so the typed fault rail folds at a single point.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.Net.Client`
-- package: `Grpc.Net.Client` (Apache-2.0)
-- assembly: `Grpc.Net.Client`
-- namespace: `Grpc.Net.Client`, `Grpc.Net.Client.Configuration`, `Grpc.Net.Client.Balancer`
-- rail: remote-client
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: channel roots with the `Grpc.Net.Client.Configuration` service-config algebra
 
@@ -83,7 +75,7 @@
 |  [13]   | `AuthInterceptorContext`                       | class         | service URL and method under an auth stamp |
 |  [14]   | `ConnectivityState`                            | enum          | channel connectivity vocabulary            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `GrpcChannel` lifecycle and connectivity
 
@@ -246,7 +238,7 @@
 - `SocketsHttpHandler.ConnectCallback`: setting it forfeits the channel's connectivity and balancing surface, demoting the channel to `HttpHandlerType.Custom`, whose passive transport reports Ready without connecting.
 - `CallOptions.WithWaitForReady`: one site consumes the flag, the pick-failure arm, so a `ConnectCallback` channel accepts it and does nothing — a dead peer fails fast `Unavailable` with it set exactly as without it, while the connectivity members throw loudly on that same channel; on a balanced channel the queueing spends the call deadline, which arms before the send.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `GrpcChannel` is the one long-lived object: minted once per endpoint with its full `GrpcChannelOptions`, reused for every call, disposed once.
@@ -271,9 +263,3 @@
 - Remote calls enter through client channels; server hosting stays outside this package graph.
 - Retry and hedging stay data-driven `ServiceConfig` the channel applies under `DisableResolverServiceConfig = true`; the `Polly.Core` outbound hop owns cross-cutting resilience, so gRPC service config never becomes a second resilience owner stacking budgets.
 - `StaticResolverFactory` admits a DNS-free fixed-endpoint set; a custom `LoadBalancer` or `SubchannelPicker` is composition-root work, never a call-path decision.
-
-[RAIL_LAW]:
-- Package: `Grpc.Net.Client`
-- Owns: the client channel, its transport policy, the invoker chain, and the client-side service-config algebra
-- Accept: one warm channel per endpoint, one interceptor chain, a per-call `CallOptions` copy, and `ServiceConfig` rows as data
-- Reject: a hand-rolled retry loop, a channel minted per call, and a per-call status/detail map beside `FaultWire.Decode` and the `WireFault` rail

@@ -2,7 +2,6 @@
 
 The dataset-reference identity owner and the folder's scan base: one polymorphic `DatasetRef` discriminating by source shape, the cross-engine lazy/streaming scan, the request-scoped DuckDB session rail, the typed columnar egress, and the content-keyed query result. The folder's scan base above `interop` alone — it imports that one module downward for the `arrow_bytes` serialization and holds zero back-edges, so every other folder composition edge points strictly down into it.
 
-
 ## [01]-[INDEX]
 
 - [02]-[DATASET]: the `DatasetRef` identity owner discriminating the columnar source shapes.

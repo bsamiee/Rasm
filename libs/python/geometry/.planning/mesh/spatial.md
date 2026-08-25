@@ -22,7 +22,7 @@ Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geome
 - Boundary: vertex-KNN acceleration (`open3d.geometry.KDTreeFlann`, `small_gicp.KdTree.batch_knn_search`) is NOT this owner's backend — a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/registration` consumer that owns the cloud-to-vertex correspondence; IFC clash detection is `ifc/analysis#ANALYSIS`'s `ifcclash` drive, never this index; conditioning is `mesh/repair#MESH`'s and the capability probe with it; metrology is `mesh/quality#QUALITY`'s.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Sequence
 from functools import partial
 from typing import Final, Literal, assert_never, overload

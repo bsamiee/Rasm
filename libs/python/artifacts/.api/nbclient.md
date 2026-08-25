@@ -2,18 +2,7 @@
 
 `nbclient` owns the Jupyter notebook execution runtime for the `artifacts` notebook rail: `NotebookClient` drives the full kernel lifecycle — cell-by-cell execution, per-cell timeout, output-hook and widget-state capture — and folds every cell, timeout, and kernel fault onto a typed exception family. `async_execute` is the authoritative coroutine entrypoint; every sync method trampolines it through `run_sync`, so the async mirror carries the real signature. Rail composition rides the `anyio` loop natively, never a worker thread.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nbclient`
-- package: `nbclient` (BSD-3-Clause)
-- module: `nbclient`
-- owner: `artifacts`
-- rail: notebook
-- asset: pure-Python runtime, no native ABI
-- depends: `nbformat` (the `NotebookNode` model), `jupyter_client` (`KernelManager`/`KernelClient` protocol), `traitlets` (config-trait base)
-- exports: `NotebookClient` and `execute` at the package root; the fault family from `nbclient.exceptions`, `OutputWidget` from `nbclient.output_widget`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and one-shot entry
 
@@ -42,7 +31,7 @@
 |  [02]   | `CellExecutionError.from_cell_and_msg(cell, msg)`                  | build from a cell + kernel `error` reply dict; folds stream output |
 |  [03]   | `CellTimeoutError.error_from_timeout_and_cell(msg, timeout, cell)` | build a timeout fault with a previewed cell-source snippet         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: notebook execution — `nbclient.NotebookClient`
 
@@ -123,7 +112,7 @@ nbclient fires these eight `Callable` traits around the notebook and per-cell li
 |  [07]   | `on_cell_complete`     | `Callable`   | hook after a cell fully completes (`fn(cell=, cell_index=)`)                 |
 |  [08]   | `on_cell_error`        | `Callable`   | hook when a cell raises (`fn(cell=, cell_index=, execute_reply=)`)           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `async_execute` awaited directly on the `anyio` loop is the one rail form; it returns the mutated in-memory `NotebookNode`. Every sync method is a `run_sync(async_…)` trampoline, so a sync `execute` inside a running event loop is the nested-loop hazard the `async_` mirror avoids; `setup_kernel`/`async_setup_kernel` own explicit kernel lifecycle when the client outlives one `execute`.
@@ -143,9 +132,3 @@ nbclient fires these eight `Callable` traits around the notebook and per-cell li
 - `km` accepts an externally managed `KernelManager`; when absent the client builds one from `kernel_manager_class` and destroys it. `kernel_name=''` defers to the notebook's kernelspec; the rail pins `kernel_name="python3"` and threads the same value into `parameterize_notebook` so a non-Python kernel routes its own `papermill` translator.
 - `document/report`'s `async_boundary` catches every fault; the `CLASSIFY` table routes by family: `CellTimeoutError` lands on the `deadline` row through its stdlib `TimeoutError` base, while `CellExecutionError` (`<- Exception`) and `DeadKernelError` (`<- RuntimeError`) land on the `boundary` catch-all — the rail never catches an nbclient fault itself.
 - `CellExecutionError` carries `traceback`/`ename`/`evalue` from the kernel, embeds the error output in the node, and is picklable (`__reduce__`) so it survives a process boundary; `DeadKernelError` requires a kernel restart and is not recoverable by the same `NotebookClient` instance.
-
-[RAIL_LAW]:
-- Package: `nbclient`
-- Owns: Jupyter notebook kernel lifecycle, cell-by-cell execution, output/widget capture, timeout enforcement, and the typed-fault family (`CellExecutionError`/`CellTimeoutError`/`DeadKernelError`).
-- Accept: `NotebookNode` from `nbformat` mutated in place; `KernelManager`/`KernelClient` from `jupyter_client`; a `papermill.parameterize_notebook`-injected node; bounded-safety traits projected through `NotebookEngine.client_kwargs()`.
-- Reject: hand-rolled kernel protocol; a parallel notebook runner duplicating the execution loop; a `NotebookClient` subclass where a trait or `client_kwargs` projection carries the config; an `on_*` hook on the keyed plan where a `Callable` is not a serializable reproducibility fact; a sync `execute` inside the running event loop where `async_execute` is correct; a local `try`/`except` around `async_execute` where the `async_boundary` fold owns the conversion onto the rail.

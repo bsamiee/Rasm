@@ -2,16 +2,7 @@
 
 `trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange rail: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load_scene`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `trimesh`
-- package: `trimesh`
-- import: `import trimesh`
-- owner: `geometry`
-- rail: mesh
-- capability: mesh/scene/path IO across `obj`/`ply`/`stl`/`off`/`glb`/`gltf`/`dae`/`3mf`/`xyz`/`dxf`/`svg`; primitive creation from extents and `shapely` polygons, convex hull and VHACD decomposition, minimum bounds, manifold boolean CSG, rigid and non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remesh, hole/normal/winding repair, signed-distance/closest-point/thickness proximity, surface/volume sampling, ray casting, FCL collision, and voxelization
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry roots (`trimesh`)
 
@@ -63,7 +54,7 @@ Persistent query objects amortize index construction across many queries; batch 
 - [04]-[COLLISION]: `in_collision_internal/single/other`, `min_distance_internal/single/other`, `set_transform`.
 - [05]-[VOXEL]: `matrix`, `points`, `as_boxes()`, `fill`/`hollow`, `marching_cubes`, `revoxelized`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: polymorphic IO (`load_scene`, `export`, `available_formats`)
 
@@ -193,7 +184,7 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 |  [19]   | `mesh.apply_transform(matrix)`                                                       | rigid/affine transform                      |
 |  [20]   | `mesh.apply_scale(factor)`                                                           | scale in place                              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `import trimesh` at boundary scope only; a module-level import violates the manifest import policy.
@@ -215,9 +206,3 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 
 [LOCAL_ADMISSION]:
 - `trimesh` is the admitted triangle-mesh modeling, conditioning, and exchange backend for the geometry branch; the mesh and geometry owners compose its IO, operation modules, and query owners rather than a parallel codec, boolean, or spatial-index surface.
-
-[RAIL_LAW]:
-- Package: `trimesh`
-- Owns: triangle-mesh/scene/path IO, primitive creation from `shapely` profiles, convex hull and VHACD decomposition, minimum bounds, manifold boolean CSG, ICP/Procrustes/non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remesh, hole/normal/winding repair, signed-distance/closest-point/thickness proximity, surface/volume sampling, ray casting, FCL collision, and voxelization
-- Accept: triangle-mesh modeling, conditioning, and exchange feeding the geometry and mesh owners; the shared 4x4 registration transform
-- Reject: wrapper-renames of `load_scene`/`export`; the deprecated `load` shim in any `force` posture where a typed loader names the return; a hand-rolled mesh IO codec, boolean kernel, sparse-Laplacian solve, convex hull, R-tree, or FCL binding trimesh already binds; a `load_<format>`/`export_<format>` or `Add<Op>` family over the format/operation argument; a mesh-file encode bypassing the data `MeshPayload` codec; `.3dm`/OpenNURBS (routes to `rhino3dm`), STEP/AP242 BREP (routes to generated `CadService`), or point-cloud scan reconstruction (`open3d`) surfaces trimesh does not own

@@ -2,16 +2,7 @@
 
 `Avalonia.Controls.ColorPicker` owns the color-editing control family: `ColorView` is the full editor (spectrum, palette grid, hex input, component sliders, preview) and `ColorPicker : ColorView` wraps it in a flyout button. Selected color crosses as the typed Avalonia.Media `Color`/`HsvColor` pair kept in sync under a `ColorChanged` event, hex transport rides the static `ColorToHexConverter` codec, and swatch grids plug through `IColorPalette` — the sRGB luminance transport defers to the shared `Wacton.Unicolour` kernel.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Controls.ColorPicker`
-- package: `Avalonia.Controls.ColorPicker` (MIT)
-- assembly: `Avalonia.Controls.ColorPicker`
-- namespace: `Avalonia.Controls`, `Avalonia.Controls.Primitives`, `Avalonia.Controls.Converters`
-- asset: managed runtime library with embedded `avares://` XAML control templates
-- rail: controls
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [COLOR_CONTROLS]: editor and slider/spectrum control classes over the Avalonia templated-control base
 
@@ -51,7 +42,7 @@
 |  [04]   | `ColorToDisplayNameConverter` | converter     | `Color` -> display name                        |
 |  [05]   | `ColorHelper`                 | static        | `ToDisplayName`/`ToDisplayNameExists` metadata |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [EDITOR_STATE]: styled properties on `ColorView`, inherited unchanged by `ColorPicker`; `ColorChanged` is the sole event
 
@@ -91,7 +82,7 @@
 |  [05]   | `ColorSpectrum.Shape` / `.Components` / `.ThirdComponent`             | box/ring, plotted axes, third-axis slider  |
 |  [06]   | `ColorSpectrum.{Min,Max}{Hue,Saturation,Value}`                       | spectrum HSV bounds                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ColorView` is the editor and `ColorPicker` its flyout wrapper inheriting the whole `ColorView` surface and its `Content`/`ContentTemplate`; an inline editor binds `ColorView`, a popup binds `ColorPicker`.
@@ -106,9 +97,3 @@
 
 [LOCAL_ADMISSION]:
 - A brand palette is an `IColorPalette` data source feeding `ColorView.Palette`, laid out by `ColorCount`×`ShadeCount` under `PaletteColumnCount`.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Controls.ColorPicker`
-- Owns: the color-editor controls, the `ColorModel`/`ColorViewTab`/component vocabularies, the `IColorPalette` grid contract, the public hex codec, and the color-change event flow.
-- Accept: typed editors with explicit `ColorModel`, palette, alpha, and spectrum state; selected color crossing as Avalonia.Media `Color`/`HsvColor`; RGB<->HSV via Avalonia.Media `Color.ToHsv()`/`HsvColor.ToRgb()`; hex through the `ColorToHexConverter` statics.
-- Reject: custom picker forks; string-only color transport as a UI model; composing the `internal` `Primitives.Hsv`/`Rgb`/`ColorPickerHelpers` structs; hand-rolled hex formatting past `ToHexString`/`ParseHexString`; luminance via `ColorHelper.GetRelativeLuminance` where the Unicolour kernel owns the transform.

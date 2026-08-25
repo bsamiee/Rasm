@@ -2,16 +2,7 @@
 
 `protobuf-py` owns the estate wire message runtime: every generated `_pb.py` class subclasses `Message` and carries its own binary and ProtoJSON codecs, each generated module hands back a `desc()` file descriptor, and one `Registry` resolves type names for `Any`, JSON `@type`, and extensions. Generator and runtime pin as one pair, and `protobuf.plugin` mints an estate generator against those same descriptors.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `protobuf-py`
-- package: `protobuf-py` (Apache-2.0)
-- module: `protobuf`
-- namespaces: `protobuf`, `protobuf.wkt`, `protobuf.plugin`, `protobuf._codegen`
-- abi: `protobuf-py-ext` ships `protobuf_ext.NativeMessage` as the slot-backed field store seated into every generated class's MRO on the CPython wheel matrix; every other interpreter binds a pure-Python store carrying the same surface
-- rail: transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message family
 
@@ -87,7 +78,7 @@
 |  [03]   | `Ident`  | value         | `name` `module` `type_only` import-aware identifier for a generated symbol   |
 |  [04]   | `Module` | value         | `path` of one generated module; mints the idents and submodules under it     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: message codecs
 - JSON emitters carry: `registry`, `always_emit_implicit`, `print_enums_as_ints`, `use_proto_field_name`; JSON readers carry: `ignore_unknown_fields`, `registry`.
@@ -170,7 +161,7 @@
 
 - `_codegen` is the generator's private contract: a generated module imports `file_desc` alone, the `descriptor_pb` bootstrap imports `_codegen.Message` beside `boot` and `unset`, and a hand-written module imports none of them.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every generated module `<name>_pb.py` sits beside its proto path, imports cross-file siblings relatively, reaches well-known types through `protobuf.wkt`, and closes on `_DESC = file_desc(...)` under a `desc()` reader; `protoc-gen-py` carries one option, `init_files` (default true), and `init_files=false` leaves every generated directory a PEP 420 namespace package.
@@ -198,9 +189,3 @@
 [LOCAL_ADMISSION]:
 - `protobuf-py` and `protoc-gen-py` pin as one pair in the manifest, and the `_pb.py` tree regenerates on every runtime bump.
 - fences call `Message.from_binary` / `to_binary` / `from_json` / `to_json` on the generated class, and the `ValueError` a parse failure raises maps to a domain fault at the admission boundary, never past it.
-
-[RAIL_LAW]:
-- Package: `protobuf-py`
-- Owns: typed generated message classes, binary and ProtoJSON codecs, file descriptors and the `Registry`, well-known type conversions, and the protoc plugin framework
-- Accept: `_pb.py` classes from the generated `contracts` package, `Registry(<module>_pb.desc(), ...)` for `Any` and JSON resolution, `wkt` mixins at the time and dynamic-body boundaries, `protobuf.plugin.run` for an estate generator
-- Reject: hand-rolled `Message` subclasses, `google.protobuf` imports on the wire rail, digests over `to_binary()` bytes, `_codegen` members outside generated modules

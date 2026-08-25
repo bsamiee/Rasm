@@ -2,19 +2,7 @@
 
 `NREL.OpenStudio.macOS-arm64` is the osx-arm64 SWIG-generated C# binding to the NREL OpenStudio SDK: it owns the OSM `Model`, the EnergyPlus IDF/IDD object store, and the forward/reverse translator matrix between a `Model` and the neutral energy and geometry formats. `OpenStudio.dll` marshals a bundled RID-locked native runtime, and every managed wrapper holds a native handle under `IDisposable`. Two folders own disjoint legs of one binding: `Rasm.Bim` drives the OSM/IDF exchange leg — load, save, version-upgrade, and the gbXML/SDD semantic bridges meeting the `HoneybeeSchema` HBJSON authoring leg — and `Rasm.Compute` drives the `Analysis/energy` simulation lane, building a `Model` in-process from the `Rasm.Element` `ElementGraph`, forward-translating to an EnergyPlus IDF `Workspace`, and reading the post-run `SqlFile`. The EnergyPlus solver runs as a parameterized subprocess, never inside the binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NREL.OpenStudio.macOS-arm64`
-- package: `NREL.OpenStudio.macOS-arm64` (NREL OpenStudio License)
-- assembly: `OpenStudio` (`lib/netstandard2.0/OpenStudio.dll`, the managed SWIG wrapper)
-- namespace: `OpenStudio` (the model/translator/utility domain types, the `Optional<T>` and `*Vector` SWIG marshaling families, and the per-module `OpenStudio*PINVOKE` DllImport classes)
-- asset: managed binding TFM `netstandard2.0`, binding forward under net10.0; the native runtime is RID-locked to `osx-arm64`
-- native: `runtimes/osx-arm64/native/libopenstudiolib.dylib` (the SDK) with the `libopenstudio_csharp` / `libopenstudio_model_csharp` / `libopenstudio_translators_csharp` P/Invoke shims; `build/OpenStudio.targets` stages the dylibs next to consumer output
-- platform: the macOS-arm64 member of a per-RID family; a Windows or Linux host binds the sibling `NREL.OpenStudio.win-x64` / `linux-x64` package with an identical managed API over a different native runtime
-- dependency: empty net-standard dependency group; the native runtime is fully bundled with no managed transitive deps
-- rail: energy
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: SWIG marshaling primitives — the native boundary
 
@@ -155,7 +143,7 @@ Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*E
 |  [03]   | `InterpMethod` / `ExtrapMethod`                           | enum          | interp/extrap policy for time-series and curve lookups |
 |  [04]   | `ThreeSide` / `XMLValidatorType` / `ModelicaCompilerType` | enum          | three.js side culling, XML validator, Modelica target  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: load and save a model
 
@@ -211,7 +199,7 @@ EnergyPlus runs as the `EnergyToolchain`-resolved subprocess (`energyplus -w <ep
 |  [05]   | `sql.peakEnergyDemandByMonth(EndUseFuelType, EndUseCategoryType, MonthOfYear)`  | instance | per-month peak demand (W)            |
 |  [06]   | `new MonthOfYear(int) / new MonthOfYear(string)`                                | ctor     | ordinal and named month construction |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every managed type is a thin wrapper around a native handle (`HandleRef swigCPtr` with a `cMemoryOwn` flag) under `IDisposable`; drive the public `OpenStudio.*` wrappers, never the `OpenStudio*PINVOKE` DllImport classes. `build/OpenStudio.targets` stages the native dylibs next to consumer output, RID-locked to `osx-arm64`.
@@ -233,9 +221,3 @@ EnergyPlus runs as the `EnergyToolchain`-resolved subprocess (`energyplus -w <ep
 [LOCAL_ADMISSION]:
 - `Rasm.Bim` exchange leg: model read enters through `VersionTranslator.loadModel(path)` returning an `OptionalModel` lowered to `Fin<Model>`; model write enters through `model.save(path, overwrite)`; translation enters through the matching `*Translator` under a `using`, retaining `errors()`/`warnings()` on the result.
 - `Rasm.Compute` simulation leg: `Analysis/energy` builds the energy model in-process from the seam `ElementGraph` (`new Model()` with the `new Space`/`Surface`/`Construction`/`StandardOpaqueMaterial` folds), forward-translates through `new EnergyPlusForwardTranslator().translateModel`, runs the `EnergyToolchain`-resolved subprocess, and reads back through `new SqlFile(toPath(path))`.
-
-[RAIL_LAW]:
-- Package: `NREL.OpenStudio.macOS-arm64` (assembly `OpenStudio`)
-- Owns: the OSM model and EnergyPlus IDF/IDD object store, the forward/reverse translator matrix, the `VersionTranslator` robust loader, the weather/results/workflow files, the in-process model build from the seam graph, the `SqlFile` results read, and the SWIG native-handle discipline
-- Accept: OSM load/save/version-upgrade and `Model` ↔ EnergyPlus/gbXML/SDD translation at the Bim exchange leg; model build from the `Rasm.Element` `ElementGraph`, OSM→IDF forward translation, the version-matched EnergyPlus subprocess driven by the parameterized `EnergyToolchain`, and the `SqlFile` annual read at the Compute simulation leg
-- Reject: HBJSON authoring (`HoneybeeSchema` owns it), IFC semantics (GeometryGym owns it), running the EnergyPlus solver inside the binding (the resolved subprocess owns it), cross-folder leg crossing — Compute never loads or version-upgrades an `.osm` from disk and Bim never builds from the seam graph — a `get()` on an unchecked SWIG optional, a raw `string` where a `Path` is required, a leaked `OpenStudio.*` handle past a consuming boundary, and cross-platform native portability (each RID admits its own package)

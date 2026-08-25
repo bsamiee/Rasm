@@ -2,18 +2,7 @@
 
 `FlatGeobuf` owns the cloud-optimized streaming vector codec over `NetTopologySuite` features: a FlatBuffers `.fgb` carrying a Packed-Hilbert-R-tree bbox index after the header, so a bounding-box query decodes only the matching feature run and a continental dataset materializes incrementally. It reads and writes the canonical NTS `IFeature`/`FeatureCollection` directly, standing as a managed codec peer of the shapefile leg with no GDAL/OGR dependency; the planar algebra, the datum transform, and the cross-runtime GeoJSON wire stay with their own owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FlatGeobuf`
-- package: `FlatGeobuf` (BSD-2-Clause)
-- assembly: `FlatGeobuf` — the net10 consumer binds `lib/netstandard2.1`, pure-managed AnyCPU IL, ALC-safe, no per-RID native asset
-- namespace: `FlatGeobuf.NTS` (the consumer-facing NTS conversion layer domain code touches)
-- namespace: `FlatGeobuf.Index` (the `PackedRTree` Hilbert spatial index)
-- namespace: `FlatGeobuf` (the generated FlatBuffers schema structs), `Google.FlatBuffers` (bundled runtime)
-- depends: `NetTopologySuite` (`Feature`/`Geometry` algebra), `NetTopologySuite.Features`, `NetTopologySuite.IO.GeoJSON`
-- rail: geospatial (the cloud-optimized streaming managed vector arm)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: NTS conversion layer — the only namespace domain code touches, exchanging the canonical NTS `IFeature`/`FeatureCollection` directly
 
@@ -48,7 +37,7 @@
 |  [07]   | `ColumnType`             | enum          | `enum: byte` — attribute scalar type (Bool/Byte/Int/Long/Double/String/…)       |
 |  [08]   | `Helpers`                | static class  | `ReadHeader`/`GetEnvelope`/`GetCrsCode` — the header decode leg                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serialize an NTS feature set to FGB
 
@@ -87,7 +76,7 @@
 
 - `StreamSearch` yields `IEnumerable<(ulong Offset, ulong Index)>` hits, offsets index-relative and re-based onto `12 + headerSize`; `FromByteBuffer(GeometryFactory, FlatGeobufCoordinateSequenceFactory, ByteBuffer, HeaderT)` lowers each size-prefixed body record prefix-stripped.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `FeatureCollectionConversions` is the codec root: `Serialize` writes the header (feature count, bbox `Envelope`, `Crs`, `ColumnMeta` schema, R-tree node size), builds the `PackedRTree` over the feature bounding envelopes, sorts the body by Hilbert order, and streams it; `Deserialize` reads the header, walks the R-tree for a `rect` filter, and yields NTS `IFeature` rows.
@@ -107,9 +96,3 @@
 - A bbox-filtered read enters through the `Deserialize(stream, rect)` / `AsyncFeatureEnumerator` `rect` argument so the Packed R-tree pushes the clip down at the codec.
 - A remote-source streaming read enters through `PackedRTree.StreamSearch` over a `ReadNode` byte-range delegate.
 - FGB is admitted as a managed `GeoVectorSource` arm alongside shapefile and GeoJSON; geometry crosses to the kernel only as the `CoordinateSequence`/WKB the planar-triangulation arm consumes.
-
-[RAIL_LAW]:
-- Package: `FlatGeobuf`
-- Owns: the cloud-optimized streaming FGB vector codec over NTS features — header-bbox and Packed-Hilbert-R-tree index, streaming/async read with bbox push-down, the `FlatGeobufCoordinateSequence` packed layout, random-access range query, and the GeoJSON-text↔FGB bridge.
-- Accept: a `Semantics/vector#VECTOR_FOLD` managed FGB arm over the canonical NTS `GeoFeature`, a `rect` Packed-R-tree bbox read, and a `StreamSearch` remote streaming read over a byte-range `ReadNode`.
-- Reject: routing FGB through the GDAL OGR driver where the managed NTS-native codec reads it; a vendor feature type where `IFeature` exchanges directly; a client-side `Envelope.Intersects` filter after a whole-file decode where the `rect` push-down applies; downloading a whole remote `.fgb` where `StreamSearch` range-reads the window; emitting `.fgb` on the cross-runtime wire where `GeoWire` is canonical; a boolean op inside this codec where `NetTopologySuite` owns the planar algebra.

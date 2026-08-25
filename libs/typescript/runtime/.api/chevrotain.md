@@ -4,17 +4,7 @@
 
 Grammar declaration is the library's one statement-bearing seam: rules are `protected` methods recorded by calling them, so the grammar owner is a class constructed once at module initialization and every surface above it takes token vocabulary, operator table, and error rows as values. Each parser instance carries `input` and `errors` as mutable state, so a filter evaluation binds one instance per fiber rather than sharing one across concurrent admissions.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `chevrotain`
-- package: `chevrotain` (Apache-2.0)
-- module: `exports` map with ONE target — `import` and `require` both resolve `./lib/src/api.js`, which is ESM source, so `require` works on the `node >=22.0.0` engine floor alone
-- types: `./chevrotain.d.ts` re-exporting `@chevrotain/types` whole and declaring the `chevrotain` UMD namespace
-- dependencies: `@chevrotain/types`, `@chevrotain/gast`, `@chevrotain/cst-dts-gen`, `@chevrotain/regexp-to-ast`, `@chevrotain/utils`, each version-locked to the parent
-- runtime: isomorphic — regular-expression lexing and table-driven parsing reach no host API
-- rail: work/filter — the `sql` dialect of the seven-row subscription filter roster
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the token vocabulary, the two parser bases, the syntax tree, and the error families
 
@@ -37,7 +27,7 @@ Grammar declaration is the library's one statement-bearing seam: rules are `prot
 
 - `LexerDefinitionErrorType` is a TypeScript `enum` the branch never declares; it reaches this surface as a value read off a definition error alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: vocabulary minting, lexing, grammar declaration, parsing, and lowering
 
@@ -66,7 +56,7 @@ Grammar declaration is the library's one statement-bearing seam: rules are `prot
 |  [21]   | `generateCstDts(productions, options?)`          | function  | derives concrete-syntax-tree declarations from the grammar       |
 |  [22]   | `clearCache()` / `VERSION`                       | fn/const  | resets the definition cache; the installed version literal       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Grammar declaration is a RECORDING phase: the constructor calls every rule implementation with no arguments to record it, so a rule body must tolerate absent parameters and must not compute.
@@ -98,9 +88,3 @@ Grammar declaration is the library's one statement-bearing seam: rules are `prot
 - Accumulate lex errors, parse errors, and lowering errors onto one typed rail — CESQL evaluation is total and reports a list, so no arm throws.
 - Lower through a `validateVisitor()`-proven visitor, and let no `CstNode`, `IToken`, or `TokenType` escape that seam.
 - Keep `createSyntaxDiagramsCode`, `generateCstDts`, and `EmbeddedActionsParser` out of the branch: the first two are authoring tools and the third trades the provable visitor for inline actions.
-
-[RAIL_LAW]:
-- Package: `chevrotain`
-- Owns: token vocabulary minting with categories and longer-alternative resolution, reusable regular-expression lexing, recorded LL(k) grammars with self-analysis, concrete syntax trees with optional location, visitor lowering with completeness proof, and the typed lex and parse error families
-- Accept: table-derived vocabulary, one construction under a `Layer`, per-admission instances, total lex results, accumulated typed faults, gate-resolved alternations, visitor-proven lowering
-- Reject: recovery-synthesized tokens, skipped validations, a shared parser across concurrent admissions, a `CstNode` or `IToken` above the lowering seam, `EmbeddedActionsParser`, the diagram and declaration authoring tools

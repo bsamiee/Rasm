@@ -2,15 +2,7 @@
 
 `optax` owns the first-order gradient-descent axis of the inverse-design loop as composable JAX gradient transformations: a `GradientTransformation` threads an opaque `OptState` through an `(init, update)` pair, and every alias optimizer is a pre-composed `chain` of `scale_by_*` and `scale_by_learning_rate`. It spans first-order, adaptive, quasi-Newton, and projected descent, the schedule algebra, and a loss/projection/tree-utility library. `optimistix.OptaxMinimiser` lifts any optimizer into the unified `minimise` solve, or `apply_updates` drives it directly over an `equinox` PyTree; second-order routes stay on `optimistix`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `optax`
-- package: `optax`
-- module: `optax`
-- namespaces: `optax.losses`, `optax.schedules`, `optax.transforms`, `optax.projections`, `optax.assignment`, `optax.perturbations`, `optax.second_order`, `optax.tree_utils`, `optax.contrib`
-- rail: first-order gradient-descent optimization
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: gradient-transformation carriers and state
 
@@ -25,7 +17,7 @@
 |  [07]   | `ScaleByAdamState`                | state             | fields `count`, `mu`, `nu` — Adam first/second moment accumulators               |
 |  [08]   | `MultiSteps` / `MultiStepsState`  | accumulator       | applies a transformation every `k` micro-steps (gradient accumulation)           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: alias optimizers (top-level pre-composed chains)
 - shape: each alias is a factory returning `GradientTransformationExtraArgs`.
@@ -160,7 +152,7 @@
 |  [10]   | `contrib.split_real_and_imaginary(inner)`                            | complex-split wrapper                 |
 |  [11]   | `contrib.mechanize(...)`                                             | Mechanic learning-rate tuner          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `optax`; alias optimizers, primitive transformations, combinators, and schedules at top level; losses/projections/assignment/perturbations/second_order/tree_utils/contrib as submodules.
@@ -180,9 +172,3 @@
 - `chain` composes a custom optimizer from `clip_by_global_norm`, a `scale_by_*` moment rescaler, and `scale_by_learning_rate`; a hand-rolled Adam/momentum accumulator loop is rejected.
 - `multi_transform`/`masked`/`partition` route distinct transforms to labelled or masked PyTree leaves so a heterogeneous design vector (geometry params versus material density) descends under per-block policy without a parallel optimizer.
 - `optax.tree_utils` owns the leaf-wise arithmetic over optimizer-state PyTrees; re-deriving `tree_norm`/`tree_add` over `jax.tree_util` by hand is rejected.
-
-[RAIL_LAW]:
-- Package: `optax`
-- Owns: composable first-order/accelerated/adaptive/quasi-Newton/projected JAX gradient transformations, learning-rate schedules, and the loss/projection/assignment/perturbation/tree-utility library
-- Accept: an alias optimizer or a `chain` of transformations as the descent axis, wrapped by `optimistix.OptaxMinimiser` for the unified solve, or driven directly over an `equinox` PyTree with `apply_updates`, feasibility kept via `optax.projections`
-- Reject: a hand-rolled momentum/Adam accumulator loop; re-implemented PyTree math; `optax` for the second-order, trust-region, or implicit-adjoint solves that `optimistix` owns

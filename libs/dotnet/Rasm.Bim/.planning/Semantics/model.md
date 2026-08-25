@@ -21,7 +21,7 @@ Every read that returns features returns `Semantics/feature#GEO_FEATURE` rows; e
 - Boundary: `Within` is the one relation the prepared surface lacks and it reads the probe-side inverse off `IPreparedGeometry.Geometry`; a malformed relation pattern REFUSES at admission rather than silently matching nothing, because a nine-character grammar mistyped by one glyph is a query that returns an empty set and reads as an answer; the hull budget is SCALE-QUALIFIED because the family's operators split between scale-free ratios and absolute edge lengths — handing an alpha shape a `0.05` meant as a ratio produced a degenerate shape indistinguishable from a legitimate one; `Edge` reads the SAME `BufferParameters` policy the setback carve does, so one offset policy serves the folder.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Text.Json;
 using H3;

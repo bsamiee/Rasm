@@ -2,17 +2,7 @@
 
 `SQLitePCLRaw.bundle_e_sqlite3mc` binds the `e_sqlite3mc` native provider — SQLite carrying the SQLite3 Multiple Ciphers codec — as the encrypted embedded store floor. Swapping the native beneath the shared `SQLitePCL.raw` surface leaves every engine-operations call untouched, so the delta is at-rest keying: a KMS-unwrapped data key crosses `raw.sqlite3_key` at the physical open, and the cipher scheme and its cost parameters ride the engine's own pragma surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3mc`
-- package: `SQLitePCLRaw.bundle_e_sqlite3mc` (Apache-2.0)
-- assembly: `SQLitePCLRaw.batteries_v2` — the bundle mints its own initializer; `SQLitePCLRaw.core` carries `raw`
-- namespace: `SQLitePCL`
-- depends: `SQLitePCLRaw.provider.e_sqlite3mc` (P/Invoke), `SQLitePCLRaw.provider.dynamic_cdecl` (cdecl binding), `SQLitePCLRaw.lib.e_sqlite3mc` (native assets), `SQLitePCLRaw.core` (`raw` API, `sqlite3*` handles)
-- abi: `libe_sqlite3mc.dylib` / `libe_sqlite3mc.so` / `e_sqlite3mc.dll`, one asset per RID under the restored `runtimes/<RID>/native/` graph
-- rail: store-provider (encrypted floor)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cipher-provider types the bundle adds over the shared `SQLitePCL.raw` surface
 
@@ -22,7 +12,7 @@
 |  [02]   | `Batteries`                   | static class  | facade over `Batteries_V2`                                |
 |  [03]   | `SQLite3Provider_e_sqlite3mc` | class         | `ISQLite3Provider` cipher-enabled P/Invoke implementation |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider binding — one bundle binds per process, ahead of every `sqlite3_*` call
 
@@ -56,7 +46,7 @@
 |  [06]   | `sqlite3mc_version()`           | function | identifies the bound Multiple Ciphers engine        |
 |  [07]   | `sqlite3mc_config(name, value)` | function | reads or sets one engine-side cipher parameter      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One provider binds per process, so the encrypted floor is a provisioning-row selection, never a per-connection knob.
@@ -70,9 +60,3 @@
 [LOCAL_ADMISSION]:
 - Keying material is a `ReadOnlySpan<byte>` from the KMS tier; a compatibility passphrase lives inside one ephemeral open request and reaches no durable configuration, pooled connection string, log, or store metadata.
 - Encrypted-floor mounts bind this bundle over the plain one, chosen by the `Store/provisioning` row that owns the offline store.
-
-[RAIL_LAW]:
-- Package: `SQLitePCLRaw.bundle_e_sqlite3mc`
-- Owns: encrypted-at-rest provider admission; `raw.sqlite3_key`/`sqlite3_rekey` reach a live codec only under this native engine
-- Accept: KMS-custodied keying and rotation over `Handle`; engine-side cipher parameters through the pragma surface; one ephemeral compatibility read of an inspected foreign store
-- Reject: a durable passphrase literal standing in for the KMS-unwrapped DEK; a second provider bound in the same process

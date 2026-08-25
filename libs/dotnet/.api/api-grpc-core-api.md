@@ -2,16 +2,7 @@
 
 `Grpc.Core.Api` owns the host-neutral gRPC call surface both server rails bind: the `Marshaller` codec pairs, `Method<TReq,TResp>` descriptors keyed by `FullName`, and the `ServerServiceDefinition` handler registry on the definition side, and `ServerCallContext`, the stream writers, and `Metadata` on the per-call side. Transport, hosting, and channel construction stay with the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts, and the status, fault, and call-policy carriers this package also ships are catalogued once at the client rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.Core.Api`
-- package: `Grpc.Core.Api` (Apache-2.0)
-- assembly: `Grpc.Core.Api`
-- namespace: `Grpc.Core`
-- asset: pure-managed runtime library; no native asset, no RID burden
-- rail: remote-server
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: marshallers, method descriptors, and the handler registry
 
@@ -41,7 +32,7 @@
 - `WriteFlags`: `BufferHint` (1) `NoCompress` (2)
 - Registers the fault and call-policy carriers(`.api/api-grpc-client.md`): `Status`, `StatusCode`, `RpcException`, and `CallOptions` ship in this assembly and carry their construction, roster, read-back, and `With*` threading at the client rail, which both server rails type against; the rows above are the carriers this catalogue adds beyond them.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: marshaller, method descriptor, and service definition
 
@@ -109,7 +100,7 @@
 - `MoveNext<T>`: `Grpc.Core.AsyncStreamReaderExtensions` ships this pump here; the `ReadAllAsync<T>` drain over the same static class name is `Grpc.Net.Common`'s half.
 - `AsyncDuplexStreamingCall`: `GetStatus()`/`GetTrailers()` throw before the response stream completes; a bidi driver writes every request, calls `CompleteAsync()`, drains `ResponseStream.ReadAllAsync(token)`, then reads status — and `Dispose()` on an undrained call is the cancellation idiom.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every server method is one `Method<TReq,TResp>` descriptor; its `FullName` (`serviceName/name`) keys dispatch and matches the generated proto service name exactly.
@@ -132,9 +123,3 @@
 - Contextual marshallers are the admitted codec form; the byte-array pair enters only where a payload has no pooled writer.
 - Every binary metadata key carries the `-bin` suffix contract, never an ad hoc encoding.
 - Handlers register through `ServerServiceDefinition` descriptors or the hosted `MapGrpcService<TService>` binder, never a hand-rolled dispatch table keyed off `Method.FullName`.
-
-[RAIL_LAW]:
-- Package: `Grpc.Core.Api`
-- Owns: the gRPC method descriptor, the service-definition registry, the marshaller pairs a server rail registers, and the per-call context, streaming, and metadata surface a handler binds
-- Accept: hand-registered `Method` descriptors, contextual marshallers, server-streaming responses, and call-metadata reads
-- Reject: managed transport hosting, client-channel construction, gRPC-Web translation, a parallel error DTO beside `Status`, and the fault and call-policy member surface `.api/api-grpc-client.md` owns

@@ -2,17 +2,7 @@
 
 `Canvas` is the Grasshopper2 document host — a sealed `FlexControl` that paints the node graph, resolves picks off an offscreen id buffer, and gates every canvas edit. It owns the paint pipeline, wire-route geometry, snapping and alignment, skin interpolation, and sparkle overlays; projection, navigation, redraw scheduling, and animation cross the `IFlexControl` seam that `api-gh2-flex.md` owns and this surface composes, never re-derives.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grasshopper2`
-- package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle)
-- assembly: `Grasshopper2`
-- namespace: `Grasshopper2.UI.Canvas`, `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Primitives`, `Grasshopper2.UI.Sparkles`, `Grasshopper2.UI.Flex`
-- namespace: `Eto.Drawing` — the host assembly declares `SlabF`, `CornerRadii`, `SlabVertex`, `SlabArc`, and `ArcF` into the Eto namespace, so they resolve bare beside genuine Eto types
-- asset: in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp`, painting over `Eto.Drawing.Graphics` in the Rhino assembly-load context
-- rail: host-grasshopper
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: canvas control, paint arguments, action policy (`Grasshopper2.UI.Canvas`)
 
@@ -66,7 +56,7 @@
 | :-----: | :------------- | :------------ | :------------------------------------------- |
 |  [01]   | `IFlexControl` | interface     | projection, selection, redraw, and animation |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the eight ordered paint events (`Grasshopper2.UI.Canvas`)
 
@@ -171,7 +161,7 @@
 |  [10]   | `BlastSparkle` ctor + `Draw`                                                          | ctor     | radial blast overlay              |
 |  [11]   | `EdgeSparkle` / `FaceSparkle` / `NoticeSparkle` `.Draw`                               | instance | edge, face, notice overlays       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - paint runs four layers in fixed order (background → groups → wires → objects), each fenced by a `Before`/`After` event pair; a hook attaches to the pair and the phase IS the event, never a `CanvasPaintPhase` enum
@@ -192,9 +182,3 @@
 [LOCAL_ADMISSION]:
 - canvas surface enters only through the host `Canvas`/`Flex` seam; a paint hook attaches to the eight `Canvas` events
 - `WireShape`/`Skin`/`Sparkle` compose as host types; perceptual blending and easing math compose the Rasm kernel motion/colour owner
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (host assembly)
-- Owns: the canvas paint pipeline, pick-map resolution, wire-route geometry, snapping and alignment, skin interpolation, sparkle overlays, the `Capsule`/`SlabF` primitive geometry every attributes draw folds, canvas-hosted inline editors
-- Accept: paint-event composition, pick resolution, window selection, wire and skin rendering, snap solving
-- Reject: the `IFlexControl` seam internals (`api-gh2-flex.md`), document mutation, component execution, a re-derived paint-phase enum, an in-folder wire route, palette, or overlay, the GH1 `GH_Canvas`/`IGH_*` paint idiom

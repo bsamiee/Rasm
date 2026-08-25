@@ -1,15 +1,6 @@
 # [PY_ARTIFACTS_API_DOCXTPL]
 
-
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `docxtpl`
-- package: `docxtpl` (LGPL-2.1-only)
-- import: `docxtpl`
-- owner: `artifacts`
-- rail: document — load a `.docx` jinja2 template, render a context into body/header/footer XML, emit the rendered document
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: template root and content carriers
 
@@ -23,7 +14,7 @@
 |  [04]   | `Listing`           | content carrier | newline/page-break-preserving text keeping template styling |
 |  [05]   | `InlineImage`       | content carrier | inline image bound to a template part, optional hyperlink   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `DocxTemplate` render and emit
 
@@ -60,7 +51,7 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 |  [05]   | `Listing(text)`                                             | ctor     | escape text keeping `\n`/`\a` and para style     |
 |  [06]   | `InlineImage(tpl, image_descriptor, width, height, anchor)` | ctor     | bind an inline image to `tpl` with `Length` size |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `DocxTemplate` owns load, render, and save; `template_file` (path, `PathLike`, or stream) is the constructor argument, never a per-source builder type, and `jinja_env`/`autoescape` are call rows on `render`, never parallel render entrypoints.
@@ -79,8 +70,3 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 - Pure-Python wheel, LGPL-2.1 weak copyleft, dynamic-link-safe for an internalized owner; admitted for the `document` rail.
 - Import lazily at boundary scope (`from docxtpl import DocxTemplate, InlineImage, Listing, RichText, RichTextParagraph`); `R`/`RP` stay aliases, never imported as distinct names.
 - `new_subdoc`/`Subdoc` and its optional `docxcompose` dependency stay out of admission; the `DocumentNode` carriers cover styled content without sub-document composition.
-
-[RAIL_LAW]:
-- Package: `docxtpl`
-- Owns: DOCX jinja2 templating; context render into body/header/footer XML, footnote-part (`render_footnotes`), and core-property-part (`render_properties`) substitution; styled inline/paragraph/listing/image carriers; external-hyperlink registration (`build_url_id`); pre-render part swaps (`replace_*`); undeclared-variable inspection; rendered-document emit.
-- Reject: wrapper-renames of `render`/`save`; hand-rolled `python-docx` run/paragraph stitching where a carrier owns the styling; a parallel template type per source or media class; aliasing `R`/`RP` into new types; a `Subdoc`/`docxcompose` dependency the carrier path does not need; identity minting the runtime owns.

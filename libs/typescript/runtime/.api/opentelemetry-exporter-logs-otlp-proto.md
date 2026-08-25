@@ -2,18 +2,7 @@
 
 `@opentelemetry/exporter-logs-otlp-proto` is the `LogRecordExporter` that POSTs `ReadableLogRecord` batches to an OTLP/HTTP collector as protobuf — the binary sibling of `.api/opentelemetry-exporter-logs-otlp-http.md`, sharing one `OTLPLogExporter` over `OTLPExporterBase` and diverging only by binding `ProtobufLogsSerializer`. A `BatchLogRecordProcessor` wraps it onto the facade's `Configuration.logRecordProcessor`, closing the `[OTLP_SDK]` wire law's log leg when the collector demands protobuf.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/exporter-logs-otlp-proto`
-- package: `@opentelemetry/exporter-logs-otlp-proto` (Apache-2.0)
-- otel-peer: `@opentelemetry/api` (peer), `@opentelemetry/core` (the `ExportResult` rail), `@opentelemetry/sdk-logs` (the `LogRecordExporter`/`ReadableLogRecord` contract + the `BatchLogRecordProcessor` wrapper)
-- transitive-config: `@opentelemetry/otlp-exporter-base` supplies `OTLPExporterBase`, the `OTLPExporterConfigBase`/`OTLPExporterNodeConfigBase` config types, `CompressionAlgorithm`, and the `createOtlpHttpExportDelegate`/`createLegacyOtlpBrowserExportDelegate` delegates; `@opentelemetry/otlp-transformer` supplies the `ProtobufLogsSerializer` that binds this row protobuf
-- consumed-by: `otel/emit` SDK-bridge log leg via the facade's `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor`, on the protobuf-wire selection
-- catalog-verdict: KEEP as the protobuf half of the JSON/protobuf log pair, beside the trace-proto and metrics-proto rows
-- runtime: dual — the package `browser` field remaps `platform/index` to `platform/node` (`http`/`https`, config `OTLPExporterNodeConfigBase`, delegate `createOtlpHttpExportDelegate`) or `platform/browser` (`fetch`/`sendBeacon`, config `OTLPExporterConfigBase`, delegate `createLegacyOtlpBrowserExportDelegate`); ONE `OTLPLogExporter` name, a build-time platform selection
-- modules: `OTLPLogExporter`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the one protobuf `LogRecordExporter`
 - rail: observability/export/logs
@@ -24,7 +13,7 @@
 |  [01]   | `OTLPLogExporter`              | log exporter class | protobuf exporter a `BatchLogRecordProcessor` wraps    |
 |  [02]   | `new OTLPLogExporter(config?)` | constructor        | binds `ProtobufLogsSerializer` into `OTLPExporterBase` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge protobuf log export composition
 - rail: observability/export/logs
@@ -37,7 +26,7 @@
 |  [02]   | `new OTLPLogExporter(config?: OTLPExporterConfigBase)`             | browser ctor   | browser OTLP/HTTP protobuf log exporter (RUM) |
 |  [03]   | `new BatchLogRecordProcessor({ exporter })` → `logRecordProcessor` | composition    | exporter → processor → `NodeSdk`/`WebSdk`     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Protobuf log leg of the SDK-bridge lane: this exporter enters only when the collector demands protobuf AND the SDK log pipeline (`LoggerConfigurator` gating, the `enabled?` pre-build drop, `BatchLogRecordProcessor` tuning) is required. `.api/effect-opentelemetry.md` [04] owns the native-lane default and the `[OTEL_PIN_BLOCK]` collapse.
@@ -57,9 +46,3 @@
 - `@opentelemetry/*` admits ONLY inside `scope:runtime` (edge-ledger ban); the exporter constructs at the composition root only, and application code logs through `Effect.log`.
 - native `OtlpLogger` is the default; this SDK exporter enters only for protobuf-wire SDK-only log-pipeline capability, recorded as an `[OTEL_PIN_BLOCK]` non-collapsed dependency.
 - Browser exporter is the RUM log/crash egress leg (`otel/vital`/`otel/crash`) on collectors demanding protobuf; apply the export-boundary redaction rows before a record leaves the browser.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/exporter-logs-otlp-proto`
-- Owns: OTLP/HTTP protobuf log serialization — one `OTLPLogExporter` (`LogRecordExporter`) over a node or browser transport binding `ProtobufLogsSerializer`, configured by endpoint/headers/compression/timeout
-- Accept: `new OTLPLogExporter(cfg)` wrapped in a `BatchLogRecordProcessor` and fed to `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor`; endpoint/runtime as config + platform-remap selection; the one `AppIdentity`-derived `Resource`; core's `ExportResult` rail
-- Reject: `@opentelemetry/*` outside `scope:runtime`, this SDK exporter where the native `OtlpLogger` suffices, both the JSON and protobuf rows on one log-export lane, `SimpleLogRecordProcessor` in production, a subclass per backend/compression, an unwrapped exporter handed straight to the facade

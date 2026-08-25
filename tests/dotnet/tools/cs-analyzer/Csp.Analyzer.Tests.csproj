@@ -11,8 +11,6 @@
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" PrivateAssets="all" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
-        <PackageReference Include="Verify.DiffPlex" PrivateAssets="all" />
-        <PackageReference Include="Verify.XunitV3" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Metadata And Usings">

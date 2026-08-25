@@ -2,18 +2,7 @@
 
 `Melanchall.DryWetMidi` owns the AppUi MIDI surface: the Standard MIDI File and chunk object model, the channel and meta event family, the `TempoMap`-anchored timed note/chord interaction layer, the grid transform tools, and the device/recording/playback rails a native multimedia clock drives. Managed `Core`/`Interaction`/`Tools` bind on every host; the `Multimedia` device rails bind only where the native clock is present, so the headless-Linux path stays managed-only. `Midi` folds onto the single `InputFabric` edge every device rail shares.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Melanchall.DryWetMidi`
-- package: `Melanchall.DryWetMidi` (MIT)
-- assembly: `Melanchall.DryWetMidi`
-- consumer-tfm: `netstandard2.0` (package ships `netstandard2.0`/`net45`; `net10.0` binds the `netstandard2.0` asset)
-- namespace: `Melanchall.DryWetMidi.Multimedia`, `.Core`, `.Interaction`, `.Tools`, `.Common`
-- asset: managed runtime library only; the package ships no native binary
-- abi: `Multimedia` rails P/Invoke the native clock `Melanchall_DryWetMidi_Native32`/`_Native64`, supplied out-of-band with no Linux build, so `Playback`/`Recording`/`InputDevice`/`OutputDevice` bind only on the native-clock desktop host and the headless-Linux path uses managed `Core`/`Interaction`/`Tools` alone
-- rail: input
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: multimedia devices, clock, and rails
 
@@ -102,7 +91,7 @@
 |  [05]   | `Repeater` / `RepeaterUtilities`   | transform     | repeat object range          |
 |  [06]   | `TimedObjectUtilities`             | transform     | time/length set algebra      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: device intake, send, and hot-plug
 
@@ -202,7 +191,7 @@
 |  [12]   | `Recording.GetEvents() -> ICollection<TimedEvent>` / `.GetDuration<TTimeSpan>()`                  | instance | capture extraction      |
 |  [13]   | `Recording.EventRecorded` (`MidiEventRecordedEventArgs`)                                          | event    | capture signal          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Five namespaces partition the surface: `Multimedia` (device/playback/recording/clock), `Core` (file/chunk/event/lazy-token), `Interaction` (timed/note/chord lens, `TempoMap`), `Tools` (transforms), `Common` (bounded bytes).
@@ -222,9 +211,3 @@
 - Every opened device, `DevicesWatcher`, `Recording`, and `Playback` (`IDisposable`) disposes in a scoped fold; boundary intake reads `MidiEventReceivedEventArgs.Event` and maps to the canonical input shape at the edge, raw `MidiEvent` types stopping there.
 - File intake uses `MidiFile.Read`/`ReadLazy`; note and timed projection run through the `Interaction`/`Tools` lenses against an explicit `TempoMap`.
 - Data-byte fields cross as `SevenBitNumber`/`FourBitNumber`; raw `int` pitch, velocity, channel, or program is rejected before event construction.
-
-[RAIL_LAW]:
-- Package: `Melanchall.DryWetMidi`
-- Owns: MIDI device intake/send/hot-plug, file/chunk read/write eager and lazy-token, the channel/meta event family, the timed note/event/chord interaction model, the transform tools, and native-clock playback/recording.
-- Accept: lifecycle-scoped devices, `TempoMap`-anchored time projection, bounded-byte event fields, transform-tool grid operations, the native-clock gate for the `Multimedia` rails, and the `Midi` case on the single `InputFabric` edge.
-- Reject: hand-rolled MIDI parsing or tick math, ambient device ownership, raw integer pitch/velocity/channel values, opening the `Multimedia` rails with no native clock, and a parallel MIDI device->intent edge beside the shared `InputFabric` fold.

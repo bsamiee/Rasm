@@ -2,17 +2,7 @@
 
 `loky` mints the process-global reusable pool: one warm executor resized on re-acquisition, respawned whole on worker death, reached through `get_reusable_executor`. Worker death surfaces its pending future as `TerminatedWorkerError` and swaps the broken pool for a fresh instance; cloudpickle payloads carry closures across the boundary stdlib `ProcessPoolExecutor` rejects. It feeds the `WorkerPool` COOPERATIVE-`PROCESS` arm.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `loky`
-- package: `loky` (BSD-3-Clause)
-- import: `loky`
-- owner: `runtime`
-- rail: worker crossing
-- namespaces: `loky`, `loky.process_executor`, `loky.reusable_executor`, `loky.backend`, `loky.cloudpickle_wrapper`, `loky.initializers`
-- capability: process-global crash-respawning reusable process pool with cloudpickle payloads, dynamic resize, idle-worker reaping, per-worker `initializer`/`env` warm state, and host-aware CPU sizing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: executor classes
 
@@ -41,7 +31,7 @@
 |  [02]   | `FIRST_EXCEPTION` | `str` sentinel | `wait` returns on the first future to raise  |
 |  [03]   | `ALL_COMPLETED`   | `str` sentinel | `wait` returns once every future is done     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: executor acquisition and lifecycle
 
@@ -76,7 +66,7 @@
 |  [01]   | `as_completed(fs, timeout=None)`                      | future join    | yield futures as each finishes               |
 |  [02]   | `wait(fs, timeout=None, return_when='ALL_COMPLETED')` | future join    | block on a set to a return-when discriminant |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - singleton-reuse: `get_reusable_executor` owns one process-global warm pool; every acquisition returns the same instance, sparing the spawn and import cost each `ProcessPoolExecutor()` pays. A differing `max_workers` resizes in place and returns the same object; a healthy pool is never torn down to change width.
@@ -107,9 +97,3 @@
 - `max_workers` pins to `cpu_count(only_physical_cores=True)` once so concurrent process crossings never oversubscribe the host against each package's internal thread pool.
 - `submit`/`result` ride the resilience retry so a `TerminatedWorkerError` respawns a fresh pool rather than propagating a worker crash; a pure transform never rides the pool.
 - `context` and `initializer`/`env` fix per owner identity so worker warm state is reproducible; mixing start methods or env overrides across acquisitions of the same singleton is rejected.
-
-[RAIL_LAW]:
-- Package: `loky`
-- Owns: the process-global reusable crash-respawning process pool, cloudpickle task payloads, dynamic pool resize, idle-worker reaping, per-worker `initializer`/`env` warm state, and host-aware CPU sizing
-- Accept: `get_reusable_executor` for the singleton executor, `submit`/`map` over cloudpickle payloads, `shutdown(kill_workers=)` teardown, `cpu_count` for host sizing, `_processes` for per-pid introspection, `wrap_non_picklable_objects` for a resistant argument
-- Reject: a per-task `ProcessPoolExecutor` where the warm singleton serves, a local catch that swallows `TerminatedWorkerError`/`BrokenProcessPool` instead of the resilience retry, a hand-rolled multiprocessing pool where loky owns crash respawn, oversubscribing the host past the worker band, pinning a non-cloudpickle `loky_pickler` that drops closure payloads

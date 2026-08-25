@@ -696,6 +696,4 @@ internal static class Reconcile {
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(LeaseClaim))]
 [JsonSerializable(typeof(QuitJournalEntry))]
-[JsonSerializable(typeof(ClosureManifest))]
-[JsonSerializable(typeof(ReferenceRoot[]))]
 internal sealed partial class SupervisorJsonContext : JsonSerializerContext;

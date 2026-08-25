@@ -2,17 +2,7 @@
 
 `@types/react` is the declaration-only `.d.ts` surface for the `react` runtime — no runtime output ships, so `tsc` gates the whole `ui` folder here. Its surface is a small set of parameterized type families instanced many ways: `SyntheticEvent<T, E>` one event contract per input device, `HTMLAttributes<T>` one attribute base per element, `ComponentProps<T>` one prop extractor discriminating tag-vs-component, and `Ref<T>`/`RefObject<T>`/`RefCallback<T>` one ref algebra — a new element, event, or widget is a row in the owning family, never a new mechanism.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@types/react`
-- package: `@types/react` (MIT)
-- module: declaration-only `.d.ts`; subpaths `.` (full surface), `./jsx-runtime` + `./jsx-dev-runtime` (automatic-runtime `jsx`/`jsxs`/`Fragment` the compiler emits), `./canary` (`ViewTransition`/`addTransitionType`), `./experimental` (`unstable_SuspenseList`/`unstable_startGestureTransition`), `./compiler-runtime`
-- asset: no runtime, no ABI — `tsc` typechecks against it and it emits nothing; consumed as the `react` module's types (`.api/react.md`), the paired runtime
-- depends: `csstype` (`CSSProperties extends CSS.Properties<string | number>`)
-- marker: react-compiler enabled folder-wide, so `./compiler-runtime` (export-empty, autocomplete-hidden) is a real dependency; `global.d.ts` declares the ambient `JSX` namespace every `.tsx` uses
-- rail: the React type vocabulary — `tsc` gates the whole `ui` folder against it, no runtime output to test
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the element + component value vocabulary — `ReactNode` is what a component may return, `ReactElement`/`ReactPortal` the element values, and the component-type union (`ComponentType`, `FC`, `ElementType`, `ExoticComponent` family) the callable shapes; every `view` row's return type and every child slot types against this, and a `Schema`-decoded value becomes renderable only by passing through `ReactNode`.
 
@@ -111,7 +101,7 @@
 - [06]: `act/transition` — `<ViewTransition>` props import from `./canary`; `<Activity>`/`ActivityProps` ship on the main surface
 - [07]: `act/transition` — the `SuspenseList` shapes; import from `./experimental` only
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the typed hook set, the React primitive roster grouped by concern — `view` rows call these directly (react-compiler compiles the memoization) and `@effect-atom` hooks (`useAtomValue`, `.api/effect-atom-atom-react.md`) build ON `useSyncExternalStore`; a hook is a call into the render-tracked fiber, and the FORM shapes (`Dispatch`, `Usable`, `EffectCallback`) are shared across primitives even where the calls do not collapse.
 
@@ -153,7 +143,7 @@
 - [05]: `act/transition` — `<ViewTransition>` from `./canary` (capability-gated); `<Activity>` ships stable
 - [06]: `dev`-plane specs drive updates through `act`; `@effect/vitest` rows assert on flushed state
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Parameterized families, not flat lists: `SyntheticEvent<T, E>` is one event contract instanced per device, `HTMLAttributes<T>` one attribute base extended per element, `ComponentProps<T>` one extractor discriminating tag-vs-component, `Ref<T>`/`RefObject<T>`/`RefCallback<T>` one ref algebra, and the `ExoticComponent` set one family typing every built-in/factory result. Reach for the family member; never re-declare a parallel prop interface, event shape, or ref type a family already owns.
@@ -179,9 +169,3 @@
 - Author rows with `ref` as a plain prop; reach for `forwardRef`/`memo` only in interop code — react-compiler owns memoization, so no `useMemo`/`useCallback` in a row.
 - Type `on*` props against the `EventHandler` aliases but source interaction behavior from `react-aria` normalized events; never bind raw synthetic-event listeners for gesture/press/hover.
 - Fold async and forms through `use`/`useActionState`/`useOptimistic`/`useFormStatus` + a `Schema` decode; never thread manual loading/error booleans. Gate `ViewTransition`/`addTransitionType` behind the `./canary` reference; `Activity` ships stable.
-
-[RAIL_LAW]:
-- Package: `@types/react`
-- Owns: the React type vocabulary — the element/component value algebra (`ReactNode`/`ReactElement`/`FC`/`ComponentType`/`ExoticComponent`), the `ComponentProps`/`Ref`/`CSSProperties` prop-and-ref extractor family, the hook-contract shapes (`Dispatch`/`Usable`/`EffectCallback`/`TransitionFunction`), the `SyntheticEvent<T,E>` + `EventHandler` event family, the `HTMLAttributes<T>` + `JSX.IntrinsicElements` DOM-attribute family, and the typed hook/factory/exotic runtime surface
-- Accept: named ESM imports paired with `react`, `ComponentPropsWithRef<T>` prop lifting, `ref` as a plain prop, react-compiler-owned memoization, `use`/`useActionState`/`useOptimistic` async-form primitives, `react-aria` normalized events over raw synthetic listeners, `./canary` gated upgrades
-- Reject: hand-written prop interfaces where `ComponentProps` lifts them, `forwardRef`/`memo`/`useMemo`/`useCallback` in a row under react-compiler, a hand-declared ref type where `ComponentRef<T>` extracts it, raw synthetic-event listeners for gestures, manual loading/error booleans where the form primitives + `Schema` fold them, ungated canary imports on the stable path

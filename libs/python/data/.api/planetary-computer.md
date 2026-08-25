@@ -2,15 +2,7 @@
 
 `planetary_computer` mints the Microsoft Planetary Computer SAS signing surface for the data catalog rail: one `sign` `singledispatch` entry rewrites Azure Blob Storage HREFs across a `str`/VRT URL, `pystac` `Asset`/`Item`/`ItemCollection`/`Collection`, `pystac_client` `ItemSearch`, or STAC `Mapping`, and feeds `pystac_client.Client.open(modifier=...)` as the catalog-signing patch step. It fetches short-lived SAS tokens per account/container, caches them to expiry, and owns the token fetch and HREF rewrite no consumer re-implements.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `planetary-computer`
-- package: `planetary-computer` (MIT)
-- module: `planetary_computer`
-- rail: catalog-signing
-- capability: SAS signing of Azure Blob Storage HREFs across STAC `Asset`/`Item`/`ItemCollection`/`Collection`, URL/VRT strings, `ItemSearch`, and STAC/Kerchunk mappings; per-account/container token fetch with TTL cache and HTTP retry; subscription-key injection; opt-in `adlfs`/`azure-storage-blob` filesystem and container-client construction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: SAS token and signed-link response models — internal to the signing rail, consumed indirectly and never imported at the boundary.
 
@@ -21,7 +13,7 @@
 |  [03]   | `SASBase`    | `planetary_computer.sas`      | model base        | base carrying the `msft:expiry` expiry field                     |
 |  [04]   | `Settings`   | `planetary_computer.settings` | configuration     | `subscription_key`/`sas_url` from `PC_SDK_*` env or settings.env |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: signing dispatch — module-level functions returning the same shape signed.
 - carry: each `sign_*(obj, *, copy=True)` clones STAC objects before mutation; `sign(obj)` dispatches on runtime type, `sign_inplace(obj)` is `copy=False`.
@@ -47,7 +39,7 @@
 |  [04]   | `SASToken.sign`        | append this token to an HREF, return a `SignedLink`      |
 |  [05]   | `SASToken.ttl`         | seconds the token remains valid                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `sign` `singledispatch` owns signing across `str`/VRT, `Asset`, `Item`, `ItemCollection`, `Collection`, `ItemSearch`, and STAC/Kerchunk `Mapping`; the typed `sign_*` rows are dispatch registrations, selected only when the input type is statically fixed, never parallel signer types.
@@ -64,9 +56,3 @@
 
 [LOCAL_ADMISSION]:
 - `import planetary_computer` at boundary scope; the signing path needs no eager `azure`/`adlfs` import, and both handle builders raise `ImportError` when their optional dependency is absent.
-
-[RAIL_LAW]:
-- Package: `planetary-computer`
-- Owns: SAS token fetch and Azure Blob Storage HREF rewriting across STAC objects, URL/VRT strings, `ItemSearch`, and STAC/Kerchunk mappings, with TTL-cached tokens and subscription-key injection; STAC modeling routes to `pystac`/`pystac_client` and raster/IO reads to `rasterio`/`obstore` over the signed HREFs
-- Accept: `sign`/`sign_inplace` as the `pystac_client` `modifier=` patch feeding the catalog query and asset-read owners
-- Reject: wrapper-renames of `sign`/`sign_url`; a hand-rolled SAS token fetch or HREF query-string concatenation; a parallel signer type per STAC shape where `singledispatch` discriminates; re-signing of already-signed or non-Azure URLs; eager Azure-SDK import where the signing path needs no `azure`/`adlfs` dependency

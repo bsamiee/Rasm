@@ -2,16 +2,7 @@
 
 `OpenCAMLib` (`ocl`) owns analytic 3-axis cutter-location geometry: exact drop-cutter Z-sampling, push-cutter fiber intersection, and waterline Z-level loop extraction for arbitrary `MillingCutter` forms against a triangle mesh, every operation folding through one `ocl::Operation` lifecycle. Path layout stays the kernel on-mesh machinery; `ocl` owns only the Z-height and contact sampling at the laid-out points. Its C++-mangled by-reference ABI binds through a source-generated `[LibraryImport]` over an `extern "C"` shim against the vendored SHARED `libocl`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenCAMLib`
-- package: `OpenCAMLib` (LGPL-2.1)
-- assembly: managed `Rasm.Fabrication` P/Invoke shim (source-generated `[LibraryImport]`); no managed assembly ships upstream
-- namespace: `ocl` (C++ engine); the C-shim exports flat `extern "C"` functions, the managed side owns the `OpenCamLib`-shaped local surface
-- asset: RID-keyed SHARED native `libocl` (`macos-cxx-arm64`/`windows-cxx-x64`/`linux-cxx-x86_64`, all three present), riding `vendor/runtimes` through the folder `.csproj` `Exists`-gated `Content` group, LFS-carried, outside NuGet restore; per-RID OpenMP carriage (osx-arm64 rpath'd `libomp.dylib`, linux system `libgomp`, win MSVC `vcomp`); dependency closure is header-only Boost + OpenMP
-- rail: fabrication — the ALC-firebreak/sidecar surface engine, content-keyed at the wire, golden-fixture gated
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: milling-cutter hierarchy — the `CutterForm` axis map
 
@@ -60,7 +51,7 @@
 |  [08]   | `ZigZag`                 | direction fill    | direction/stepover raster fill of a region                |
 |  [09]   | `LineCLFilter`           | CL simplify       | tolerance-based CL-point line simplification              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: shared operation lifecycle — every `Operation` subclass
 
@@ -105,7 +96,7 @@
 |  [03]   | `getFibers()`                   | output     | the intersected fibers with their `Interval`s |
 |  [04]   | `getOverlapTriangles(Fiber&)`   | diagnostic | triangles overlapped by a fiber               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every operation folds through one `ocl::Operation` lifecycle — `setSTL(STLSurf&)` · `setCutter(MillingCutter&)` · `setSampling`/`setThreads` · `run()` · `getCLPoints()`/`getLoops()` — so one `Operation`-shaped wrapper unifies the whole surface.
@@ -123,11 +114,5 @@
 [LOCAL_ADMISSION]:
 - Path layout is the kernel's — geodesic-parallel/constant-stepover isolines, flowline/morph streamlines, and flank/swarf cross-field orientation compose the on-mesh machinery (`geodesics.md`/`extract.md`/`flow.md`/`segment.md`); `ocl` Z-samples at the laid-out points, and the kernel owns every on-mesh re-layout.
 - `libocl` stays a separate dynamically-linked SHARED archive (LGPL-2.1 §6), never static-folded into the shim. Two admission routes cover the RID matrix — consume the shipped SHARED archives, or build `libocl` and the shim from source per RID (`BUILD_CXX_LIB=ON`), Forge-provisioned like the kernel Z3 precedent.
-- Shim and native asset admit only against a committed per-RID cutter-location golden fixture, the LGPL native-engine admission gate.
+- Shim and native asset admit only against a per-RID closed-form cutter-location check, the LGPL native-engine admission gate.
 - Drop-cutter non-convergence and an empty CL-cloud raise `Toolpath` `SampleStalled` 2713 `(SurfaceStrategy strategy, int iteration)` at the shim boundary, distinct from the `Toolpath/partition` Voronoi `PartitionDegenerate` 2723.
-
-[RAIL_LAW]:
-- Package: `OpenCAMLib` (LGPL-2.1)
-- Owns: exact analytic 3-axis cutter-location geometry — drop-cutter Z-sampling, push-cutter fibers, waterline Z-level loops — for arbitrary `MillingCutter` forms against a triangle mesh
-- Accept: a `MeshSpace` triangle buffer, a `CutterForm` row, and a `SurfaceStrategy` from `Toolpath/surface`, marshalled through the `extern "C"` shim
-- Reject: path layout (kernel on-mesh owned); any 2D polygon concern (`Geometry2D`, `api-cavaliercontours`); a second SDF owner (the kernel distance-field lane is sole, PicoGK owns the voxel lane); static-linking `libocl` into the shim

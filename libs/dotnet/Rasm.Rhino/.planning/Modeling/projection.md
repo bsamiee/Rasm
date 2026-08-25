@@ -20,7 +20,7 @@
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing*` `:149-158`, `Silhouette` `:178-188`), RhinoCommon document (`.api/api-rhinocommon-document.md` — `Rhino.DocObjects.ViewportInfo` seat and `Camera35mmLensLength`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`, `ValidityClaim`, `IValidityEvidence`, `Fin`), `Rasm.Rhino.Viewport` (`CameraSnapshot`, `CameraPose`, `LensAngle`, `ProjectionKind`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;

@@ -24,7 +24,7 @@ Traversal is host-absorbed: reachability walks, cycle detection, bounded path en
 - Growth: a new host reach is one `GraphReach` row; a new membership projection is one `GraphRoster` row; a new searched type is one `NearKind` row; a new elision axis is one `RelayAxis` row; a new read intent is one `GraphProbe` case whose arm breaks the gate's total `Switch` loudly.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
@@ -220,7 +220,7 @@ public static partial class GraphScope {
 - Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row; a new survey axis is one kernel `PickAxis` row — the gate never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
@@ -357,16 +357,16 @@ public static partial class GraphScope {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                       | [RAIL]                                                  | [CASES] |
-| :-----: | :------------------ | :---------------------------- | :------------------------------------------------------ | :-----: |
-|  [01]   | flow direction      | `FlowSide`                    | `Search`/`Prune` (internal)                             |    2    |
-|  [02]   | neighbourhood reach | `GraphReach`                  | `Find → Seq<ConnectiveObject>`                          |    4    |
-|  [03]   | membership roster   | `GraphRoster`                 | `Project → GraphAnswer`                                 |   11    |
-|  [04]   | spatial search      | `NearKind` + `GripSearch`     | `Find`/`Probe → GraphAnswer`                            |  2 + 3  |
-|  [05]   | relay elision       | `RelayAxis`                   | `CapabilitySet` membership                              |    3    |
-|  [06]   | read intent         | `GraphProbe` + `GraphAnswer`  | `Ask → Fin<GraphAnswer>`                                | 12 + 14 |
-|  [07]   | wire end role       | `WireEndRole` + `WireFreight` | `Replace`/`Haul` (internal)                             |  2 + 2  |
-|  [08]   | mutation intent     | `GraphMutation`               | `Mutate → Fin<GateOutcome>`                           |   13    |
+| [INDEX] | [CONCERN]           | [OWNER]                       | [RAIL]                         | [CASES] |
+| :-----: | :------------------ | :---------------------------- | :----------------------------- | :-----: |
+|  [01]   | flow direction      | `FlowSide`                    | `Search`/`Prune` (internal)    |    2    |
+|  [02]   | neighbourhood reach | `GraphReach`                  | `Find → Seq<ConnectiveObject>` |    4    |
+|  [03]   | membership roster   | `GraphRoster`                 | `Project → GraphAnswer`        |   11    |
+|  [04]   | spatial search      | `NearKind` + `GripSearch`     | `Find`/`Probe → GraphAnswer`   |  2 + 3  |
+|  [05]   | relay elision       | `RelayAxis`                   | `CapabilitySet` membership     |    3    |
+|  [06]   | read intent         | `GraphProbe` + `GraphAnswer`  | `Ask → Fin<GraphAnswer>`       | 12 + 14 |
+|  [07]   | wire end role       | `WireEndRole` + `WireFreight` | `Replace`/`Haul` (internal)    |  2 + 2  |
+|  [08]   | mutation intent     | `GraphMutation`               | `Mutate → Fin<GateOutcome>`    |   13    |
 
 `DocumentGate.Run`/`Resolve`, `GateOutcome`, `WirelessPair`, `PinRepairRow`, `HistoryLedger.Seal`, kernel `PickAxis`, `Components/ports.md`'s `PinSide`, `Op`, and `ValidityClaim` are composed upstream owners; local graph algorithms and folder-local survey/elision flag enums have no home here.
 

@@ -2,15 +2,7 @@
 
 `Microsoft.Extensions.Hosting.Systemd` binds the Generic Host lifetime to the systemd service manager over the sd_notify socket, signaling READY on start and STOPPING on graceful shutdown and bridging SIGTERM into `IHostApplicationLifetime`; the Linux-server host profile is its sole consumer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting.Systemd`
-- package: `Microsoft.Extensions.Hosting.Systemd`
-- assembly: `Microsoft.Extensions.Hosting.Systemd`
-- namespace: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Hosting.Systemd`
-- rail: composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: systemd lifetime family
 
@@ -23,7 +15,7 @@
 |  [05]   | `ServiceState`                 | struct        | sd_notify state payload       |
 |  [06]   | `SystemdHelpers`               | class         | systemd host detection        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifetime registration
 
@@ -66,7 +58,7 @@
 - Consumers arming the watchdog read both variables themselves, exactly as they read `LISTEN_FDS` for socket activation, and that guard polarity DIFFERS from the socket-activation one: `sd_watchdog_enabled(3)` admits when `WATCHDOG_PID` is unset OR equal to the current pid, where `LISTEN_PID` must equal it. Ticks run at half `WATCHDOG_USEC` and the manager restarts its countdown from each notification; an unset `WATCHDOG_USEC` means the manager expects no keep-alive at all.
 - Two UNIT-side facts the runtime cannot supply, both witnessed on systemd 260. `WatchdogSignal=` defaults to SIGABRT, which the CoreCLR PAL absorbs, so a missed deadline hangs the unit in `deactivating` for the whole `TimeoutStopSec` before SIGKILL — the unit declares `WatchdogSignal=SIGKILL` or an explicit SIGABRT disposition to kill promptly. `RELOADING=1` requires a `MONOTONIC_USEC=` stamp (`Stopwatch.GetTimestamp()` is CLOCK_MONOTONIC on Linux, no P/Invoke); a bare `RELOADING=1` is silently discarded and `systemctl reload` blocks to `TimeoutStartSec` then fails while the service survives.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `UseSystemd` installs the lifetime only when `SystemdHelpers.IsSystemdService` detects a PID-1, `NOTIFY_SOCKET`, or systemd-parent host.
@@ -83,9 +75,3 @@
 - Service-manager state transitions stay inside the lifetime; application code observes `IHostApplicationLifetime` only.
 - `SystemdHelpers.IsSystemdService` selects composition shape, never domain logic — including which owner arms SIGTERM.
 - Watchdog and reload assertions are consumer-owned payload mints, never a package gap to work around.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Hosting.Systemd`
-- Owns: Generic Host lifetime binding to the systemd service manager on the Linux-server backend
-- Accept: environment-gated systemd lifetime registration at composition; `ServiceState(string)` payload mints for every assertion beyond ready and stopping
-- Reject: hand-rolled sd_notify socket writes, a second SIGTERM trap beside the lifetime's, custom systemd-service detection, and an untyped `Notify` call whose socket failure escapes the caller's rail

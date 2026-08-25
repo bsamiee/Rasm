@@ -2,18 +2,7 @@
 
 `probreg` owns correspondence-free probabilistic point-set registration for the scan-processing rail: Gaussian-mixture estimators align a source array onto a target without correspondences, returning a `Transformation` whose non-rigid arm warps a per-point deformation field over arbitrary query points. One `registration_*` entrypoint per algorithm discriminates rigid, affine, and non-rigid on a `tf_type_name` string. It fills the non-rigid slot `kiss_matcher`, `open3d`, and `small_gicp` leave open; native compilation and a hard `open3d` import bind it to the worker interpreter.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `probreg`
-- package: `probreg` (MIT)
-- module: `probreg` — `cpd`/`filterreg`/`gmmtree`/`l2dist_regs`/`bcpd` submodules; `transformation` aliased `tf`
-- owner: `geometry`
-- rail: scan-processing / non-rigid-registration
-- entry points: none (library only)
-- gate: sdist-only native C++ build (`Eigen`/`OpenMP`/`pybind11`) and a hard `open3d` runtime import bind it to the worker interpreter beside `kiss_matcher`/`open3d`
-- capability: correspondence-free probabilistic non-rigid registration over point arrays
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transformation family (`probreg.transformation`)
 
@@ -62,7 +51,7 @@ Every estimator shares `set_source(source)`, `set_callbacks(callbacks)`, and `re
 |  [06]   | `CostFunction` family      | cost          | rigid/TPS L2-distance objective and gradient for GMMReg      |
 |  [07]   | `Normalizer`               | numeric       | `normalize`/`denormalize` unit-cube conditioning             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`probreg.<module>.registration_*`)
 
@@ -89,7 +78,7 @@ Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3
 |  [04]   | `RigidTransformation.rot`/`.t`/`.scale` | rigid          | rotation, translation, scale for the 4x4 rail contract |
 |  [05]   | `estimator.registration(target, ...)`   | estimator      | run EM from a preconfigured estimator plus callbacks   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `from probreg import cpd, filterreg, gmmtree, l2dist_regs, bcpd` at boundary scope only; probreg pulls `open3d` transitively at import.
@@ -106,9 +95,3 @@ Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3
 
 [LOCAL_ADMISSION]:
 - probreg is admitted for the probabilistic non-rigid slot the global `kiss_matcher`, coarse `open3d`, and fine `small_gicp` engines leave open.
-
-[RAIL_LAW]:
-- Package: `probreg`
-- Owns: correspondence-free probabilistic point-set registration and its non-rigid deformation-field warps
-- Accept: probabilistic non-rigid registration feeding the scan-processing owner and the deformation-field deviation split
-- Reject: wrapper-renames of `registration_cpd`/`registration_filterreg`; a hand-rolled CPD EM loop, GMM correspondence weighting, or TPS warp where probreg is admitted; a per-modality registration function family over the `tf_type_name`/`objective_type` rows; rigid global registration `kiss_matcher`/`open3d` own; mesh-to-mesh non-rigid deformation `trimesh.registration` owns

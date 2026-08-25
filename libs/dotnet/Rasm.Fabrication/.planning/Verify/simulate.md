@@ -29,7 +29,7 @@ Spindle speed changes cost the ramp the declared operating envelope implies wher
 - Boundary: simulation evaluates planned intent and never rewrites feeds, geometry, or sequence. `Posting/program` owns parse, expansion, and look-ahead. `Kinematics/machine` owns dynamics and axis limits. `Kinematics/cell` owns every `Robots` member, so the cell lane consumes a provider-free station census and this page names no provider type. `Tooling/magazine` owns tool-change timing and mints every `ToolChangeEvidence` through its ONE derivation, so this page reads the census whole and re-tests no column of it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;

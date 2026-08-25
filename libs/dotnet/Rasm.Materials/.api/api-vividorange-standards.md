@@ -2,17 +2,7 @@
 
 `VividOrange.Standards` owns the EN/Eurocode design-code IDENTITY DATA — the concrete `VividOrange.IStandards` `IStandard` implementation for the EN body, one typed class per Eurocode. Each class is pure citation identity carrying no quantity, so a material grade or design page names the governing code here and reads every code-derived factor from the material grade record.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Standards`
-- package: `VividOrange.Standards` (MIT)
-- assembly: `VividOrange.Standards`
-- namespace: `VividOrange.Standards.Eurocode`
-- asset: pure-managed AnyCPU runtime library, no native RID; the `net10.0` consumer binds the `lib/net8.0` managed asset.
-- depends: `VividOrange.IStandards` alone — the floor owning `IStandard`, `StandardBody`, the `En19xxPart` enums, `NationalAnnex`, and `MissingNationalAnnexException`; no `UnitsNet`, since this surface carries identity, not quantities.
-- rail: standards (design-code identity)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the ten Eurocode `IStandard` identity classes
 - rail: standards
@@ -32,7 +22,7 @@
 |  [09]   | `En1998` | class         | earthquake resistance        |
 |  [10]   | `En1999` | class         | aluminium structures         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct and read a Eurocode citation
 - rail: standards
@@ -47,7 +37,7 @@
 |  [06]   | `.NationalAnnex`                    | property | `NationalAnnex`              |
 |  [07]   | `.Title`                            | property | derived `string`             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - An `En19xx` is pure identity — constant `Body`, its `En19xxPart`, a `NationalAnnex`, and a derived `Title` — implementing the `IStandard` floor with no quantity and no design rule, the citation a grade or design check names.
@@ -63,9 +53,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit the identity at the Materials boundary that records a design-code citation — a grade's governing code, a design check's basis; the edge maps the `IStandard` onto the design-code field, and a design page names the `En19xx` + `NationalAnnex` in place of a code-number literal.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Standards`
-- Owns: the EN/Eurocode design-code identity DATA — the ten `En1990`..`En1999` `IStandard` classes (constant `Body=EN`, `En19xxPart Part`, `NationalAnnex`, derived `Title`; `En1990` unpartitioned), the EN concrete implementation of the `VividOrange.IStandards` floor.
-- Accept: a Eurocode citation named by its `En19xx` class + `En19xxPart` + `NationalAnnex`, carried as the typed `IStandard` a grade cites or a page names, read as pure identity.
-- Reject: an inline `"EN 1992-1-1"` string or code-number literal where an `En19xx` carries it; a non-EN `StandardBody`, unimplemented in this assembly; a direct call to the `internal` `NationalAnnexUtility`/`En19xxUtility` in place of `standard.Title`; duplicating on this record the code-derived factor DATA the material grade owns.

@@ -2,15 +2,7 @@
 
 `pillow` (`PIL`) is geometry's WebP decoder, admitted for one role the interpreter floor cannot serve: the SOG v2 gaussian-splat container stores each channel as a lossless-WebP plane, and stdlib ships no WebP codec. Geometry's scan owner binds the header-only probe (`mode`/`size`/`getbands` before any decode), the `convert` band narrowing, and the `__array_interface__` copy `numpy` reads — never a raster operation, an encode, or a colour transform, each of which belongs to `artifacts`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pillow`
-- package: `pillow` (MIT-CMU)
-- module: `PIL` (distribution `pillow`; `find_spec("PIL")` is the presence probe and `PIL` the name a floor refusal carries)
-- namespaces: `PIL.Image` (open, the image owner, the decode faults), `PIL.features` (the native-build probe), `PIL.WebPImagePlugin` (the plugin `formats=("WEBP",)` pins); `PIL` itself re-exports `Image` and `UnidentifiedImageError`, so `from PIL import Image, UnidentifiedImageError` reaches both
-- rail: image decode — the `scan/ingestion#INGESTION` SOG plane read
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image owner, lazy decode subtype, and the fault family
 
@@ -25,7 +17,7 @@
 |  [05]   | `Image.DecompressionBombError`  | fault         | declared pixel count past `Image.MAX_IMAGE_PIXELS`; a bare `Exception`    |
 |  [06]   | `Image.MAX_IMAGE_PIXELS`        | policy value  | the bomb ceiling the header check gates on; `None` disables it            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decode, header read, and the numeric hand-off
 
@@ -49,7 +41,7 @@
 - `img.__array_interface__`: `data` is a `bytes` copy the array's base holds, not a view onto the decoder buffer, so the array outlives the closed image.
 - `features.check_codec("webp")`: raises `ValueError` — WebP registers as a MODULE, not a codec, so the codec probe is the wrong seam.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `lazy from PIL import Image, UnidentifiedImageError` at module scope — a `lazy` statement inside a function body is a SyntaxError — behind the owner's `find_spec` floor gate, so an unprovisioned host refuses by module name ahead of the offload instead of dying as an import inside a worker.
@@ -69,9 +61,3 @@
 [LOCAL_ADMISSION]:
 - pillow enters geometry for WebP plane decode alone, because the SOG v2 container has no other reader and stdlib carries no WebP codec; raster processing, encode, drawing, text, colour management, and every other pillow surface belong to `artifacts` (`python/artifacts/.api/pillow.md`) and never cross into this branch.
 - geometry's floor gate resolves this module per CONTAINER rather than per verb: an SPZ payload decodes on the interpreter floor alone, so the image module is demanded only where the payload's leading signature names a planar container.
-
-[RAIL_LAW]:
-- Package: `pillow`
-- Owns: WebP plane decode for the gaussian-splat container — header-only format/mode/size/band reads, the `formats`-pinned lazy `open`, band narrowing through `convert`, and the `__array_interface__` copy into `numpy`
-- Accept: already-resident archive-member octets through `BytesIO`; the `formats=("WEBP",)` plugin pin; the band count admitted before the decode; `np.asarray` as the one numeric hand-off
-- Reject: a path-fed `open` where the octets are already resident; an unpinned `formats` probe walking every registered plugin; a fixed band index where `getbands` admits and `convert` narrows; a per-pixel Python loop where the array hand-off plus a codebook fancy index serves; a bare `except Exception` where `UnidentifiedImageError` and `OSError` are distinct cases; `features.check_codec` for a module-registered surface; any raster, encode, draw, or colour-management use this branch does not own

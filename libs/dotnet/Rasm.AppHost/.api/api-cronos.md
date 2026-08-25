@@ -2,15 +2,7 @@
 
 `Cronos` parses five- and six-field cron expressions — hash-jitter `H` fields included — and computes DST-correct forward and reverse occurrences over UTC instants and explicit time zones. `CronExpression` values persist as text, rebuild through `TryParse`, and feed every AppHost schedule row through one occurrence rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Cronos`
-- package: `Cronos` (MIT)
-- assembly: `Cronos`
-- namespace: `Cronos`
-- rail: schedule
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cron expression family
 
@@ -28,7 +20,7 @@
 |  [01]   | `CronFormat.Standard`       | enum          | five-field minute-resolution schedule |
 |  [02]   | `CronFormat.IncludeSeconds` | enum          | six-field second-resolution schedule  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and template construction
 
@@ -65,7 +57,7 @@
 |  [13]   | `ToString()`                                                             | instance | normalized expression text             |
 |  [14]   | `Equals(CronExpression)` / `==` / `!=`                                   | operator | schedule value identity                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Standard format orders five fields: minute, hour, day-of-month, month, day-of-week.
@@ -88,9 +80,3 @@
 - Schedules persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary.
 - Occurrence math consumes and emits UTC instants; zone projection stays inside the occurrence call.
 - Hash jitter carries an explicit deterministic seed keyed to schedule identity.
-
-[RAIL_LAW]:
-- Package: `Cronos`
-- Owns: cron parsing and forward/reverse occurrence calculation
-- Accept: UTC instants, explicit `TimeZoneInfo` zones, and per-identity jitter seeds
-- Reject: hand-rolled cron parsing, local wall-clock occurrence math, and drop-in schedulers (Quartz, Hangfire, NCrontab)

@@ -2,17 +2,7 @@
 
 `bw2data` is the Brightway system of record: the `platformdirs`-resolved project directory, the SQLite/`peewee` node+edge product-system graph, the LCIA method/weighting/normalization stores, the `bw2parameters` scoped-parameter formula graph, the `whoosh` search index, and the graph→datapackage serialization (`process()`) that feeds `bw2calc`. `bw2calc` owns the solve, `bw_processing` the datapackage format, and `peewee`/`pint`/`whoosh` the ORM/units/search — `bw2data` composes them as the sole authoring surface, and `bw2calc` is stateless compute over its `process()` emission.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bw2data`
-- package: `bw2data` (BSD-3-Clause)
-- module: `import bw2data as bd`
-- rail: lca-store (EPD/LCA cluster)
-- asset: pure-Python `py3-none-any` purelib, ABI-agnostic; SQLite via `peewee`, units via `pint`, search via `whoosh`, config via `pydantic-settings`
-- depends: `peewee` (node/edge ORM), `bw_processing` (`process()` output), `bw2parameters` (formula evaluator), `pydantic-settings` (`config`/`labels`), `platformdirs` (project dirs), `blinker` (`signal` hooks), `rapidfuzz` (fuzzy search); optional `multifunctional` self-registers an extra backend at import
-- capability: project isolation and lifecycle, a node/edge SQLite graph with dict-proxy mutation, LCIA method/weighting/normalization stores, scoped parameters with recalculation, fuzzy + full-text search, graph→datapackage serialization, node/edge dataframe export, and the typed `bw2calc` bridge
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: singletons, graph proxies, stores, and registries
 
@@ -36,7 +26,7 @@
 [ERROR_ROOT]: `BW2Exception` roots the store family — `ValidityError` (invalid node or edge), `PickleError`, `WebUIError` all derive from it — so one row covers the whole family at a fence.
 [ERROR_STDLIB]: the store raises `KeyError` for a project or database name the registry never held and `OSError` for the on-disk SQLite path, neither under the `BW2Exception` root.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [PROJECT_LIFECYCLE]: `bd.projects` (`ProjectManager`)
 - lifecycle: `create_project(name=None, **kwargs)` `set_current(name, writable=True)` `delete_project(name=None, delete_dir=False)` `copy_project(new_name, switch=True)` `rename_project(new_name)`
@@ -75,7 +65,7 @@
 
 [MODULE]: `convert_backend(database_name, backend)` `set_data_dir(dirpath, permanent=True)` `extract_brightway_databases(...)` `JsonWrapper`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Project is the unit of isolation: `projects.set_current(name)` switches the active SQLite database, datapackage directory, parameters, and registries; every store reads the current project, so switch first then act.
@@ -95,9 +85,3 @@
 
 [LOCAL_ADMISSION]:
 - Admitted unpinned as the `impact` cluster's system of record; the project graph is the sole authoring surface and `bw2calc` the only compute consumer of its `process()` emission.
-
-[RAIL_LAW]:
-- Package: `bw2data`
-- Owns: project isolation and lifecycle, the SQLite/`peewee` node+edge graph with dict-proxy mutation, the LCIA method/weighting/normalization stores, the scoped parameter system with recalculation, fuzzy + full-text search, graph→datapackage serialization, dataframe export, and the `bw2calc` bridge
-- Accept: `projects.set_current` isolation switch; `Database(name)` factory with `db.write`/`new_node(...).save()` mutation; `get_node`/`get_activity`/`get_id` polymorphic lookup; `Node`/`Edge` mutate-then-`save`; `.technosphere()`/`.biosphere()`/`.production()` typed iterators; `prepare_lca_inputs`/`get_multilca_data_objs` as the sole `bw2calc` hand-off; `nodes_to_dataframe`/`edges_to_dataframe` export; `process()` serialization; `parameters.recalculate()`
-- Reject: hand-assembling `data_objs` past `prepare_lca_inputs`; per-key getter proliferation where `get_node` discriminates by kwargs; raw `peewee`/SQLite where the `Node`/`Edge` proxies own it; re-implementing the `bw_processing` datapackage serialization; a parallel project/config store past `projects`+`config`; per-row iteration for analytics where the dataframe exports exist

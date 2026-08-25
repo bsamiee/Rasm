@@ -2,14 +2,7 @@
 
 `pymupdf` owns the native MuPDF-backed document surface for the artifacts pdf rail: one `Document` root spanning the PDF/XPS/EPUB/CBZ/image family drives render, text/image/table extraction, per-page OCR, redaction, annotation, vector drawing, and page assembly, all through the bundled MuPDF C core. Whole-program AGPL copyleft binds that path to internal or permissively-licensed deployments and routes a distributed closed service to the BSD render and structural siblings on the same rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pymupdf`
-- package: `pymupdf` (AGPL-3.0-or-later OR Artifex-Commercial)
-- module: `pymupdf`; bundles the native MuPDF C core, no system library
-- rail: pdf — native render/extract/ocr/redact/scrub/draw/table/embed/author owner
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, page, and rendering roots
 
@@ -65,7 +58,7 @@ Call rows discriminate on module-level `int`/flag constants, never re-minted loc
 |  [02]   | `FileNotFoundError` | resolution fault | document path absent                               |
 |  [03]   | `EmptyFileError`    | empty fault      | zero-length document (subclass of `FileDataError`) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open and save
 - `save`/`ez_save` carry: `garbage, clean, deflate, deflate_fonts, incremental, linear, use_objstms, encryption, permissions, owner_pw, user_pw, preserve_metadata, compression_effort`
@@ -230,7 +223,7 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 |  [09]   | `DocumentWriter.close()`              | instance | finalize the written document                   |
 |  [10]   | `paper_rect(str)`                     | static   | named paper-size rect (e.g. `"a4"`)             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Document` owns every supported format, `filetype` a row and never a per-format type; `Page.get_pixmap(matrix/dpi/colorspace)` is the single render entry and `Page.get_text(flags=TEXTFLAGS_*)`/`find_tables` the single extraction surface, both replayed over one `get_textpage(flags=)` (`extractDICT`/`extractWORDS`/`search`) rather than re-parsed per mode.
@@ -249,9 +242,3 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 - `import pymupdf` at boundary scope only.
 - Native calls own render, extract, OCR, redact, scrub, draw, table, and embed; a hand-rolled object walker, a second rasterizer, a re-clustered table grid, or a raster-to-PDF library beside `insert_image` is the deleted form.
 - AGPL routing is the rail's architecture constraint: reserve pymupdf for internal or permissively-licensed pipelines or an Artifex commercial seat, and route a distributed closed service's render/extract path to BSD `pypdfium2` and `pypdf`.
-
-[RAIL_LAW]:
-- Package: `pymupdf`
-- Owns: native document open, page rasterization, per-page OCR, text/image/table extraction (`TEXTFLAGS_*`, `to_pandas`/`to_markdown`), native outline (`get_toc`/`set_toc`/`Outline`) and embedded-file recovery, the five page boxes (read + `set_*` write), vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned-glyph + HTML authoring (`TextWriter`/`insert_htmlbox`), the annotation-authoring family + redaction, `scrub`/`bake`/`subset_fonts`/`rewrite_images`, lossless `insert_image` embed, reflowable `Story` layout and reflowable-document `apply_css`/`Archive` HTML-to-linked-PDF conversion, page assembly/reorder, OCG/OCMD layers, info-dict + XMP metadata authoring, journalled undo/redo, AES-256/RC4 encrypted incremental save
-- Accept: render, OCR, table (`to_pandas`), outline, drawing, and embedded-file recovery feeding the document/PDF, table/dataframe, and image owners; `pil_tobytes` feeding Pillow encoders; lossless raster embed feeding the image-to-PDF intake
-- Reject: a wrapper-rename of `get_pixmap`/`get_text`/`find_tables`/`get_toc`/`embfile_get`; a second rasterizer where `pypdfium2` covers the BSD render path; an embedded-file recovery re-derived from `get_images`; a hand-clustered table grid where `to_pandas` shapes it; a whole-document OCR-to-PDF/A pipeline where `ocrmypdf` owns it; AES-256-R6 where `pikepdf` owns it; a raster-to-PDF library where `insert_image` embeds losslessly; the AGPL render path inside a distributed closed service; identity minting the runtime owns

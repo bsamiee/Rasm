@@ -368,12 +368,12 @@ internal static class ResultVisuals {
 }
 ```
 
-| [INDEX] | [KIND]      | [DEMANDS]  | [RENDER_FOLD] | [SEALED_OUTPUT_CLASS]                          |
-| :-----: | :---------- | :--------- | :------------ | :--------------------------------------------- |
-|  [01]   | mesh-scalar | topology   | shaded        | per-vertex scalars over an analysis mesh       |
-|  [02]   | grid        | structured | volumetric    | a structured sensor lattice as a field result  |
-|  [03]   | section     | topology   | shaded        | a planar cut carrying its own sample mesh      |
-|  [04]   | dome        | topology   | shaded        | a hemispherical patch field over the sky       |
+| [INDEX] | [KIND]      | [DEMANDS]  | [RENDER_FOLD] | [SEALED_OUTPUT_CLASS]                         |
+| :-----: | :---------- | :--------- | :------------ | :-------------------------------------------- |
+|  [01]   | mesh-scalar | topology   | shaded        | per-vertex scalars over an analysis mesh      |
+|  [02]   | grid        | structured | volumetric    | a structured sensor lattice as a field result |
+|  [03]   | section     | topology   | shaded        | a planar cut carrying its own sample mesh     |
+|  [04]   | dome        | topology   | shaded        | a hemispherical patch field over the sky      |
 
 ## [03]-[LAYER_STACK]
 

@@ -2,17 +2,7 @@
 
 `LightningDB` binds LMDB — the memory-mapped single-writer/multi-reader B+tree — as the embedded read-optimized MVCC engine: a read transaction is a stable point-in-time snapshot and an `MDBValue` is a `ReadOnlySpan<byte>` window straight onto the mmap page, valid only inside that transaction. It owns the point-lookup, ordered range-scan, and dupsort secondary-index lane; `rocksdb` owns the write-amplified ingest and log lane.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `LightningDB`
-- package: `LightningDB` (MIT)
-- assembly: `LightningDB`
-- namespace: `LightningDB`, `LightningDB.Native`, `LightningDB.Comparers`
-- asset: managed library carrying zero managed dependencies
-- native: LMDB rides in-package per RID at `runtimes/<rid>/native/lmdb.dylib|.so|.dll`, resolved from the package
-- rail: embedded-kv
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine roots, their configuration records, and the mmap value window
 
@@ -59,7 +49,7 @@
 |  [07]   | `LengthOnlyComparer`      | —                                | length alone                       |
 |  [08]   | `HashCodeComparer`        | —                                | hash digest of large values        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: environment lifecycle, caps, backup, and reader-table maintenance
 
@@ -125,7 +115,7 @@
 
 - `LightningCursor.Put`: `CursorPutOptions` is positional, with no default; every walk member returns `(MDBResultCode, MDBValue key, MDBValue value)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One write transaction lives at a time and readers are unbounded, each a copy-on-write snapshot fixed at its start, so a reader never blocks a writer nor sees a later commit. That snapshot is the AS-OF primitive at the embedded tier, held only while a reconstruction reads it — a parked reader pins old pages and grows the file.
@@ -151,9 +141,3 @@
 - Domain logic pins the `MDBResultCode`-returning core and lifts codes at one site: `NotFound` to the empty option, `KeyExist` to the write-once conflict, `MapFull`/`MapResized`/`ReadersFull` to typed engine faults.
 - Key order enters through a `LightningDB.Comparers` singleton at `CompareWith`/`FindDuplicatesWith`, re-supplied identically on every open, because that comparer is the durable B+tree order.
 - Keyspace partition rides named sub-DBs inside the one environment file.
-
-[RAIL_LAW]:
-- Package: `LightningDB`
-- Owns: the embedded read-optimized MVCC B+tree — environment/database/transaction/cursor lifecycle, zero-copy span reads, dupsort secondary indexes, named keyspaces, and online compacting backup
-- Accept: span-first `Get`/`Put`/`Delete`, the `MDBResultCode` rail, `MDBValue` bounded by its transaction, `Reset`/`Renew` snapshot reuse, cursor `SetRange` pagination, and `CopyTo(compact: true)` backup
-- Reject: an `MDBValue` outliving its transaction, a throwing extension overload inside domain logic, a write-time map regrow, one file per keyspace, a hand-rolled byte comparer beside the comparer singletons, and LMDB on a write-amplified lane

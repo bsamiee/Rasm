@@ -2,9 +2,7 @@
 
 `FontEngineering` is the font-binary engineering owner over the document rail — one owner folding a font plus a discriminated `FontJob` into a minimized, instanced, compiled, synthesized, axis-introspected, outline-metered, feature-frozen, feature-varied, merged, or embed-validated deliverable. Each `FontJob` case carries only its operation's fields. `fontTools` owns the binary model, typed footprint retention, partial-axis instancing, designspace compilation, whole-font synthesis, color tables, axis introspection, outline algebra, merge, feature authoring, conditional GSUB, and script resolution; `opentype-feature-freezer` owns the GSUB→`cmap` freeze.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[FONT]
 
@@ -14,10 +12,10 @@
 - Entry: `emit()` returns one `ArtifactWork` whose pre-run key covers `(source-font ⊕ job)` under `CANONICAL_POLICY`; `_emit` crosses `_rendered` through the `INTERPRETER` offload lane.
 - Exemption: outline replay, temporary-path bracketing, designspace source assembly, and glyph synthesis are measured provider kernels; their statement loops own mutable package objects and never escape the operation.
 - Growth: a new engineering operation is one `FontJob` case plus its total `apply` arm; a new retention, instancing, freeze, synthesis, or outline axis is one field on its existing policy owner. CFF↔glyf conversion lands as one `FontJob` case over `cu2qu`/`qu2cu`, while WOFF/WOFF2 remains `SubsetPolicy.flavor`.
-- Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner transforms or authors a font binary and proves it embeddable, never producing a document. A post-`SUBSET`/`INSTANCE`/`FREEZE` shaping-regression proof composes `typography/shape#SHAPE`'s `QA` request over the produced binary — the vharfbuzz golden oracle lives there, never a second QA arm here. A hand-walked `glyf`/`CFF`/`GSUB`/`fvar`/`STAT`/outline decode, a hand-assembled static cut or variable font, a Python-list font-merge, hand-built COLR/CPAL tables, and a hand-coded script→OT-tag map are each rejected against the fontTools op that owns them; the uharfbuzz HarfBuzz subsetter loses to fontTools `SUBSET` for Python-native `Options` feature-policy control. A permissive `Mapping[str, object]` option bag, a parallel `_woff` writer, and a `dict` instancer keyword bag collapse into the per-mode `FontJob` case carrying only its op's typed fields.
+- Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner transforms or authors a font binary and proves it embeddable, never producing a document. `typography/shape#SHAPE`'s `QA` request proves shaping invariance over the produced binary after `SUBSET`/`INSTANCE`/`FREEZE` — the vharfbuzz serialization oracle lives there, never a second QA arm here. A hand-walked `glyf`/`CFF`/`GSUB`/`fvar`/`STAT`/outline decode, a hand-assembled static cut or variable font, a Python-list font-merge, hand-built COLR/CPAL tables, and a hand-coded script→OT-tag map are each rejected against the fontTools op that owns them; the uharfbuzz HarfBuzz subsetter loses to fontTools `SUBSET` for Python-native `Options` feature-policy control. A permissive `Mapping[str, object]` option bag, a parallel `_woff` writer, and a `dict` instancer keyword bag collapse into the per-mode `FontJob` case carrying only its op's typed fields.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 import math
 from builtins import frozendict

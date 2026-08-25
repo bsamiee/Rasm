@@ -2,15 +2,7 @@
 
 `adbc-driver-snowflake` binds a Snowflake warehouse to the data partition rail: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on one streamed cursor — Snowflake stages each result set as Arrow chunks in cloud storage, which the driver downloads concurrently under `PREFETCH_CONCURRENCY` and delivers zero-copy to the partition, query, and dataframe owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `adbc-driver-snowflake`
-- package: `adbc-driver-snowflake` (Apache-2.0)
-- module: `adbc_driver_snowflake`
-- owner: `data`
-- rail: partition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: option and credential vocabularies
 
@@ -22,7 +14,7 @@
 |  [02]   | `StatementOptions` | enum          | statement keys, including prefetch and ingest axes     |
 |  [03]   | `AuthType`         | enum          | `str` credential-mode values for `AUTH_TYPE`           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection factories
 
@@ -95,7 +87,7 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 |  [07]   | `AuthType.PAT`              | `auth_pat`         | programmatic access token via `AUTH_TOKEN` |
 |  [08]   | `AuthType.WIF`              | `auth_wif`         | workload-identity federation               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `connect` binds the account to the native `libadbc_driver_snowflake.so`; `dbapi.connect` is the DBAPI row adding `conn_kwargs` over the shared database object, never a parallel client class.
@@ -117,9 +109,3 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 - production refuses `SSL_SKIP_VERIFY` and `OCSP_FAIL_OPEN_MODE`; a declared trusted-environment profile is the sole bypass admission, and connection evidence records the admitted key.
 - `DISABLE_TELEMETRY` suppresses Snowflake in-band client telemetry.
 - each connection exposes the resolved account, warehouse/role/database/schema, auth type, applied option keys, result-chunk count, per-chunk batch count, and Arrow schema as partition metadata.
-
-[RAIL_LAW]:
-- Package: `adbc-driver-snowflake`
-- Owns: Snowflake account binding, concurrent in-driver Arrow result-chunk retrieval, staged bulk Arrow ingest, high-precision decimal control, per-session warehouse/role/database/schema routing, query tagging, and authentication selection
-- Accept: streamed Snowflake reads feeding Arrow record batches to the data partition, query, and dataframe owners, and staged Arrow bulk ingest to warehouse tables
-- Reject: a partitioned-read plan over Snowflake where `ExecutePartitions` refuses; wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled Snowflake REST client, chunk downloader, or `PUT`/`COPY` ingest loop the native driver owns; a per-setting builder type or per-auth-mode connect variant where an option enum value already keys the value; string-literal option keys bypassing `DatabaseOptions`/`StatementOptions`; credential identity minting the runtime owner owns

@@ -2,16 +2,7 @@
 
 `Npgsql.OpenTelemetry` admits the driver's own telemetry by name: one tracer verb subscribes the `"Npgsql"` `ActivitySource`, one meter verb subscribes the `"Npgsql"` meter. Neither verb installs a listener, subscriber, or processor, so span shaping binds at the data-source builder and stream shaping at provider view rows.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.OpenTelemetry`
-- package: `Npgsql.OpenTelemetry` (PostgreSQL)
-- assembly: `Npgsql.OpenTelemetry`
-- namespace: `Npgsql`
-- depends: `Npgsql`
-- rail: storage instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider-builder extension holders, one per signal
 
@@ -36,7 +27,7 @@
 |  [10]   | `db.client.connection.npgsql.pending_requests` | `{request}`    | queued open-connection requests                 |
 |  [11]   | `db.client.connection.npgsql.timeouts`         | `{timeout}`    | pool acquisition timeouts                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: name subscription on the provider builders
 
@@ -47,7 +38,7 @@
 
 - `AddNpgsqlInstrumentation`: `NpgsqlMetricsOptions` declares no members.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Both verbs resolve to one name row, installing no listener, subscriber, or processor.
@@ -64,9 +55,3 @@
 - `NpgsqlMetricsOptions` is knob-free, so bucketing and cardinality posture ride `AddView` rows on the meter builder; telemetry wiring never leaks into store profiles or query surfaces, and span and meter names stay driver facts.
 - Each data source sets `Name` per logical database; an unnamed source folds every pool series onto one default key.
 - Provider builders alone reference this package — `Npgsql` carries every emitting surface, so no library-tier reference forms.
-
-[RAIL_LAW]:
-- Package: `Npgsql.OpenTelemetry`
-- Owns: name-level admission of the driver `ActivitySource` and meter onto the provider builders
-- Accept: one tracer row and one meter row per provider, span depth at the data-source builder, stream depth at view rows
-- Reject: a hand-rolled ADO.NET span or duration meter over `NpgsqlCommand`, or a second relational meter roster beside the `Npgsql` meter

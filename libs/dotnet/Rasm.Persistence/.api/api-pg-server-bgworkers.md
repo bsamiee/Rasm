@@ -2,16 +2,7 @@
 
 PG18 server-tier maintenance companions carry the Persistence PostgreSQL profile's in-database cadence, partition lifecycle, bloat reclaim, document validation, and audit trail as server-side SQL alone. Each installs through a `ServerExtension` `CreateSql` row, binds through raw SQL or a GUC `SET`, and verifies read-only against `pg_settings` — no managed assembly and no EF translator crosses into this tier.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pg_cron` `pg_partman` `pg_squeeze` `pg_jsonschema` `pgaudit`
-- packages: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)
-- namespace: SQL — the `cron`, `partman`, `squeeze`, and `pgaudit` schemas; `pg_jsonschema` registers unqualified functions and the `jsonschema` type
-- registration: `pg_cron`, `pg_partman_bgw`, `pg_squeeze`, and `pgaudit` ride the `ClusterConfig` `shared_preload_libraries` row and verify through `PreloadProbe`; `pg_jsonschema` registers on `CREATE EXTENSION` alone
-- consumed by: `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows, `Query/lane#READ_ROUTING`, `Version/retention#RETENTION_CLASSES`, the AppHost persistence-maintenance schedule
-- rail: cluster-config, document-lane, audit-binding, schedule
-
-## [02]-[PG_CRON]
+## [01]-[PG_CRON]
 
 [CRON_ENTRY_SCOPE]: cluster-local SQL job scheduling
 
@@ -32,7 +23,7 @@ One bgworker drives every job from the `cron.job` registry. Schedule grammar adm
 - `cron.job_run_details` never self-prunes; a `cron.schedule`d `DELETE` over `end_time` is its retention route.
 - GUC set: `cron.database_name` `cron.host` `cron.timezone` `cron.max_running_jobs` `cron.launch_active_jobs` `cron.log_run` `cron.enable_superuser_jobs`.
 
-## [03]-[PG_PARTMAN]
+## [02]-[PG_PARTMAN]
 
 [PARTMAN_ENTRY_SCOPE]: declarative partition lifecycle over a PG18-native partitioned parent
 
@@ -50,28 +41,28 @@ One bgworker drives every job from the `cron.job` registry. Schedule grammar adm
 
 - `partman.part_config` policy columns: `premake` `automatic_maintenance` `retention` `retention_schema` `retention_keep_table` `retention_keep_index` `infinite_time_partitions` `template_table` `maintenance_order`.
 
-## [04]-[PG_SQUEEZE]
+## [03]-[PG_SQUEEZE]
 
 [SQUEEZE_ENTRY_SCOPE]: online bloat reclamation
 
 `pg_squeeze` rewrites a bloated table from the WAL decode stream and takes `ACCESS EXCLUSIVE` only at the final swap — the in-DB path where `VACUUM FULL` locks the whole rewrite and `pg_repack` needs an out-of-DB client. One `squeeze.tables` row registers a table for periodic bloat checks, and the scheduler worker queues a task whenever its thresholds trip.
 
-| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------ | :------- | :------------------------------------------------ |
-|  [01]   | `squeeze.squeeze_table(name, name, name, name, name[])` | function | one-shot online rewrite of one table              |
-|  [02]   | `squeeze.start_worker()`                                | function | start the per-database scheduler worker           |
-|  [03]   | `squeeze.stop_worker()`                                 | function | stop every worker in the current database         |
-|  [04]   | `squeeze.get_active_workers()`                          | function | in-flight worker progress keyed by `pid`          |
-|  [05]   | `squeeze.tables`                                        | table    | scheduled-table registry, the sole write target   |
-|  [06]   | `squeeze.log`                                           | table    | one row per completed rewrite                     |
-|  [07]   | `squeeze.errors`                                        | table    | per-task failure rows                             |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------ | :------- | :---------------------------------------------- |
+|  [01]   | `squeeze.squeeze_table(name, name, name, name, name[])` | function | one-shot online rewrite of one table            |
+|  [02]   | `squeeze.start_worker()`                                | function | start the per-database scheduler worker         |
+|  [03]   | `squeeze.stop_worker()`                                 | function | stop every worker in the current database       |
+|  [04]   | `squeeze.get_active_workers()`                          | function | in-flight worker progress keyed by `pid`        |
+|  [05]   | `squeeze.tables`                                        | table    | scheduled-table registry, the sole write target |
+|  [06]   | `squeeze.log`                                           | table    | one row per completed rewrite                   |
+|  [07]   | `squeeze.errors`                                        | table    | per-task failure rows                           |
 
 - `squeeze.squeeze_table` args: `(tabschema, tabname, clustering_index, rel_tablespace, ind_tablespaces)` — the index and tablespace args NULL out.
 - `squeeze.tables` policy columns: `schedule` `free_space_extra` `min_size` `vacuum_max_age` `max_retry` `skip_analyze`. `schedule` is a `(minutes, hours, days_of_month, months, days_of_week)` composite, not a cron string, and admits no NULL row value.
 - `squeeze_table` is non-transactional: it hands the table to a worker and exits, so rolling back the calling transaction leaves the rewrite running.
 - `ALTER TABLE`, `VACUUM FULL`, `CLUSTER`, and `TRUNCATE` each abort the squeeze and roll its changes back when they commit mid-rewrite; `max_retry` bounds the re-attempts and the schedule moves to avoid the collision.
 
-## [05]-[PG_JSONSCHEMA]
+## [04]-[PG_JSONSCHEMA]
 
 [JSONSCHEMA_ENTRY_SCOPE]: server-side JSON Schema validation inside a column `CHECK`
 
@@ -94,7 +85,7 @@ One bgworker drives every job from the `cron.job` registry. Schedule grammar adm
 - `jsonschema_validation_errors` supplies per-error detail the `CHECK` boolean cannot surface.
 - Absent the pgrx-compiled extension, the `ServerExtension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row moves the same verdict in-process; `api-jsonschema-net.md` owns that evaluator's surface.
 
-## [06]-[PGAUDIT]
+## [05]-[PGAUDIT]
 
 [PGAUDIT_ENTRY_SCOPE]: session and object audit logging into the server log
 
@@ -118,7 +109,7 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 - `pgaudit` absent from the preload list folds into the `<server-not-provisioned>` provisioning fault.
 - Object-level auditing rides `pgaudit.role` and a `GRANT` to that role, so per-object scope needs no per-table GUC.
 
-## [07]-[IMPLEMENTATION_LAW]
+## [06]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every surface lands through the EF `MigrationBuilder.Sql` rail — a `ServerExtension` `CreateSql`, a GUC `SET`, or a `cron`/`squeeze` registry `INSERT`. `HasPostgresExtension` cannot encode a preload prerequisite, so a preload-gated `CREATE EXTENSION` rides raw SQL.
@@ -135,9 +126,3 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 - Partitioned history tables declare one `create_parent` call in a migration, and `part_config.retention` is the drop policy the `Version/retention` destructive gate reads.
 - `jsonb` columns carrying a declared document shape take one `CHECK` over the pre-frozen schema, cast to `jsonschema` where the column is write-hot.
 - Audit classes bind through the `Version/retention#RETENTION_CLASSES` classification table and verify read-only; preloads are deploy-time `postgresql.conf` values the runtime observes.
-
-[RAIL_LAW]:
-- Package: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)
-- Owns: server-tier scheduled maintenance, declarative partitioning, online bloat reclaim, server-side document validation, and audit logging — server-side SQL the managed tier emits and verifies
-- Accept: `cron.schedule_in_database` for server-local cadence, `partman.create_parent` and `part_config` for partition lifecycle, `squeeze.tables` rows for scheduled reclaim, `jsonb_matches_schema` inside a `ServerExtension` `CreateSql` with the compiled `jsonschema` cast on hot columns, `pgaudit` GUCs bound per the audit-binding classification table
-- Reject: a hand-rolled partition-rotation or bloat-reclaim job, an out-of-DB reclaim or audit-pipeline client, a runtime `ALTER SYSTEM` setting a preload, a second document validator beside `pg_jsonschema` and its in-process fallback

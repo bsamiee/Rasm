@@ -2,17 +2,7 @@
 
 This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` engine, its `Rhino.Geometry.Morphs` implementations, the `MorphControl` deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flatteners. A morph deforms any `GeometryBase` in place along a type-agnostic point map; the flatteners split on custody — `Squisher` and `MeshUnwrapper` are `IDisposable` native resources and lease, while `Unroller` is a plain managed class holding no native handle, so a `using` over it names a disposal the type does not have. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives kernel-altitude DEC UV-flattening or linear motion.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon deformation-and-flattening surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Geometry`, `Rhino.Geometry.Morphs`
-- kernel: `Rasm` (host-neutral DEC flattening and linear-motion owners composed by altitude, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: deformation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: morph engines
 
@@ -51,7 +41,7 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 - `[SquishFlatteningAlgorithm]`: `Geometric` `PhysicalStress`
 - `[SquishDeformation]`: `Free` `StretchMostly` `StretchOnly` `CompressMostly` `CompressOnly` `Custom`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: space-morph engine
 
@@ -151,7 +141,7 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 - `[UNWRAP_KNOBS]`: `SymmetryPlane` (set-only, pins a symmetry constraint the unwrap consumes)
 - `MeshUnwrapper`: disposable native resource.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SpaceMorph` is a type-agnostic engine: `Morph(GeometryBase)` deforms any geometry along the concrete `MorphPoint` map in place, so the morphs discriminate on deformation kind rather than geometry type, and `IsMorphable` gates a geometry kind before the call. Every concrete morph is `IDisposable` carrying `Dispose()`, `IsValid`, and the `MorphPoint(Point3d)` override, while the `SpaceMorph` base is not `IDisposable`; `MeshMorphMesh` is `internal`, leaving `MeshCageMorph` the sole public mesh-driven deformer.
@@ -167,9 +157,3 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 [LOCAL_ADMISSION]:
 - deformation enters through the morph union or the `MorphControl` driver: each arm binds its native morph, applies it to a duplicated geometry, and projects the `bool` outcome onto the rail; flattening enters through the `Unroller`, `Squisher`, or `MeshUnwrapper` owner, disposing every native flattener through a using scope or lease and draining the caller-owned mark lists into detached records.
 - native morph, `MorphControl`, and flattener types stay inside the deformation grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Geometry` + `Rhino.Geometry.Morphs` host-fidelity deformation and flattening
-- Owns: the space-morph engine and its deformation family, the interactive morph-control deformer, and the unroll, squish, and mesh-unwrap flatteners.
-- Accept: native morph and flatten outcomes projected onto `Fin`/`Option`/`Seq` rails, parallel unroll `out` arrays and caller-owned squish mark lists folded into typed build facts, and disposable flatteners leased.
-- Reject: re-deriving kernel-altitude DEC flattening or linear motion, exception-style handling of `false` morph or unwrap results, retaining an undisposed native flattener, and leaking host morph/flattener types past the boundary.

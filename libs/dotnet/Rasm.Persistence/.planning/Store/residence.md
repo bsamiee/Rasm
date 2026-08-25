@@ -26,7 +26,7 @@ Rasm.Persistence models the FORM stored bytes take between a caller's plaintext 
 - Growth: a new stored form is one `ObjectCodec` row carrying its encoder, decoder, level, and metadata spelling, with zero leg edits; a new storage class is one `StorageTier` row; a new SSE stance is one `ObjectEncryption` case (`ClientSealed` exercised it — one case, one seal/open pair, one catalog column); a new checksum posture is one `ObjectChecksum` row answering the whole read and write column family; a tighter window is one `ChunkPolicy` row at its own owner; a second chunker, a re-declared frame width, a direction-split codec sibling, a per-provider decoder, or a stored version column beside the self-describing directory is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 

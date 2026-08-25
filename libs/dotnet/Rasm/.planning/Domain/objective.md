@@ -24,7 +24,7 @@ Every admission here proves against ONE roster shape — the declaration keyset 
 - Boundary: series and partition keys stay `string` because the WIRE is the string key — a panel, an alert rule, and a query dialect all address a declared instrument by its published name, and the admission below resolves each against the roster rather than carrying a type no deploy plane can spell. Polymorphic metadata rides the family because every derived `AlertSpec` crosses to a deploy plane, where a base-typed write loses the case.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Text.Json.Serialization;
 using NodaTime;
 using Thinktecture;
@@ -113,7 +113,7 @@ public readonly record struct SloSample(long Breaching, long Total) : IValidityE
 - Boundary: the severity roster is exactly `page` and `ticket` — the vocabulary the deploy plane's contact rows already key on — so the compile leg receives one dialect and a rank-ordered incident ladder rides the `Rank` and `Escalated` columns inside those two rows rather than a second severity type; delivery receivers, schedules, and escalation chains are deploy-plane configuration keyed by the severity row, never spec data. `AlertSpec` crosses a deploy plane whole, as data — annotation values are `string` because every one the derivation writes is a key or a name, and every declared severity column reaches that plane through them: the dwell rides `Hold`, the routing pair rides the posture annotations, so no column on the ladder is a policy nothing compiles.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using NodaTime;
 using Rasm.Numerics;
 using Thinktecture;
@@ -321,7 +321,7 @@ public static class Slo {
 - Boundary: panel rows name visualization alone and carry no query dialect, provider field, or datasource binding, and a break key outside the declared row's own dimensions refuses at pack admission where the descriptor is still editable rather than at the first empty render.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
@@ -398,7 +398,7 @@ public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective
 - Boundary: `Rasm.AppHost`'s corpus gate reads `Rows` and resolves each claim to its benchmark verdict; judging, regression budgets, and host-evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------

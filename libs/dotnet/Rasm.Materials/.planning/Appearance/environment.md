@@ -26,7 +26,7 @@ THE SKY, ENVIRONMENT-MAP, AND IMAGE-BASED-LIGHTING OWNER. One `SkyModel` `[Union
 - Boundary: every authored light magnitude crosses `photometric#PHOTOMETRIC` `Photometric.Admit` — `SkyAtmosphere.Of` for the zenith level and `EnvironmentMap.Of` for the dome intensity — so a `cd/m²` sky and a `lux` sky reach one radiometric scalar with no page-local efficacy divide, and each row carries the whole `EmissionEvidence` rather than a bare scalar. Ground albedo enters as an `RgbSpectrum`, so a spectrally tinted bounce is representable and a scalar albedo is the grey triple. SOLAR ANGULAR DIAMETER is an admitted column with NO page default: the disc a study wants is the site's own apparent diameter at its own date, and a transcribed mean ships one epoch's astronomy as this owner's law. The `CieStandard` disc is its own indicatrix at zero angular distance, so the ratio distribution and its direct beam are ONE algebra.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -694,7 +694,7 @@ internal static class Octahedron {
 - Entry: `public static Fin<IblProduct> Prefilter(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key, Option<PressDevice> device = default)` — ONE reduction producing every product, because the pyramid, the SH projection, and the CDF each sweep the same field and three entrypoints sweep it three times; governance rides the budget's own `Governance` column rather than a token-and-sink tail, so the page's longest operation is abortable and watchable with no signature widened, the MIP LADDER is the reported unit (the policy's own declared level count, each level a whole-dome sweep), and an abandoned run disposes every level it already integrated before railing `Errors.Cancelled`; `Sh9.Project(EnvironmentMap, RenderBudget, Op)` and `Sh9.Irradiance(WorldDirection)` are the projection and reconstruction halves of ONE correspondence on one owner; `IblProducts.SpecularLevel(UnitInterval)` maps a roughness onto the fractional mip the level set encodes.
 - Law: every product integrates the map's STORED frame. Rotation and intensity apply at the `[05]` read, so a re-oriented or re-exposed dome reuses the same content-addressed blobs and a rotation is never a re-bake.
 - Law: `ShBand` IS the FROZEN SH9 spelling — real orthonormal harmonics through `l = 2` in the right-handed `+Z`-up basis, band-major with RGB interleaved at `i·3 + c`, carrying the Lambertian convolution constants `Â₀ = π`, `Â₁ = 2π/3`, `Â₂ = π/4`. The normalization constants DERIVE from `sqrt((2l+1)/4π)` folded with each polynomial's own factor, so four expressions serve nine rows and the `Raster/gpu#WGSL_KERNEL` `irradianceSh` float literals are a DECLARED transcription of this primary (branch RULINGS: a WGSL twin transcribes its CPU owner's own members). `Sh9.Of` refuses a channel-major layout and any length other than twenty-seven.
-- Law: `ShGolden.All` rosters two EVALUATED fixtures and `ShGolden.Prove` runs them against three admitted `Tolerance` bars. `L(ω) = 1` yields `sh_0 = √(4π)` with every other band zero and `E(n) = π`; `L(ω) = ω·ẑ` yields `sh_2 = √(4π/3)` with every other band zero and `E(+ẑ) = 2π/3` — both expectations DERIVED from their own analytic projections, so a Y-up transcription lands the axial energy at `sh_1`/`sh_3` and fails, and the reconstruction probe fails a wrong `Â` set the projection alone cannot see. The same proof sums each `MapLayout.SolidAngle` closed form to `4π` over its own grid, and it TRAVERSES both rosters on the rail so a broken layout and a broken band each name themselves.
+- Law: `ShOracle.All` rosters two EVALUATED fixtures and `ShOracle.Prove` runs them against three admitted `Tolerance` bars. `L(ω) = 1` yields `sh_0 = √(4π)` with every other band zero and `E(n) = π`; `L(ω) = ω·ẑ` yields `sh_2 = √(4π/3)` with every other band zero and `E(+ẑ) = 2π/3` — both expectations DERIVED from their own analytic projections, so a Y-up transcription lands the axial energy at `sh_1`/`sh_3` and fails, and the reconstruction probe fails a wrong `Â` set the projection alone cannot see. The same proof sums each `MapLayout.SolidAngle` closed form to `4π` over its own grid, and it TRAVERSES both rosters on the rail so a broken layout and a broken band each name themselves.
 - Law: every GGX integral here reads the `bsdf#MICROFACET_KERNEL` kernel — `Microfacet<double>.SampleVisibleNormal` draws the half-vector, `Microfacet<double>.VisibleNormalPdf` supplies the density, `Microfacet<double>.MaskingShadowing` the Smith term — the generic kernel at this page's own instantiation — so the prefiltered dome and the shaded surface integrate the SAME distribution and a re-minted importance sampler is the deleted form. Sampling composes the kernel `Deterministic.Hammersley` equidistributed pair — the low-discrepancy member family the deterministic-draw owner carries BESIDE its splitmix64 stream, because splitmix64 clustering leaves visible prefilter noise at a bounded tap budget — so this page authors no sampling kernel of its own.
 - Law: the specular tap reads the SOURCE mip whose solid angle matches the sample density. That term is the firefly suppression a bounded tap budget requires and is a declared column rather than a hidden clamp: a blown highlight spreads across the taps it covers instead of being clipped out of the integral.
 - Law: the luminance guide resolves the DOME ALONE. The `[02]` synthesis keeps the disc out of the plane, so the guide never has to import-sample a source that spans one texel and out-shines its neighbours by four decades — the firefly no tap budget resolves and the quadrature error the SH would carry forever — and the `[05]` row prices the two arms against each other from the guide's own total and the disc's area-averaged radiance instead. An ingested HDRI with a baked sun carries that sun in its guide, which is exactly the arrangement the split is honest about: its disc is absent, its selection is zero, and the guide is the only structure there is.
@@ -1056,7 +1056,7 @@ public static class IblPrefilter {
     }
 }
 
-public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance, int Band, double Expected, double IrradianceAtZenith) {
+public sealed record ShOracle(string Name, Func<WorldDirection, double> Radiance, int Band, double Expected, double IrradianceAtZenith) {
     const double BandBar = 1e-6, IrradianceBar = 1e-5, MeasureBar = 1e-4;
     public const int ProofRows = 2048;
 
@@ -1067,16 +1067,16 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
             .Apply(static (band, irradiance, measure) => (Band: band, Irradiance: irradiance, Measure: measure))
             .As().ToFin();
 
-    public static readonly Seq<ShGolden> All = Seq(
-        new ShGolden("uniform", static _ => 1.0, Band: 0, Expected: Math.Sqrt(4.0 * Math.PI), IrradianceAtZenith: Math.PI),
-        new ShGolden("axial-cosine", static d => d.Z, Band: 2, Expected: Math.Sqrt(4.0 * Math.PI / 3.0), IrradianceAtZenith: 2.0 * Math.PI / 3.0));
+    public static readonly Seq<ShOracle> All = Seq(
+        new ShOracle("uniform", static _ => 1.0, Band: 0, Expected: Math.Sqrt(4.0 * Math.PI), IrradianceAtZenith: Math.PI),
+        new ShOracle("axial-cosine", static d => d.Z, Band: 2, Expected: Math.Sqrt(4.0 * Math.PI / 3.0), IrradianceAtZenith: 2.0 * Math.PI / 3.0));
 
     public static Fin<Unit> Prove(Op key) =>
         from bars in Bars(key)
         from measures in toSeq(MapLayout.Items).Traverse(layout =>
             MeasureSum(layout, ProofRows) switch {
                 var sum when Math.Abs(sum - (4.0 * Math.PI)) <= bars.Measure.Value => Fin.Succ(unit),
-                var sum => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<sh-golden-measure:{layout.Key}:{sum:R}>")),
+                var sum => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<sh-oracle-measure:{layout.Key}:{sum:R}>")),
             }).As()
         from bands in All.Traverse(row => row.Project(bars, key)).As()
         select unit;
@@ -1095,7 +1095,7 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
         for (int slot = 0; slot < 9; slot++) {
             double expected = slot == Band ? Expected : 0.0;
             if (Math.Abs(bands[slot] - expected) > bars.Band.Value) {
-                return new MaterialFault.Parameter(key, $"<sh-golden-band:{Name}:{slot}:{bands[slot]:R}>");
+                return new MaterialFault.Parameter(key, $"<sh-oracle-band:{Name}:{slot}:{bands[slot]:R}>");
             }
         }
         double[] interleaved = new double[Sh9.Slots];
@@ -1105,7 +1105,7 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
         return Sh9.Of(interleaved, key).Bind(sh =>
             Math.Abs(sh.Irradiance(WorldDirection.Zenith).R - IrradianceAtZenith) <= bars.Irradiance.Value
                 ? Fin.Succ(unit)
-                : (Fin<Unit>)new MaterialFault.Parameter(key, $"<sh-golden-irradiance:{Name}:{sh.Irradiance(WorldDirection.Zenith).R:R}>"));
+                : (Fin<Unit>)new MaterialFault.Parameter(key, $"<sh-oracle-irradiance:{Name}:{sh.Irradiance(WorldDirection.Zenith).R:R}>"));
     }
 
     static double MeasureSum(MapLayout layout, int edge) {

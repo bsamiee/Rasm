@@ -2,15 +2,7 @@
 
 `System.Diagnostics` activity tracing owns span identity, lifetime, and payload for every library-tier bracket: one `ActivitySource` per instrumentation scope mints spans a registered listener gates. Trace identity, W3C context, and the carrier propagator ship in the same assembly, so an emitting library reaches the whole boundary with no SDK reference.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Diagnostics.DiagnosticSource`
-- package: BCL inbox (MIT)
-- assembly: `System.Diagnostics.DiagnosticSource.dll` (shared framework)
-- namespace: `System.Diagnostics`
-- rail: library-tier span emission behind every `rasm.*` instrumentation scope
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: span owners, trace-identity value types, payload carriers, listener contracts.
 
@@ -39,7 +31,7 @@
 |  [21]   | `ActivityChangedEventArgs`     | struct        | `Previous`/`Current` pair on ambient-span change                    |
 |  [22]   | `DistributedContextPropagator` | class         | `Inject`/`ExtractTraceIdAndState`/`ExtractBaggage` over any carrier |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scope mint, listener gate, open and close bracket, payload writes, and context propagation.
 
@@ -94,7 +86,7 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 |  [45]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat           |
 |  [46]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C trace-context + baggage codec |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `ActivitySource` per instrumentation scope owns every span that scope emits, minted at composition and disposed with it.
@@ -120,9 +112,3 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 
 [LOCAL_ADMISSION]:
 - Span opens live inside a package's declared telemetry-spine fence; a library-tier page declares its `TraceScope` rows and the kernel `SpanBand` owns every `StartActivity` call, so only a composition root mints an `ActivitySource`.
-
-[RAIL_LAW]:
-- Package: `System.Diagnostics.DiagnosticSource`
-- Owns: vendor-neutral span identity, lifetime, payload, and W3C context for every library-tier emission.
-- Accept: scope-keyed source mints, listener-gated brackets yielding the rail's value, typed-error status stamps, stack-allocated tag writes.
-- Reject: a hand-rolled stopwatch-and-log span pair, a per-call-site source construction, an OpenTelemetry type referenced from an emitting library.

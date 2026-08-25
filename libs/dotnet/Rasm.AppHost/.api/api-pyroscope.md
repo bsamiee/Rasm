@@ -2,23 +2,7 @@
 
 `Pyroscope` hosts the native continuous-profiler agent as a process-wide `Profiler` singleton — dynamic tags, per-signal capture toggles, ingest credentials, and span-context correlation, each degrading to a no-op when the native library is absent. `Pyroscope.OpenTelemetry` bridges the OpenTelemetry trace pipeline into that singleton: `PyroscopeSpanProcessor` folds every root span's context through `SetSpanContext` and stamps the `pyroscope.profile.id` tag onto the span. `Profiler.Instance` is the singleton seam both packages meet at.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Pyroscope`
-- package: `Pyroscope`
-- assembly: `Pyroscope`
-- namespace: `Pyroscope`
-- asset: runtime library
-- rail: profiling
-
-[PACKAGE_SURFACE]: `Pyroscope.OpenTelemetry`
-- package: `Pyroscope.OpenTelemetry`
-- assembly: `Pyroscope.OpenTelemetry`
-- namespace: `Pyroscope.OpenTelemetry`
-- asset: runtime library
-- rail: telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [AGENT_TYPES]: native profiler control, namespace `Pyroscope`
 
@@ -35,7 +19,7 @@
 | :-----: | :----------------------- | :------------ | :--------------------------------- |
 |  [01]   | `PyroscopeSpanProcessor` | class         | `BaseProcessor<Activity>` subclass |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [AGENT_SCOPE]: profiler control surface, namespace `Pyroscope`
 
@@ -68,7 +52,7 @@
 - `OnEnd` zeroes under the same root predicate, so an interior span never clears the context its root installed.
 - Only the two hooks override the base, so the join buffers nothing through drain, dispose, or an options surface.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Profiler.Instance` is a lazy process-wide singleton over `LazyInitializer.EnsureInitialized`; one profiler owns the process and every native-interop fault degrades the calling method to a no-op.
@@ -85,9 +69,3 @@
 - `PyroscopeSpanProcessor` registers on the tracer provider as an added processor beside the OTLP exporter; it carries no configuration and stays stateless past its lifecycle hooks.
 - Agent configuration — tracking toggles, dynamic tags, ingest auth — enters through `Profiler.Instance` at the composition root, and `SetSpanContext` stays owned by the processor alone.
 - Correlation lands only on a Linux or Windows x64 process with `PYROSCOPE_PROFILING_ENABLED` set, where the CLR profiler attaches; elsewhere the profiler write no-ops while the span keeps its tag.
-
-[RAIL_LAW]:
-- Package: `Pyroscope`, `Pyroscope.OpenTelemetry`
-- Owns: native continuous-profiler control and root-span profile correlation into OpenTelemetry traces
-- Accept: `Profiler.Instance` configuration at the composition root; processor registration via `AddProcessor`
-- Reject: `SetSpanContext` calls outside the processor; a second profiler handle beside the singleton

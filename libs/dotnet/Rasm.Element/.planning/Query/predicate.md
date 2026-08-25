@@ -24,7 +24,7 @@ Stored `Func<…, bool>` query filters are banned because a delegate is opaque t
 - Boundary: this page is host-neutral vocabulary and projection; graph walks, store lowering, and UI compilation stay with consumers. `Selection<TKey>` carries no model scope because scope belongs to the query input. `PredicateKey` is the sole durable byte projection, and `MatchVerdict` remains distinct from host verdict vocabularies.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;

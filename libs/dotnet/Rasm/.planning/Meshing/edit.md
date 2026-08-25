@@ -22,7 +22,7 @@
 - Boundary: `MeshEdit.Of` owns the kernel's one triangle-soup adapter, every consumer composing it rather than a per-page `Soup(MeshSpace)` copy; the weld kernel lives here and its band is `ToleranceLane.Weld` read off the arena's bound `Context` — dedup-on-arena is an arena op, reached through no healing policy and carrying no tolerance number of its own; the transform pass owns MIRRORED geometry estate-wide, so a consumer needing a reflected part builds it as an admitted mesh through `Kernels.Apply(MeshEdit.Of(space), Transform.Mirror(plane))` and never places an admitted mesh under a reversing transform, which silently inverts the orientation its admission just proved; the arena binds ONE context for its lifetime, so a freeze under a different tolerance regime is a second `MeshSpace.Of` at the mesh owner, never a second context on this seam; in-place span kernels inside `MeshEdit`/`Kernels` are the arena tier's statement exemption, never leaking past the freeze, so every public egress is a span view, a value, or the `Fin<MeshSpace>` rail.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Buffers;
 using System.Collections.Generic;

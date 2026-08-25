@@ -2,15 +2,7 @@
 
 The Rhino host boundary reaches macOS natively for exactly one concern: high-fidelity motion pacing behind a host-polymorphic pace rail portable code never sees. The vsync clock, its rate range, the run loop, the display facts bounding a requested rate, the accessibility gates, and the screen-reconfiguration signal are the branch pacing core this partition registers; what it owns is the rail that selects, gates, brackets, and rebinds that core, and falls back to the portable clock off macOS.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.macOS` — Rhino pace-rail partition
-- package: `Microsoft.macOS` (MIT)
-- assembly: `Microsoft.macOS` — loaded by the Rhino host under `net10.0-macos`; the whole surface is absent off-macOS
-- namespace: `AppKit`, `CoreAnimation`, `Foundation`, `ObjCRuntime`
-- rail: macos-native
-
-## [02]-[BOUNDARY_REACH]
+## [01]-[BOUNDARY_REACH]
 
 - Registers the macOS pacing core (`libs/dotnet/.api/api-macos-native.md`): the `NSApplication`-to-`NSWindow`-to-`NSScreen` anchor chain with its refresh ceiling, refresh intervals, backing scale, and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there. This boundary composes the layer graph, capture, gesture, and event subsystems nowhere, so it adds no carrier and states the pace-rail law over the registered core.
 
@@ -27,7 +19,7 @@ The Rhino host boundary reaches macOS natively for exactly one concern: high-fid
 |  [09]   | density read       | `NSScreen.BackingScaleFactor`                                                                 |
 |  [10]   | handle crossing    | `Runtime.GetNSObject<T>`, `Runtime.GetINativeObject<T>`                                       |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Pacing is one polymorphic rail discriminated by host: the display-link path runs under the macOS gate and the portable clock path otherwise, never a compile-time fork bleeding macOS types into portable code.
@@ -46,9 +38,3 @@ The Rhino host boundary reaches macOS natively for exactly one concern: high-fid
 [LOCAL_ADMISSION]:
 - `Microsoft.macOS` is host-provided under the macOS target and never re-declared; the pace owner internalizes the display-link, accessibility-gate, and screen-observation concern behind one canonical rail.
 - Portable code holds a paced effect and an accessibility verdict, never a screen handle, a raw display link, or an `nint`.
-
-[RAIL_LAW]:
-- Partition: `Microsoft.macOS` Rhino host boundary — the host-polymorphic pace rail over the registered pacing core
-- Owns: host selection, the accessibility gate, anchor resolution, rate negotiation, the run-loop bracket, presentation-relative frame advance, and the reconfiguration rebind
-- Accept: macOS-target high-fidelity animation pacing, accessibility-gated motion, screen-parameter observation, vsync-locked per-frame callbacks
-- Reject: a re-tabling of the registered pacing core, the layer graph, capture, gesture, and event subsystems this boundary never reaches, portable clock pacing under the macOS gate, any use off the macOS target, and leaking a screen handle, display link, or `nint` past the pace rail

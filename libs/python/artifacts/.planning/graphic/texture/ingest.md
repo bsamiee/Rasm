@@ -29,7 +29,7 @@ Every roster column TRANSCRIBES the frozen cross-branch fragment: a canonical na
 - Boundary: this page transcribes the roster and decides none of it. Genuine gaps route as a card at the owning tier and re-freeze in the fragment; a divergent local spelling is the drift defect. Baking, shading, and the graph binding stay C#'s; the plane bytes for a `BAKED` role never originate on this branch.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from dataclasses import dataclass
 from enum import StrEnum
 from re import compile as re_compile

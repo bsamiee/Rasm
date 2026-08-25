@@ -24,7 +24,7 @@
 - Growth: a feature sub-kind is one `ProbeFeature` case, one `ContactSource` arm, and one `FeatureSpec` row; no feature-specific inspection entrypoint and no generator body survives beside it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;

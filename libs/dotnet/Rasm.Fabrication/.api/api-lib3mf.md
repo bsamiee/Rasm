@@ -2,16 +2,7 @@
 
 `lib3mf` owns 3MF read and write across the core, production, beam-lattice, and slice extensions — the 3MF Consortium reference codec. It carries the additive build hand-off document: an oriented mesh with its beam-lattice and slice geometry, machine metadata, and placed build items serialize to one content-keyed package. ACT-generated C# bindings marshal every `C…` handle over the native core through `Internal.Lib3MFWrapper`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lib3mf`
-- package: `lib3mf` (BSD-2-Clause)
-- assembly: vendored ACT-generated `Lib3MF.cs` compiled into `Rasm.Fabrication`; the native core is a RID-keyed `lib3mf` shared library
-- namespace: `Lib3MF` — `C…` handle wrappers over `IntPtr`, the static `Wrapper` factory, and the `s…`/`e…` struct and enum value types
-- abi: RID-keyed native `lib3mf.dll`/`.so`/`.dylib`, ALC-firebreaked sidecar-only, content-keyed at the wire
-- rail: fabrication — the additive build hand-off writer, golden-fixture gated
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model + resource handles
 
@@ -54,7 +45,7 @@
 |  [11]   | `eBeamLatticeCapMode`   | enum          | beam-cap discriminant                        |
 |  [12]   | `eSlicesMeshResolution` | enum          | slice-resolution discriminant                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory + model lifecycle — `Lib3MF.Wrapper` / `CModel`
 
@@ -143,7 +134,7 @@
 |  [10]   | `object.SetSlicesMeshResolution(eSlicesMeshResolution)`          | instance | full-versus-low slice resolution              |
 |  [11]   | `model.GetSliceStackByID(id)` / `GetSliceStacks()`               | instance | resolve or iterate the model's stacks         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every `C…` handle wraps an `IntPtr` over the native core; `Internal.Lib3MFWrapper` marshals the call and `CheckError` lifts a native error code into `Lib3MFException`, which the boundary owner catches once and lowers to the `Additive` `ThreeMfWriteRejected` 2747 `(EgressKind target, string native)` arm on the `Fin` rail — a CLR defect propagates
@@ -159,10 +150,4 @@
 - resin/powder planar layer stacks route through `CSliceStack.AddSlice` only when the 3MF slice extension is the hand-off target; the PicoGK `.cli`/grayscale vector path stays `Additive/implicit`
 - each layer writes as one `SetVertices` over every contour's points followed by one `AddPolygon` index run per contour, the run closing on its own head index; the stack then binds through `object.AssignSliceStack(stack)` beside `object.SetSlicesMeshResolution`, and the native refuses an unclosed polygon, a one-point polygon, a duplicate or missing top-Z, and a non-increasing layer order — each raising through the same `Lib3MFException` the boundary lowers
 - `ContentKey.Of(EgressKind.ThreeMf, bytes)` over `writer.WriteToBuffer` is the sole 3MF content-key mint site
-- `CWriter` admits only against a committed per-RID round-trip golden fixture — write, `CReader.ReadFromFile`, structural compare
-
-[RAIL_LAW]:
-- Package: `lib3mf` (BSD-2-Clause)
-- Owns: 3MF core, production, beam-lattice, and slice read and write — the additive build hand-off document
-- Accept: an oriented `MeshSpace`, a machine profile, and an optional PicoGK `Lattice` from `Additive/production`
-- Reject: hand-rolled 3MF XML/OPC synthesis, an STL fallback where the 3MF beam-lattice or slice extension carries the geometry, and a second content hash over the native buffer
+- `CWriter` admits only against a per-RID round trip — write, `CReader.ReadFromFile`, structural compare

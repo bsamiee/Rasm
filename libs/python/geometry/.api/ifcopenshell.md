@@ -2,17 +2,7 @@
 
 `ifcopenshell` owns the IFC model and tessellation surface the geometry `ifc` rail binds: an in-memory `file` model over SPF/sqlite/streamed backends, entity authoring through the `ifcopenshell.api.<module>.<action>` usecase namespace, `util` read-side analysis, and the OpenCASCADE/CGAL `geom` tessellation daemon. It is the spine every IfcOpenShell-ecosystem worker composes against. STEP parsing, the authoring usecase vocabulary, and BREP tessellation stay here; no consumer re-implements them.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifcopenshell`
-- package: `ifcopenshell` (LGPL-3.0)
-- import: `import ifcopenshell`
-- owner: `geometry`
-- rail: ifc
-- entry points: none (library only)
-- capability: IFC2X3/IFC4/IFC4X3 read/write, `ifcopenshell.api.<module>.<action>` authoring dispatch, entity mutation, transactional undo/redo, GUID codec, placement and unit math, schema introspection, OpenCASCADE/CGAL tessellation to verts/faces/materials, parallel whole-model meshing, GLB/OBJ/XML serialization, and selector-grammar element queries
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model and entity roots
 
@@ -38,7 +28,7 @@
 |  [06]   | `TriangulationElement`     | shape result       | `Element` with a `Triangulation` (verts/faces/normals/materials)                   |
 |  [07]   | `geom.serializers`         | serializer set     | GLB/OBJ/XML/SVG mesh serializers                                                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model open, query, and mutate
 
@@ -146,7 +136,7 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 |  [11]   | `yaxis2angle(x, y)` / `angle2yaxis(angle)`                        | abscissa/ordinate pair | Y-axis direction to angle and back          |
 |  [12]   | `dms2dd(degrees, minutes, seconds, us)` / `dd2dms(dd, use_us)`    | angle scalars          | sexagesimal and decimal degrees round-trip  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: boundary scope only; module-level import is banned by the manifest import policy.
@@ -176,9 +166,3 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 [CAPTURE_GAP]:
 - members: every row above verifies by published-surface read, never runtime import — the `ifcopenshell` C extension does not build on darwin/python3.15, the same constraint the `ifccsv` sibling records.
 - ABSENT: the EXPRESS reflection under `schema_by_name` — a schema's `declaration_by_name`, an entity declaration's `all_attributes`, and an attribute's `name`/`optional` — carries no row here, so a fence proving a materialized attribute roster against the running schema has no catalogued producer to compose and none is authored from memory.
-
-[RAIL_LAW]:
-- Package: `ifcopenshell`
-- Owns: IFC2X3/IFC4/IFC4X3 parse and serialization, the `ifcopenshell.api` authoring usecase vocabulary, transactional mutation, and OpenCASCADE/CGAL tessellation to verts/faces/materials.
-- Accept: a path or SPF string for `open`; a `geom.settings` knob bag and `geometry_library` kernel for tessellation; the direct usecase callables for authoring, feeding the ifc rail owner.
-- Reject: wrapper-renames of `open`/`by_type`/`create_shape`; a per-verb authoring function family over the usecase vocabulary; a hand-rolled STEP parser or BREP tessellator where ifcopenshell is admitted; per-key getter families over `by_id`/`by_guid`/`by_type`; identity minting the runtime GUID codec owns.

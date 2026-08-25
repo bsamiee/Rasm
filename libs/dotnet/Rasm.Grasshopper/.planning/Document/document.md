@@ -25,7 +25,7 @@ Every gate crosses the marshal through the kernel's synchronous `UiThread.Run` a
 - Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
@@ -185,7 +185,7 @@ public static partial class DocumentScope {
 - Growth: a new document verb is one `DocumentAct` case whose `Switch` arm breaks the gate loudly; a new sweep, posture, or depth verb is one row on its owning family; lifecycle observation grows only through `Shell/events.md`'s `GhSource` rows.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.Undo;
@@ -324,15 +324,15 @@ public static partial class DocumentScope {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                            | [RAIL]                                                     | [CASES] |
-| :-----: | :------------------ | :--------------------------------- | :--------------------------------------------------------- | :-----: |
-|  [01]   | document minting    | `DocumentTier`                     | `Mint → Fin<HostDocument>`                                 |    3    |
-|  [02]   | inert facet read    | `DocumentFacet` + `DocumentAnswer` | `Read → Fin<DocumentAnswer>`                               | 11 + 11 |
-|  [03]   | gate spine          | `DocumentGate.Run`                 | one marshal preamble for document commands                 |    1    |
-|  [04]   | command result      | `GateOutcome`                      | host return shapes                                         |   10    |
-|  [05]   | selection scope     | `SelectionTarget`                  | Selected / Explicit — empty set honest                     |    2    |
-|  [06]   | verb families       | `SelectionSweep`/`Posture`/`Depth` | delegate rows, Option explicit twins                       |  8+9+2  |
-|  [07]   | command union       | `DocumentAct`                      | `Transact → Fin<GateOutcome>` + veto                       |   22    |
+| [INDEX] | [CONCERN]        | [OWNER]                            | [RAIL]                                     | [CASES] |
+| :-----: | :--------------- | :--------------------------------- | :----------------------------------------- | :-----: |
+|  [01]   | document minting | `DocumentTier`                     | `Mint → Fin<HostDocument>`                 |    3    |
+|  [02]   | inert facet read | `DocumentFacet` + `DocumentAnswer` | `Read → Fin<DocumentAnswer>`               | 11 + 11 |
+|  [03]   | gate spine       | `DocumentGate.Run`                 | one marshal preamble for document commands |    1    |
+|  [04]   | command result   | `GateOutcome`                      | host return shapes                         |   10    |
+|  [05]   | selection scope  | `SelectionTarget`                  | Selected / Explicit — empty set honest     |    2    |
+|  [06]   | verb families    | `SelectionSweep`/`Posture`/`Depth` | delegate rows, Option explicit twins       |  8+9+2  |
+|  [07]   | command union    | `DocumentAct`                      | `Transact → Fin<GateOutcome>` + veto       |   22    |
 
 `Apply`/`Transact` twin gates, the `ObservedCase` nesting, the stored stamp pair, the fallback-fabricating `Recall`, the `[Flags]` enum, the `Seq`-emptiness selection convention, the nullable explicit arm, and the per-call clock mint are all deleted; the graph-verb payload records moved home beside their spine (E-G45).
 

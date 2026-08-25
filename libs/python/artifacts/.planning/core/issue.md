@@ -19,7 +19,7 @@ Construction for every modality lives here alone, so no producer schedules a sib
 - Boundary: `ArtifactIssue` returns the lane cache directly and mints no content key; the scheduling algebra, coverage, and elision evidence are `core/plan#PLAN`'s, the front drive, drain, retry, offload bounds, and per-unit fault capture the runtime lane's, and the durable warm fill the host's. A second constructing surface, a producer calling a sibling's `emit()`, or a host touching `ArtifactPipeline` directly each break the single-root law. Its rail is composed, never collapsed — a plan fault reaches the caller through `bind`/`match`, never a `.ok` unwrap or a default plan; the drive return is the lane's rail, never iterated as a bare result stream; and each async carrier transition uses one total `Result` match because `expression` ships no async carrier builder.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Iterator
 from contextlib import contextmanager
 from itertools import chain

@@ -24,7 +24,7 @@ Wiring — projector registration, tessellation adapter, `Graph/element#NODE_MOD
 - Boundary: `ConstraintFinding.Key` and `ConstraintWaiver.Finding` carry `ContentAddress`; the seam preserves an unknown raised exception unchanged, and constraint identity projects numeric fault code with evidence.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Numerics;

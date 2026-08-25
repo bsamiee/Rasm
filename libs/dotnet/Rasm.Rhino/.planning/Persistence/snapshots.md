@@ -23,7 +23,7 @@ Rhino publishes snapshot NAMES and nothing else, so capture, restore, and delete
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.Snapshots`, `SnapshotTable.Names`, `SnapshotTable.Document`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-commands.md` — `RhinoApp.RunScript(uint documentSerialNumber, string script, bool echo)`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`, `IDetachedDocumentResult`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using Generator.Equals;
 using Rasm.Domain;
@@ -245,7 +245,7 @@ public static class Snapshots {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its seven static category members; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md` — `Transform`, `BoundingBox`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;
@@ -400,7 +400,7 @@ public sealed class ParticipantSpec {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its twenty-four virtual members, `RegisterSnapShotClient`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`); kernel `Domain/rails` (`Op.Catch`, `Op.Settle`, `Op.AcceptValue`, `Transition`, `Cell.Claim`, `Cell.Step`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); LanguageExt.Core (`Atom`, `HashMap`, `Fin`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;

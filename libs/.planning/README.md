@@ -8,7 +8,7 @@ This planning corpus widens by scope: a folder owns one package, a branch aggreg
 
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
-- Cross-`libs/` core (`libs/.planning/`): the branch doc-set beside `campaign-method.md` and `planning-targets.md`.
+- Cross-`libs/` core (`libs/.planning/`): the branch doc-set.
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
 - Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
@@ -67,7 +67,6 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Every literal traces to an axis on the page or an earlier page, or becomes a RESEARCH item.
 - Every fact has one owner: a line trap in its fence comment, a cluster decision on the card, a page boundary on the lead — never two at once.
 - External members land only after the folder's `.api/` catalogue verifies the spelling; an unverified member is a RESEARCH item, never prose.
-- Forge service, server-extension, and host tool-surface facts verify through `assay provision` evidence.
 - Every unverified availability claim is a RESEARCH item carrying its verification route.
 
 ## [04]-[NOTATION]

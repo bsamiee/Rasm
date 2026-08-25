@@ -23,7 +23,7 @@ Identity text federates rather than being re-rendered: the tenant reads `Content
 - Boundary: the roster is the branch package census and nothing else — a runtime-discovered source, a foreign exporter identity, and a resource attribute set are the app platform's composition rows.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
@@ -75,7 +75,7 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
 - Boundary: tenancy rides an `AsyncLocal` slot rather than a named process-wide registry, so two compositions in one process — an app root beside a plugin load-context capsule — each hold their own tenancy with no duplicate-name registration fault. Foreign-source rows, resource lacing, exporter wiring, and the OpenTelemetry baggage mirror stay at the app platform, which binds its registered mirror set behind one stamping surface so a kernel caller spells `Stamp()` bare.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics;
 using System.Threading;
 using Thinktecture;
@@ -156,7 +156,7 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 - Boundary: the clock is constructor material; the cell mints no envelope and holds no announcement — the message envelope is `event.md`'s and the span is `telemetry.md`'s.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics;
 using System.Globalization;
 using NodaTime;
@@ -227,7 +227,7 @@ public sealed class Hlc(IClock clock) {
 - Boundary: the assembly, its load context, and its host snapshot are the boundary's material — this owner reads them and holds none of them live, so a retired plugin's identity carries no reference keeping its context alive.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Reflection;
 using System.Runtime.Loader;
 

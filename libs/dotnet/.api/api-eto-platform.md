@@ -2,15 +2,7 @@
 
 `Eto.Platform` is the ambient handler-factory root beneath every `Eto.Forms` control and `Eto.Drawing` object: one platform mints, caches, and resolves each widget's backend handler, `HandlerAttribute` binds the widget type to its handler interface, and `IControlObjectSource.ControlObject` exposes the handler-created native control without a second field. `Style` restyles by name at attach time and `NativeControlHost` admits a raw platform object into the managed tree. This branch catalogue owns the handler root every consuming folder crosses; each host-boundary folder registers it and tables only the platform-specific handler set or host seam its own boundary reaches.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` platform-handler root
-- host: Rhino host runtime, in-process; the same `Eto.dll` every boundary binds, never a second NuGet admission (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`) from the RhinoWIP `RhCore.framework` bundle
-- namespace: `Eto`, `Eto.Forms`
-- rail: platform-handler
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: platform identity, capability, and mint payloads
 
@@ -49,7 +41,7 @@
 |  [03]   | `CreateNativeControlArgs`    | class         | nullable native-object carrier for subclassing      |
 |  [04]   | `NativeControlHost.IHandler` | interface     | creates the native host from the supplied object    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Platform` — identity, capability probe, and the platform-row assertions
 
@@ -147,7 +139,7 @@
 
 - `WidgetHandler<TControl,TWidget>` implements `IControlObjectSource` explicitly and lazily returns `Control`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `Eto.Forms` and `Eto.Drawing` widget delegates to a `WidgetHandler` the active `Platform` mints; `HandlerAttribute` binds the widget type to its handler interface, and `IControlObjectSource.ControlObject` exposes the handler-created control without a second native field.
@@ -165,9 +157,3 @@
 - Every widget composes its handler through `Platform.Create`, `CreateShared`, or `Find`; a page never re-mints a `WidgetHandler` the active `Platform` already owns.
 - Appearance changes ride a `Style` delegate registered by name, never a control subclass.
 - A mint census subscribes `HandlerCreated`/`WidgetCreated` rather than instrumenting each construction site, and a platform-scoped typed cache takes `Platform.Cache<TKey,TValue>`.
-
-[RAIL_LAW]:
-- Package: `Eto`
-- Owns: per-widget and shared-instance handler resolution, the handler-registration map and its two mint events, platform identity and capability discovery, scoped `Style` application, and the `NativeControlHost` managed-tree embedding contract
-- Accept: an initialized `Platform` identity, `HandlerAttribute`-bound handler interfaces, registered instantiators, `Style` delegates, and admitted native objects
-- Reject: widget construction and layout (`.api/api-eto-forms.md`), immediate 2D painting (`.api/api-eto-drawing.md`), UI-thread dispatch (`.api/api-eto-runtime.md`), a control subclass where a `Style` delegate carries the change, a loader type string treated as runtime `ID`, an unguarded runtime-nullable resolution, re-initializing the ambient platform the host owns, and a folder partition re-tabling this handler root at member depth

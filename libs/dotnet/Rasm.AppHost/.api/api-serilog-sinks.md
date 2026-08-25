@@ -2,21 +2,7 @@
 
 `Serilog.Sinks.Console` and `Serilog.Sinks.File` own AppHost's two bootstrap log sinks — interactive terminal diagnostics and retained rolling runtime files — each registered through the `WriteTo`/`AuditTo` rail at the composition root.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Serilog.Sinks.Console`
-- package: `Serilog.Sinks.Console`
-- assembly: `Serilog.Sinks.Console`
-- namespace: `Serilog`
-- rail: telemetry sink
-
-[PACKAGE_SURFACE]: `Serilog.Sinks.File`
-- package: `Serilog.Sinks.File`
-- assembly: `Serilog.Sinks.File`
-- namespace: `Serilog`
-- rail: telemetry sink
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: console sink
 
@@ -45,7 +31,7 @@
 |  [08]   | `PeriodicFlushToDiskSink`           | wrapper sink        | interval-bound flush-to-disk                                 |
 |  [09]   | `NullSink`                          | sink impl           | dropped-event sink                                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: console sink registration
 
@@ -69,7 +55,7 @@
 |  [07]   | `FileLifecycleHooks.Then`           | instance | hook-chain composition          |
 |  [08]   | `IFlushableFileSink.FlushToDisk`    | instance | durability boundary             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Console and file sinks extend `LoggerSinkConfiguration.WriteTo` and `LoggerAuditSinkConfiguration.AuditTo`; every registration folds through that one rail and the library emits `ILogger` alone.
@@ -83,9 +69,3 @@
 - Console output carries bounded structured event rendering for interactive and supervisor diagnostics, never domain outcomes as log text.
 - File output writes only owner-declared runtime log paths under composition-declared rolling interval, retention count, and size limits.
 - File lifecycle hooks serve retention and compliance composition and never mutate domain state.
-
-[RAIL_LAW]:
-- Packages: `Serilog.Sinks.Console`, `Serilog.Sinks.File`
-- Own: local Serilog sink emission for interactive diagnostics and retained bounded log files
-- Accept: `WriteTo.Console`, `WriteTo.File`, `AuditTo.Console`, `AuditTo.File` in host bootstrap composition
-- Reject: sink configuration below AppHost composition; unbounded file growth; raw domain-result serialization as log lines

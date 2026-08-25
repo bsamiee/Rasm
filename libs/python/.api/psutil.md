@@ -2,15 +2,7 @@
 
 `psutil` owns cross-platform process and system telemetry: per-process metrics and lifecycle control through `Process`, system-wide CPU, memory, disk, network, and sensor counters through module functions, and live-process iteration through `process_iter`/`wait_procs`. Every reading is a named tuple read by field name; `Process.oneshot()` batches the shared syscalls so a cluster of reads on one process costs one collection. It is the observability rail's metric source — the SDK edge owns temporality, aggregation, and export.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `psutil`
-- package: `psutil` (BSD-3-Clause)
-- module: `psutil`
-- abi: native C extension over the import-selected `_ps{osx,linux,windows,bsd}` platform layer
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: process classes
 
@@ -29,7 +21,7 @@
 |  [04]   | `AccessDenied`   | access error   | insufficient privileges          |
 |  [05]   | `TimeoutExpired` | timeout error  | `wait`/`wait_procs` deadline hit |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process iteration and lookup
 
@@ -113,7 +105,7 @@
 |  [10]   | `sensors_battery() -> sbattery` (gated)                             | static  | battery percent/secsleft/plugged (not on macOS) |
 |  [11]   | `sensors_temperatures(fahrenheit=False)` / `sensors_fans()` (gated) | static  | hardware sensors (Linux-mostly)                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `with proc.oneshot():` runs the internal collector once and caches its multi-valued result; fold every multi-attribute read of one process into one block. `process_iter(attrs=[...])` is the system-wide analogue, pre-fetching listed attributes once per process and supplying `ad_value` for `AccessDenied` fields.
@@ -133,9 +125,3 @@
 - wrap every `Process` read in try/except for `NoSuchProcess`, `ZombieProcess`, and `AccessDenied` — the listing-to-reading race is unavoidable; `is_running()` is advisory (pid reuse).
 - amortize syscalls with explicit attribute lists — `process_iter(attrs=[...])`/`as_dict(attrs=[...])` system-wide, `oneshot()` for repeated reads of one process.
 - `cpu_percent(interval=1.0)` in blocking contexts, `interval=None` in async/polling loops where the caller owns timing.
-
-[RAIL_LAW]:
-- Package: `psutil`
-- Owns: process metrics and lifecycle control, system CPU/memory/disk/network/sensor metrics, process iteration and waiting, the `oneshot` batch path
-- Accept: `Process` + `oneshot`/`as_dict`, `process_iter(attrs=...)`, `cpu_percent`, `virtual_memory`, `disk_usage`, `net_io_counters`, `net_connections` read by `pconn`/`sconn` field name, `Popen.wait(timeout=)` for a bounded reap, `hasattr`-guarded platform-gated functions
-- Reject: direct `/proc` parsing or platform syscall wrappers where psutil owns the metric, per-attribute reads outside `oneshot`, un-batched members folded inside `oneshot` as though it batched them, positional indexing of OS-specific named tuples, unguarded gated calls on macOS

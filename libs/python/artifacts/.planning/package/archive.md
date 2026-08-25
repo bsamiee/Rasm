@@ -18,7 +18,7 @@
 - Boundary: no sibling import, no vocabulary re-own (bundle carries the knobs), no folder-minted limiter or retry caller, no wall-clock member stamp on the ZIP arm, no `async_stream_zip`/`async_stream_unzip` (both bridge onto their own thread executor; the kernels already cross the runtime `THREAD` lane, and a second loop-bridged executor beside it double-threads the crossing). Container facts derive from the `FileInfo.uncompressed` sum. Per-member stamps stay container-level by the reproducibility law — `names` is the one per-member axis, `"auto"` resolves ZIP32/ZIP64 per member by size and offset — so the deliberate collapse is the content-addressing contract, not a modeling gap.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Iterable, Iterator
 from datetime import datetime
 from io import BytesIO

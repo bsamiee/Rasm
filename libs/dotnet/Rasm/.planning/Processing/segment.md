@@ -20,7 +20,7 @@ Eigen systems ride the `matrix` owners — `MatrixKernel.GeneralizedEigenpairsDe
 - Boundary: output selection lives in `ProjectionRow` keys, so reflection branching in a solver body is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate; the descriptor family is closed over the filter algebra.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -1203,17 +1203,17 @@ flowchart LR
 
 One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RAIL]` cells name the one return rail each owner exposes, and each owner kind rides the indexed note below.
 
-| [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                             | [CASES] |
-| :-----: | :---------------- | :-------------------------------------- | :------------------------------------------------- | :-----: |
-|  [01]   | Shape descriptors | `MeshDescriptor`                        | `DescribeShape<TOut> → Fin<TOut>`                  |    —    |
-|  [02]   | Blue-noise gate   | `SamplingSpectrum`           | `ValidateSamplingSpectrum → Fin<SampleResult>`     |    —    |
+| [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                           | [CASES] |
+| :-----: | :---------------- | :-------------------------------------- | :----------------------------------------------- | :-----: |
+|  [01]   | Shape descriptors | `MeshDescriptor`                        | `DescribeShape<TOut> → Fin<TOut>`                |    —    |
+|  [02]   | Blue-noise gate   | `SamplingSpectrum`                      | `ValidateSamplingSpectrum → Fin<SampleResult>`   |    —    |
 |  [03]   | Feature edges     | `MeshFeatureKind` + `MeshFeaturePolicy` | `DetectFeatureEdgesDetailed → Fin<FeatureEdges>` |    8    |
-|  [04]   | Segmentation      | `MeshSegmentation` + `Segment<TOut>`    | `Segment<TOut> → Fin<TOut>`                        |    6    |
-|  [05]   | Direction fields  | `CrossFieldKey`                         | `CrossFieldAt → Fin<Vector3d>`                     |    3    |
-|  [06]   | Stripe scalar     | stripe arm                              | `StripeAt → Fin<double>`                           |    —    |
-|  [07]   | Host restructure  | `RemeshKind`/`QuadTarget`               | `ApplyRemeshDetailed → Fin<RemeshResult>`          |   2+2   |
-|  [08]   | Evidence          | typed result family                     | gated `Fin` projections                            |    —    |
-|  [09]   | RoSy order        | `RosySymmetry`                          | closed row carrying its own phase                  |    4    |
+|  [04]   | Segmentation      | `MeshSegmentation` + `Segment<TOut>`    | `Segment<TOut> → Fin<TOut>`                      |    6    |
+|  [05]   | Direction fields  | `CrossFieldKey`                         | `CrossFieldAt → Fin<Vector3d>`                   |    3    |
+|  [06]   | Stripe scalar     | stripe arm                              | `StripeAt → Fin<double>`                         |    —    |
+|  [07]   | Host restructure  | `RemeshKind`/`QuadTarget`               | `ApplyRemeshDetailed → Fin<RemeshResult>`        |   2+2   |
+|  [08]   | Evidence          | typed result family                     | gated `Fin` projections                          |    —    |
+|  [09]   | RoSy order        | `RosySymmetry`                          | closed row carrying its own phase                |    4    |
 
 - [01]-[SHAPE_DESCRIPTORS]: descriptor value object over the `spectral` filter algebra with typed projection rows.
 - [02]-[BLUE_NOISE_GATE]: gate arm — low-band energy bound stamped into the `sample` tally.

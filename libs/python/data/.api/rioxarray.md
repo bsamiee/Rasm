@@ -2,16 +2,7 @@
 
 `rioxarray` extends `xarray` with the rasterio-backed `.rio` accessor for georeferenced raster IO: `open_rasterio` reads any GDAL raster into a `DataArray`/`Dataset`, and `RasterArray`/`RasterDataset` over the shared `XRasterBase` own CRS/transform/nodata metadata, warping, clipping, windowing, and GDAL-driver writeback as one object-discriminated accessor. Raster decode, CRS algebra, and vector geometry defer to `rasterio`/GDAL, `pyproj`, and `shapely`/`geopandas`; rioxarray composes the coverage and STAC-catalog raster rail, never re-implementing the GDAL stack.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rioxarray`
-- package: `rioxarray` (Apache-2.0)
-- module: `import rioxarray`
-- owner: `data`
-- rail: geospatial
-- asset: pure Python over rasterio/GDAL; the bare import registers the `.rio` accessor on `xarray.DataArray`/`Dataset` and the `engine="rasterio"` backend for `xarray.open_dataset`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: accessor, convention, and error roots
 
@@ -32,7 +23,7 @@
 |  [13]   | `SingleVariableDataset`           | error         | dataset method requires a single variable                     |
 |  [14]   | `DimensionMissingCoordinateError` | error         | dimension lacks its supporting coordinate                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module functions
 
@@ -97,7 +88,7 @@
 - call: `to_raster(raster_path, *, driver=None, dtype=None, tags=None, windowed=False, recalc_transform=True, lock=None, compute=True, **profile_kwargs) -> None`
 - call: `RasterArray.write_nodata(input_nodata, *, encoded=False, inplace=False)`; `RasterArray.pad_xy(minx, miny, maxx, maxy, *, constant_values=None)`; `RasterArray.to_rasterio_dataset() -> Generator[DatasetReader]`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - read axis: `open_rasterio` is the single raster read surface; `chunks` selects dask vs eager, `masked`/`mask_and_scale` decode nodata, `band_as_variable`/`variable`/`group` shape the band-to-variable mapping, and `parse_coordinates=False` skips coordinate generation for large grids — never a per-format reader type.
@@ -119,9 +110,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `rioxarray` as the rasterio/GDAL-to-xarray raster owner on the data geospatial rail, composing `rasterio`/`pyproj`/`shapely` rather than re-decoding rasters or duplicating CRS algebra.
-
-[RAIL_LAW]:
-- Package: `rioxarray`
-- Owns: rasterio/GDAL raster read into georeferenced xarray objects, the `.rio` CRS/transform/nodata accessor, reprojection and grid matching, geometry and bounding-box clipping, spatial padding/slicing/windowing, nodata interpolation, multi-tile merge, and GDAL-driver writeback
-- Accept: coverage and STAC-catalog raster read, warp, clip, and write feeding the data and coverage owners through the xarray boundary
-- Reject: wrapper-renames of `open_rasterio`/`.rio`; a hand-rolled GDAL warp or window reader; a parallel accessor type per object kind where `XRasterBase` already unifies `DataArray`/`Dataset`; vector or CRS algebra duplication the `shapely`/`pyproj` owners hold; module-level import for accessor registration

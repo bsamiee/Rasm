@@ -2,20 +2,7 @@
 
 `NetTopologySuite.IO.VectorTiles` owns the in-memory Mapbox-Vector-Tile authoring model over the NTS `Feature` shape and the WebMercator XYZ tile algebra its slicing keys on: `VectorTileTree.Add` folds a feature stream into a `{z}/{x}/{y}` tile pyramid under a fixed or per-feature `(zoom, layerName)` policy. It is the format-neutral half of the MVT pair — the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox` (`.api/api-nts-vectortiles-mapbox`) — feeding the `Semantics/model#TILE_PYRAMID` web-tile leg, distinct from the 3D-Tiles glTF stack.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite.IO.VectorTiles`
-- package: `NetTopologySuite.IO.VectorTiles` (MIT)
-- assembly: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles` (the tile model and `Add` folds)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tiles` (the WebMercator XYZ tile algebra)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tiles.WebMercator` (`WebMercatorHandler` EPSG:3857 math)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tilers` (internal clip tilers, not consumer surface)
-- asset: netstandard2.0 managed AnyCPU assembly, IL-only, no P/Invoke; the net10.0 consumer binds `lib/netstandard2.0`
-- dependency: `NetTopologySuite` (the `Geometry` algebra + `GeometryFactory`/`NtsGeometryServices` the tilers cut against), `NetTopologySuite.Features` (the `IFeature`/`FeatureCollection` rows `Add` consumes; `.api/api-nettopologysuite`)
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the tile model and its WebMercator XYZ tile algebra
 
@@ -28,7 +15,7 @@
 |  [05]   | `TileRange`          | class         | an `(xMin,yMin,xMax,yMax,zoom)` block, center-first enumerable           |
 |  [06]   | `WebMercatorHandler` | static class  | EPSG:3857 lat/lon↔meters↔pixels math                                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the feature→tile slicing fold (`VectorTileTreeExtensions`)
 
@@ -62,7 +49,7 @@
 |  [10]   | `WebMercatorHandler.LatLonToMeters`/`MetersToLatLon`         | static   | EPSG:4326 ↔ 3857 meters                                   |
 |  [11]   | `WebMercatorHandler.FromMetersToPixels`/`FromPixelsToMeters` | static   | meters ↔ pixels at a zoom/`tileSize`                      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - format-neutral: the `VectorTile`/`Layer`/`VectorTileTree` object model builds and holds tile-local geometry but emits NO bytes; the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox`, so this package alone yields a model that never reaches disk.
@@ -78,9 +65,3 @@
 [LOCAL_ADMISSION]:
 - `VectorTileTree` admits the pyramid through `new VectorTileTree()` + the `Add` fold over the `GeoFeature` `IFeature` stream; a `ToFeatureZoomAndLayerFunc` on canonical `GeoFeature` attributes carries the zoom/layer policy, never a per-zoom imperative loop.
 - `Tile`/`TileRange`/`WebMercatorHandler` admit tile id/bbox/sub-tile computation.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite.IO.VectorTiles` (+ transitive `NetTopologySuite`/`NetTopologySuite.Features`)
-- Owns: the in-memory MVT object model (`VectorTile`/`Layer`/`VectorTileTree`), the feature→tile slicing fold (`Add` + `ToFeatureZoomAndLayerFunc`), and the WebMercator XYZ tile algebra (`Tile`/`TileRange`/`WebMercatorHandler`)
-- Accept: building a tile pyramid from NTS `IFeature` rows, per-feature LOD/layer routing, tile id/bbox/sub-tile computation, pyramid extent and zoom-span query
-- Reject: the MVT protobuf bytes (`NetTopologySuite.IO.VectorTiles.Mapbox` owns encode/decode), the geodetic reprojection into EPSG:4326 (the `Semantics/georeference` `ProjNET`/OSR leg runs first), the planar `Geometry`/`Feature` algebra (`NetTopologySuite` owns it), the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles` own it)

@@ -2,17 +2,7 @@
 
 `h5py` maps the HDF5 container to Python: `File` owns the on-disk file, `Group` the hierarchical namespace, `Dataset` typed n-dimensional chunked storage, and `AttributeManager` per-object metadata, every dataset crossing the boundary as a `numpy` array. It is the single-file HDF5 store beneath the gridded field rail — a read sources the compute-rail array and a write is its durable sink; the low-level `h5*` C-API modules reach every property-list knob the wrappers do not, and the HDF5 codec and filter pipeline stays C-owned.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `h5py`
-- package: `h5py` (BSD-3-Clause)
-- module: `import h5py`
-- namespaces: `h5py`, the low-level `h5py.h5*` C-API modules
-- owner: `data`
-- rail: array — the single-file HDF5 store beneath the gridded field rail
-- capability: HDF5 file IO, hierarchical group namespace, typed chunked and compressed dataset storage, NumPy-style slicing, attribute metadata, special dtypes (vlen, enum, string, complex, opaque, reference), virtual datasets, dimension scales, the `h5py.filters` pipeline, SWMR access, and the full low-level C API
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: HDF5 object tree and value types
 
@@ -40,7 +30,7 @@
 - `Dataset`: `shape` `dtype` `size` `nbytes` `ndim` `chunks` `maxshape` `compression` `compression_opts` `shuffle` `fletcher32` `scaleoffset` `fillvalue` `is_virtual` `dims` `external`
 - `HLObject`: `name` `parent` `file` `id` `ref` `regionref` `attrs`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: group creation and structure
 - creation carry: `chunks` `maxshape` `compression` `compression_opts` `shuffle` `fletcher32` `scaleoffset` `fillvalue` `track_order` `external`
@@ -107,7 +97,7 @@
 - `registered_drivers()` returns `{'sec2', 'stdio', 'core', 'split', 'family', 'fileobj', 'mpio'}`
 - low-level C API: `h5f` `h5d` `h5g` `h5p` `h5s` `h5t` `h5a` `h5o` `h5l` `h5r` `h5z` `h5fd` `h5ds` `h5i` `h5pl` — the property-list and selection escape hatch
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `File` is a context manager; a `with` block flushes and closes the handle, and a leaked handle locks or corrupts the file.
@@ -125,9 +115,3 @@
 
 [LOCAL_ADMISSION]:
 - `File` opens in a `with` block, `create_dataset` fixes chunk and compression policy at creation, IO crosses through NumPy-style slicing or `read_direct`/`write_direct`, special types come from the `*_dtype` factories, `VirtualLayout`/`VirtualSource` assemble logical arrays, `require_*` owns idempotent structure, and the `h5*` modules are the property-list escape hatch.
-
-[RAIL_LAW]:
-- Package: `h5py`
-- Owns: HDF5 single-file IO, the group namespace, chunked and compressed typed dataset storage, NumPy-style slicing, attribute metadata, special dtypes, the `h5py.filters` pipeline, virtual datasets, dimension scales, SWMR, and the low-level C API
-- Accept: a context-managed `File`, creation-time codec policy, slice and direct-buffer IO, `*_dtype` special types, `VirtualLayout`/`VirtualSource` assembly, and `require_*` idempotent structure
-- Reject: a file handle leaked outside `with`, post-creation codec mutation, a raw NumPy dtype where HDF5 special metadata is required, per-scalar IO loops where a slice reads the block, Python-side re-encoding of compressed bytes, and existence-check branching the `require_*` form owns

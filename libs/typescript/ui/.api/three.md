@@ -2,15 +2,7 @@
 
 `three` is the render substrate of the `ui/viewer` Nx project (`scope:viewer`, compile-time excluded from the non-spatial majority): one scene-graph + renderer + loader engine `viewer/scene` composes into GLB residency and OpenPBR appearance. Two renderer backends satisfy one usage contract — `WebGLRenderer` (core `three`) and `WebGPURenderer` (`three/webgpu`, an async-init unified `Renderer` carrying node-material, compute, and post-processing surfaces) — so `viewer/scene/glb` selects a backend at boot without re-authoring the scene.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `three`
-- package: `three` (MIT)
-- module: ESM (`type: module`), four export roots — `three` (core), `three/webgpu` (WebGPU renderer + node materials + compute), `three/tsl` (node-shader language), `three/addons/*` ⇒ `three/examples/jsm/*` (loaders, controls, environments, codecs); `sideEffects: ["./src/nodes/**/*"]` retains node-material TSL registration; ships no `.d.ts`, so `@types/three` is the admitted compile-time declaration companion
-- runtime: browser DOM + WebGL2/WebGPU context, no Node binding and no peer binding — the viewer runs it on the app render thread, codec transcoders in the `browser` worker, and the React seam is the app's own `<canvas>` ref + `useEffect` teardown
-- rail: viewer scene tier — `viewer/scene/glb` (residency) and `viewer/scene/appearance` (OpenPBR binding) compose the renderer/scene/loader/material engine; `scope:viewer` project-local
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scene graph, cameras, and the transform spine
 
@@ -73,7 +65,7 @@ Every row is consumed by `viewer/scene/glb`.
 
 - `GLTFExporter.parseAsync(Object3D | Object3D[], GLTFExporterOptions?) -> Promise<ArrayBuffer | Record<string, unknown>>`: `binary: true` selects the GLB arm without narrowing the return type, so the caller discriminates on its own option.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: renderer construction and the frame loop
 - Both renderers take `{ canvas, antialias, alpha?, powerPreference? }`; every row serves `viewer/scene/glb`.
@@ -185,7 +177,7 @@ Every row is consumed by `viewer/scene/glb`.
 |  [13]   | `.getMatrixAt(i, Matrix4)` / `.getGeometryIdAt(i)` / `.instanceCount`            | batched read    | per-instance cull bound, [13] |
 |  [14]   | `.getBoundingSphereAt(geoId, Sphere): Sphere \| null` / `.maxInstanceCount`      | batched bound   | geometry sphere, capacity     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [SCENE_TOPOLOGY]:
 - One `Scene` owns the residency graph; each loaded GLB grafts its `gltf.scene` `Object3D` subtree under it, keyed by the content-key from `viewer/scene/glb`'s `ResidencyManifest`. Removal disposes geometry/material/texture GPU handles — three does not garbage-collect GPU memory, so every `remove` pairs with `.dispose()` under an Effect `Scope` finalizer.
@@ -213,9 +205,3 @@ Every row is consumed by `viewer/scene/glb`.
 - Convert non-Rec.709 primaries producer-side and tag the decoded plane `LinearSRGBColorSpace`; premultiply data-texture payloads producer-side and carry the association on `Material.premultipliedAlpha`, never a texture flag.
 - Mint a fresh `KTX2Loader` and re-run `detectSupport` on every backend swap or context loss, disposing the displaced instance — a re-probe on a live loader rebinds nothing.
 - Verify three member existence against the shipped runtime exports (`three.module.js`/`three.webgpu.js`/`three.tsl.js`) and the `examples/jsm/**` addon source; `@types/three` compiles the code but drifts from the shipped surface, so runtime exports decide member truth.
-
-[RAIL_LAW]:
-- Package: `three` (`scope:viewer` project-local)
-- Owns: the WebGL2/WebGPU renderer backends, the `Scene`/`Object3D`/`Mesh` residency graph, the material family (`MeshPhysicalMaterial` OpenPBR lobes + node-material mirror), the loader family (`GLTFLoader` + injected DRACO/KTX2/Meshopt codecs), HDR/EXR environment ingest (`HDRLoader`/`EXRLoader`), IBL prefilter (`PMREMGenerator`, both backend classes) with the scene read-policy fields, animation, camera controls, TSL node-shader authoring, and GPU compute
-- Accept: one `Scene` residency root keyed by content-key, backend selection at boot behind one usage contract, codec injection into `GLTFLoader`, OpenPBR bind onto `MeshPhysicalMaterial` from `wire#vocab`, `Scope`-scoped GPU-resource disposal, `PMREMGenerator` IBL prefilter, codec transcode behind the `browser` decode-worker port
-- Reject: `@types/three` as the member-truth source, per-codec loader forks or hand-rolled DRACO/KTX2/Meshopt decode, OpenPBR-mapping re-mint in `ui`, GPU-resource owners outliving their viewport, per-frame IBL rebuild, deep raw `examples/jsm/...` imports where `three/addons/*` resolves, render-thread codec transcode, the deprecated `RGBELoader` alias, exposure or orientation baked into environment planes, a widening `MeshPhysicalMaterial.copy`/`setValues` promotion, a custom `ColorManagement` space on a texture tag, `Texture.premultiplyAlpha` on an `ArrayBufferView` payload, a `detectSupport` re-call as a transcode rebind, a re-read of a `ReadbackBuffer` without `.release()`

@@ -2,18 +2,7 @@
 
 `<perspective-viewer>` is the interactive face of the `@perspective-dev/client` engine: it consumes a client `Table`, drives its own `View` lifecycle, and folds all state into round-trippable config values `save`/`restore` carry per panel and `saveWorkspace`/`restoreWorkspace` carry for the whole element. Rendering delegates to the registered plugin element the config's `plugin` field selects — the viewer owns the query, panel, and config chrome, the plugin owns the paint.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@perspective-dev/viewer`
-- package: `@perspective-dev/viewer` (Apache-2.0)
-- module: `sideEffects: true` — import REGISTERS `<perspective-viewer>` and exports the WASM boot (`init_client`, also the default), the plugin author contract, the cross-plugin column formatters, the LLM provider presets, and the config-type surface
-- subpaths: `.`, `./themes` + `./themes/*.css` + `./themes/intl/*.css` (bundled theme roster)
-- asset: deps `@perspective-dev/client` (lockstep), `pro_self_extracting_wasm`, and `regular-layout` (the panel layout engine); WASM `dist/wasm/perspective-viewer.wasm` boots via `init_client(wasm_binary, wasm_module?)` beside the client's `init_server`
-- plugins: `@perspective-dev/viewer-datagrid` and `@perspective-dev/viewer-charts` register lockstep by import side effect against the viewer's plugin registry
-- runtime: framework-agnostic custom element; the React seam is a ref on the element, so the element seam stays the admitted integration; no peers
-- plane: `plane:runtime` (W4 `ui`); rail: pivot-analytics over the perspective engine
-
-## [02]-[ELEMENT_SURFACE]
+## [01]-[ELEMENT_SURFACE]
 
 Every method is async, awaiting the wasm instance; all state I/O runs through the config round trip, never attribute pokes. Each panel-scoped method takes its target as an options field and defaults to the ACTIVE panel.
 
@@ -36,7 +25,7 @@ Every method is async, awaiting the wasm instance; all state I/O runs through th
 - `ExportMethod` selects the egress body: `csv` `json` `ndjson` `arrow` each with `-all` and `-selected` variants, alongside `html`, `plugin`, and `json-config`.
 - `providers` carries spreadable `AgentProviderPreset` connection records (`anthropic`, `gemini`, `openai`, `openrouter`, `lmstudio`, `ollama`) for `agentConfig`; the agent core speaks one OpenAI-chat-completions protocol over primitive `url` / `headers` / `apiKey` fields, so any compatible service needs no preset. `agentConfig` alone reveals the chat surface and permits its first request.
 
-## [03]-[PANEL_TOPOLOGY]
+## [02]-[PANEL_TOPOLOGY]
 
 `<perspective-viewer>` hosts one or more named panels over the `regular-layout` engine, each binding a `Table` and holding its own plugin, columns, and query config.
 
@@ -48,7 +37,7 @@ Every method is async, awaiting the wasm instance; all state I/O runs through th
 - Master/detail: a master panel's selection contributes clauses to the element-level `global_filters`, applied as a TRANSIENT overlay on every detail panel and never written into their saved configs. Restored `global_filters` are one unattributed bucket the next master selection replaces, a `masters` id absent from `panels` warns and drops, and a restored master re-enters its row-tree selection edit mode. NEITHER field has a JS setter: `saveWorkspace`/`restoreWorkspace` and master-panel interaction are the only writes, so a cross-filter kept beside the workspace token is a second owner of state the overlay already holds.
 - `eject({ client })` releases a loaded client by name and disposes every panel bound to it.
 
-## [04]-[PLUGIN_ROSTER]
+## [03]-[PLUGIN_ROSTER]
 
 Plugin selection is the config's `plugin` field with `plugin_config`; both round-trip through `save`/`restore`.
 
@@ -58,7 +47,7 @@ Plugin selection is the config's `plugin` field with `plugin_config`; both round
 - `PluginStaticConfig` declares what the config MEANS for a plugin: `config_column_names` names the positional `columns` slots, `group_by_role` / `split_by_role` say what those pivots draw, `group_rollup_modes` / `split_rollup_modes` list accepted rollups in preference order, `max_columns` / `max_cells` set the soft render warning, `select_mode` and `min_config_columns` drive drag-and-drop, and `connects_row_order` marks a plugin whose drawing exposes row order.
 - Authoring: a custom visualization extends `HTMLPerspectiveViewerPluginElement` (the `<perspective-viewer-plugin>` base implementing `IPerspectiveViewerPlugin` — `get_static_config`, `draw`, `update`, `clear`, `resize`, `restyle`, `restore`, `delete`, with optional `column_style_config` and `deselect`) and registers via `registerPlugin(name)`, never a fork of the viewer. Registering a name already defined warns and skips rather than throwing, so two runtime copies coexist on one page.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Config is the one state law at two grains — panel through `save`/`restore`, element through `saveWorkspace`/`restoreWorkspace` — so persistence, presets, and programmatic control are all a restore of a decoded config. Multi-panel elements persist at the ELEMENT grain, because that is the only token carrying layout, active panel, and cross-filter state; the panel grain is a patch against it, never its substitute.
@@ -71,9 +60,3 @@ Plugin selection is the config's `plugin` field with `plugin_config`; both round
 - `react`(`.api/react.md`): a component renders `<perspective-viewer>` via ref, runs `load` in the effect bracket and `delete()` on cleanup; config flows across the custom-element boundary, props do not.
 - `system/token` theming: `./themes/*.css` import once through the token stylesheet and the config's `theme` field selects one by NAME, so a theme change is the token flip with `restore({ theme })` / `restyleElement`, never per-instance CSS.
 - `view/chart` composition: the viewer earns a surface only when the USER drives the query — pivot, aggregate, filter, window, or expression exploration over a live feed; a fixed-shape interactive grid stays `Grid` (`.api/tanstack-react-table.md`), a declared statistical chart stays Plot (`.api/observablehq-plot.md`), a streaming time-series panel stays uplot (`.api/uplot.md`).
-
-[RAIL_LAW]:
-- Package: `@perspective-dev/viewer`
-- Owns: the interactive analytics element — registration-by-import, the panel and workspace config round trips, the multi-panel layout with master/detail global filters, the settings and column chrome, selection/click/config/layout events, plugin selection and the plugin author contract, theme roster application, the LLM agent seam, and export/copy/download egress.
-- Accept: config values as the one state law (atom-held, schema-decoded, restore-applied) at the element grain for a multi-panel viewer; `getConfig()` paired with `getActivePanel()` synchronously in its handler as the echo seam; panel moves through `addPanel`/`removePanel`/`setActivePanel` with the roster read back as evidence; `Table`-level streaming with the viewer a passive consumer; `viewer-datagrid` + `viewer-charts` as the admitted plugin pair; ref + effect-bracket mounting with `delete()` teardown; themes by name through the token stylesheet; `suppress_errors` for a programmatic restore whose failure is feedback.
-- Reject: any `@finos/*` reference; attribute or DOM pokes where `restore` carries the change; a per-viewer state store beside the config atom; a workspace token handed to `restore` or a panel token to `restoreWorkspace`; a saved `layout: null` crossing into a restore; a saved panel id treated as durable across a workspace restore; a cross-filter or master roster written anywhere but the workspace token; a stashed `getConfig` called after dispatch; a React wrapper reaching inside the element; the viewer standing in for a `Grid` fixed grid or a Plot declared chart.

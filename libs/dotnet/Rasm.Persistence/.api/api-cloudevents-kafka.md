@@ -2,18 +2,7 @@
 
 `CloudNative.CloudEvents.Kafka` binds the CloudEvents envelope to a `Confluent.Kafka` `Message<string?, byte[]>` — one `KafkaExtensions` static class carrying the `ce_` header binding for the op-log changefeed egress. `Version/egress` `Egress.Envelope` mints the `CloudEvent` through the branch owner per `OpLogEntry` and this binding encodes it binary-mode, so external brokers and the Python `runtime/transport` leg route on headers without parsing the body. Envelope and codec member truth is the branch catalogue (`libs/dotnet/.api/api-cloudevents.md`); native transport rides `api-kafka.md`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.Kafka`
-- package: `CloudNative.CloudEvents.Kafka` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.Kafka` (`net10.0` bound asset, pure-managed)
-- namespace: `CloudNative.CloudEvents.Kafka`
-- depends: `CloudNative.CloudEvents` (branch substrate, `libs/dotnet/.api/api-cloudevents.md`); `Confluent.Kafka` (native `librdkafka.redist` rides that package, `api-kafka.md`)
-- rail: sync-egress
-
-[REGISTRATION]: `CloudNative.CloudEvents` + `CloudNative.CloudEvents.SystemTextJson` — branch substrate at `libs/dotnet/.api/api-cloudevents.md`; the `CloudEvent` algebra, `JsonEventFormatter`, `Partitioning`, and every attribute member resolve there.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Kafka protocol binding (`CloudNative.CloudEvents.Kafka`)
 
@@ -21,7 +10,7 @@
 | :-----: | :---------------- | :------------ | :-------------------------------------------------------------- |
 |  [01]   | `KafkaExtensions` | static class  | `CloudEvent` ⇄ `Message<string?, byte[]>`; `ce_` header binding |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Kafka binding maps
 
@@ -32,7 +21,7 @@
 |  [03]   | `message.ToCloudEvent(formatter, IEnumerable<CloudEventAttribute>)` | static  | decode with an attribute enumerable                 |
 |  [04]   | `message.IsCloudEvent()`                                            | static  | detects the `ce_`/content-type headers              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ContentMode.Binary` writes attributes to Kafka `ce_*` headers and only `Data` to the body, so a header-filtering broker routes on `ce_type`/`ce_source` without deserializing the op payload; `ToKafkaMessage` accepts the base `CloudEventFormatter`, so the shared `JsonEventFormatter` instance binds directly. Content type rides a BARE `content-type` header carrying no `ce_` prefix, written only where the resolved type is non-null.
@@ -52,9 +41,3 @@
 [LOCAL_ADMISSION]:
 - Egress composes `cloudEvent.ToKafkaMessage(ContentMode.Binary, EventFormat.Json.Formatter)` at the Kafka binding row.
 - Ingress and egress share the kernel `EventExtensionContract<Extensions>` descriptor bridge.
-
-[RAIL_LAW]:
-- Package: `CloudNative.CloudEvents.Kafka`
-- Owns: the CloudEvents Kafka protocol binding — binary-mode `CloudEvent` ⇄ `Message<string?, byte[]>` with the `ce_` header contract for the changefeed egress wire
-- Accept: `ToKafkaMessage`/`ToCloudEvent` at explicit `ContentMode.Binary` through the shared formatter, partition key via `Partitioning`
-- Reject: manual `ce_` Kafka header construction, raw `Message<string?, byte[]>` assembly bypassing `KafkaExtensions`, a `datacontenttype` literal beside a registry-framed body, a broker filter written against a `partitionkey` header this binding never emits, or an envelope member re-tabled here instead of the branch catalogue

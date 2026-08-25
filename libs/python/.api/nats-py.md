@@ -2,19 +2,7 @@
 
 `nats-py` is the NATS core and JetStream client: subject-addressed publish and subscribe, request-reply over an inbox, optional message headers negotiated off the server's own INFO advertisement, and a JetStream layer carrying streams, push and pull consumers, key-value buckets, and object stores. It is natively asynchronous and asyncio-locked — every internal task, queue, and future is an asyncio primitive and no `anyio` or `trio` surface exists — so it composes on the asyncio backend alone and its reader, ping, and flusher tasks live at the loop rather than as children of a caller's task group. Its distribution declares zero required dependencies.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nats-py`
-- package: `nats-py` (Apache-2.0)
-- module: `nats`
-- namespaces: `nats`, `nats.errors`, `nats.nuid`, `nats.aio.{client,msg,subscription,transport,errors}`, `nats.js.{api,client,manager,errors,kv,object_store}`, `nats.micro`, `nats.protocol.{command,parser}`
-- target: pure-Python wheel, no native asset
-- optional extras: `aiohttp` for the WebSocket transport, `nkeys` for NKEYS authentication, `fast-mail-parser` for the accelerated header parse
-- rail: broker-transport
-
-`nats.connect(servers="nats://localhost:4222", **options)` is the module entry and `nats.NATS` aliases `nats.aio.client.Client`.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CLIENT_SCOPE]: `nats.aio.client`
 
@@ -85,7 +73,7 @@
 
 `nats.js.errors` roots its own `Error` on `nats.errors.Error` and layers `APIError` with the code-keyed `ServerError` `NotFoundError` `BadRequestError` `ServiceUnavailableError`, the key-value family `KeyValueError` `KeyNotFoundError` `KeyDeletedError` `KeyWrongLastSequenceError` `NoKeysError` `KeyHistoryTooLargeError` `BucketNotFoundError` `BadBucketError`, the object-store family `ObjectNotFoundError` `ObjectDeletedError` `ObjectAlreadyExists` `BadObjectMetaError` `DigestMismatchError`, and the flow family `NoStreamResponseError` `ConsumerSequenceMismatchError` `FetchTimeoutError` `TooManyStalledMsgsError`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection
 
@@ -133,7 +121,7 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 
 `JetStreamContext.publish` continues `stream=None`, `headers=None`, `msg_ttl=None`; `subscribe` continues `config=None`, `manual_ack=False`, `ordered_consumer=False`, `idle_heartbeat=None`, `flow_control=False`; `pull_subscribe` continues `stream=None`, `config=None`; `add_stream` and `create_key_value` each take `config=None` beside `**params`, `add_consumer` a `timeout=None` beside its own, and `delete_msg` takes `stream_name` and `seq`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Client` is asyncio-locked: its reader, ping, and flusher legs are `asyncio.Task`s, its pending queues `asyncio.Queue`, and its pong and request slots `asyncio.Future`. It runs under the anyio asyncio backend alone and is not trio-compatible; its internal tasks are loop-level rather than children of the caller's group, so a cancel scope does not reach them and `drain()`/`close()` is the orderly shed.
@@ -169,9 +157,3 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 - Admission reads `max_payload` off the connection before any encode, so an oversized event routes to the reference-carrying leg rather than raising at publish.
 - Trio's forfeit rides a declared row on the arm's own descriptor, never an undocumented assumption.
 - Every raise crosses one `boundary` fence into `BoundaryFault`; `nats.js.errors.APIError` and its code-keyed leaves are caught at their own grain, and the deprecated `nats.aio.errors` aliases are refused.
-
-[RAIL_LAW]:
-- Package: `nats-py`
-- Owns: the NATS core protocol, subject and queue-group subscription, request-reply, message headers, and the JetStream stream, consumer, key-value, and object-store surfaces
-- Accept: `nats.connect`, `Client`, `Msg` with its settlement verbs, `Subscription` and its iterator, `JetStreamContext`, `JetStreamManager`, `nats.js.api` configs, `nats.errors` and `nats.js.errors`
-- Reject: an unbound `error_cb`; a subscription inheriting its pending ceilings; an inherited reconnect curve beside the `RetryClass` owner; an inherited `drain_timeout`; the deprecated `nats.aio.errors` aliases; a non-coroutine lifecycle callback; a hardcoded payload ceiling beside the server-advertised `max_payload`; the trio backend

@@ -4,16 +4,7 @@
 
 `init` seats identity, backend, auth, and sampling once at the node root, `start`/`stop` bracket the profiler lifetime, and `wrapWithLabels` bands ambient labels around a synchronous region so samples group on the `service.name` coordinate traces carry.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pyroscope/nodejs`
-- package: `@pyroscope/nodejs` (Apache-2.0)
-- module: dual ESM/CJS, single `.` export; named lifecycle exports beside a default-export object
-- runtime: node only — native pprof profiler bindings, no browser lane
-- depends: `@datadog/pprof` native wall/heap sampler + `LabelSet`; `source-map` symbolication; optional `express`/`fastify` peers for pull middleware
-- rail: observability/profiling — the node continuous-profiling push producer
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `init` config family, the label-map type, and the sourcemap symbolicator
 
@@ -31,7 +22,7 @@
 - `PyroscopeWallConfig`: `samplingDurationMs?` `samplingIntervalMicros?` `collectCpuTime?`; `PyroscopeHeapConfig`: `samplingIntervalBytes?` `stackDepth?`
 - Rows [01]-[03] re-export from the root ALONE. `StripFilenamesMode`, `LabelSet`, `SourceMapper`, and `Logger` declare in their own modules and reach no root specifier, so an import of the bare name resolves nowhere — each reads off the surface carrying it: `NonNullable<PyroscopeConfig["stripFilenames"]>`, `NonNullable<PyroscopeConfig["tags"]>`, `InstanceType<typeof Pyroscope.SourceMapper>`, `Parameters<typeof Pyroscope.setLogger>[0]`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bootstrap, the profiler lifecycle, label scoping, and the pull-mode middleware
 
@@ -59,7 +50,7 @@
 - `wrapWithLabels` bands the callback synchronously — samples taken during `fn` carry the labels and `...args` forward to `fn`; an async region escapes the band. The band MERGES over the ambient set and restores that prior set after `fn` returns, so nesting composes — but the restore sits outside any `finally`, so a callback throwing through the band leaks its labels onto every later sample on that thread and nothing else rewrites them. A composing fence catches inside the callback and re-raises outside it.
 - `SourceMapper.create` returns before `init` seats the mapper; `SourceMapper.hasMappingInfo(string)` and `mappingInfo(GeneratedLocation) -> SourceLocation` examine a built map.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - composition-root only — `init`/`start` seat once at the node root; a library arming the profiler double-samples the native engine.
@@ -77,9 +68,3 @@
 - `scope:runtime`, node lane only — `init`/`start`/`stop` live in the node boot and drain graph; the browser and worker lanes carry no profiler.
 - push is the default rail — `expressMiddleware`/`fastifyMiddleware` mount a pull endpoint only where a scrape topology owns collection.
 - `Setting.otel.profile` carries the backend origin and the sealed credential — bearer or basic pair; an absent origin leaves the lane unarmed and composes zero profiler code.
-
-[RAIL_LAW]:
-- Package: `@pyroscope/nodejs`
-- Owns: continuous wall and heap profiling push over the native pprof engine — the `init` seat, the aggregate and per-profiler lifecycles, `wrapWithLabels` label banding, `SourceMapper` symbolication, the six-level `Logger` sink, and the express/fastify pull middleware
-- Accept: one node-root seat pointed at the `Setting.otel`-provisioned backend with `AppIdentity`-projected `tags`, a per-profiler roster armed and drained by the same fold, the drain on the ranked process fold, synchronous label bands gated on the seat and guarded against a throwing callback
-- Reject: library-altitude `init`, a profile label divergent from the resource identity, the aggregate `start` where a policy roster decides the samplers, the deprecated `cpu` pair seated beside the wall row it aliases, a label op on an unarmed process, a second sampler beside `@datadog/pprof`, an async region inside a `wrapWithLabels` band

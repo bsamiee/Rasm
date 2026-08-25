@@ -2,15 +2,7 @@
 
 `zstandard` owns the Zstandard codec on the artifacts compression rail: the `ZstdCompressor`/`ZstdDecompressor` roots, `ZstdCompressionDict` COVER dictionaries, `ZstdCompressionParameters` advanced tuning, a `FrameParameters` header view, and the zero-copy batch carriers over native libzstd. It is the archival default: the `package/codec#CODEC` `ZSTD` arm routes high-ratio single-blob and COVER-dictionary small-payload classes here, every other class routing to its own codec on the shared `CompressionAlgo` discriminant.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `zstandard`
-- package: `zstandard` (BSD-3-Clause)
-- module: `zstandard`
-- rail: compression
-- abi: native `cext` wheel (`backend_c`, GIL-releasing, one wheel per interpreter minor) is the live build; the `cffi` fallback (`backend_cffi`, selected via `PYTHON_ZSTANDARD_IMPORT_POLICY`) drops the zero-copy batch carriers and `multi_*_to_buffer`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec roots, dictionary, and parameters
 
@@ -57,7 +49,7 @@
 - [SENTINEL]: `CONTENTSIZE_UNKNOWN` `CONTENTSIZE_ERROR` — raw u64 C spellings the binding never returns; the guard reads `-1`/raises
 - [IDENTITY]: `ZSTD_VERSION` `__version__` `MAGIC_NUMBER` `FRAME_HEADER` `backend` `backend_features`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module one-shots and file open — top-level convenience over default-configured transient roots
 
@@ -100,7 +92,7 @@
 |  [07]   | `multi_decompress_to_buffer(frames, …)`                                   | instance | threaded batch decompress; skip header probes |
 |  [08]   | `decompress_content_dict_chain(frames)`                                   | instance | decode a content-dictionary frame chain       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - codec: `ZstdCompressor`/`ZstdDecompressor` are the two roots, with `level`/`dict_data`/`compression_params`/`write_checksum`/`write_content_size`/`write_dict_id`/`threads` on the compressor and `dict_data`/`max_window_size`/`format` on the decompressor as constructor rows, never a per-profile subclass; the upstream `ZstdKnobs` carries every axis as a field.
@@ -122,8 +114,3 @@
 - carriers bind through the minting method, never import: `compressobj`/`decompressobj`/`chunker` return `backend_c` classes with no `zstandard.*` name.
 - probe `backend_features` before the batch path; the `cffi` fallback omits the carriers and `multi_*_to_buffer`.
 - live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `zstandard`
-- Owns: Zstandard one-shot/streaming/incremental/chunked/threaded-batch compression and decompression, COVER-trained dictionaries with precompute caching, advanced compression parameters, frame inspection, and magicless/checksum/content-size/dict-id frame policy
-- Reject: wrapper-renames of `compress`/`decompress`; a per-profile compressor where a constructor row or `ZstdCompressionParameters` suffices; `level=` and `compression_params=` together on one `ZstdCompressor`; a zero-valued `from_level` override where withholding keeps the level-derived cparam; `dict_type` passed to `train_dictionary` (it is a `ZstdCompressionDict` ctor axis); in-RAM accumulation where `stream_writer`/`compressobj` streams; binding a carrier by import; an unbounded recovery past the declared-size and `max_window_size`/`max_output_size` bounds; reaching the batch path without a `backend_features` probe; a `ZstdError` crossing the owner as a raised exception; duplicating the data-rail `numcodecs` `Zstd`/`Blosc` buffer codec here; identity-minting the runtime owns

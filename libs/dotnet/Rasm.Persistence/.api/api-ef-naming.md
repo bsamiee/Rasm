@@ -2,15 +2,7 @@
 
 `EFCore.NamingConventions` binds one casing policy to every relational identifier EF Core derives — table, view, column, JSON container column, key, foreign-key constraint, and index — as a model-build convention displacing the CLR PascalCase default, so the runtime model and the migrations scaffolded from it carry the same names with no second naming pass.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `EFCore.NamingConventions`
-- package: `EFCore.NamingConventions` (Apache-2.0)
-- assembly: `EFCore.NamingConventions`
-- namespace: `Microsoft.EntityFrameworkCore`, `Microsoft.Extensions.DependencyInjection` (consumption); `EFCore.NamingConventions.Internal` (extension points)
-- rail: schema-tooling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [NAMING_TYPES]: policy carrier, convention installer, and the rewrite contract — every `Internal` symbol ships `public` and `virtual`, and each rewriter row takes a `CultureInfo` constructor argument, so casing is locale-parameterized rather than pinned to the invariant culture and `UpperSnakeCaseNameRewriter` derives its result from `SnakeCaseNameRewriter`.
 
@@ -28,7 +20,7 @@
 
 `[INameRewriter rows]`: `SnakeCaseNameRewriter` `LowerCaseNameRewriter` `UpperCaseNameRewriter` `CamelCaseNameRewriter` `UpperSnakeCaseNameRewriter`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: policy admission and the extension points beneath it. Every `Use*NamingConvention` takes `(DbContextOptionsBuilder, CultureInfo? = null)`, returns the builder, and mirrors as `<TContext>` over `DbContextOptionsBuilder<TContext>`, so `OnConfiguring` and a typed `AddDbContext<T>` registration both apply the policy without a cast.
 
@@ -43,7 +35,7 @@
 |  [03]   | `ModifyConventions(ConventionSet) -> ConventionSet`                                | instance | installs the rewriting convention    |
 |  [04]   | `NameRewritingConvention(ProviderConventionSetBuilderDependencies, INameRewriter)` | ctor     | binds a custom rewriter to the model |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every identifier the relational model derives passes `INameRewriter.RewriteName` once at model build, so migration DDL and the runtime model agree by construction.
@@ -61,9 +53,3 @@
 [LOCAL_ADMISSION]:
 - Store profiles share one policy, and a profile that diverges declares the override at its own options composition.
 - Casing is schema, never formatting: a flip generates a migration renaming real database objects.
-
-[RAIL_LAW]:
-- Package: `EFCore.NamingConventions`
-- Owns: relational identifier casing across table, view, column, JSON container, key, constraint, and index names
-- Accept: one `Use*` admission per options builder, culture-explicit, extended through `INameRewriter`
-- Reject: hand-written provider naming patches and hand-rolled model-build naming conventions

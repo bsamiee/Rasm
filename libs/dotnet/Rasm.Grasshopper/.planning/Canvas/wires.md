@@ -22,7 +22,7 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route a
 - Growth: a new route geometry is one installed `WireShape` subclass — zero edits here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -104,7 +104,7 @@ public static class Traced {
 - Growth: a new pick modality is one method over an existing host read.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
@@ -138,7 +138,7 @@ public static class WirePick {
 - Growth: a new wire treatment is a `Styled` derivation; a new pass policy is one plan parameter — the draw seam lives at the executor and never forks.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;

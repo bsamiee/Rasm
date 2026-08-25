@@ -4,18 +4,7 @@
 
 `sql` builds a `Fragment` that is at once `Effect`, `Stream`, and `Pipeable`, dialect-parameterized through `onDialect`; `SqlSchema`/`SqlResolver`/`Model` parse every row through a `Schema`, `withTransaction` nests as savepoints, and the append-only journal — never `Migrator` — holds truth.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/sql`
-- package: `@effect/sql` (MIT)
-- effect-peer: `effect`, `@effect/platform`, `@effect/experimental`
-- dependency: `uuid` (bundled; binary-UUID mint for `Model.UuidV4Insert`)
-- module format: ESM + CJS dual (`dist/dts` typings); per-module deep-import subpaths (`@effect/sql/SqlClient`, `/Statement`, `/Model`, …), `sideEffects: []`
-- runtime: dialect-neutral abstract core with no driver binding; a `-pg`/`-sqlite-node`/`-sqlite-bun`/`-sqlite-wasm`/`-libsql`/`-d1`/`-mysql2`/`-mssql`/`-clickhouse` package binds the `SqlClient` `Layer`, so the core rides every runtime the driver reaches
-- rail: the `data` SQL contract every plane composes as its `SqlClient` port
-- modules: `SqlClient`, `Statement`, `SqlSchema`, `SqlResolver`, `SqlConnection`, `SqlError`, `SqlStream`, `Model`, `Migrator` (banned), `SqlEventJournal`, `SqlEventLogServer`, `SqlPersistedQueue`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client contract, connection, and transaction spine
 - `SqlClient` extends `Statement.Constructor`, so the client value IS the `sql` template; a `Connection.Acquirer` (`Effect<Connection, SqlError, Scope>`) leases the driver `Connection`, and `TransactionConnection` carries `[conn, depth]` so a nested `withTransaction` folds to a savepoint, not a second `BEGIN`.
@@ -72,7 +61,7 @@
 |  [07]   | `Model.BooleanFromNumber`                         | sqlite bool      | `0\|1` ↔ boolean for the sqlite lane (no native boolean)         |
 |  [08]   | field combinators (`Field`/`FieldOnly`/…)         | field combinator | build/narrow/rename a variant field set (roster in lead)         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: composing and running a statement
 - `` sql`… ${id}` `` yields `Statement<A>`; `yield*` runs it and `.stream`/`.values`/`.raw`/`.unprepared` project it, `.stream` over the `SqlStream.asyncPauseResume(register, bufferSize?)` backpressured cursor whose `register` emits `single`/`chunk`/`array`/`fail`/`end` with `onInterrupt`/`onPause`/`onResume`.
@@ -140,7 +129,7 @@
 |  [03]   | `SqlEventLogServer.layerStorageSubtle(options?)` | sync server store | zero-knowledge Web-Crypto variant, no `EventLogEncryption`    |
 |  [04]   | `SqlPersistedQueue.layerStore(opts)`             | durable queue     | `runtime/work` durable-job store; SKIP-LOCKED + lease refresh |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [SQL_TOPOLOGY]:
 - one Tag, driver-supplied Layer: `SqlClient` is an abstract `Context.Tag` every `data` row yields (`const sql = yield* SqlClient`), and the app root binds exactly one driver `Layer`, so runtime portability is a `Layer` selection and the journal code never names a dialect. Adding a lane adds one driver `Layer` and one `sql.onDialect` arm where SQL differs — never a parallel journal, projection, or client family.
@@ -162,9 +151,3 @@
 - Wrap the OCC-append + outbox + ledger commit in `sql.withTransaction`; nested composition folds to savepoints, never a manual `BEGIN`/`COMMIT` pair.
 - `Model.makeRepository`/`makeDataLoaders` serve projection, snapshot, and ledger tables only; the append-only journal issues no UPDATE/DELETE on its events (crypto-shredding is key destruction in `retain`, never a row rewrite).
 - Schema changes are `iac` declarative-ensure edits with a `data` startup verify; `Migrator` is banned branch-wide.
-
-[RAIL_LAW]:
-- Package: `@effect/sql`
-- Owns: the `SqlClient` neutral `Context.Tag` + `Connection`/`TransactionConnection` spine, the `sql` fragment DSL (`Statement`/`Fragment`/`Segment`/`Compiler` + unsafe/literal/custom/insert/update/updateValues/in/and/or/csv/join/onDialect/onDialectOrElse), the `SqlStream.asyncPauseResume` backpressured-cursor primitive behind `.stream`, `SqlSchema` typed queries, `SqlResolver` batching resolvers, the `SqlError`/`ResultLengthMismatch` fault rail, the `Model` variant-schema system (six wire variants + field families + `makeRepository`/`makeDataLoaders`), `reserve`/`reactive`/`reactiveMailbox`/`withTransaction`, and the `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` overlay-storage Layers
-- Accept: one driver `Layer` per runtime behind the neutral `SqlClient` Tag, the `sql` DSL + `onDialect` for all query construction, `SqlSchema`/`SqlResolver`/`Model` for typed I/O, `withTransaction` for atomic commits, `reactive` for read-your-writes, the SQL overlay bindings as the durable backing under `@effect/experimental` `[SQL_OVERLAY_BACKING]`/`[OVERLAY_BOUNDARY_RULING]`
-- Reject: a driver import outside the composition root / runtime subpaths, string-built or per-dialect-forked SQL, untyped `Connection.Row` reads, `query`/`getById`/`getMany` operation families, manual `BEGIN`/`COMMIT`, `makeRepository` on the event journal, and any `Migrator` use (migrations are banned — DDL is `iac`↔`data` declarative ensure)

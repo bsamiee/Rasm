@@ -2,15 +2,7 @@
 
 `System.Text.Json` is the branch's one JSON wire: a `JsonSerializerOptions` instance carries the whole contract — resolver chain, converters, naming, number and polymorphism posture — and freezes into an immutable identity every serialize, deserialize, and schema export then reads. Source generation resolves contracts ahead of time so the same surface serves reflection-free hosts, and the low-level reader, writer, and node models expose the same bytes without a second configuration.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Text.Json`
-- package: `System.Text.Json` (MIT)
-- assembly: `System.Text.Json.dll` (shared framework)
-- namespace: `System.Text.Json`, `System.Text.Json.Nodes`, `System.Text.Json.Schema`, `System.Text.Json.Serialization`, `System.Text.Json.Serialization.Metadata`
-- rail: contract-frozen JSON wire
-
-## [02]-[SERIALIZER]
+## [01]-[SERIALIZER]
 
 [SERIALIZER_TYPE_SCOPE]: entry surface and its one contract carrier
 
@@ -88,7 +80,7 @@
 [JsonIgnoreCondition]: `Never` `Always` `WhenWritingDefault` `WhenWritingNull` `WhenWriting` `WhenReading`
 [JsonNumberHandling]: `Strict` `AllowReadingFromString` `WriteAsString` `AllowNamedFloatingPointLiterals`
 
-## [03]-[CONTRACT_MODEL]
+## [02]-[CONTRACT_MODEL]
 
 [CONTRACT_TYPE_SCOPE]: resolved per-type contracts and the resolvers producing them
 
@@ -140,7 +132,7 @@
 |  [07]   | `AssociatedParameter -> JsonParameterInfo?`                         | property | constructor parameter bound to this member             |
 |  [08]   | `JsonParameterInfo.DefaultValue` / `Position` / `IsNullable`        | property | constructor-parameter contract reads                   |
 
-## [04]-[SOURCE_GENERATION]
+## [03]-[SOURCE_GENERATION]
 
 [SOURCEGEN_TYPE_SCOPE]: the generator's declaration grammar and its emitted resolver
 
@@ -168,7 +160,7 @@
 |  [09]   | `JsonSourceGenerationOptionsAttribute.Converters -> Type[]?`   | property | converter types the generated options register          |
 |  [10]   | `JsonSourceGenerationOptionsAttribute.UseStringEnumConverter`  | property | emit enums as names without a hand-registered converter |
 
-## [05]-[CONVERTERS_AND_MEMBER_GRAMMAR]
+## [04]-[CONVERTERS_AND_MEMBER_GRAMMAR]
 
 [CONVERTER_TYPE_SCOPE]: the converter hierarchy and the shipped policies
 
@@ -221,7 +213,7 @@
 
 [JsonUnknownDerivedTypeHandling]: `FailSerialization` `FallBackToBaseType` `FallBackToNearestAncestor`
 
-## [06]-[DOCUMENT_AND_NODE_MODEL]
+## [05]-[DOCUMENT_AND_NODE_MODEL]
 
 [DOCUMENT_TYPE_SCOPE]: the two payload models — one read-only over pooled memory, one mutable tree
 
@@ -255,7 +247,7 @@
 |  [14]   | `JsonNode.GetValueKind() -> JsonValueKind`                                      | instance | classify without materializing          |
 |  [15]   | `JsonNode.ToJsonString(JsonSerializerOptions?) -> string`                       | instance | render under an options instance        |
 
-## [07]-[LOW_LEVEL_WIRE]
+## [06]-[LOW_LEVEL_WIRE]
 
 [WIRE_TYPE_SCOPE]: the forward-only reader and writer every converter and hand-rolled codec binds
 
@@ -289,7 +281,7 @@
 - `Utf8JsonWriter.Flush`: pending bytes reach the destination only here or at disposal, so an unflushed writer publishes nothing.
 - `Utf8JsonReader`: crosses no `async` boundary as a ref struct — a streamed read owns its buffer loop and carries `CurrentState` forward.
 
-## [08]-[SCHEMA_EXPORT]
+## [07]-[SCHEMA_EXPORT]
 
 [SCHEMA_TYPE_SCOPE]: exporter, its knob owner, and the per-node transform payload
 
@@ -320,7 +312,7 @@
 
 - `JsonSchemaExporter.GetJsonSchemaAsNode`: both overloads call `JsonSerializerOptions.MakeReadOnly()` first, freezing the options instance against a later converter or resolver mutation.
 
-## [09]-[IMPLEMENTATION_LAW]
+## [08]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One options instance is one wire contract: the first serialize, deserialize, or export freezes it, every later mutation throws `InvalidOperationException`, and `IsReadOnly` is the audit bit a composition asserts rather than a comment.
@@ -349,9 +341,3 @@
 [LOCAL_ADMISSION]:
 - Every wire surface below the composition root declares its contract through a `JsonSerializerContext`; the reflection resolver enters only where an app root admits it explicitly through `MakeReadOnly(populateMissingResolver: true)`.
 - AppHost native capability schemas resolve from source-generated `JsonTypeInfo` through `AIJsonUtilities`; published MCP schemas remain verbatim.
-
-[RAIL_LAW]:
-- Package: `System.Text.Json`
-- Owns: the branch JSON wire whole — contract resolution and freezing, converter dispatch, polymorphic discrimination, source-generated metadata, document and node models, the forward-only reader and writer, and JSON Schema projection of a live contract
-- Accept: generated-context chains, resolver modifiers, member and parameter contract mutation, typed converters over the reader and writer, frozen options identities, `TransformSchemaNode` annotation arms
-- Reject: a per-call options graph, a hand-mirrored schema literal, a reflection walk over the CLR type, a second serializer configuration built for one seam, string concatenation onto a JSON payload

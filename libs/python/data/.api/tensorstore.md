@@ -2,17 +2,7 @@
 
 `tensorstore` owns the asynchronous zarr-v3 array backend for the data rail: one `open` factory resolves a JSON/`Spec` driver configuration into a `Future[TensorStore]`, and `read`/`write` return awaitable `Future`/`WriteFutures` the data owner consumes with `await`. It holds chunked codec, sharding, and cache-coherence behind the `KvStore` backend abstraction, so backend selection is a `Spec` row and the owner never re-implements the array-store rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tensorstore`
-- package: `tensorstore` (Apache-2.0)
-- module: `tensorstore`
-- owner: data
-- rail: array-store
-- namespaces: `tensorstore.experimental` (Prometheus metrics collection and flush), `tensorstore.ocdbt` (`DistributedCoordinatorServer` and manifest `dump`/`undump` for the ocdbt B+tree kvstore)
-- reach: FLOOR-GATED — the manifest row carries a `python_version` marker no supported interpreter satisfies, `find_spec("tensorstore")` resolves `None`, and no member below is callable while that holds. Every row is catalog-sourced under that marker; `gridded/store#STORE` refuses each `TensorBackend.TENSORSTORE` selection at its `_UNREACHED` gate, so this file documents an admitted-but-unreachable surface and every member re-verifies by live reflection the moment the marker lifts.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: array handle, spec, index space, and async rail
 
@@ -42,7 +32,7 @@
 |  [22]   | `Promise`        | async rail    | producer side of a `Future`                                       |
 |  [23]   | `FutureLike`     | async rail    | generic possibly-asynchronous-result type for callbacks           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module factories
 
@@ -127,7 +117,7 @@ Each property reads the resolved schema after `open`; `origin`/`shape`/`size`, `
 |  [13]   | `Transaction.commit_async() -> Future[None]`                                        | asynchronously commit staged modifications  |
 |  [14]   | `Transaction.abort()`                                                               | abort the transaction                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - open axis: one `open` owns array-store acquisition; the `zarr3` driver, `kvstore`, open/create/delete_existing/assume_metadata modes, and the inline schema rows are call rows on the JSON `Spec`, never a per-mode or per-driver factory type. `array`/`cast`/`stack`/`concat`/`overlay`/`downsample`/`virtual_chunked` compose existing handles into virtual views.
@@ -152,9 +142,3 @@ Each property reads the resolved schema after `open`; `origin`/`shape`/`size`, `
 - Drive the driver, backend, mode, and schema as rows on one JSON `Spec`; never a parallel store type per backend or a per-driver factory family.
 - Consume `read`/`write` with `await`; a blocking `result()` inside the async rail is rejected.
 - Share one `Context` across opens so cache pools, concurrency, and credentials pool rather than re-mint per store.
-
-[RAIL_LAW]:
-- Package: `tensorstore`
-- Owns: asynchronous zarr-v3 array open/read/write over `KvStore` backends, JSON/`Spec`-driven schema/codec/chunk-layout control, `DimExpression` advanced indexing, transactional staging, virtual stack/concat/overlay/downsample/virtual_chunked views, and the `Future`/`WriteFutures` async rail
-- Accept: async chunked array read/write feeding the data owner over `file`/`gcs`/`s3`/`memory`/`ocdbt` `KvStore` backends
-- Reject: wrapper-renames of `open`/`read`/`write`; a blocking `result()` inside the async rail; a hand-rolled chunk codec, sharding, or cache layer; a parallel store type per backend or open mode; a per-driver factory family where one `Spec` row discriminates the driver

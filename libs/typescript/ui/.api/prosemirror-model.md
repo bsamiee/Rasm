@@ -2,16 +2,7 @@
 
 `prosemirror-model` owns the document algebra: one `Schema` compiles `NodeSpec`/`MarkSpec` data rows and their content expressions into `NodeType`/`MarkType` owners, and every `Node`, `Fragment`, `Slice`, and `Mark` under it is immutable, position-indexed, and schema-checked. `DOMParser`/`DOMSerializer` derive both DOM directions from those same spec rows, and `toJSON`/`fromJSON(schema, json)` fix one canonical wire shape for the whole family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-model`
-- package: `prosemirror-model` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure data — DOM-free except `DOMParser`/`DOMSerializer`, which take an explicit `document`, so document values build and serialize to JSON on a server with no browser global
-- depends: `orderedmap` — the insertion-ordered map `SchemaSpec.nodes`/`marks` accept and `Schema.spec` normalizes to
-- rail: `view/content` — the schema and document-value floor every other ProseMirror package types against
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: schema declaration — plain data rows, never subclasses; `new Schema(spec)` compiles them into the runtime owners.
 
@@ -41,7 +32,7 @@
 - `NodeSpec.parseDOM` narrows to `TagParseRule[]`; only `MarkSpec.parseDOM` admits the full `ParseRule` union, so a style-matched rule is a mark rule.
 - `getAttrs` returning `false` rejects the match and lets the next rule by `priority` try; returning `null` accepts with defaults.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the schema owner and the type owners it compiles — the only construction path for every document value.
 
@@ -123,7 +114,7 @@
 - `serializeFragment`/`serializeNode` take `{document}` and default to the ambient `document`; pass an explicit one to render outside a browser.
 - `renderSpec` reads `0` inside an array spec as the content hole — exactly one hole per spec, and a leaf or atom node carries none.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Schema` compiles data once: `new Schema({nodes, marks})` accepts plain objects or `OrderedMap`s, resolves every `content` expression into a `ContentMatch` automaton on each `NodeType`, links `marks`/`excludes` groups, and freezes the result — a document node carries its `NodeType` by reference, so a value built under one schema is unusable under another and every `fromJSON` names the schema that admits it.
@@ -147,9 +138,3 @@
 - Cross every boundary as `Node.toJSON` / `Node.fromJSON(schema, json)` and gate an untrusted payload with `Node.check()`; a hand-walked JSON tree bypasses attribute validation.
 - Derive both DOM directions with `DOMParser.fromSchema` / `DOMSerializer.fromSchema` and extend by adding `parseDOM`/`toDOM` to the owning spec row.
 - Resolve positions through `Node.resolve` and read structure off `ResolvedPos`; recomputing depth by walking `content` arrays re-implements the resolver.
-
-[RAIL_LAW]:
-- Package: `prosemirror-model`
-- Owns: the schema algebra — `Schema` compiling `NodeSpec`/`MarkSpec` rows and content expressions into `NodeType`/`MarkType` with their `ContentMatch` automata; the immutable `Node`/`Fragment`/`Slice`/`Mark` document values with their position coordinate system, `ResolvedPos` and `NodeRange`; the canonical `toJSON`/`fromJSON` wire shape and `Node.check` validation; and the `DOMParser`/`DOMSerializer` pair derived from the same spec rows
-- Accept: one `Schema` per document class built from data rows, `createChecked`/`createAndFill` for construction, `ResolvedPos`/`NodeRange` for every structural query, `ContentMatch.findWrapping`/`fillBefore` for admissibility, `DOMParser.fromSchema`/`DOMSerializer.fromSchema` with per-row `parseDOM`/`toDOM` overrides, and `Node.toJSON`/`fromJSON(schema, json)` as the only boundary form
-- Reject: a parallel document model or a hand-walked JSON tree beside the schema, structural rules enforced in command branches rather than in a content expression, `NodeType.create` where content admissibility is unproven, a `Node.check()` call read as a boolean, a `ResolvedPos` held across an edit, and a hand-written DOM parser or serializer where a `parseDOM`/`toDOM` row carries the mapping

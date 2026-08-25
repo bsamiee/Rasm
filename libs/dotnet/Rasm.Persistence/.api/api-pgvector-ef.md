@@ -2,27 +2,7 @@
 
 `Pgvector.EntityFrameworkCore` binds pgvector store types onto the Npgsql EF Core provider — type mapping, distance-operator translation, codec wiring, and design-time scaffolding — all admitted by one `UseVector` call. CLR value types and their binary codecs ship in the transitive `Pgvector` package; access methods, operator classes, index knobs, and vector functions are server SQL this catalog owns as the vocabulary provisioning and search lanes project. Vector retrieval on the `postgres-server` store profile composes from here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Pgvector.EntityFrameworkCore`
-- package: `Pgvector.EntityFrameworkCore` (PostgreSQL)
-- assembly: `Pgvector.EntityFrameworkCore`
-- namespace: `Pgvector.EntityFrameworkCore` (plugins, mappings), `Microsoft.EntityFrameworkCore` (the options-builder extension)
-- depends: `Pgvector` value types, `Npgsql.EntityFrameworkCore.PostgreSQL` provider host
-- rail: store-provider, search-lanes
-
-[PACKAGE_SURFACE]: `Pgvector`
-- package: `Pgvector` (PostgreSQL)
-- assembly: `Pgvector`
-- namespace: `Pgvector` (CLR value types), `Pgvector.Npgsql` (streaming codecs), `Npgsql` (the type-mapper extension)
-- rail: store-codec
-
-[PACKAGE_SURFACE]: `vector`
-- package: `vector` (PostgreSQL)
-- asset: server SQL, no managed assembly
-- rail: search-provisioning
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [VALUE_TYPES]: reference types in `Pgvector`, each pairing one store type with one streaming codec — `Vector`/`vector`/`VectorConverter`, `HalfVector`/`halfvec`/`HalfvecConverter`, `SparseVector`/`sparsevec`/`SparsevecConverter`.
 
@@ -56,7 +36,7 @@
 |  [07]   | `VectorCodeGeneratorPlugin`           | class         | `ProviderCodeGeneratorPlugin`; scaffolds `.UseVector()`      |
 |  [08]   | `VectorDesignTimeServices`            | class         | `IDesignTimeServices`; admits mapping and code-gen plugins   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ADMISSION]: `UseVector` admits the surface on either builder.
 
@@ -111,7 +91,7 @@
 |  [05]   | `HammingDistance(object, object)` | static  | `<~>` Hamming distance       |
 |  [06]   | `JaccardDistance(object, object)` | static  | `<%>` Jaccard distance       |
 
-## [04]-[SERVER_SURFACE]
+## [03]-[SERVER_SURFACE]
 
 [INDEX_OPCLASSES]: one operator class per store type and metric, spelled as the `HasOperators` literal.
 
@@ -161,7 +141,7 @@
 
 Casts convert every pair among `vector`, `halfvec`, and `sparsevec` and admit `integer[]`, `real[]`, `double precision[]`, and `numeric[]`, so a precision tier-down is a column cast; `+`, `-`, `*`, and `||` compose element-wise arithmetic and concatenation on `vector` and `halfvec`.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Vector mapping is a policy of the `postgres-server` `StoreProfile` row, the one profile whose `Vector` fact holds.
@@ -182,9 +162,3 @@ Casts convert every pair among `vector`, `halfvec`, and `sparsevec` and admit `i
 - `vector` installs as a profile-declared model extension, and `vectorscale CASCADE` is the dependency-pulling form.
 - Vector dimensions are column metadata — `HasColumnType("vector(N)")` or the `int? size` ctor argument — under one `StoreTypePostfix.Size` rule for all three store types.
 - Index access-method, opclass, storage-parameter, and GUC literals belong to the `Store/provisioning#SERVER_EXTENSIONS` `Index` row and the search-lane binder; this catalog states the vocabulary they draw from.
-
-[RAIL_LAW]:
-- Package: `Pgvector.EntityFrameworkCore` + `Pgvector` + `vector` (PostgreSQL)
-- Owns: pgvector CLR value types, binary codecs, EF type mapping, distance-operator translation, and the server opclass, knob, function, and cast vocabulary for the Npgsql EF PostgreSQL provider
-- Accept: profile-declared vector mapping through `UseVector`, server-translated distance projections, HNSW and ivfflat declarations through the Npgsql index builder, quantization, normalization, and cast composition in SQL
-- Reject: a vector-branded service family, a client-side distance call, a hand-spelled `CREATE EXTENSION vector` beside the `HasPostgresExtension` annotation, a parallel column-type enum duplicating the `EmbeddingArity` axis, a hand-written `Vector[]` reader

@@ -20,7 +20,7 @@ Persistent topological naming survives every rebuild behind one `Naming.Apply(Na
 - Boundary: `TopoName` is the one naming value object over every `EntityKind`, the modality carried in the `Kind` column. `TopoSignature` is position-free — built from incident names and kind histograms, never coordinates — so a rigid transform preserves every name and only an adjacency change re-anchors, matching the morph-versus-topology-break distinction `GeometryHash` reads from the same canonical adjacency. Migration is the `Overlap` shared-name fraction under the `NamingPolicy.MigrationOverlap` floor; `VertexNames` keys by `RebuiltEntity.Self`; boundary names resolve through the table under construction on the vertices-first walk; exact re-anchor reads the prior `SignatureIndex` buckets while migration gathers from the `BoundaryIndex` postings through hash-index lookups. `Apply` is total over the `Fin` rail, a name collision routing `GeometryFault.NameCollision` (`Numerics/faults.md`) accumulated internally as `Validation<Error, NameTable>`. `TopoName` is a `UInt128` reference identity orthogonal to the `GeometryHash` content identity the reconciliation sibling bridges, and the `NameTable` is immutable — `Apply` returns the next generation.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

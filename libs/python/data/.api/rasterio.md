@@ -2,17 +2,7 @@
 
 `rasterio` owns the NumPy-array raster IO rail over GDAL: `open` is the single polymorphic dataset entry (mode, `driver`, and creation kwargs discriminate read versus write), and `DatasetReader`/`DatasetWriter`, `MemoryFile`, `Env`, and the `Session` cloud family carry band read/write, windowing, reprojection, masking, and merge under affine and CRS georeferencing. rasterio is the band IO beneath `rioxarray`, the COG decoder for `pystac` hrefs, and the CRS owner shared with `pyproj`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rasterio`
-- package: `rasterio` (BSD-3-Clause)
-- module: `import rasterio`
-- owner: `data`
-- rail: geospatial
-- entry points: console script `rio` (the `rio` CLI plugin family); library use is `import`-only
-- capability: raster read/write as NumPy arrays, affine and CRS georeferencing, windowed/tiled/boundless access, in-memory (`MemoryFile`) and VSI (`/vsicurl/`, `/vsizip/`, `/vsis3/`) datasets, GDAL/PROJ/GEOS reprojection and warping, raster/vector conversion, masking, multi-dataset merge, virtual warped datasets, scoped GDAL config, and cloud credential sessions
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: dataset handles, georeferencing carriers, and the enum vocabulary
 
@@ -61,7 +51,7 @@
 - `GDALVersionError` `GDALOptionNotImplementedError` `GDALBehaviorChangeException` — GDAL build mismatches
 - `RasterioDeprecationWarning` `NotGeoreferencedWarning` `NodataShadowWarning` `ShapeSkipWarning` `TransformWarning` — warnings
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dataset lifecycle, band IO, and georeferencing
 - call: `open(fp, mode='r', driver=None, width=None, height=None, count=None, crs=None, transform=None, dtype=None, nodata=None, sharing=False, thread_safe=False, opener=None, **kwargs) -> DatasetReader | DatasetWriter`
@@ -86,7 +76,7 @@
 - call: `CRS.from_epsg`/`from_wkt`/`from_user_input`/`to_epsg`/`to_wkt(version=WktVersion.*)`/`to_authority`; `Affine.scale(sx, sy=None)`/`translation(dx, dy)`/`identity()` composed as `source.transform * Affine.scale(factor)` for a decimation/zoom transform
 - `Window` methods: `from_slices` `round_lengths` `round_shape` `round_offsets` `round` `crop` `intersection` `flatten` `todict` `toranges` `toslices`; `coords.disjoint_bounds(bounds1, bounds2)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `open` is the single polymorphic dataset entry; mode (`'r'`/`'w'`/`'r+'`), `driver`, and creation kwargs discriminate read versus write, and it enters as a context manager to guarantee GDAL close.
@@ -106,9 +96,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `rasterio.open` as a context manager for band IO, windowed and `boundless` streaming, `warp`/`WarpedVRT` reprojection, `features`/`mask` vector bridging, `merge` mosaics, and `Env(session=...)` scoping; the shared `CRS` crosses to rioxarray and pyproj unchanged.
-
-[RAIL_LAW]:
-- Package: `rasterio`
-- Owns: raster read/write as NumPy arrays, affine and CRS georeferencing, windowed/tiled/boundless access, reprojection and warping, raster/vector conversion, masking, multi-dataset merge, virtual warped datasets, in-memory and VSI datasets, scoped GDAL config, and cloud sessions
-- Accept: `rasterio.open` context-managed, windowed/`boundless`/`block_windows` streaming, `warp.reproject`/`WarpedVRT` with a `Resampling` enum, `features.shapes`/`features.rasterize` for the vector bridge, `mask.mask` for geometry masking, `merge` with a custom-callable `method`, `Env(session=...)` for scoped GDAL/cloud config, the shared `CRS` across rioxarray/pyproj
-- Reject: manual pixel-to-world math where `xy`/`index`/`transform_method` apply, full-raster reads where a window suffices, hand-rolled resampling or mosaic kernels where `Resampling`/`merge` dispatch, per-driver parallel open functions when `open` dispatches on mode and driver, duplicated CRS algebra the shared PROJ owns, raw GDAL-config mutation where `Env`/`Session` scope it, raw band reads where `rioxarray` owns xarray labeling

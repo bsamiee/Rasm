@@ -2,17 +2,7 @@
 
 `VividOrange.Cases` (concrete) over `VividOrange.ICases` (contract) owns the Eurocode EN 1990 load-case-and-combination algebra: it folds typed `VividOrange.Loads` `ILoad` actions into design cases, then synthesizes the ULS/SLS combination set with the partial-safety (`γ`) and combination (`ψ`) factors a `NationalAnnex` selects. `Model/eurocode#EUROCODE_ALGEBRA` composes it to PRODUCE a load-combination group's neutral rows — the generated `Definition` beside the `GetFactoredLoads()` design actions. It feeds the `load-case` rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Cases`
-- package: `VividOrange.Cases` (cases, combinations, factories, EN tables), `VividOrange.ICases` (contracts, enums, property structs) (MIT)
-- assembly: `VividOrange.Cases`, `VividOrange.ICases`
-- namespace: `VividOrange.Loads`, `VividOrange.Loads.Cases`, `VividOrange.Loads.Cases.EN`, `VividOrange.Loads.Combinations`, `VividOrange.Loads.Combinations.EN`
-- asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0` (net10.0 binds `lib/net8.0`); pure-managed AnyCPU IL, no native binaries, ALC-safe in the in-Rhino plugin
-- dependency: `VividOrange.ICases` → `VividOrange.ILoads` + `VividOrange.IStandards` (`NationalAnnex`) + `VividOrange.ISerialization` (`ITaxonomySerializable`) + `UnitsNet` (`Ratio`); `VividOrange.Cases` → `VividOrange.ICases` + `VividOrange.IStandards`
-- rail: load-case
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: case contract family (`VividOrange.ICases`)
 
@@ -63,7 +53,7 @@
 |  [02]   | `VariableCase`    | variable case impl         | `ActionClass.Variable`; `ψ0`/`ψ1`/`ψ2` reads; `IsFavourable`         |
 |  [03]   | `DesignSituation` | partial-factor policy impl | `γ`-factor settable rows (defaults) incl. `PrestressPartialFactor`   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EN load-case construction (`ENLoadCaseFactory`, static)
 - note: each `Create*` mints a `VariableCase` pre-loaded with the action's EN 1990 Annex A1.1 `ψ` factors, and every action factory carries BOTH a no-loads overload and an `IList<ILoad>` loaded overload.
@@ -104,7 +94,7 @@
 |  [06]   | `ILoadCombination.GetFactoredLoads()`                                  | factored `IList<ILoad>` for the solver |
 |  [07]   | `EN.ITableA1_1/.ITableA1_2.GetProperties(NationalAnnex)`               | `ψ`/`γ` `Ratio` factor set per annex   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - case hierarchy: `ICase` (`Name`) → `ILoadCase` (`Nickname`, `IList<ILoad> Loads`, `IsHorizontal`, `ActionClass`) → `IPermanentCase` (marker) / `IVariableCase` (`CombinationFactor`/`FrequentFactor`/`QuasiPermanentFactor` = `ψ0`/`ψ1`/`ψ2`, `Ratio`)
@@ -125,9 +115,3 @@
 - every `ψ`/`γ` factor is a `Ratio`, never a bare `double`; the `IDesignSituation` `double` partial-factor reads are wrapped in `Ratio.FromDecimalFractions` at the boundary before factoring
 - a national deviation is a `NationalAnnex` table row passed to `GetProperties`/the factory, never a per-country code branch; `RecommendedValues` is the EN fallback when no annex applies
 - concrete `PermanentCase`/`VariableCase`/`DesignSituation` are MUTABLE settable-property carriers — the Eurocode authoring surface; project the produced combination set onto the immutable Bim records
-
-[RAIL_LAW]:
-- Package: `VividOrange.Cases` over `VividOrange.ICases`
-- Owns: the Eurocode EN 1990 load-case/combination taxonomy, the `ψ`/`γ` factor tables, and the ULS/SLS combination synthesis
-- Accept: load cases from typed `ILoad` actions; combinations through `ENCombinationFactory`; national deviations as `NationalAnnex` table rows; factors carried as `Ratio`
-- Reject: per-country combination code branches, bare-`double` partial factors, a hand-rolled EN combination sweep, re-exporting `ILoadCombination` as a Bim graph shape (the graph carries neutral rows), a SAF round-trip losing the `ExcelLoadCaseCombinationStandard` ↔ factory mapping

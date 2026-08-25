@@ -2,16 +2,7 @@
 
 `protovalidate` evaluates `buf.validate` standard and CEL constraints directly from protobuf descriptors. Generated `protobuf-py` messages enter once, and each refusal retains typed violation evidence as a protobuf detail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `protovalidate`
-- package: `protovalidate` (Apache-2.0)
-- module: `protovalidate`
-- namespaces: `protovalidate`
-- depends: `protobuf-py` supplies the message, descriptor, and violation-protobuf runtime
-- rail: generated-message admission at producer and transport boundaries
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validation engine, refusal, and violation evidence
 
@@ -23,7 +14,7 @@
 |  [04]   | `CompilationError` | exception     | reports a rule set that cannot compile                                      |
 |  [05]   | `EvaluationError`  | exception     | reports a rule that cannot evaluate                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: shared validation and structured violation projection
 
@@ -41,7 +32,7 @@
 - `validate`: admits both `protobuf-py` and `google.protobuf` messages; this branch passes generated `protobuf-py` classes alone.
 - `ValidationError.to_proto`: returns a `protobuf-py` `buf.validate.Violations` message that `ConnectError.details` packs without translation.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Generated descriptors remain the constraint authority; validation reads their embedded rules and keeps field-law logic out of producers and transports.
@@ -55,9 +46,3 @@
 [ADMISSION]:
 - Runtime serving evaluates the generated rule set at every request and response body crossing; compilation and evaluation defects map to `INTERNAL`.
 - Artifact producers validate completed generated documents before publication; contract violations retain rule ids instead of becoming field-validator prose.
-
-[RAIL_LAW]:
-- Package: `protovalidate`
-- Owns: descriptor-driven standard and CEL constraint evaluation with structured violation evidence
-- Accept: generated messages validated once at each distinct producer or transport trust boundary
-- Reject: field-by-field validators, rule mirrors, handler validation prologues, and string-only constraint refusals

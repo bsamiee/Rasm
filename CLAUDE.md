@@ -1,6 +1,6 @@
 # [CLAUDE_MANIFEST]
 
-MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
+MUST READ: `libs/.planning/ARCHITECTURE.md`
 
 Rasm is in a long-term planning phase, working strictly within spec-sheets, not code files. All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and aggressively; always address cross file/folder ripples on landing.
 
@@ -8,29 +8,28 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 
 - Design work in `libs/<language>/` requires FULL reading of `libs/<language>/.planning/` AND `docs/stacks/<language>/`, adhering to both.
 - Each `libs/<language>/` and its sub-folders carry `.api/`; all work stacks external-lib capability from BOTH tiers — REQUIRED.
-- Index docs, spec-sheets, and `.api` catalogs follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
+- Index docs, spec-sheets, and `.api` catalogs follow `libs/.planning/README.md`.
 - `RULINGS.md` is settled law: read before re-deciding; narrowest tier owns; violations route as cards there, never inline; rows land same-pass.
 
 [DOC_TOPOLOGY]: Every durable question has one owning surface — consult the owner, never re-derive or guess:
 
-| [INDEX] | [SURFACE]                                   | [OWNS]                                                                         |
-| :-----: | :------------------------------------------ | :----------------------------------------------------------------------------- |
-|  [01]   | `libs/.planning/campaign-method.md`         | Approach standards, quality bar, agent-role law                                |
-|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar          |
-|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle |
-|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                   |
-|  [05]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                               |
-|  [06]   | `libs/<language>/<folder>/`                 | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
+| [INDEX] | [SURFACE]                        | [OWNS]                                                                         |
+| :-----: | :------------------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `libs/.planning/README.md`       | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar          |
+|  [02]   | `libs/.planning/ARCHITECTURE.md` | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle |
+|  [03]   | `libs/.planning/RULINGS.md`      | Cross-libs settled decisions                                                   |
+|  [04]   | `libs/<language>/.planning/`     | Language-wide doc-set for cross-folder decisions                               |
+|  [05]   | `libs/<language>/<folder>/`      | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [USE_WHEN]                       | [NAMING_SCHEMA] |
-| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :-------------- |
-|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`    |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`    |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`    |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`    |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                  | [USE_WHEN]                       | [NAMING_SCHEMA] |
+| :-----: | :------------------------- | :----------------------- | :------------------------------- | :-------------- |
+|  [01]   | C# (`.cs`)                 | `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`    |
+|  [02]   | Python (`.py`)             | `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`    |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | `coding-bash`            | [ANY]                            | `kebab-case`    |
+|  [05]   | SQL (`.sql`)               | `coding-pg`              | [ANY]                            | `snake_case`    |
 
 [TOOL_ROUTING]:
 - ALWAYS use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
@@ -40,34 +39,17 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 - ALWAYS use `nuget` MCP to validate the existence of a package and newest version available.
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex config and harness questions; memory, skills, hooks, settings.
 
-[CLI_ESTATE]: Navigation and scratch iteration only — these rows are operator-box tool contracts (several ride machine config), and no verdict, gate, or CI lane may depend on one; every verdict routes through `[LANE_GATES]`:
+[CLI_ESTATE]: Navigation and scratch iteration only — these rows are operator-box tool contracts (several ride machine config), and no verdict, gate, or CI lane may depend on one:
 
-| [INDEX] | [TOOL]     | [GUIDANCE]                                                                                                                  |
-| :-----: | :--------- | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`     | `eza --tree` shim: pass `-a` or `<.planning`/`.api>` vanish; `-D` is dirs-only (`-d` errors); `-L n` overrides depth 4.     |
-|  [02]   | `loc`      | `scc` wrapper sorting inside folder groups — `\| head` is never a global top-N; rank `--json` on `folder`+`file`.           |
-|  [03]   | `fd`       | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored.          |
-|  [04]   | `rg`       | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding. |
-|  [05]   | `ast-grep` | Never `sg`. Wrong pattern and clean tree both read zero — control-probe it; `--kind` inventories; `--json=compact` glued.   |
-|  [06]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
-|  [07]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
-
-[LANE_GATES]: Every verdict comes from `uv run assay <claim> <verb>` at the repo root; `uv run --no-sync assay` is the interactive fast path. Raw binaries are lawful only where no exit code is read; lanes with no files carry no row — the first file mints the catalog row:
-
-| [INDEX] | [CLAIM]     | [CHECK]                                                                          | [WRITE]                              |
-| :-----: | :---------- | :------------------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `static`    | `static --project <csproj>\|--folder <dir>\|--all`; bare = git-changed; BUSY = 5 | `static --fix`                       |
-|  [02]   | `test`      | `test run\|list\|coverage --python\|--typescript\|--dotnet [--target <path>]`    | `test run --mutation changed\|full`  |
-|  [03]   | `docs`      | `docs check <paths>`                                                             | `prose_gate.py fix --write`          |
-|  [04]   | `contracts` | `contracts check`                                                                | `contracts generate\|publish`        |
-|  [05]   | `init`      | `init check`                                                                     | `init python-lib\|python-app <path>` |
-|  [06]   | `provision` | `provision check\|status\|doctor\|ports\|inventory\|plan\|env`                   | `provision up\|down\|apply`          |
-|  [07]   | `api`       | `api status\|resolve\|query\|show`                                               | read-only claim                      |
-|  [08]   | `code`      | `code search\|query`                                                             | read-only claim                      |
-|  [09]   | `bridge`    | `bridge status\|verify`                                                          | `bridge build\|quit`                 |
-|  [10]   | `package`   | `package list\|plan`                                                             | `package publish`                    |
-
-- `--folder` narrows the file-scoped tools alone; ty, mypy, tsc, and lint-imports sweep their own config scope.
+| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                                  |
+| :-----: | :-------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `tree`    | `tree -a <dir>`, `-L n` sets depth (default 4); `-D` lists dirs only.                                                       |
+|  [02]   | `loc`     | `loc --json <dir>`, rows sort inside folder groups, ranks on `folder`+`file`                                                |
+|  [03]   | `fmt`     | `fmt --check <dir>` verifies, `fmt <dir>` writes, routes each file to its formatter by extension; `.cs` has no lane.        |
+|  [04]   | `fd`      | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored.          |
+|  [05]   | `rg`      | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding. |
+|  [06]   | `jq`/`yq` | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
+|  [07]   | `gh`      | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
@@ -81,7 +63,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - NEVER use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
 - NEVER spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
 
-[POLYMORPHISM] - fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
+[POLYMORPHISM] - Fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
 - ALWAYS fold one polymorphic entrypoint per concern, discriminating on input shape; forward and inverse of one correspondence share one owner.
 - ALWAYS collapse siblings sharing an identity regime, admission path, payload timing, or consumer; survival needs a discriminant named on site.
 - ALWAYS fold repeated mutation/status/count construction into one fact stream with slot/kind metadata; the trigger is shared shape, never count.
@@ -90,7 +72,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - NEVER mint entrypoint siblings — name-suffix families, arity twins, boolean mode knobs; the discriminant must be recoverable from the value.
 - NEVER guard an invalid state at each use; make it unrepresentable at construction and canonicalize at intake so consumers read one regime.
 
-[PARAMETERIZATION] - variation lives in data or a type parameter, never in a name, a flag, or a body:
+[PARAMETERIZATION] - Variation lives in data or a typed parameter, never in a name, a flag, or a body:
 - ALWAYS hunt both directions — a literal encoding a decision becomes a policy row; a knob set whose combinations the body re-derives collapses.
 - ALWAYS test parameters by deletion — one the input value or policy already reconstructs was a knob; collapse it into the owner.
 - ALWAYS treat a hardcoded instance roster as seed data for the algebraic owner; a closed member set is lawful only where the owner decides it.

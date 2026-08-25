@@ -4,50 +4,7 @@
 
 Hosts instantiate the entry types and one `Application` extension; the rest is resource lookup, and the skins carry these slots onto `DataGrid`, `ColorPicker`, `Dock.Avalonia`, and `AvaloniaEdit`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Semi.Avalonia`
-- package: `Semi.Avalonia` (MIT)
-- assembly: `Semi.Avalonia` (`IsTrimmable`)
-- namespace: `Semi.Avalonia`, `Semi.Avalonia.Tokens`, `Semi.Avalonia.Tokens.Palette`, `Semi.Avalonia.Converters` map to the `semi:` prefix at `https://irihi.tech/semi`; `Semi.Avalonia.Locale` carries the culture dictionaries
-- target: `net10.0` and `net8.0` assets
-- abi: compiled AXAML — every resource dictionary is IL and every `x:Key` lives inside a `CompiledAvaloniaXaml.!AvaloniaResources.XamlClosure_N` body, so no `.axaml` ships, `--list-resources` yields one opaque `!AvaloniaResources` blob, and no metadata read recovers the vocabulary; the LIVE object graph does carry it, so a product needing the roster as data instantiates the theme and walks it
-- depends: `Avalonia`, `Irihi.Avalonia.Shared`
-- rail: theme
-
-[PACKAGE_SURFACE]: `Semi.Avalonia.DataGrid`
-- package: `Semi.Avalonia.DataGrid` (MIT)
-- assembly: `Semi.Avalonia.DataGrid` (`IsTrimmable`)
-- namespace: `Semi.Avalonia.DataGrid` under `semi:`
-- target: `net10.0` and `net8.0` assets
-- depends: `Avalonia.Controls.DataGrid`
-- rail: theme
-
-[PACKAGE_SURFACE]: `Semi.Avalonia.ColorPicker`
-- package: `Semi.Avalonia.ColorPicker` (MIT)
-- assembly: `Semi.Avalonia.ColorPicker` (`IsTrimmable`)
-- namespace: `Semi.Avalonia.ColorPicker`, `Semi.Avalonia.ColorPicker.Converters` under `semi:`
-- target: `net10.0` and `net8.0` assets
-- depends: `Avalonia.Controls.ColorPicker`, `Irihi.Avalonia.Shared`
-- rail: theme
-
-[PACKAGE_SURFACE]: `Semi.Avalonia.Dock`
-- package: `Semi.Avalonia.Dock`
-- assembly: `Semi.Avalonia.Dock`
-- namespace: `Semi.Avalonia.Dock`, `Semi.Avalonia.Dock.Controls` under `semi:`
-- target: `net10.0` and `net8.0` assets
-- depends: `Dock.Avalonia`, `Irihi.Avalonia.Shared`
-- rail: theme
-
-[PACKAGE_SURFACE]: `Semi.Avalonia.AvaloniaEdit`
-- package: `Semi.Avalonia.AvaloniaEdit`
-- assembly: `Semi.Avalonia.AvaloniaEdit`
-- namespace: `Semi.Avalonia.AvaloniaEdit` under `semi:`
-- target: `net8.0` asset alone — a `net10.0` consumer binds the `net8.0` compile and runtime asset
-- depends: `Avalonia.AvaloniaEdit`
-- rail: theme
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [ENTRY_TYPE_SCOPE]: `Semi.Avalonia` code surface — the entries a host instantiates
 
@@ -183,7 +140,7 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 |  [07]   | `Dock.Controls.DropAdornerShape`                 | class         | `Control` rendering the drop target — `DockPosition`, brushes   |
 |  [08]   | `AvaloniaEdit.AvaloniaEditSemiTheme`             | class         | `Styles` entry re-skinning `AvaloniaEdit`                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [THEME_INSTALL]: `Semi.Avalonia` code surface in full — every other capability is resource lookup
 
@@ -220,7 +177,7 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 
 - `DockSemiTheme.OverrideLocaleResources` also takes `(StyledElement, CultureInfo?)`, and its `Locale` falls back to `zh-CN` on the same unrecognized-culture path `SemiTheme` takes.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Application.Styles` carries one chain ordering the `FluentTheme` floor, `<semi:SemiTheme/>`, the per-control `Semi.Avalonia.*` skins, then `Irihi.Ursa.Themes.Semi`'s `<semi:UrsaSemiTheme/>`; every skin and Ursa entry sits strictly below `SemiTheme` so its tokens resolve.
@@ -242,9 +199,3 @@ Hosts instantiate the entry types and one `Application` extension; the rest is r
 - `RegisterFollowSystemTheme` decides nothing on the macOS Rhino host — OS light and dark following is the shell's own `RequestedThemeVariant` write against `PlatformSettings.GetColorValues()`.
 - `SemiTheme` compiles every dictionary to IL, so no metadata read recovers the slot roster; a product that needs the vocabulary as data instantiates the theme and descends `Styles.Resources` -> `ResourceDictionary.MergedDictionaries` -> `ThemeDictionaries` -> `ControlTheme.Resources`, splitting the `Type`-keyed entries (control themes) from the string-keyed ones (tokens). `MergedDictionaries` and `ThemeDictionaries` sit on the CONCRETE `ResourceDictionary` and not on the `IResourceDictionary` the style surfaces return, so a descent typed on the interface reaches the top-level keys and silently misses every merged and variant-scoped partition.
 - `bodong.PropertyGrid` and `DialogHost.Avalonia` keep their Fluent templates and stay off this chain.
-
-[RAIL_LAW]:
-- Package: `Semi.Avalonia` + `Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}`
-- Owns: the active design-token vocabulary over the retained Fluent floor — the palette and variable slots, the implicit and named control themes, the class-driven intent arms, the glyph geometries, the built-in locale strings, and the four high-contrast `ThemeVariant`s
-- Accept: one `Application.Styles` chain with every skin below `SemiTheme`; `{DynamicResource}` reads of variant-scoped slots; a product `ControlTheme` with `BasedOn` a Semi theme attached through `StyledElement.Theme`; a brand palette landed as `ThemeVariant`-scoped `SemiColor*` overrides
-- Reject: hand-authoring a parallel control-template set or a second token dictionary; loading a skin or `UrsaSemiTheme` without `SemiTheme` or ahead of it; re-seeding a `Semi<Hue><N>` scale to re-tint semantic brushes the load already froze; hex literals in product XAML where a slot exists; a hand-rolled elevation ladder, acrylic token, or swatch table over the shipped shadow, overlay, and `IColorPalette` surfaces

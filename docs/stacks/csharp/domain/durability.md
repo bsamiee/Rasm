@@ -55,13 +55,13 @@ public static class StoreOpen {
         ArgumentNullException.ThrowIfNull(ritual);
         ArgumentNullException.ThrowIfNull(step);
         store.Open();
-        var identity = Scalar(store, null, "PRAGMA application_id");
+        long identity = Scalar(store, null, "PRAGMA application_id");
         if (identity != ritual.Identity && identity != 0L) { return Refused(store, 7701, $"<foreign-store:{identity:x8}>"); }
-        var facts = ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Execute(store, null, row.Sql)));
-        _ = raw.sqlite3_db_config(store.Handle, Defensive, 1, out var hardened);
+        Seq<RitualFact> facts = ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Execute(store, null, row.Sql)));
+        _ = raw.sqlite3_db_config(store.Handle, Defensive, 1, out int hardened);
         facts += ritual.Capabilities.Map(row => (fun(() => row.Grant(store))(), new RitualFact(row.Row, 1)).Item2);
-        using var gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-        var held = Scalar(store, gate, "PRAGMA user_version");
+        using SqliteTransaction gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+        long held = Scalar(store, gate, "PRAGMA user_version");
         if (held > ritual.CompiledEpoch) { return Refused(store, 7702, $"<epoch-ahead:{held}:{ritual.CompiledEpoch}>"); }
         if (held < ritual.CompiledEpoch) {
             step(store, gate, held);
@@ -77,12 +77,12 @@ public static class StoreOpen {
         (fun(store.Dispose)(), Fin.Fail<Seq<RitualFact>>(Error.New(code, detail))).Item2;
 
     static long Execute(SqliteConnection store, SqliteTransaction? gate, string sql) {
-        using var command = store.CreateCommand();
+        using SqliteCommand command = store.CreateCommand();
         return ((command.Transaction, command.CommandText) = (gate, sql), command.ExecuteNonQuery()).Item2;
     }
 
     static long Scalar(SqliteConnection store, SqliteTransaction? gate, string sql) {
-        using var command = store.CreateCommand();
+        using SqliteCommand command = store.CreateCommand();
         return ((command.Transaction, command.CommandText) = (gate, sql), Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture)).Item2;
     }
 }
@@ -169,7 +169,7 @@ public sealed partial class CodecProfile {
             : Fin.Fail<Artifact>(Error.New(7749, $"<raw-passthrough-never-reframed:{Key}>"));
 
     public async IAsyncEnumerable<Fin<Artifact>> Segments(Stream lane, long maxBytes, [EnumeratorCancellation] CancellationToken token = default) {
-        using var reader = new MessagePackStreamReader(lane, leaveOpen: true);
+        using MessagePackStreamReader reader = new MessagePackStreamReader(lane, leaveOpen: true);
         while (await reader.ReadAsync(token).ConfigureAwait(false) is { } frame) {
             yield return Decode(frame, maxBytes, token);
         }
@@ -196,15 +196,15 @@ public static class Seal {
     public const byte HeaderVersion = 1, CodecBinary = 1, CompressionNone = 0, CompressionLz4 = 1, HashStoredDomain = 0, SchemaStamp = 2;
 
     public static Fin<SealedArtifact> Commit(string path, ReadOnlyMemory<byte> plain, long epoch, LZ4Level level, long classSeed) {
-        var staged = $"{path}.{epoch}.staged";
-        var target = ArrayPool<byte>.Shared.Rent(LZ4Codec.MaximumOutputSize(plain.Length));
+        string staged = $"{path}.{epoch}.staged";
+        byte[] target = ArrayPool<byte>.Shared.Rent(LZ4Codec.MaximumOutputSize(plain.Length));
         try {
             return Op.Of().Catch(() => {
-                var encoded = LZ4Codec.Encode(plain.Span, target, level);
+                int encoded = LZ4Codec.Encode(plain.Span, target, level);
                 ReadOnlySpan<byte> stored = encoded > 0 && encoded < plain.Length ? target.AsSpan(0, encoded) : plain.Span;
-                var content = XxHash3.HashToUInt64(stored, classSeed);
+                ulong content = XxHash3.HashToUInt64(stored, classSeed);
                 Span<byte> header = stackalloc byte[HeaderSize];
-                using (var sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                using (FileStream sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None)) {
                     sink.Write(header);
                     sink.Write(stored);
                     Pack(header, plain.Length, stored.Length, stored.Length != plain.Length, content, epoch);
@@ -247,9 +247,9 @@ public static class Restore {
         string storePath, byte[] artifact, long successor, long classSeed, Func<string, Fin<Seq<RitualFact>>> reopen) {
         ArgumentNullException.ThrowIfNull(artifact);
         ArgumentNullException.ThrowIfNull(reopen);
-        var staged = $"{storePath}.{successor}.staged";
+        string staged = $"{storePath}.{successor}.staged";
         Seq<(string Step, Func<Fin<string>> Act)> steps = [
-            ("<fence>", () => Guarded(() => { using var pinned = StoreOpen.Dialed(storePath); SqliteConnection.ClearPool(pinned); return "<pool-cleared>"; })),
+            ("<fence>", () => Guarded(() => { using SqliteConnection pinned = StoreOpen.Dialed(storePath); SqliteConnection.ClearPool(pinned); return "<pool-cleared>"; })),
             ("<verify>", () => Ladder(artifact, classSeed)),
             ("<materialize>", () => Guarded(() => Materialized(staged, artifact))),
             ("<sidecar>", () => Guarded(() => { File.Delete($"{storePath}-wal"); File.Delete($"{storePath}-shm"); return "<sidecars-cleared>"; })),
@@ -275,18 +275,18 @@ public static class Restore {
         : Fin.Succ($"<verified:{artifact.Length}>");
 
     static string Materialized(string staged, byte[] artifact) {
-        var plain = new byte[BinaryPrimitives.ReadInt64LittleEndian(artifact.AsSpan(16))];
+        byte[] plain = new byte[BinaryPrimitives.ReadInt64LittleEndian(artifact.AsSpan(16))];
         if (artifact[10] == Seal.CompressionLz4 && LZ4Codec.Decode(artifact.AsSpan(Seal.HeaderSize), plain) != plain.Length) { throw new InvalidDataException("<plain-length-drift>"); }
         if (artifact[10] == Seal.CompressionNone) { artifact.AsSpan(Seal.HeaderSize).CopyTo(plain); }
-        using var sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None);
+        using FileStream sink = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None);
         sink.Write(plain);
         sink.Flush(flushToDisk: true);
         return staged;
     }
 
     static string Bumped(string storePath, long successor) {
-        using var store = StoreOpen.Dialed(storePath);
-        using var bump = (fun(store.Open)(), store.CreateCommand()).Item2;
+        using SqliteConnection store = StoreOpen.Dialed(storePath);
+        using SqliteCommand bump = (fun(store.Open)(), store.CreateCommand()).Item2;
         bump.CommandText = $"PRAGMA user_version={successor}";
         return (bump.ExecuteNonQuery(), $"<epoch:{successor}>").Item2;
     }
@@ -362,40 +362,40 @@ public static class OpLog {
     public static Fin<MergeOutcome> Apply(SqliteConnection store, string peer, long storeEpoch, long cursorEpoch, string batch, int batchSize) {
         ArgumentNullException.ThrowIfNull(store);
         if (storeEpoch != cursorEpoch) { return Fin.Fail<MergeOutcome>(Error.New(7721, $"<epoch-mismatch:{cursorEpoch}:{storeEpoch}>")); }
-        using var apply = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-        var fresh = Keys(store, apply, Dedup, [("$batch", batch)]);
-        var freshDoc = $"[{string.Join(',', fresh)}]";
-        var applied = Keys(store, apply, Adjudicate, [("$fresh", freshDoc)]).Count;
-        var (superseded, suppressed) = Pair(store, apply, Losses, [("$fresh", freshDoc)]);
+        using SqliteTransaction apply = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+        Seq<long> fresh = Keys(store, apply, Dedup, [("$batch", batch)]);
+        string freshDoc = $"[{string.Join(',', fresh)}]";
+        int applied = Keys(store, apply, Adjudicate, [("$fresh", freshDoc)]).Count;
+        (long superseded, long suppressed) = Pair(store, apply, Losses, [("$fresh", freshDoc)]);
         _ = NonQuery(store, apply, Advance, [("$fresh", freshDoc), ("$peer", peer), ("$epoch", storeEpoch)]);
         apply.Commit();
-        var result = new MergeOutcome(batchSize, applied, (int)superseded, batchSize - fresh.Count, (int)suppressed);
+        MergeOutcome result = new MergeOutcome(batchSize, applied, (int)superseded, batchSize - fresh.Count, (int)suppressed);
         return result.Conserves ? Fin.Succ(result) : Fin.Fail<MergeOutcome>(Error.New(7722, $"<unconserved:{result}>"));
     }
 
     static Seq<long> Keys(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
-        using var command = Bound(store, apply, sql, binds);
-        using var rows = command.ExecuteReader();
-        var ids = new List<long>();
+        using SqliteCommand command = Bound(store, apply, sql, binds);
+        using SqliteDataReader rows = command.ExecuteReader();
+        List<long> ids = new List<long>();
         while (rows.Read()) { ids.Add(rows.GetInt64(0)); }                        // Exemption: ADO read loop fills a seam-local list frozen once by toSeq; repeated Seq.Add forcing is the rejected form
         return toSeq(ids);
     }
 
     static (long Superseded, long Suppressed) Pair(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
-        using var command = Bound(store, apply, sql, binds);
-        using var rows = command.ExecuteReader();
+        using SqliteCommand command = Bound(store, apply, sql, binds);
+        using SqliteDataReader rows = command.ExecuteReader();
         return rows.Read() ? (rows.GetInt64(0), rows.GetInt64(1)) : (0L, 0L);
     }
 
     static long NonQuery(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
-        using var command = Bound(store, apply, sql, binds);
+        using SqliteCommand command = Bound(store, apply, sql, binds);
         return command.ExecuteNonQuery();
     }
 
     static SqliteCommand Bound(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
-        var command = store.CreateCommand();
+        SqliteCommand command = store.CreateCommand();
         (command.Transaction, command.CommandText) = (apply, sql);
-        foreach (var (name, value) in binds) { _ = command.Parameters.AddWithValue(name, value); }
+        foreach ((string name, object value) in binds) { _ = command.Parameters.AddWithValue(name, value); }
         return command;
     }
 }
@@ -475,11 +475,11 @@ public readonly record struct SweepSummary(int Inventory, int Kept, int Retained
 public static class Sweep {
     public static (Seq<(Item Item, Verdict Verdict)> Ledger, Fin<SweepSummary> Outcome) Decide(
         Seq<Item> inventory, Budget budget, Seq<Hold> holds, long now, long policyStamp, Func<Item, bool> eligible) {
-        var scan = toSeq(inventory.OrderBy(static i => i.Stamp).ThenBy(static i => i.Identity))
+        (Seq<(Item, Verdict)> Ledger, int Live, long Bytes) scan = toSeq(inventory.OrderBy(static i => i.Stamp).ThenBy(static i => i.Identity))
             .Fold((Ledger: Seq<(Item, Verdict)>(), Live: 0, Bytes: 0L),
                 (state, item) => Advance(state, item, Adjudicate(state, item, budget, holds, now, eligible)));
-        var ledger = scan.Ledger.Rev();
-        var result = ledger.Fold(new SweepSummary(inventory.Count, 0, 0, 0, 0L, policyStamp), static (sum, row) =>
+        Seq<(Item Item, Verdict Verdict)> ledger = scan.Ledger.Rev();
+        SweepSummary result = ledger.Fold(new SweepSummary(inventory.Count, 0, 0, 0, 0L, policyStamp), static (sum, row) =>
             row.Verdict.Frees ? sum with { Evicted = sum.Evicted + 1, FreedBytes = sum.FreedBytes + row.Item.Bytes }
             : row.Verdict.Retains ? sum with { Retained = sum.Retained + 1 }
             : sum with { Kept = sum.Kept + 1 });

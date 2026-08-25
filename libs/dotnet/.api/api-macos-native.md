@@ -2,15 +2,7 @@
 
 `Microsoft.macOS` is the .NET AppKit, CoreAnimation, and Foundation binding the Rhino host loads under the macOS target, and this branch catalogue owns the pacing core both host boundaries pace on: the view-to-window-to-screen chain that resolves the anchor display, the `CADisplayLink` vsync clock and its rate range, the run loop the link attaches to, the accessibility gates that decide whether motion runs at all, the screen-reconfiguration signal, and the handle-to-object bridge. Every member is platform-gated to macOS; a non-macOS host paces on the `UITimer` clock (`.api/api-eto-runtime.md`). Each host-boundary folder registers this core and tables only the native subsystem its own boundary reaches.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: installed macOS bindings — pacing core
-- host: Rhino host runtime, in-process under `net10.0-macos`; the whole surface is absent off-macOS (MIT)
-- assembly: `Microsoft.macOS` (`Microsoft.macOS.dll`) from the installed RhinoWIP bundle, `HintPath`-referenced and never a NuGet admission
-- namespace: `AppKit`, `CoreAnimation`, `CoreGraphics`, `Foundation`, `ObjCRuntime`
-- rail: macos-native
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: view, window, and display state (`AppKit`)
 
@@ -43,7 +35,7 @@
 
 [NUMERIC_CARRIERS]: `nint` `NFloat` `double` `float` — a native op never widens or narrows the carrier inside the boundary.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: view, window, and display facts
 
@@ -109,7 +101,7 @@
 - Each observer overload comes unfiltered and in an `(NSObject objectToObserve)` form, and both return an `NSObject` token whose disposal releases the registration.
 - `Runtime.GetNSObject<T>`/`GetINativeObject<T>` are the only sanctioned crossing from a native pointer to a managed object, the `owns` flag deciding native ownership.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Surface presence is macOS-only: a pacing owner selects the display-link path under the macOS host gate and the `UITimer` path otherwise — one polymorphic pace rail discriminated by host, never a compile-time fork bleeding macOS types into portable code.
@@ -127,9 +119,3 @@
 [LOCAL_ADMISSION]:
 - The seam admits only after the macOS process check and a valid active platform; installed AppKit types carry no application-level admission themselves.
 - A boundary internalizes the display-link, accessibility-gate, and screen-observation concern behind one canonical pace rail, so portable code holds a paced effect and an accessibility verdict, never an `NSScreen`, a raw `CADisplayLink`, or an `nint` handle.
-
-[RAIL_LAW]:
-- Package: `Microsoft.macOS`
-- Owns: the view-window-screen anchor chain, `NSScreen` display and EDR facts with its display-link factory, the `CADisplayLink`/`CAFrameRateRange` motion clock, `NSRunLoop`/`NSRunLoopMode` attachment, the `NSWorkspace` accessibility gates, screen and accessibility observation tokens, and the `Runtime` handle bridge
-- Accept: vsync-locked per-frame callbacks, accessibility-gated motion, screen-parameter observation, exact numeric carriers, paired native lifecycles, screen-local pacing
-- Reject: portable clock pacing off the macOS target (`.api/api-eto-runtime.md`), `NSScreen.MainScreen` as an anchor-display substitute, unpaired native retention, leaking `NSScreen`, `CADisplayLink`, or an `nint` handle past the pace rail, and a folder partition re-tabling this pacing core at member depth

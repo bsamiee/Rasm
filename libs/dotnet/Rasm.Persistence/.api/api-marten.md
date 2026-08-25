@@ -2,16 +2,7 @@
 
 `Marten` turns one `NpgsqlDataSource` into a PostgreSQL document database and an ACID event store: per-model streams append `GraphDelta` bodies that projection views rebuild across every lifecycle off the async daemon. It is the append substrate beneath the `Version/` engine — owning the durable append and the rebuildable read views, never the op-log/CRDT/`StructuralMerge`/causal-DAG merge semantics projecting FROM these events.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Marten`
-- package: `Marten` (MIT)
-- assembly: `Marten` binds Postgres, the document store, and raw-JSON passthrough onto the database-agnostic event surface transitive `JasperFx.Events` carries
-- namespace: `Marten`, `Marten.Events`, `Marten.Events.Aggregation`, `Marten.Events.Projections`, `Marten.Events.Projections.Flattened`, `Marten.Events.Daemon`, `Marten.Subscriptions`, `Microsoft.Extensions.DependencyInjection`; transitive `JasperFx.Events`, `JasperFx.Events.Projections`, `JasperFx.Events.Daemon`, `JasperFx.Events.Aggregation`, `JasperFx.MultiTenancy`
-- asset: managed runtime library over `NpgsqlDataSource`; ships the compile-time projection/aggregation source generator (`JasperFx.Events.SourceGenerator.dll`, enabled via `UseSourceGeneratedDiscovery`/`TryUseSourceGeneratedDiscovery`)
-- rail: event-store
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration root and document store
 
@@ -102,7 +93,7 @@
 |  [06]   | `AutoCreate`         | enum          | `None`/`CreateOnly`/`CreateOrUpdate`/`All` — schema auto-migration policy (`JasperFx`)           |
 |  [07]   | `MartenRegistry`     | class         | `opts.Schema` — per-document mapping (`For<T>()`: identity, indexes, multi-tenancy, soft-delete) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configure the store and open sessions (`DocumentStore`/`StoreOptions`/`IDocumentStore`)
 
@@ -211,7 +202,7 @@
 |  [06]   | `services.AddMartenStore<T>(Action<StoreOptions>)`                    | static   | register a separate ancillary store / extend config |
 |  [07]   | `host.WaitForNonStaleProjectionDataAsync(TimeSpan)`                   | instance | block until async projections are caught up         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Stream grain is ONE stream PER MODEL (or per spatial partition), NEVER per `NodeId`; the event body is the `GraphDelta`, never a whole-graph snapshot. `StreamIdentity.AsString` keys a composite partition, `AsGuid` a model GUID. `SaveChangesAsync` is the only commit — events + documents in one Postgres transaction — and the whole `ElementGraph` rehydrates by folding the stream through `AggregateStreamAsync<T>`, zero-loss because the deltas replay deterministically.
@@ -239,9 +230,3 @@
 [LOCAL_ADMISSION]:
 - Event storage, stream folding, and async-projection scheduling are first-class here; the `Version/` engine composes them rather than re-deriving any.
 - One `DocumentStore` per database, registered through `AddMarten`; sessions are short-lived and per-unit-of-work, and `SaveChangesAsync` is the single commit. Inline projection is the consistency boundary for authoritative reads; analytical lanes are async and watermarked.
-
-[RAIL_LAW]:
-- Package: `Marten`
-- Owns: the PostgreSQL event store + document database over one `NpgsqlDataSource` — per-model event streams, stream folding with AS-OF time-travel, the single/multi-stream/flat-table projection family across every lifecycle, the async-projection daemon, optimistic/exclusive concurrency, document persistence, multi-tenancy, rolling range partitioning of document tables, and schema migration.
-- Accept: the append substrate beneath the `Version/` engine; inline projections for authoritative read-your-writes topology; async daemon projections for analytical lanes with explicit non-stale waits; identity + event atomicity through one `IDocumentSession`; `GraphDelta` event bodies on per-model streams; STJ serialization of typed value-object keys; a stream read composed as a `FetchStreamPlan`/`FetchStreamStatePlan` inside a batched round trip; a time-windowed document table declared through `ByRollingRange` and maintained through the `store.Advanced` partition verbs.
-- Reject: per-`NodeId` stream grain; whole-graph snapshots as event bodies; an async projection serving an interactive-correctness read without a non-stale wait; a hand-rolled event store, stream fold, CRDT merge (merge is the `Version/` engine's), or partition-rotation job beside the `store.Advanced` verbs; a second JSON serializer or connection pool; a commit that bypasses `SaveChangesAsync`.

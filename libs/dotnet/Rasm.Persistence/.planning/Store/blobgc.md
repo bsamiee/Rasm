@@ -20,7 +20,7 @@ Rasm.Persistence reclaims object bytes through the write-blob-first protocol and
 - Growth: a new retention class arms its own prefix rule with zero edits, the schedule columns already carrying the deadline; a new cold rung re-roots the projection from the retention ceiling table alone; a provider gaining a lifecycle surface is one `Arm` case; a per-class knob beside the declared schedule, a hand-asserted ladder root, or a count or size condition on a prefix rule is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
@@ -181,7 +181,7 @@ public static class BlobGc {
 |  [06]   | WORM window     | catalog column plus the evict arrow              | eligibility fence plus typed evict; no provider 403 leak           |
 |  [07]   | tenancy         | tenant column plus RLS-filtered catalog          | tenant name segment; cross-tenant reclaim unrepresentable          |
 |  [08]   | asset class     | kind column; retention DERIVES from it           | one axis both catalogs share                                       |
-|  [09]   | sweep partition | one pass and tally per class present           | per-class budgets; a mixed inventory never rides one ceiling       |
+|  [09]   | sweep partition | one pass and tally per class present             | per-class budgets; a mixed inventory never rides one ceiling       |
 |  [10]   | admitted stamps | kind, classification, lineage from the caller    | absence of evidence is not clearance                               |
 |  [11]   | class segment   | name LEADS with the retention class              | one prefix rule per class over every tenant; membership immutable  |
 |  [12]   | lifecycle rules | projection over declared schedule values         | expiry and rungs from the age bound; count and size stay the sweep |

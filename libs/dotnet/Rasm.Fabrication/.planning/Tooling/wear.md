@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 - Boundary: a consumer-side serviceability dispatch beside the disposition column, and a CLR case-type name serving as a wire or dimension key, are deleted forms.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using System.Threading;

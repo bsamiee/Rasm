@@ -2,15 +2,7 @@
 
 `Microsoft.AspNetCore.Authorization` owns the host-neutral ABAC evaluation core: an injected `IAuthorizationService` folds a `ClaimsPrincipal`, an optional resource, and a requirement set through registered handlers into an `AuthorizationResult`. `AddAuthorizationCore` registers that core standalone — no `HttpContext`, no ASP.NET pipeline — serving the AppHost agent/policy rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.AspNetCore.Authorization`
-- package: `Microsoft.AspNetCore.Authorization`
-- assembly: `Microsoft.AspNetCore.Authorization`
-- namespace: `Microsoft.AspNetCore.Authorization`, `Microsoft.AspNetCore.Authorization.Infrastructure`, `Microsoft.Extensions.DependencyInjection`
-- rail: authorization
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluation and result family
 
@@ -47,7 +39,7 @@
 |  [03]   | `IAuthorizationPolicyProvider` | interface     | named-default-fallback lookup |
 |  [04]   | `AuthorizationBuilder`         | class         | named-policy registration     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: evaluation operations
 
@@ -95,7 +87,7 @@
 |  [13]   | `AddAuthorizationCore()`                | static   | standalone evaluation core     |
 |  [14]   | `AddAuthorizationCore(configure)`       | static   | options-configured core        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IAuthorizationService.AuthorizeAsync` accepts a `ClaimsPrincipal`, an optional `object?` resource, and either an `IEnumerable<IAuthorizationRequirement>` or a `string` policy name.
@@ -116,9 +108,3 @@
 - Custom requirements implement `IAuthorizationRequirement` and pair with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
 - Decisions read `AuthorizationResult.Succeeded` and project `AuthorizationFailure.FailureReasons`; the typed result flows through handler callbacks that never throw.
 - AppHost's resource-bound rail binds explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` ahead of string policy names, which register through `AuthorizationOptions`/`AuthorizationBuilder`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.AspNetCore.Authorization`
-- Owns: host-neutral ABAC requirement and policy evaluation
-- Accept: `IAuthorizationService` over claims, resources, and registered handlers
-- Reject: HTTP-pipeline authorization middleware or hand-rolled claim/role checks

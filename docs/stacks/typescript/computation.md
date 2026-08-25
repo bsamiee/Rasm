@@ -369,7 +369,6 @@ const Limb = {
         }
         return List.unsafeHead(results); // sanctioned read: the loop invariant leaves exactly one result on the stack
     },
-    assay: (limb: Limb): { readonly depth: number; readonly mass: number } => ({
         depth: Limb.fold(limb, _spanned),
         mass: Limb.fathom(limb, _massed),
     }), // one algebra family, both executors: admission evidence selects fold or frontier, and the reduction never changes

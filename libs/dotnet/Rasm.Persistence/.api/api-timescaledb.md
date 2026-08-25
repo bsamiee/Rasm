@@ -2,15 +2,7 @@
 
 `timescaledb` owns the temporal partitioning tier over the Persistence series tables — hypertable chunking, continuous-aggregate materialisation, retention, and columnstore conversion — each policy running on the extension's own bgworker scheduler. Every surface is server-side SQL carrying no managed assembly and no EF translator, so a fence emits it as migration text and reads its outcome from the information views. Rollup relations it mints feed the analytical lane's read.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `timescaledb`
-- package: `timescaledb` (Apache-2.0)
-- namespace: SQL — `public` functions and procedures, `timescaledb_information.*` views, `timescaledb.*` storage parameters
-- asset: server extension whose bgworker scheduler launcher requires its `shared_preload_libraries` entry
-- rail: timescale-provisioning, analytical-lane
-
-## [02]-[HYPERTABLE]
+## [01]-[HYPERTABLE]
 
 [HYPERTABLE_ENTRY_SCOPE]: one-time-dimension chunking and the exclusion metadata a read prunes on
 
@@ -25,7 +17,7 @@
 
 - `create_hypertable` also carries `create_default_indexes` and `migrate_data`.
 
-## [03]-[CONTINUOUS_AGGREGATE]
+## [02]-[CONTINUOUS_AGGREGATE]
 
 [CONTINUOUS_AGGREGATE_ENTRY_SCOPE]: pre-bucketed rollup a dashboard tile reads without re-scanning raw chunks
 
@@ -42,7 +34,7 @@
 |  [07]   | `refresh_continuous_aggregate(v, window_start, window_end, force => FALSE)`       | procedure | manual or backfill refresh      |
 |  [08]   | `remove_continuous_aggregate_policy(v)`                                           | function  | drop the refresh job            |
 
-## [04]-[COLUMNSTORE_RETENTION]
+## [03]-[COLUMNSTORE_RETENTION]
 
 [COLUMNSTORE_RETENTION_ENTRY_SCOPE]: columnar conversion and chunk expiry, scheduled as policies or fired per chunk
 
@@ -63,7 +55,7 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 
 - `timescaledb.enable_columnstore`: one `SET` also carries `timescaledb.segmentby`, the analytical equality-filter column family, and `timescaledb.orderby`, the time column.
 
-## [05]-[JOBS_AND_STATS]
+## [04]-[JOBS_AND_STATS]
 
 [JOBS_AND_STATS_ENTRY_SCOPE]: policy-job registry, its run history, and the in-place job controls
 
@@ -84,7 +76,7 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 - `jobs` keys every control by `job_id`, the value each policy adder returns.
 - `job_stats` carries `last_successful_finish` and `last_run_status`, and `run_job` re-fires a stalled policy.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `MigrationBuilder.Sql` emits every surface, and the `[SHAPE]` verb is the emission verb — a `SELECT` over a procedure or a `CALL` over a function faults at execution.
@@ -101,9 +93,3 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 [LOCAL_ADMISSION]:
 - `Store/provisioning#SERVER_EXTENSIONS` carries the `Preload` admission row; the extension enters through the operator's preload configuration and its absence is a typed repair artifact.
 - Policy scheduling, continuous aggregates, and columnstore run under TSL at the database deployment and link into no managed assembly, so the server process is the license boundary.
-
-[RAIL_LAW]:
-- Package: `timescaledb`
-- Owns: chunked time partitioning, continuous-aggregate materialisation, retention, and columnstore conversion over the `SeriesKind` series tables, each policy on its own bgworker
-- Accept: derived `MigrationBuilder.Sql` rows carrying the shape-correct verb, named idempotent arguments, and `job_stats`-backed provisioning state
-- Reject: a managed EF translator over these functions, a hand-spelled per-environment policy script, an AppHost-scheduled database-internal job, a positional-argument emission

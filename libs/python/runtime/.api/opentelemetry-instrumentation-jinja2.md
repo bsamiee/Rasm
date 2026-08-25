@@ -2,16 +2,7 @@
 
 `opentelemetry-instrumentation-jinja2` traces jinja2 template work: one `BaseInstrumentor` patches the render, compile, and load paths so each pass opens an internal span — `jinja2.render`, `jinja2.compile`, `jinja2.load` — carrying `jinja2.template_name`, with the resolved `jinja2.template_path` on the load span alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-instrumentation-jinja2`
-- package: `opentelemetry-instrumentation-jinja2`
-- module: `opentelemetry.instrumentation.jinja2`
-- namespaces: `opentelemetry.instrumentation.jinja2`
-- rail: observability
-- abi: pure-Python runtime library
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumentor
 
@@ -19,7 +10,7 @@
 | :-----: | :------------------- | :------------ | :------------------------------- |
 |  [01]   | `Jinja2Instrumentor` | instrumentor  | jinja2 render/compile/load spans |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instrumentor lifecycle
 
@@ -28,7 +19,7 @@
 |  [01]   | `Jinja2Instrumentor().instrument(**kwargs)`   | instance | patch render/generate/compile/load |
 |  [02]   | `Jinja2Instrumentor().uninstrument(**kwargs)` | instance | unwrap the four wrapped members    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `instrument()` patches the module classes globally; `uninstrument()` reverts the same four members, activated once and never per template pass.
@@ -41,9 +32,3 @@
 
 [LOCAL_ADMISSION]:
 - one train-row `instrument()` at the composition root; an artifacts or library module never activates it.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-instrumentation-jinja2`
-- Owns: internal render/compile/load spans on every jinja2 template pass
-- Accept: one train-row `instrument()` at the composition root
-- Reject: activation inside an artifacts or library module, hand-rolled jinja2 timing spans beside the patched members

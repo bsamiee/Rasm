@@ -9,7 +9,7 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 ## [01]-[INDEX]
 
 - [02]-[GRAPH_FORGE]: `CorpusProfile` closes the parameter record and `GraphForge` mints deterministically — the seeded id stream, the payload kernels, and the one `AdmitOnto` realization every forged model crosses.
-- [03]-[CORPUS_ROSTER]: `CorpusGrade` size rows, the `CorpusOp` hot-path vocabulary, `CorpusModel` and `CorpusWitness`, and the `CorpusGate` mint/determinism entries consumed by tests-estate benchmark and property lanes.
+- [03]-[CORPUS_ROSTER]: `CorpusGrade` size rows, the `CorpusOp` hot-path vocabulary, `CorpusModel` and `CorpusWitness`, and the `CorpusGate` mint/determinism entries consumed by benchmark and property lanes.
 
 ## [02]-[GRAPH_FORGE]
 
@@ -23,7 +23,7 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 - Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Open` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Buffers;
 using Google.Protobuf;
 using LanguageExt;
@@ -452,8 +452,8 @@ public static class GraphForge {
 - Owner: `CorpusGrade` the `[SmartEnum<string>]` size roster; `CorpusOp` the `[SmartEnum<string>]` hot-path vocabulary with a witness-returning run column; `CorpusModel` the minted carrier with its snapshot fingerprint; `CorpusWitness` the operation evidence; `CorpusGate` the mint/determinism capability.
 - Cases: `CorpusGrade` rows `S`/`M`/`L`/`XL`; `CorpusOp` rows `Bake`, native `Freeze`, `CanonicalBytes`, `EncodeNode`, `DecodeNode`, and `Tabulate`. Node encoding exercises the generated support closure without inventing a graph actor.
 - Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its native snapshot fingerprint. `Stable(grade, key)` proves integer-wire canonicality, forges twice, and rejects native-address drift. Each `CorpusOp.Run` returns a witness; node decode rejects content-address drift against the selected native node.
-- Output: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Tests-estate timing maps it into AppHost `Benchmark`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.Value)`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
-- Packages: Google.Protobuf writes and parses generated node messages; CommunityToolkit.HighPerformance supplies the pooled encode sink; `Rasm` supplies `Op.Catch`. BenchmarkDotNet and CsCheck consume this roster from tests.
+- Output: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Timing maps it into AppHost `Benchmark`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.Value)`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
+- Packages: Google.Protobuf writes and parses generated node messages; CommunityToolkit.HighPerformance supplies the pooled encode sink; `Rasm` supplies `Op.Catch`. CsCheck consumes this roster from tests.
 - Growth: a new scale is one `CorpusGrade` row; a new hot path is one `CorpusOp` row and witness arm. Benchmarks reuse one minted model per grade.
 - Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark measurement and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. This corpus is branch-local test data, not a manifest actor or a hand-maintained cross-language mirror; `CorpusGate.Stable` proves native repeatability.
 

@@ -17,7 +17,7 @@ Furniture is owned geometry over the vector plane, generated under one `Furnitur
 - Boundary: no rendering, styling, or layer projection (`visualization/diagram/draw#DRAW`'s); no coordinate assignment of diagram marks (`visualization/diagram/layout#LAYOUT` composes this owner for its `SUN_PATH` arm); no shading/energy analysis (the geometry/compute tracks read the true `zenith` column); no entry or async — the SPA kernel is numpy-vectorized pure computation the consuming producer offloads inside its own seam; no ladybug (AGPL, process boundary, geometry track); only `pvlib.solarposition` and `pvlib.location` are admitted, never the PV-system/irradiance surface. A hardcoded solstice calendar, a per-timestamp scalar provider call, bare lat/lon threaded past the `Location`, and a generator body legislating a chart convention the policy value owns are the rejected forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from calendar import isleap
 from collections.abc import Callable
 from datetime import date, datetime

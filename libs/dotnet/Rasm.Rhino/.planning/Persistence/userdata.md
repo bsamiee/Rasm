@@ -20,7 +20,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ComplexValueObject]`, `[Union]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `HashSet`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.InvalidResult`), `Domain/validation` (`IValidityEvidence`, `ValidityClaim`); `Persistence/presets` (`PersistenceFault`), `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[ARCHIVE_IO]` — `WriteDictionary`, `ReadDictionary`, `BeginWrite3dmChunk`/`EndWrite3dmChunk`, `BeginRead3dmChunk`/`EndRead3dmChunk`, `EnableCRCCalculation`, `WriteEmptyCheckSum`, `ReadCheckSum`, `WriteErrorOccured`, `ReadErrorOccured`, `Archive3dmVersion`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.Collections;
@@ -209,7 +209,7 @@ public static class ArchiveIo {
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Cell.Step`, `Transition`); `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserData.Description`/`ShouldWrite`/`Transform`/`Write`/`Read`/`OnTransform`/`OnDuplicate`, `ClassIdAttribute`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Transform`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
@@ -328,7 +328,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Custody.Rollback`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.Collections;

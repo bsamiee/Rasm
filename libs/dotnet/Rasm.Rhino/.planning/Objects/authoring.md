@@ -33,7 +33,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Growth: a new host virtual is one program field with one forwarding line per adapter.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -989,18 +989,18 @@ public static class Grips {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]                    | [FORM]                                                  | [ENTRY]                    |
-| :-----: | :---------------- | :------------------------- | :------------------------------------------------------ | :------------------------- |
-|  [01]   | override program  | `ObjectProgram`            | optional `Fin` hooks over the complete verified roster  | adapter `Program` slots    |
-|  [02]   | host derivations  | `Rasm*Object`              | sealed forwarding over one shared kernel, base-first    | `[ClassId]` subclasses     |
-|  [03]   | grip authoring    | `GripProgram`              | required seed/regrow core plus optional hook slots      | `RasmGrips` overrides      |
-|  [04]   | grip shims        | `RasmGrip`/`RasmGrips`     | sentinel-weight repair and roster forwarding            | `GripRig.Register<TGrips>` |
-|  [05]   | grip value edits  | `GripEdit`                 | rig and move over `GripMove` verbs, detached results    | `Grips.Touch` / `Census`   |
-|  [06]   | render-mesh cache | `RenderMeshProgram`        | base-first refinement over the five cache virtuals      | adapter mesh overrides     |
-|  [07]   | telemetry egress  | `ObjectsTelemetry`         | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`    |
-|  [08]   | host taps         | `HostTap`                  | seat arbitration with rider handoff over both host taps | `HostTap.Mount`            |
-|  [09]   | classification    | kernel `Sensitivity`       | four attach attributes over the kernel taxonomy rows    | payload attributes         |
-|  [10]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
+| [INDEX] | [CONCERN]         | [OWNER]                | [FORM]                                                  | [ENTRY]                    |
+| :-----: | :---------------- | :--------------------- | :------------------------------------------------------ | :------------------------- |
+|  [01]   | override program  | `ObjectProgram`        | optional `Fin` hooks over the complete verified roster  | adapter `Program` slots    |
+|  [02]   | host derivations  | `Rasm*Object`          | sealed forwarding over one shared kernel, base-first    | `[ClassId]` subclasses     |
+|  [03]   | grip authoring    | `GripProgram`          | required seed/regrow core plus optional hook slots      | `RasmGrips` overrides      |
+|  [04]   | grip shims        | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding            | `GripRig.Register<TGrips>` |
+|  [05]   | grip value edits  | `GripEdit`             | rig and move over `GripMove` verbs, detached results    | `Grips.Touch` / `Census`   |
+|  [06]   | render-mesh cache | `RenderMeshProgram`    | base-first refinement over the five cache virtuals      | adapter mesh overrides     |
+|  [07]   | telemetry egress  | `ObjectsTelemetry`     | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`    |
+|  [08]   | host taps         | `HostTap`              | seat arbitration with rider handoff over both host taps | `HostTap.Mount`            |
+|  [09]   | classification    | kernel `Sensitivity`   | four attach attributes over the kernel taxonomy rows    | payload attributes         |
+|  [10]   | hook mounts       | `ObjectsHooks`         | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
 
 - Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-custom-objects.md` — `Rhino.DocObjects.Custom` subclass surface; `api-rhinocommon-objects.md` — attribute custody); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`, `Atom` boundary cells, Prelude); `Microsoft.Extensions.Logging` (`libs/dotnet/.api/api-logging-abstractions.md` — `[LoggerMessage]` on the `HostObjectsLog 6410` band); `Microsoft.Extensions.Compliance.Abstractions` (`libs/dotnet/.api/api-redaction.md` — the `DataClassification(string, string)` ctor and the `DataClassificationAttribute` base the four attach classes derive, the redactor resolving at the app root); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[Union]` hook vocabulary); kernel `Domain/rails` (`HookBinding`, `Cell`) and kernel `Domain/telemetry` (`Sensitivity` taxonomy rows, `ClassifiedValue`).
 

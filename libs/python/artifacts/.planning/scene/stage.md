@@ -18,7 +18,7 @@
 - Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `OutputPort`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot, the port, and the source colour space a caller already chose, and authors the graph that reads it. The caller states that space from the plane's own declared transfer, never from the `AUTO` default, because `AUTO` defers to the renderer's file sniff and a raw parameter plane in an eight- or sixteen-bit container sniffs as display-encoded — the one silent decode the whole transfer roster exists to foreclose.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from hashlib import blake2b
@@ -857,6 +857,5 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
-
 
 (none)

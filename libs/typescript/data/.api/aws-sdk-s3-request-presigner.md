@@ -2,16 +2,7 @@
 
 `@aws-sdk/s3-request-presigner` mints a SigV4 query-signed URL from a live `S3Client` and any S3 command through one polymorphic `getSignedUrl` — the command value discriminates upload, download, part, and probe, and the URL is a bounded-TTL bearer capability the browser consumes with no SDK. It inherits the client's resolved `credentials`/`region`/`endpoint`/`forcePathStyle`, so MinIO/R2/Tigris presign identically; under Effect one `tryPromise` returns the typed `{ url, expiresAt }` the `object/store` `[06]-[GRANT_MINT]` row hands the edge.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@aws-sdk/s3-request-presigner`
-- package: `@aws-sdk/s3-request-presigner` (Apache-2.0)
-- module: ESM/CJS dual, `sideEffects: false`; exports `getSignedUrl`, `presigner`
-- runtime: `runtime:node` mints server-side (holds credentials); the minted URL is consumed anywhere with no SDK
-- backing: `@aws-sdk/signature-v4-multi-region` — the SigV4 / SigV4a multi-region query signer
-- rail: object/store — one presign entry over any `S3Client` + command value
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the presign entry and its argument policy
 
@@ -32,7 +23,7 @@
 |  [03]   | `presignWithCredentials(HttpRequest, AwsCredentialIdentity, args?)` | presign       | explicit-credential presign (rotation / STS)   |
 |  [04]   | `S3RequestPresignerOptions`                                         | options       | region/credentials/sha256 init from the client |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: minting a presigned capability token under Effect
 
@@ -44,7 +35,7 @@
 |  [04]   | `new UploadPartCommand({ UploadId, PartNumber })`                 | part URL       | multipart browser-direct part upload token      |
 |  [05]   | `Config.integer("PRESIGN_TTL_SECONDS")` → `expiresIn`             | TTL config     | composition-root `Config`; never a literal      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `getSignedUrl(client, command, options)` presigns any S3 operation, so a new presigned operation is a new command value, never a `presignUpload`/`presignDownload` method family.
@@ -58,9 +49,3 @@
 
 [LOCAL_ADMISSION]:
 - Mint through one `Effect.tryPromise` over `getSignedUrl` with `expiresIn` bound from `Config`, return the typed `{ url, expiresAt }`, and reuse the object plane's `S3Client` config for every provider.
-
-[RAIL_LAW]:
-- Package: `@aws-sdk/s3-request-presigner`
-- Owns: `getSignedUrl` over any `S3Client` + command, the `S3RequestPresigner` signer (`presign`/`presignWithCredentials`), and `RequestPresigningArguments` policy (TTL, signed/hoisted header sets, signing scope)
-- Accept: one `Effect`-wrapped `getSignedUrl` discriminated by command, `expiresIn` as a `Config`-bounded TTL, config inherited from the object plane's `S3Client`, `signableHeaders`/`hoistableHeaders` policy, a typed `{ url, expiresAt }` carrier
-- Reject: a per-operation presign family, an unbounded or literal TTL, a second client or re-declared provider facts, a raw untyped URL, an unaudited or non-expiring grant

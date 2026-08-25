@@ -2,16 +2,7 @@
 
 `Wasmtime` binds the native WebAssembly runtime (`libwasmtime`) as the sandbox rail's plugin-isolation core: an `Engine` compiles a `Module`, a `Store` executes it under fuel, epoch, and memory limits, and a `Linker` resolves the capability-scoped import table. Guests reach host authority only through the linker's granted imports over WASI-Preview-1, and the managed surface stops at the core module — the component model is a native engine flag with no managed type behind it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Wasmtime`
-- package: `Wasmtime`
-- assembly: `Wasmtime.Dotnet`
-- namespace: `Wasmtime`
-- asset: runtime library + native `libwasmtime` (`runtimes/<rid>/native/`)
-- rail: sandbox
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime hierarchy
 
@@ -64,7 +55,7 @@
 - `TrapCode` numeric values are NOT stable across releases — the Rust core inserts rows — so a persisted or wire-carried code travels as its NAME.
 - `CannotEnterComponent`, `CannotLeaveComponent`, and `NoAsyncResult` surface component-model traps from the Rust core; no managed surface can reach the code that raises them.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine and configuration construction
 
@@ -199,7 +190,7 @@ Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnl
 - `WithPreopenedDirectory` has ONE arity — `dirPerms` is `WasiDirectoryPermissions` and `filePerms` is `WasiFilePermissions`, both required — so a mount always states its read/write posture and no overload silently grants more than a caller asked for.
 - Every `With*` returns the receiver, so a `GrantScope` folds onto one configuration without an intermediate builder.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - execution hierarchy: `Engine` compiles a `Module` and roots a `Store`, a `Linker` resolves imports and `Instantiate` yields an `Instance`.
@@ -222,9 +213,3 @@ Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnl
 - Sandbox modules enter through `Module.FromBytes` or `Module.FromFile`; the `FromText` WAT forms are development paths.
 - Host callbacks reach the call store through `Caller`, never a captured `Store` in a closure.
 - A dynamic grant set binds through the untyped `DefineFunction` row; the typed overload family serves fixed-arity host functions only.
-
-[RAIL_LAW]:
-- Package: `Wasmtime`
-- Owns: WebAssembly compilation, store-scoped execution, WASI-Preview-1 environment, linear memory access, host function binding, fuel and epoch preemption.
-- Accept: compiled core modules, WASI-configured stores, typed export invocation, untyped grant-scoped imports, epoch-converged eviction.
-- Reject: direct P/Invoke against `libwasmtime`, captured-store closures in host callbacks, `Instance` construction without a `Linker` for import-bearing modules, a WASI-Preview-2 or component-model claim on the managed surface, and a wall guarantee resting on disposal or `SetLimits`.

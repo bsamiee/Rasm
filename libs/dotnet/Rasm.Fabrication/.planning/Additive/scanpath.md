@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Boundary: scaling is dimensionless against the profile it multiplies except `FocusOffset`, which is an additive length because focus is measured from a datum and has no meaningful zero to scale.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;

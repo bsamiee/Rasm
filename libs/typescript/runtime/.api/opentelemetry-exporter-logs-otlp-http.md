@@ -2,16 +2,7 @@
 
 `@opentelemetry/exporter-logs-otlp-http` is the concrete `LogRecordExporter` POSTing `ReadableLogRecord` batches to an OTLP/HTTP collector — the SDK-bridge log leg of `otel/emit`. A `BatchLogRecordProcessor` wraps it and rides the facade's `Configuration.logRecordProcessor`, never composing as a leaf. Reach for it only where SDK log-pipeline semantics are required, recorded as an `[OTEL_PIN_BLOCK]` dependency; `.api/effect-opentelemetry.md` owns the native-versus-SDK lane doctrine.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/exporter-logs-otlp-http`
-- package: `@opentelemetry/exporter-logs-otlp-http` (Apache-2.0)
-- module: ESM; single `OTLPLogExporter` export, platform-selected at build, never a fork
-- runtime: isomorphic — the `browser` field swaps the platform module: node `http`/`https` transport (`OTLPExporterNodeConfigBase`) or the browser's fetch-only transport (`OTLPExporterConfigBase`); no `XMLHttpRequest` path exists in the tree and `sendBeacon` survives only as a deprecated alias of the fetch delegate
-- depends: `@opentelemetry/sdk-logs` (`ReadableLogRecord`/`LogRecordExporter`), `@opentelemetry/otlp-exporter-base` (`OTLPExporterNodeConfigBase`/`OTLPExporterConfigBase`/`CompressionAlgorithm`), `@opentelemetry/core` (`ExportResult`)
-- rail: observability/export/logs
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `LogRecordExporter` and its config
 
@@ -29,7 +20,7 @@
 [OTLPEXPORTER_NODE_CONFIG_BASE]: `keepAlive` `compression` `httpAgentOptions` `userAgent`
 [COMPRESSION_ALGORITHM]: `NONE` `GZIP`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge log export composition
 
@@ -41,7 +32,7 @@
 |  [02]   | `new OTLPLogExporter(browserCfg)`           | ctor        | the browser OTLP/HTTP log exporter (RUM crash/log egress)           |
 |  [03]   | `new BatchLogRecordProcessor({ exporter })` | composition | wrap the exporter for the facade `Configuration.logRecordProcessor` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - SDK-bridge log leg of `otel/emit`, reached only where the SDK log pipeline is required — `LoggerConfigurator` severity gating, the `enabled?` pre-build drop, `BatchLogRecordProcessor` tuning, or a co-resident SDK-only exporter; `.api/effect-opentelemetry.md` owns the native-lane default and the `[OTEL_PIN_BLOCK]` collapse.
@@ -58,9 +49,3 @@
 - `@opentelemetry/*` admits ONLY inside `scope:runtime`, constructed at the composition root; application code logs through `Effect.log` and never imports this package.
 - recorded as an `[OTEL_PIN_BLOCK]` non-collapsed dependency, admitted for SDK-only log-pipeline capability.
 - browser exporters carry the RUM log/crash egress leg (`otel/vital`/`otel/crash`); export-boundary redaction applies before a record leaves the browser.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/exporter-logs-otlp-http`
-- Owns: OTLP/HTTP log serialization — one `OTLPLogExporter` (`LogRecordExporter`) over a node or browser transport, configured by endpoint/headers/compression/timeout
-- Accept: `new OTLPLogExporter(cfg)` wrapped in a `BatchLogRecordProcessor` and fed to `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor`; endpoint/runtime as config + platform-export selection; the one `AppIdentity`-derived `Resource`; core's `ExportResult` rail
-- Reject: `@opentelemetry/*` outside `scope:runtime`, this SDK exporter where the native `OtlpLogger` suffices, `SimpleLogRecordProcessor` in production, a subclass per backend/compression, an unwrapped exporter handed straight to the facade, a parallel log sink beside the composition-root one

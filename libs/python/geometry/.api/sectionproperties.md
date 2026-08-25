@@ -2,16 +2,7 @@
 
 `sectionproperties` computes geometric, warping, plastic, and stress properties for an arbitrary 2D profile over a triangular FE mesh. It is the gated enrichment on the geometry ifc/structural rail, deriving the warping and plastic section properties the closed-form spine (`ifcopenshell` profile geometry over numpy section integrals) cannot; the spine never depends on it. Card `geometry [STRUCTURAL_SECTION_PROPS_GATED] [BLOCKED]` tracks the deferred consumer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `sectionproperties`
-- package: `sectionproperties` (MIT)
-- import: `import sectionproperties`
-- owner: `geometry`
-- rail: ifc/structural section-property enrichment
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry model (`sectionproperties.pre`)
 
@@ -35,7 +26,7 @@
 |  [03]   | `post.StressResult`      | stress result     | per-element stress arrays from a stress calculation   |
 |  [04]   | `post.StressPost`        | stress aggregator | the stress-analysis result carrier from a load case   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: geometry construction and meshing (`pre.Geometry` / `pre.CompoundGeometry`)
 
@@ -81,7 +72,7 @@ Each `get_*` reads a scalar off `post.SectionProperties` after its owning calcul
 - [PLASTIC]: `get_pc` `get_mp` `get_s` `get_zp` `get_sf`
 - [COMPOSITE]: `get_ea` `get_eic` `get_e_eff` `get_g_eff` `get_nu_eff` `get_e_ref`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - geometry axis: `from_points`/`from_dxf`/`from_3dm` build a single region, `CompoundGeometry` assembles built-up sections, interior voids register through the `-` operator or `from_points(holes=...)`, and `create_mesh(mesh_sizes)` triangulates at a maximum-area bound — the mesh is the prerequisite for every `Section` calculation.
@@ -94,9 +85,3 @@ Each `get_*` reads a scalar off `post.SectionProperties` after its owning calcul
 
 [LOCAL_ADMISSION]:
 - A meshed `Geometry`/`CompoundGeometry` profile enriches an IFC structural member's section result, admitted as a gated enrichment by rail policy; the closed-form spine stays independent of it.
-
-[RAIL_LAW]:
-- Package: `sectionproperties`
-- Owns: arbitrary-profile cross-section warping, plastic, shear, and stress properties over a triangular FE mesh, beyond closed-form section integrals
-- Accept: a meshed profile enriching an IFC structural member's section result
-- Reject: a hand-rolled warping/plastic/shear FE solve or torsion-constant integration where sectionproperties owns it; a closed-form-only section owner claiming warping or plastic properties

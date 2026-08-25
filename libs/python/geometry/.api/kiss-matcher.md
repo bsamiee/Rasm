@@ -2,17 +2,7 @@
 
 `kiss_matcher` supplies the initialization-free global registration path for the scan-processing rail: `KISSMatcher` extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN and a GNC solver, and returns a `RegistrationSolution` rigid transform while exposing per-stage timing and inlier counts. Package owner composes `estimate` (or `match` then `prune_and_solve`) into the global-registration mode seeding fine `small_gicp` refinement; it never re-implements keypoint extraction, graph-theoretic outlier rejection, or the GNC pose solver.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `kiss-matcher`
-- package: `kiss-matcher`
-- import: `import kiss_matcher`
-- owner: `geometry`
-- rail: scan-processing / global-registration
-- entry points: none (library only)
-- capability: initialization-free global rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN outlier pruning, graduated-non-convexity and Quatro pose solving, and per-stage timing with inlier counts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: estimator, config, and result family
 - rail: global-registration
@@ -53,7 +43,7 @@ Every field is a read/write `def_readwrite` property.
 |  [02]   | `translation` | 3-vector translation                     |
 |  [03]   | `valid`       | convergence/validity flag for the result |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`KISSMatcher.estimate`)
 - rail: global-registration
@@ -98,7 +88,7 @@ These accessors expose each intermediate registration stage; keypoint and cloud 
 |  [09]   | `get_rejection_time()` / `get_solver_time()`             | timing         | pruning and solver stage timings          |
 |  [10]   | `get_processing_time()`                                  | timing         | total registration wall time              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [GLOBAL_REGISTRATION]:
 - import: `import kiss_matcher` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -112,9 +102,3 @@ These accessors expose each intermediate registration stage; keypoint and cloud 
 - `laspy` chunked reader is the scan source: per-chunk `ScaleAwarePointRecord` metric `xyz` buffers feed `estimate`/`match` as `float32` `(3, 1)` sequences (transposed `float64` `(3, n)` for the array overloads); `kiss_matcher` consumes the numpy buffers, never opening a file.
 - `small_gicp` is the downstream fine arm: `RegistrationSolution.rotation`/`translation` compose the initial 4x4 pose `small_gicp` GICP/VGICP refines — the coarse arm of the two-stage registration union, never the fine/ICP role and never identity minting.
 - geometry kernel offload: a multi-second `estimate` over a large unposed scan pair is CPU-bound with no async mirror, handing to the `GEOMETRY_CPU_OFFLOAD`/`GEOMETRY_KERNEL_OFFLOAD_LANE` seam rather than blocking the boundary; `clear`/`reset`/`reset_solver` recycle the estimator between offloaded runs.
-
-[RAIL_LAW]:
-- Package: `kiss-matcher`
-- Owns: global initialization-free rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN outlier pruning, and GNC/Quatro pose solving
-- Accept: coarse global registration of an unposed scan pair feeding the scan-processing owner and fine `small_gicp` refinement
-- Reject: wrapper-renames of `estimate`/`match`/`solve`; a hand-rolled FPFH extractor, graph-theoretic rejector, or GNC solver where `kiss_matcher` is admitted; an ICP/fine-refinement role belonging to `small_gicp`; identity minting the runtime owns

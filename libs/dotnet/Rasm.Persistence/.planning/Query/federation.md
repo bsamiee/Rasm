@@ -582,14 +582,14 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
 
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                      | [BINDING]                                                     |
-| :-----: | :--------------- | :------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | ticket identity  | `ContentHash.Wire(ReplayKey)` / `Admit`      | content-addressed; a re-described identical plan re-redeems   |
-|  [02]   | verbs            | `GetFlightInfo` + `DoGet` only               | read-only result plane; `DoPut`/`DoExchange` stay base throws |
+| [INDEX] | [POLICY]         | [VALUE]                                      | [BINDING]                                                      |
+| :-----: | :--------------- | :------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | ticket identity  | `ContentHash.Wire(ReplayKey)` / `Admit`      | content-addressed; a re-described identical plan re-redeems    |
+|  [02]   | verbs            | `GetFlightInfo` + `DoGet` only               | read-only result plane; `DoPut`/`DoExchange` stay base throws  |
 |  [03]   | keyed projection | `ArrowLanding.Build` over `KeyProjection`    | `(model, id, at)` declared once; metadata carries source facts |
-|  [04]   | hosting          | `AddFlightServer<T>` + `MapFlightEndpoint()` | AppHost mounts; `MapGrpcService<T>` fails at startup          |
-|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`    | one serving window; eviction re-executes                      |
-|  [06]   | refusal          | `FaultWire.Raise(fault, Context(frame))`     | AppHost producer table; `FaultDetail` packs beside the status |
+|  [04]   | hosting          | `AddFlightServer<T>` + `MapFlightEndpoint()` | AppHost mounts; `MapGrpcService<T>` fails at startup           |
+|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`    | one serving window; eviction re-executes                       |
+|  [06]   | refusal          | `FaultWire.Raise(fault, Context(frame))`     | AppHost producer table; `FaultDetail` packs beside the status  |
 
 ## [05]-[PLAN_WIRE_SKEW]
 
@@ -598,7 +598,6 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
 - Auto: proto3 files an unknown field rather than raising at BOTH doors here — the binary parser retains unknown fields by default and `PlanJson` ignores them by declaration — so a plan minted here parses CLEAN across the edge — `relations`, `extensions`, `version`, and `advanced_extensions` all survive while the whole extension space vanishes into the unknown set, presenting as a plan declaring functions against no space at all.
 - Boundary: the consumer refuses that signature on its own `RETIRED_EXTENSION_SCHEMA` row ahead of urn resolution, so the skew fails loudly at one named seam; without it the resolution check iterates an empty list, admits vacuously, and drops every declared function-vocabulary lineage edge.
 - Growth: parity arrives when this package's generated protobuf carries the URN-era schema — no released version does, so the refusal row is the standing form and a bump is what retires it, never a local re-encode inventing anchors this IR never held.
-
 
 ## [06]-[RESEARCH]
 

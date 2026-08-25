@@ -2,18 +2,7 @@
 
 `universal-pathlib` owns `UPath`, the `pathlib`-shaped path face over the `fsspec` filesystem surface on the `pathlib_abc` protocol stack. Protocol and `storage_options` resolve at construction, so one arithmetic/traversal/byte-access API serves every fsspec root from local through cloud, and the runtime resources rail composes it as its reference type.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `universal-pathlib`
-- package: `universal-pathlib` (MIT)
-- import: `upath`
-- owner: `runtime` (resources), `compute` (`experiments/model` asset resolution)
-- rail: resources
-- depends: `fsspec` (filesystem surface), `pathlib_abc` (`Joinable`/`Readable`/`WritablePath` protocol stack); `pydantic`/`pydantic_core` optional via the import-deferred schema hook; `s3fs`/`gcsfs`/`adlfs`/`paramiko`/`smbprotocol` per-protocol extras the backend filesystem pulls, never `upath`
-- namespaces: `upath`, `upath.registry`, `upath.extensions`, `upath.types`, `upath.implementations`
-- capability: fsspec-backed `pathlib`-shaped paths resolving protocol/`storage_options` at construction, metaclass protocol dispatch, the protocol-implementation registry, a `ProxyUPath` extension base, pydantic-core schema integration, and the `pathlib_abc` `info`/`walk`/`copy`/`move` surface
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: path family
 
@@ -35,7 +24,7 @@
 |  [06]   | `UPathParser`                          | protocol      | path flavour: `split`/`join`/`strip_protocol`/`splitroot` |
 |  [07]   | `OnNameCollisionFunc`                  | type alias    | copy-collision callback `(paths) -> (file?, dir?)`        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and resolution; surfaces are `UPath.*` unless qualified
 
@@ -99,7 +88,7 @@
 - `registry.get_upath_class`: an unregistered but fsspec-known protocol falls back to a generated `_<Proto>Path` with a `UserWarning`.
 - `extensions.ProxyUPath`: wraps its `UPath` in `__wrapped__`, mirrors the path interface returning `Self`, and is virtually registered so `isinstance(proxy, UPath)` holds.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - path law: a resource reference is one `UPath` carrying its protocol and `storage_options`; arithmetic and traversal are backend-agnostic, so one code path serves local, memory, zip, and cloud roots with no per-scheme `os.path`/`Path` branching.
@@ -118,9 +107,3 @@
 - typed path edges admit `JoinablePathLike`/`ReadablePathLike`/`WritablePathLike` from `upath.types`, the flavour is `UPathParser`, and the metadata carrier is `PathInfo`/`StatResultType`.
 - a capability that must work over every protocol subclasses `ProxyUPath`, inheriting the wrapped dispatch rather than reimplementing it.
 - `PosixUPath`/`WindowsUPath` answer the empty protocol and own purely local performance-critical paths where protocol indirection buys nothing.
-
-[RAIL_LAW]:
-- Package: `universal-pathlib`
-- Owns: fsspec-backed universal path objects — protocol/`storage_options` resolution at construction, metaclass protocol dispatch, the protocol-implementation registry, the `ProxyUPath` extension base, pydantic-core schema integration, and the `pathlib_abc` `info`/`walk`/`copy`/`move` surface
-- Accept: `UPath` with `protocol`/`storage_options`, backend-agnostic arithmetic, `UPath.fs` access, single-call `UPath.info`, `get_upath_class`/`register_implementation` dispatch, `ProxyUPath` cross-backend extension, `UPath` as a pydantic field, typed `JoinablePathLike` edges
-- Reject: per-scheme path branching, a global filesystem handle held beside the path, repeated `exists`/`is_dir`/`stat` in place of one `info`, a `str` pydantic field reconstructed into a path, `UPath` where plain `Path` suffices

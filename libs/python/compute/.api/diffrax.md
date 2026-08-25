@@ -2,16 +2,7 @@
 
 `diffrax` owns JAX-native ODE, SDE, and CDE integration for the compute differential-equation rail: one `diffeqsolve` routes every `NumericIntent` case on a chosen solver, step-size controller, and adjoint. Implicit and stiff solvers fold a `lineax`/`optimistix` root-find inside each step, and the whole solve stays JIT-, grad-, and vmap-transformable as an `equinox` pytree.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `diffrax`
-- package: `diffrax`
-- import: `diffrax`
-- owner: `compute`
-- rail: differential-equation
-- capability: JAX-native ODE/SDE/CDE integration — adaptive and fixed-step Runge-Kutta solvers, Ito/Stratonovich and high-order Levy-area SDE solvers, Brownian path generators with selectable Levy-area level, continuous and discrete event detection, four adjoint differentiation modes, and dense/sub-save output
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: abstract base protocol
 
@@ -102,7 +93,7 @@
 
 | [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                                                                                             |
 | :-----: | :---------- | :------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Solution`  | result carrier | solve result carrier; `stats`+`result` measures, `interpolation` dense output (fields below)              |
+|  [01]   | `Solution`  | result carrier | solve result carrier; `stats`+`result` measures, `interpolation` dense output (fields below)             |
 |  [02]   | `SaveAt`    | save spec      | selects which times and fields to save                                                                   |
 |  [03]   | `SubSaveAt` | save spec      | per-subsolve save specification within `SaveAt`                                                          |
 |  [04]   | `ODETerm`   | ODE term       | wraps a vector field callable `f(t, y, args)`                                                            |
@@ -119,7 +110,7 @@
 |  [02]   | `CubicInterpolation`  | interpolation  | cubic Hermite interpolation (CDE control path) |
 |  [03]   | `LinearInterpolation` | interpolation  | piecewise-linear interpolation (CDE control)   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solve, term, path, event, and adjoint entrypoints
 - call: `diffeqsolve(terms, solver, t0, t1, dt0, y0, args=None, *, saveat=SaveAt(t1=True), stepsize_controller=ConstantStepSize(), adjoint=RecursiveCheckpointAdjoint(), event=None, max_steps=4096, throw=True, progress_meter=NoProgressMeter(), solver_state=None, controller_state=None, made_jump=None) -> Solution`
@@ -151,7 +142,7 @@
 |  [05]   | `Solution.result` via `RESULTS` | result check    | compare `Solution.result` against `RESULTS` members   |
 |  [06]   | `steady_state_event`            | event factory   | builds an `Event` cond_fn detecting steady state      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `diffrax` — every public type and function at top level.
@@ -168,9 +159,3 @@
 
 [LOCAL_ADMISSION]:
 - every `NumericIntent` differential-equation case dispatches through `diffeqsolve` with an explicit solver, controller, and adjoint; an SDE Brownian path carries the `levy_area` its solver demands, and `diffrax` stays a compute-plane solver.
-
-[RAIL_LAW]:
-- Package: `diffrax`
-- Owns: JAX-native ODE/SDE/CDE integration, adaptive step control, Ito/Stratonovich and high-order Levy-area SDE solvers, continuous/discrete event detection, and four adjoint differentiation modes
-- Accept: a `NumericIntent` differential-equation case dispatched through `diffeqsolve` with an explicit solver, controller, and adjoint; a Brownian path whose `levy_area` matches the SDE solver; `RecursiveCheckpointAdjoint` for memory-constrained gradient studies; a `Solution` capturing `stats` and `result`
-- Reject: hand-rolled Runge-Kutta or Euler integrators; a hand-rolled Newton iteration where the implicit solver's `optimistix`/`lineax` root-find applies; `diffrax` on any product runtime path; adjoint claims without captured `Solution.stats`

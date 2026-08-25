@@ -19,7 +19,7 @@ One span-fold core serves every entry — `_derive_span` is the sole `content.de
 - Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `ContentHash`/`CanonicalWriter` capsule is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`ContentKey.decoded`/`IdentitySource`/`CanonicalWriter` surface. `IdentitySource(parts=...)` remains the branch-local semantic-field frame; a peer contract uses `CanonicalWriter` because its int32 little-endian ordinals, little-endian u128 hash inputs, exact doubles, framed UTF-8 strings, and raw terminal payload are the published cross-runtime grammar. Its `key` close pins seed zero and shares `_closed` with `ContentIdentity`, so key construction, measurement, and evidence have one implementation. This owner mints the branch's `content-identity` instance; parity across the independent runtimes IS the conformance, and WHICH fields a producer offers stays the producer's while their widths and byte order never do. The default arm's derived seed governs branch-local identities alone and states no peer parity.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections.abc import Buffer, Callable, Iterable, Iterator
 from contextlib import contextmanager

@@ -2,7 +2,6 @@
 
 Temporal-artifact audio owner: decode, encode, resample, layout, and mix over the `av` (PyAV) FFmpeg floor, composing the `media/container#CONTAINER` container spine and the `media/filtergraph#FILTER` `AudioGraph` capsule rather than a second `Media` owner or a local `av.filter.Graph` builder. `_encode_audio` encodes a `tuple[Pcm, ...]` producer PCM-block sequence into one single-stream audio container (FLAC/OGG/WAV or an AAC/Opus delivery container); `_decode_audio` is its inverse and `_mix_audio` the N-source combine, both standalone primitives on the same `MediaFault` rail the `media/timeline#TIMELINE`/`media/analysis#ANALYSIS` pages compose. This page owns the `Pcm` producer-dtype union, the `_INGEST` ingest-format table, the `StageKind`/`_STAGE`/`Stage`/`Master` mastering-and-layout vocabulary, and the `_lift`/`_mastered`/`_voiced`/`_encode_audio`/`_mix_audio`/`_decode_audio` primitives.
 
-
 ## [01]-[INDEX]
 
 - [02]-[MEDIA]: the audio arm of the closed-payload `MediaOp` family — the `_encode_audio` worker plus the standalone railed `_decode_audio`/`_mix_audio` primitives — lifting, mastering, and resampling a `tuple[Pcm, ...]` sequence into one audio container keyed over the muxed bytes.
@@ -16,7 +15,7 @@ Temporal-artifact audio owner: decode, encode, resample, layout, and mix over th
 - Growth: a new producer dtype is one `_INGEST` row; a new codec one `MediaProfile.codec` string, the resample/reframe pipeline already adapting; a differing producer rate one `frame.rate` stamp before the `AudioResampler`; a new encode knob one `MediaProfile` field in the `voiced` fold; a new mastering stage one `StageKind` member plus one `_STAGE` row; a louder chain one more ordered `Stage` value in `Master.stages`; a channel conversion one `AFORMAT`/`PAN`/`CHANNELMAP` stage or one `profile.layout` name; a new mix policy one `weights` value; a new evidence fact one `Media.facts` band key — every addition a row, member, field, or capsule argument, never a local `av.filter.Graph`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 import math
 from dataclasses import dataclass

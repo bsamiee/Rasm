@@ -25,7 +25,7 @@ Lanes run SINGLE-PASS at the pipeline: the bracket admits once, and the in-proce
 - Boundary: `Interactive` and `Ranked` hold ONE rank by declaration and the folder does not treat that as a defect — rank orders lanes against each other and these two are equally urgent, while the datum that separates them is `Rasm.Compute/Runtime/scheduling`'s own `LaneBound` column (`Parked(16)` against `Ranked(256)` with an earliest-deadline comparer), which is exactly the column the boundary above leaves at its deciding stratum; a rank column split to make the two differ here would encode a Compute channel shape in a spine roster.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using Thinktecture;
 

@@ -21,7 +21,7 @@ Gesture, projection, stack, framing, named-view, clipping, convention, and pose 
 - Boundary: gestures are relative host edits with no meaningful inverse value; their `RowEvidence` is the post-edit `ChangeCounter` delta, not a pose echo.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;

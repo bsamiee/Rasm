@@ -2,17 +2,7 @@
 
 `MTConnect.NET-Common` (TrakHound) carries two disjoint namespace partitions two folders compose. CONNECTIVITY holds the observation/device/asset/streams graph, the `ResponseDocumentFormatter` agent-document parse, the `MTConnectAdapter` SHDR relay, and the `MTConnectClientInformation` poll cursor; `Rasm.AppHost` binds it behind one `TransportRow` through the `mtconnect` live-wire row. CUTTING-TOOL holds the ISO-13399 `MTConnect.Assets.CuttingTools` graph a `CuttingToolAsset` roots; `Rasm.Fabrication` binds it as the tool-data MODEL half of `Tooling/magazine`. `GenerateHash` digests structure and `ContentHash.Of` mints catalogue identity.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MTConnect.NET-Common`
-- package: `MTConnect.NET-Common` (MIT)
-- assembly: `MTConnect.NET-Common`
-- namespace: `MTConnect.Adapters`, `MTConnect.Input`, `MTConnect.Observations`, `MTConnect.Streams`, `MTConnect.Devices`, `MTConnect.Clients`, `MTConnect.Formatters`, `MTConnect.Assets`, `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`
-- target: `net9.0` (multi-tfm to `netstandard2.0`); the `net10.0` consumer binds `net9.0`
-- asset: pure-managed AnyCPU IL, ALC-safe, no native asset
-- rail: live-wire (connectivity partition) and fabrication (cutting-tool partition)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: input and adapter surfaces
 
@@ -151,7 +141,7 @@ Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Va
 [LocationType]: `POT` `STATION` `SPINDLE` `CRIB` `END_EFFECTOR` `EXPIRED_POT` `REMOVAL_POT` `RETURN_POT` `STAGING_POT` `TRANSFER_POT` — carried on `Location.Type`
 [MTConnectVersions]: static `Version` constants `Version10`…`Version25` and `Max`; the cutting-tool `Admit` boundary validates against `Version24`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SHDR adapter (observation relay)
 
@@ -222,7 +212,7 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 |  [08]   | `asset.InstanceId`                                           | property | stamped instance        |
 |  [09]   | `asset.Timestamp`                                            | property | stamped time            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `-Common` owns the observation/device/asset/streams object graph and the `ResponseDocumentFormatter` parse; it decodes the agent document AppHost fetches over the `OutboundHop`, never opening an HTTP or MQTT socket.
@@ -239,7 +229,6 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - `MTConnect.NET-Common` ships the full MTConnect information model and the in-process `MTConnectAgent` buffer; this folder consumes the `MTConnect.Assets.CuttingTools` slice and the `Asset` base alone
 - `ProcessFeedRate`/`ProcessSpindleSpeed` and `Measurements.*` are the typed container for feeds/speeds and geometry; the package ships no numeric dataset, so a machining-data source populates the `Nominal`/`Value` fields
 
-
 [STACKING]:
 - within-lib: the `mtconnect` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, `Subscribe` for an MQTT-relay agent, `Writable: false` for pure consume) and one `LiveClient` case wrapping the poll-decode-cursor loop, no bespoke poller beyond the `OutboundHop`; the SHDR relay case binds `Writable: true` over the same row.
 
@@ -249,7 +238,6 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - Persistence artifact index: a `CuttingToolAsset` and its `ContentHash.Of` key land as a content-addressed durable tool-catalogue row alongside the `CutProgram` AST
 - within-lib: the `Tooling/magazine` `ToolAssembly` composes `CuttingToolAsset` as its tool-data model; the toolpath generator reads `ToolLife` remaining life against `Limit` for a mid-program tool change, and reads the `CuttingToolDefinition` `Format`-tagged `Value` through the structured `Measurements`/`CuttingItems`, never re-parsing the raw string
 
-
 [LOCAL_ADMISSION]:
 - Partitions bind per consuming folder and never cross: `Rasm.AppHost` reaches the connectivity namespaces alone and `Rasm.Fabrication` the `MTConnect.Assets.CuttingTools` slice with the `Asset` base, so a fabrication fence touching the devices/observations/streams/agent machinery, or a live-wire fence authoring a cutting-tool asset, reaches past the surface its own rail admits.
 - Data-item maps (device key, data-item keys, poll interval, sequence cursor) carry binding-spec policy data; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
@@ -258,10 +246,3 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - Typed cutting geometry spells its named `Measurements.*` subtype, never a `Measurement` with a stringly-set `Type`/`Code`
 - `ToolLife { Type, Limit, Warning, Value, CountDirection }` is the tool-life budget, `ToolLifeType` selecting minutes/part-count/wear
 - `Magazine` slot mapping reads `Location` (`ToolMagazine`/`Turret`/`POT` with overlap) so the tool-change schedule keys on the real magazine address, not an ad-hoc int
-
-
-[RAIL_LAW]:
-- Package: `MTConnect.NET-Common` (MIT)
-- Owns: the MTConnect observation/device/asset/streams model, response-document parse, SHDR adapter relay, incremental-poll cursor state, and the ISO-13399 cutting-tool asset MODEL — the asset/lifecycle/item graph, the typed `Measurements.*` geometry family, `ToolLife`/`ItemLife`, `Location`, `ProcessFeedRate`/`ProcessSpindleSpeed`, `ReconditionCount`, `CutterStatusType`, the `Asset` base, and the `GenerateHash` structural digest with `IsValid` schema validation
-- Accept: an agent document fetched over the AppHost `OutboundHop` and decoded to `ExternalValue` at the boundary under `MTConnectClientInformation` as the durable sequence cursor; a `CuttingToolAsset` authored through the lifecycle/items/measurements POCOs bound by `I…` interface, with `GenerateHash` feeding `ContentHash.Of`
-- Reject: a bundled HTTP/MQTT transport client, a second MTConnect poller, a boxed model type crossing into an interior, a stringly-typed `Measurement` where a named subtype exists, the XML/JSON wire serializer or any network transport (separate `MTConnect.NET-XML`/`-JSON`/`-HTTP`/`-MQTT`/`-SHDR`, not admitted), a bare `double` cutting dimension bypassing `UnitsNet` at the `ToolAssembly` boundary, and a hand-rolled tool-data model beside `CuttingToolAsset`

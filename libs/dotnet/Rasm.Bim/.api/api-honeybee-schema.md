@@ -2,21 +2,7 @@
 
 `HoneybeeSchema` binds the Ladybug Tools Honeybee energy/daylight model as the HBJSON object graph: the building-envelope geometry (`Model` -> `Room` -> `Face` -> `Aperture`/`Door`/`Shade`), the energy/radiance/doe2 property stores, and the validation surface, every type deriving from one `OpenAPIGenBaseModel` base with `ToJson`/`FromJson` round-trip and DataAnnotations validation. This generated DTO-and-serialization binding is the HBJSON leg of the Bim energy-model exchange owner, the schema a Rhino/Pollination/Grasshopper energy model round-trips in.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HoneybeeSchema`
-- package: `HoneybeeSchema` (MIT)
-- assembly: `HoneybeeSchema`
-- namespace: `HoneybeeSchema` (the model graph, the enum vocabulary, `OpenAPIGenBaseModel`/`AnyOf`/`Extension`, the concrete construction/material/schedule/HVAC/program classes, the `IBoundarycondition` union, and the `IAltnumber` `Autocalculate`/`Autosize` sentinels)
-- namespace: `HoneybeeSchema.Energy` / `HoneybeeSchema.Radiance` (the discriminant base interfaces — `IConstruction`/`IThermalConstruction`/`IWindowConstruction`, `IMaterial`, `ISchedule`, `IProgramtype`, `IHvac`/`IIdealair`, `IConstructionset`/`IGlobalConstructionset`, `ILoad`, `IModifier`/`IBuildingModifierSet` — the polymorphic keys the library `List<>`s and `Model.Add*` dispatch on)
-- namespace: `HoneybeeSchema.Helper` (`EnergyLibrary`, `Paths`, `PythonCommand`, `SettingConfig` — the standards-library and Python-CLI bridge)
-- asset: netstandard2.0 IL-only AnyCPU managed assembly, no native binaries; the net10.0 consumer binds the `lib/netstandard2.0` asset, and `Helper.PythonCommand` shells the external Ladybug Tools Python CLI
-- serialization: `LBT.Newtonsoft.Json`, the Ladybug-Tools Newtonsoft fork; HBJSON emits through the model's own `ToJson`/`FromJson`, never `System.Text.Json` or stock `Newtonsoft.Json`
-- dependency: `System.ComponentModel.Annotations` (the DataAnnotations `Validator` behind `Validate`/`IsValid`), `System.ValueTuple`
-- consumer: `libs/dotnet/Rasm.Bim`
-- rail: energy
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: serialization base and polymorphic union
 - note: the identified bases inline the round-trip and validate members; the `IBoundarycondition` closed union dispatches on `Type`, and the `Autocalculate`/`Autosize` sentinels resolve from geometry/standards at the boundary.
@@ -110,7 +96,7 @@ Each ctor is positional-then-optional; the optional tail carries the schema's OW
 - [ROOM_AXES]: `Room` carries `Zone` and `Story` as authored STRING identifiers beside its `Multiplier` repeat, so a raise reads a room's thermal-zone grouping and its level off the room itself — no sibling lookup and no derived grouping.
 - [BOUNDARY_ORDER]: the `Face` boundary closure orders its arguments `(Ground, Outdoors, Adiabatic, Surface, OtherSideTemperature)`, which is NOT the `DragonflySchema.Room2D.BoundaryConditions` order, so the two `AnyOf` closures are distinct constructed types and one concrete case re-converts between them.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: HBJSON round-trip
 - note: `FromJson` is static; deep `Duplicate` runs a `ToJson`/`FromJson` round-trip.
@@ -151,7 +137,7 @@ Each ctor is positional-then-optional; the optional tail carries the schema's OW
 |  [07]   | `Extension.GetAll*(this Abridged) -> List<string>`                     | static  | the library ids a `*Abridged` object references      |
 |  [08]   | `Extension.GetUserData/AddUserData/ToDictionary(this IIDdBaseModel)`   | static  | over the `UserData` dict                             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every object carries a `Type` string discriminator: `FromJson` checks it against the runtime type name and rejects a mismatch, and `AnyOf` slots resolve their concrete case through it — drive the Exchange-boundary map off `Type`, never a downcast chain.
@@ -168,9 +154,3 @@ Each ctor is positional-then-optional; the optional tail carries the schema's OW
 
 [LOCAL_ADMISSION]:
 - HBJSON import enters through `Model.FromJson`; export builds canonical -> `Model` through `Model.Add*` then `Model.ToJson`. Validation enters through `Validate()`/`IsValid()`, the standards baseline through `Helper.EnergyLibrary.StandardEnergyLibrary`.
-
-[RAIL_LAW]:
-- Package: `HoneybeeSchema`
-- Owns: the Honeybee HBJSON energy/daylight schema — the `OpenAPIGenBaseModel`/`AnyOf` serialization base, the building-envelope geometry, the `IBoundarycondition` union and `IAltnumber` sentinels, the energy/radiance/doe2 property stores and full energy library Dragonfly references by id, the abridged-reference model and `Extension` resolver/codec helpers, the enum vocabulary, validation, and the standards-library helper
-- Accept: HBJSON serialize/parse/validate/duplicate, energy-model assembly, standards-library lookup, the Exchange-boundary map to canonical Bim carriers
-- Reject: energy simulation (`OpenStudio` and EnergyPlus own it), HBJSON->OSM translation (the external `honeybee-openstudio` Python step), `System.Text.Json`/stock-Newtonsoft serialization of these types, and leaking `HoneybeeSchema.*` types past the codec boundary

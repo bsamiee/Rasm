@@ -2,15 +2,7 @@
 
 `pandas` owns the boundary frame: the labeled, axis-indexed `DataFrame` and `Series` value, backed by typed `Index` and dtype objects, that every non-native source lowers into and every external consumer receives. Its `read_*` ingest and `to_*` egress span text, SQL, columnar, and lakehouse formats, and `groupby`/`rolling`/`resample` drive split-apply-combine reduction. Label alignment is the topology every operation folds through; the frame is the interchange edge, never the compute hot path, and Arrow-backed columns hand off zero-copy to the columnar rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pandas`
-- package: `pandas` (BSD-3-Clause)
-- owner: `data`
-- module: `pandas`
-- rail: labeled tabular
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frames, indexes, and dtypes
 
@@ -45,7 +37,7 @@
 |  [10]   | `ExcelWriter`    | IO writer     | multi-sheet Excel writer context   |
 |  [11]   | `HDFStore`       | IO store      | HDF5 key-value table store         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and IO
 
@@ -87,7 +79,7 @@
 |  [17]   | `describe / corr / cov / value_counts`          | stats       | summary statistics                     |
 |  [18]   | `Series.str` / `Series.dt` / `Series.cat`       | accessor    | string, datetime, categorical methods  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DataFrame` aligns rows and columns by `Index` label; arithmetic, `merge`, and `concat` align on labels, minting `NaN` where labels do not match.
@@ -108,9 +100,3 @@
 - Express transforms as vectorized methods, `assign`, `pipe`, and `agg`/`transform` over Python row loops; pass `NamedAgg` for explicit aggregation-output names.
 - Index by label with `loc`/`at` and by position with `iloc`/`iat`; a `read_*` boundary frame gates through a `pandera.pandas` schema before downstream consumption rather than hand-asserted dtypes.
 - Reshape with `pivot_table`/`melt`/`stack`/`unstack` and combine with `merge`/`concat`/`merge_asof`, aligning labels deliberately so no silent `NaN` enters.
-
-[RAIL_LAW]:
-- Package: `pandas`
-- Owns: labeled in-memory tabular data, label-aligned arithmetic, split-apply-combine aggregation, and broad file/SQL/lakehouse IO
-- Accept: dicts, NumPy arrays, records, Arrow tables, and file/SQL sources via `read_*`
-- Reject: row-wise Python iteration for transforms, chained-`[]` assignment, unaligned label arithmetic, and reimplementing IO `read_*` already covers

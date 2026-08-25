@@ -18,7 +18,7 @@
 - Boundary: geometry failures remain here; structural, BIM, material, fabrication, and host failures keep their owning fault families.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;

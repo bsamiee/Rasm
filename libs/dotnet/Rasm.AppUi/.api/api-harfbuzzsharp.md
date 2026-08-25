@@ -2,18 +2,7 @@
 
 `HarfBuzzSharp` is the managed HarfBuzz binding: a `Blob` of face bytes builds a `Face`, a `Face` builds a scaled `Font`, and that `Font` shapes a `Buffer` of text into glyph ids, clusters, and advances under an explicit `Direction`/`Script`/`Language`/`ClusterLevel` segment policy plus an OpenType `Feature` set. It is the control altitude beneath `SkiaSharp.HarfBuzz`: the bridge's `SKShaper` reaches the same types with fixed segment properties and an empty feature array, so a run needing pinned script, feature values, or cluster policy binds these members directly. The assembly carries no glyph data — every face arrives through a caller-owned stream — and every call P/Invokes the `libHarfBuzzSharp` payload `api-harfbuzz-native.md` places.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HarfBuzzSharp`
-- package: `HarfBuzzSharp` (MIT)
-- floor: `net10.0` consumer (`lib/net10.0/HarfBuzzSharp.dll`)
-- assembly: `HarfBuzzSharp`
-- namespace: `HarfBuzzSharp`
-- depends: no managed dependency; `SkiaSharp.HarfBuzz` carries the same assembly in its closure, so the bridge and a direct consumer never bind two shaping surfaces
-- native: `libHarfBuzzSharp` (`api-harfbuzz-native.md`) — every member faults at first call on a missing-RID asset, never at compile
-- rail: typography
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [FACE_TYPES]: the face-to-font admission chain, each an owned native handle released in reverse construction order
 
@@ -61,7 +50,7 @@
 |  [05]   | `OpenTypeMetrics`           | class         | face metrics reader over `OpenTypeMetricsTag`                    |
 |  [06]   | `OpenTypeMetricsTag`        | enum          | ascender, cap height, x-height, underline, strikeout, caret rows |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [FACE_ENTRYPOINTS]: admit a face once per typeface and scale its font once; the design scale is the divisor every advance rescales through
 - root: `Blob` -> `Face` -> `Font`
@@ -148,7 +137,7 @@
 |  [06]   | `Tag`     | `(char, char, char, char)` literal four-character mint, no parse                    |
 |  [07]   | `Tag`     | implicit `Tag` <-> `uint` both directions — the tag IS its packed integer           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The chain is one-directional and lifetime-ordered — a `Blob` borrows a caller-owned stream, a `Face` parses the blob, a `Font` binds the frozen face — so releasing forward strands the survivors and a blob outliving its backing stream reads valid bytes until the stream frees.
@@ -168,9 +157,3 @@
 - `Tag.Parse` coerces silently, so tag admission validates the four-character shape at one owner and yields a typed rail value; a tag string reaching `Feature` unvalidated is the escape this admission exists to close.
 - The span accessors are the read form; the array properties recopy the whole run on every access and admit only a diagnostic dump.
 - `GlyphInfo.GlyphFlags` carries `UnsafeToBreak`, so a line breaker filters candidate boundaries on the shaper's own verdict rather than on source-text positions alone.
-
-[RAIL_LAW]:
-- Package: `HarfBuzzSharp`
-- Owns: the control-altitude shaping surface — face admission, the face's own variation, palette, and metrics metadata, the unicode script and mirroring classification, the pinned segment-property buffer protocol, the OpenType feature set, and the zero-allocation shaped-run read
-- Accept: one capsule per face instance scaled to the face's own `UnitsPerEm`, an explicitly pinned `RunSpec` on every deterministic run, `Feature` values minted through one validated tag admission, discretionary features proved by a shaped probe, and the span accessors for the glyph read
-- Reject: `GuessSegmentProperties` on a deterministic or evidence-bearing run, pre-slicing a string where the item-window ingress preserves cross-boundary joining forms, the array glyph properties on a shaping path, a blob outliving its backing stream, a shared design-scale constant standing in for the face's own unit square, and a raw `Feature` or unvalidated tag constructed at a call site

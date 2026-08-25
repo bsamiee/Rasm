@@ -2,14 +2,7 @@
 
 `GrasshopperIO` is the host-document persistence archive: `IWriter` and `IReader` are the symmetric typed-primitive write and read seams over every BCL scalar, array, and nested sub-object, `IStorable` is the round-trip contract a domain value implements, and `IoIdAttribute` stamps the IO identity the component-registration gate keys on. `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read before its scalar accessor runs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `GrasshopperIO` archive
-- host: `GrasshopperIO.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
-- namespace: `GrasshopperIO`, `GrasshopperIO.DataBase`
-- rail: host-grasshopper-io
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: archive contracts
 
@@ -30,7 +23,7 @@
 |  [04]   | `Node`     | class         | nested archive node (`IWriter`/`IReader`/`ISml`) |
 |  [05]   | `DataType` | enum          | stored-primitive discriminant                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IWriter typed write
 
@@ -64,7 +57,7 @@
 |  [02]   | `new IoIdAttribute` | `(string id)`        | mint the IO identity         |
 |  [03]   | `IoIdAttribute.Id`  | `Guid` property      | parsed identity read         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IWriter` and `IReader` are symmetric write and read seams over one archive; every access keys on a `Name`, and a nested sub-object descends through `CreateWriter`/`FindReader`.
@@ -80,9 +73,3 @@
 - Persistence enters through `IWriter`/`IReader`; a value crosses only as an `IStorable`, never as a raw scalar the folder re-serializes.
 - Component IO identity is `IoIdAttribute`; a type without the stamp is not admitted.
 - Typed-primitive members are the whole write and read surface; a hand-rolled serializer over `Value`/`Item` is the deleted form.
-
-[RAIL_LAW]:
-- Package: `GrasshopperIO` (host-document persistence)
-- Owns: the `IWriter`/`IReader` typed-primitive archive, the `IStorable` round-trip, the `GrasshopperIO.DataBase` `Name`/`Item`/`Node`/`Value`/`DataType` primitives, and the `IoIdAttribute` type identity
-- Accept: typed document read and write, storable round-trip, archive-node traversal, and IO-id declaration
-- Reject: document lifecycle and graph mutation (`api-gh2-document`), component declaration and pin typing (`api-gh2-components`)

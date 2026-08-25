@@ -2,17 +2,7 @@
 
 `Microsoft.Data.Sqlite` is the ADO.NET transport over the embedded `e_sqlite3` provider: `DbConnection`/`DbCommand`/`DbDataReader`/`DbTransaction` subclasses with blob streams, scalar and aggregate UDF registration, collations, extension loading, online backup, and pooling. Two folders bind disjoint rails: `Rasm.Persistence` owns the durable embedded-store rail — `SqliteConnection.Handle` (`SQLitePCL.sqlite3?`) is its seam to the raw `sqlite3_snapshot_*`, `sqlite3_wal_checkpoint_v2`, `sqlite3_db_config`, and paged `sqlite3_backup_*` calls the managed API never surfaces — and `Rasm.Compute` binds one read-only ADO fold over the EnergyPlus `eplusout.sql` results database: a bracketed `Mode=ReadOnly` connection carrying a parameterized SELECT family keyed on `(report, table, row, column)` onto `Option<double>`, so an absent or malformed row stays an absent fact.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Data.Sqlite`
-- package: `Microsoft.Data.Sqlite` (MIT)
-- assembly: `Microsoft.Data.Sqlite` — types ship in `Microsoft.Data.Sqlite.Core`; the meta-package binds the native provider bundle; the `net10.0` consumer binds the `lib/net8.0` asset
-- namespace: `Microsoft.Data.Sqlite`
-- depends: `SQLitePCLRaw.bundle_e_sqlite3` (`Rasm.Persistence/.api/api-sqlitepcl.md`) native provider; `Rasm.Persistence/.api/api-ef-sqlite.md` rides the EF provider
-- asset: provider admission and runtime transport
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CONNECTION_TYPES]: connection and command surfaces (ADO.NET `Db*` subclasses)
 
@@ -37,7 +27,7 @@
 |  [04]   | `SqliteCacheMode` | enum                | shared vs private cache                           |
 |  [05]   | `SqliteType`      | enum                | pins binding (`Integer`/`Real`/`Text`/`Blob`)     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection, execution, and the raw-handle bridge
 
@@ -96,7 +86,7 @@
 - [06]-[COERCE]: `sqlite3_column_double`/`_int64` coerce non-numeric TEXT to `0.0` silently — the fabricated-zero shape the invariant `double.TryParse` route rejects; `TabularDataWithStrings.Value` is TEXT, so the fold reads the string.
 - [07]-[INTROSPECT]: `GetSchema` surfaces only `MetaDataCollections` and `ReservedWords`, so table and column probes run as SQL.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SqliteConnection.Handle` (`SQLitePCL.sqlite3?`) and the ADO subclasses share one native `e_sqlite3` connection, so raw `sqlite3_snapshot_*`/`sqlite3_wal_checkpoint_v2`/`sqlite3_db_config`/`sqlite3_backup_*` policy layers onto the managed surface through the same handle.
@@ -116,9 +106,3 @@
 [LOCAL_ADMISSION]:
 - Persistence: SQL text, parameters, transactions, and blob streams pass through query-shape ownership beneath the unified store-profile rail; extension loading is an explicit profile capability, never ambient; backup and checkpoint operations emit typed `SqliteFact` cases.
 - Compute: SQL text exists only inside the one query family — every predicate is a bound parameter, so `CommandText` interpolation has no site; coercing typed getters (`GetDouble`/`GetInt64` over TEXT) stay off the fold, the invariant-parse route owns numeric extraction.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Data.Sqlite`
-- Owns: the embedded SQLite ADO.NET transport, the `Handle` bridge to the raw provider, and the read-only `(report, table, row, column)`-keyed tabular extraction over `eplusout.sql`
-- Accept: the `SqliteBlob` span stream and typed reader/parameter surfaces at Persistence; a post-run EnergyPlus results artifact in the bracketed scratch, read under `Mode=ReadOnly` with pooling disabled, at Compute
-- Reject: raw SQLite public service families; whole-payload blob materialization; `AddWithValue` type inference on maintenance binds; any Compute write, transaction, or `PRAGMA` mutation; a second SQLite rail in Compute (EF through `api-ef-sqlite`, raw interop through the `Handle` bridge); re-deriving a read the SWIG `SqlFile` already spells; coercing typed getters where the invariant parse owns the numeric fold

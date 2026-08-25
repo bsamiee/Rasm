@@ -2,18 +2,7 @@
 
 `AspNetCore.HealthChecks.Kafka` (Xabaril) proves Kafka broker write-readiness with one `IHealthCheck` producing a probe record through an admitted `Confluent.Kafka` `IProducer<string, string>`. AppHost carries the probe alone and no Kafka client — `Confluent.Kafka` is a `Rasm.Persistence` row — so it enters the capability-health fold as one `remote`-tagged row over the `ProducerConfig` the composition root built for that branch's egress binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Kafka`
-- package: `AspNetCore.HealthChecks.Kafka` (Apache-2.0)
-- assembly: `HealthChecks.Kafka`
-- namespace: `HealthChecks.Kafka`, `Microsoft.Extensions.DependencyInjection`
-- target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset, `RefSafetyRules(11)` nullable-annotated
-- depends: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`, `HealthCheckResult`, `HealthCheckRegistration`) admitted in this folder; `Confluent.Kafka` (`ProducerConfig`, `ProducerBuilder<,>`, `IProducer<,>`, `Message<,>`) arrives transitively, so the folder holds no direct `Confluent.Kafka` reference
-- asset: runtime library
-- rail: health
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe and options family
 
@@ -31,7 +20,7 @@
 |  [03]   | `Configure`      | `Action<ProducerBuilder<string, string>>?`               | builder hook run once before `Build()`       |
 |  [04]   | `MessageBuilder` | `Func<KafkaHealthCheckOptions, Message<string, string>>` | probe factory, default key `healthcheck-key` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations (`KafkaHealthCheckBuilderExtensions`, default name `"kafka"`)
 
@@ -50,7 +39,7 @@ Every `AddKafka` overload extends `IHealthChecksBuilder` and closes with `string
 |  [01]   | `CheckHealthAsync(HealthCheckContext, CancellationToken)` | produce to the topic; `NotPersisted` maps to `FailureStatus` |
 |  [02]   | `Dispose()`                                               | dispose the lazily built producer                            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `KafkaHealthCheck : IHealthCheck, IDisposable`, `KafkaHealthCheckOptions`, and the three `AddKafka` overloads are the entire public surface.
@@ -67,9 +56,3 @@ Every `AddKafka` overload extends `IHealthChecksBuilder` and closes with `string
 - `ProducerConfig` arrives from the composition root as the value the Persistence egress binding built its own `IProducer` from; the probe re-binds that config rather than minting a second connection vocabulary, so a broker outage degrades the publish path and the probe in lockstep, and a root binding no Kafka sink supplies this probe nothing and registers no row.
 - Non-`Persisted` deliveries and connect/auth exceptions project as a typed `HealthCheckResult` carrying `FailureStatus`, folded into a `HealthSnapshot.Entry` rather than thrown across the fold.
 - Health writes target a dedicated `healthchecks` topic, never the production CloudEvents topics, so they never pollute the committed op-log the Persistence egress pump drains.
-
-[RAIL_LAW]:
-- Package: `AspNetCore.HealthChecks.Kafka`
-- Owns: Kafka broker write-readiness as one `remote`-tagged contributor probe
-- Accept: the composition root's own `ProducerConfig`, a dedicated probe topic, and a bounded probe cadence
-- Reject: a parallel Kafka connection vocabulary, probing the production CloudEvents topics, or a thrown probe failure crossing the health fold

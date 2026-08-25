@@ -87,7 +87,7 @@ public sealed partial class Codec {
 
 public sealed class StampedFactory(PooledDbContextFactory<StoreContext> pool, Placement placement) : IDbContextFactory<StoreContext> {
     public StoreContext CreateDbContext() {
-        var store = pool.CreateDbContext();
+        StoreContext store = pool.CreateDbContext();
         store.Placement = placement;
         return store;
     }
@@ -212,10 +212,10 @@ public static class SchemaGate {
     public static Fin<SchemaVerdict> Admit(StoreContext store, Placement placement, string compiled, Census observed) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(placement);
-        var declared = toSeq(store.Model.GetEntityTypes())
+        Seq<string> declared = toSeq(store.Model.GetEntityTypes())
             .Map(static kind => kind.GetSchemaQualifiedTableName() ?? string.Empty)
             .Filter(static name => name.Length > 0);
-        var unknown = toSeq(observed.Objects).Filter(name => !declared.Exists(held => held == name));
+        Seq<string> unknown = toSeq(observed.Objects).Filter(name => !declared.Exists(held => held == name));
         return observed.Digest.Case switch {
             null when placement.Materializes => Materialized(store),
             null => Fin.Succ<SchemaVerdict>(new SchemaVerdict.Absent()),
@@ -324,7 +324,7 @@ public static class FactRail {
     public static async Task<Fin<Seq<FactView>>> Read(IDbContextFactory<StoreContext> factory, StoreOp op, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(factory);
         return await Op.Of().Catch(async ct => {
-            await using var store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            await using StoreContext store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
             return Fin.Succ(toSeq(await store.Database.CreateExecutionStrategy().ExecuteAsync(
                 (Store: store, Op: op),
                 static (state, ct) => state.Op.Shaped(state.Store.Set<Fact>()).TagWith(nameof(Read)).ToArrayAsync(ct),
@@ -336,7 +336,7 @@ public static class FactRail {
     public static async Task<Fin<int>> Count(IDbContextFactory<StoreContext> factory, int floor, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(factory);
         return await Op.Of().Catch(async ct => {
-            await using var store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            await using StoreContext store = await factory.CreateDbContextAsync(ct).ConfigureAwait(false);
             return Fin.Succ(await HotCount(store, floor, ct).ConfigureAwait(false));
         }, token);
     }
@@ -377,7 +377,7 @@ public static class WriteMass {
     public static async Task<Fin<MassFact>> Touch(StoreContext store, Guid key, int rank, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
         return await Op.Of().Catch(async ct => {
-            var affected = await store.Set<Fact>().Where(f => f.Key == key).ExecuteUpdateAsync(setters => {
+            int affected = await store.Set<Fact>().Where(f => f.Key == key).ExecuteUpdateAsync(setters => {
                 setters.SetProperty(static f => f.Rank, rank);
                 if (rank > 8) { setters.SetProperty(static f => f.Payload, "<value-a>"); }
             }, ct).ConfigureAwait(false);
@@ -390,8 +390,8 @@ public static class WriteMass {
     public static async Task<Fin<MassFact>> Ingest(StoreContext store, Seq<Fact> rows, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
         return await Op.Of().Catch(async ct => {
-            using var bridge = store.CreateLinqToDBConnection();
-            var copy = await bridge.GetTable<Fact>()
+            using DataConnection bridge = store.CreateLinqToDBConnection();
+            BulkCopyRowsCopied copy = await bridge.GetTable<Fact>()
                 .BulkCopyAsync(new BulkCopyOptions { BulkCopyType = BulkCopyType.MultipleRows, KeepIdentity = true }, rows, ct)
                 .ConfigureAwait(false);
             return (int)copy.RowsCopied == rows.Count
@@ -404,9 +404,9 @@ public static class WriteMass {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(cut);
         return await Op.Of().Catch(async ct => {
-            await using var tx = await store.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
-            using var bridge = store.CreateLinqToDBConnection();
-            var emitted = toSeq(await bridge.GetTable<Fact>()
+            await using IDbContextTransaction tx = await store.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+            using DataConnection bridge = store.CreateLinqToDBConnection();
+            Seq<ChangeRow> emitted = toSeq(await bridge.GetTable<Fact>()
                 .Merge().Using(source).On(static held => held.Key, static next => next.Key)
                 .UpdateWhenMatchedAnd(static (held, next) => held.Rank != next.Rank, static (held, next) => next)
                 .InsertWhenNotMatched()

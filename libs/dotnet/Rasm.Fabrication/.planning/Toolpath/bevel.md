@@ -49,7 +49,7 @@
 - Boundary: `ThcSpan` rows neither overlap nor gap, and every non-`Off` terminal closes inside the admitted schedule.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using CavalierContours.Core;
 using CavalierContours.Polyline;

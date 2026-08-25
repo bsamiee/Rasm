@@ -2,16 +2,7 @@
 
 `Npgsql.NetTopologySuite` admits the PostGIS `geometry`/`geography` wire codecs onto an `INpgsqlTypeMapper`, so an Npgsql command reads and writes `NetTopologySuite.Geometries.Geometry` values as native ADO parameters and result fields. Admission registers a `NetTopologySuiteTypeInfoResolverFactory` carrying the coordinate-sequence, precision, ordinate, and geography-default policy; the codec owns the binary round-trip, the geometry model and the EF column mapping stay with their own owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.NetTopologySuite`
-- package: `Npgsql.NetTopologySuite` (`PostgreSQL`)
-- assembly: `Npgsql.NetTopologySuite`
-- namespace: `Npgsql`
-- depends: `Npgsql` ADO provider, `NetTopologySuite` geometry model
-- rail: spatial store codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: PostGIS wire-codec admission
 
@@ -19,7 +10,7 @@
 | :-----: | :--------------------------------- | :------------ | :------------------------------------------------ |
 |  [01]   | `NpgsqlNetTopologySuiteExtensions` | class         | admits geometry/geography codecs on a type mapper |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: type-mapper codec admission
 
@@ -32,7 +23,7 @@ Both overloads carry the shared optional tuple `CoordinateSequenceFactory?`, `Pr
 
 - `UseNetTopologySuite<TMapper>`: `TMapper : INpgsqlTypeMapper`, so `NpgsqlDataSourceBuilder` binds this generic and chains at provisioning.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Admission is provisioning-time: registering the resolver factory on the mapper is the only act, and thereafter every PostGIS `geometry`/`geography` value round-trips as `Geometry` with no query-path call.
@@ -44,9 +35,3 @@ Both overloads carry the shared optional tuple `CoordinateSequenceFactory?`, `Pr
 
 [LOCAL_ADMISSION]:
 - PostgreSQL store profile admits `UseNetTopologySuite` on the data source before any spatial command opens a connection; `geographyAsDefault`, precision, coordinate-sequence, and ordinate handling are profile policy, never call-site literals.
-
-[RAIL_LAW]:
-- Package: `Npgsql.NetTopologySuite`
-- Owns: PostGIS `geometry`/`geography` ADO wire-codec admission for `Npgsql`
-- Accept: `UseNetTopologySuite` on the store data source or type mapper
-- Reject: WKT strings, raw WKB blobs, or EF-only plugin admission without the ADO codec

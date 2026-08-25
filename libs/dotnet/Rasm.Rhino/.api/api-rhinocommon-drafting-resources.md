@@ -2,15 +2,7 @@
 
 `RhinoCommon` owns the drafting-resource boundary the annotation styles reference: `Hatch` geometry with gradient and pattern fill behind `HatchPattern`/`HatchLine` definitions and the `HatchPatternTable`, `Linetype` segment/shape/taper definitions behind the `LinetypeTable`, `Font`/`FontQuartet` typeface resolution behind the `FontTable`, and `SectionStyle` section-cut presentation behind the `SectionStyleTable`. Every live document-bound resource resolves inside the owning session before a detached value crosses the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon drafting-resource surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino.Geometry`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`
-- rail: drafting-resource boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hatch geometry and pattern model
 
@@ -48,7 +40,7 @@
 - `ObjectSectionFillRule` — `ClosedCurves` `SolidObjects`.
 - Edge-mapped external owners: `Rhino.Display.LineCapStyle`/`LineJoinStyle` carry a `Linetype`'s caps and joins; `Rhino.UnitSystem` carries pattern and width units.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [HATCH_CONSTRUCT]:
 
@@ -191,7 +183,7 @@
 - `Delete(IEnumerable<int>, bool quiet, int deleteWarning)` reads its third argument as an in-use-warning verdict — `0` refuses every warned row, `1` admits every warned row, `2` asks the operator — and the two-argument `Delete(IEnumerable<int>, bool)` overload derives it as `quiet ? 0 : 2`; the three-argument form exists to OVERRIDE that derivation, so a caller wanting the derived verdict spells the two-argument call.
 [SECTION_TABLE_STATE]: `GetUnusedSectionStyleName()` `ActiveCount` — name-mint and active-count state
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Hatch` is boundary geometry, a `PatternIndex` reference, and placement (`Plane`, `BasePoint`, `PatternRotation`, `PatternScale`); pattern content is a `HatchPattern` owning an ordered `HatchLine` set, each line one dash-run generator. Gradient fill is orthogonal state set through `SetGradientFill`; `CreateDisplayGeometry` resolves the boundary, pattern lines, and solid-fill brep the display pipeline draws.
@@ -209,9 +201,3 @@
 [LOCAL_ADMISSION]:
 - a resource enters through its table `Add`/`Modify`, fully composed (lines, segments, shapes, indices) before the add and mutated only through `Modify` after. A section style's `HatchIndex`/`BoundaryLinetypeIndex` binds only after the referenced pattern and linetype resolve in their tables.
 - live `Hatch`, `HatchPattern`, `Linetype`, `Font`, and `SectionStyle` values stay inside the document grant; downstream code receives bounded owners, detached geometry (boundary curves, pattern lines, solid breps, preview lines), resolved font handles, or detached results.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: hatch geometry and pattern definitions, linetype segment/shape/taper definitions, font resolution, and section-style presentation, each behind its table transaction.
-- Accept: resource authoring and file interchange, hatch construction and display-geometry resolution, font resolution and substitution, and section-style composition projected onto `Fin`/`Option`/`Seq` rails with host enums and indices mapped to bounded owners at the edge.
-- Reject: in-table resource mutation standing in for `Modify`, a section index bound before its referenced pattern or linetype resolves, exception-style table outcomes, a re-derived color blend where the kernel color rail is composed, and live document-bound resources crossing the session boundary.

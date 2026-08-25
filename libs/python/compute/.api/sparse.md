@@ -2,17 +2,7 @@
 
 `sparse` owns n-dimensional sparse arrays for the compute array rail: `COO`, `GCXS`, and `DOK` classes under a `SparseArray` base implementing the Python Array API, with creation, conversion, linear-algebra, element-wise, shape, reduction, and `.npz` IO over arbitrary rank. `format=`/`asformat` discriminates one polymorphic value across the three formats and `fill_value` fixes the implicit dense value carried through every operation; `sparse` complements `scipy.sparse` by owning the >2-D `tensordot`/`einsum`/broadcast algebra 2-D CSR/CSC cannot express, and keeps every intermediate sparse.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `sparse`
-- package: `sparse` (BSD-3-Clause)
-- import: `sparse`
-- owner: `compute`
-- rail: array
-- asset: pure Python; the optional `sparse.numba_backend` JIT re-export requires `numba`/`llvmlite`
-- capability: n-dimensional sparse arrays with the full Array-API operation set and an optional Numba JIT backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sparse array classes
 - format is data, not a type axis — `asformat('coo'|'gcxs'|'dok')` discriminates one polymorphic value rather than branching per class
@@ -46,7 +36,7 @@
 
 `sparse` mints no exception family; the densify-bound raise this catalog names elsewhere is `ValueError`. UNVERIFIED BY PROBE — the distribution is not installed in this environment, so the rows read from the documented surface and a probe is owed before a narrower tuple lands.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and conversion
 - creation functions take `format='coo'/'gcxs'/'dok'` and `fill_value`; class constructors build a format directly
@@ -100,7 +90,7 @@
 |  [13]   | dtype         | `result_type(*arrays_and_dtypes)`, `can_cast(from_, to)`, `isdtype(dtype, kind)`, `astype(x, dtype)`, `finfo`, `iinfo`   |
 |  [14]   | numba backend | `sparse.numba_backend` re-exports the array classes and operations under Numba JIT dispatch                              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `format='coo'/'gcxs'/'dok'` on creation or `asformat` selects storage; one `asformat` discriminates instead of per-class branching, and inter-format moves are direct methods — COO `tocsr`/`tocsc`, GCXS `tocoo`/`todok`, DOK `to_coo` — never a dense round-trip.
@@ -119,9 +109,3 @@
 - entry: a sparse payload enters through `asarray(..., format=...)` or `from_scipy_sparse`, `asformat`-discriminated, never a parallel per-format entrypoint.
 - evidence: a sparse-array fold captures format, `nnz`/`density`, and `fill_value` as the array claim, and `maybe_densify` gates densification so a memory blow rails as a typed boundary, not an OOM.
 - boundary: results stay sparse across the pipeline, and `todense`/`asnumpy` materialise only at a declared dense-consumer edge.
-
-[RAIL_LAW]:
-- Package: `sparse`
-- Owns: COO/GCXS/DOK n-dimensional sparse arrays, the Array-API math/reduce/linalg surface over arbitrary rank, inter-format conversion, the SciPy/NumPy bridges, `.npz` IO, and the optional Numba JIT backend
-- Accept: an n-D sparse payload under `asformat` discrimination, a `fill_value` for the implicit dense value, and `elemwise`/`reduce` for custom operations
-- Reject: per-format parallel entrypoints, manual coordinate iteration for library-owned operations, dense intermediate materialisation inside a sparse pipeline, and re-implementing the 2-D sparse LA `scipy.sparse.linalg` owns

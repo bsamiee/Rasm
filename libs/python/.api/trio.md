@@ -2,17 +2,7 @@
 
 `trio` is the structured-concurrency runtime `anyio` runs on: an async kernel that scopes every task under a joined nursery and cancels through level-triggered scopes, with an `outcome`-typed thread bridge and native TCP/UNIX/SSL/DTLS transports. It is the backend the boundary tier targets through `anyio`, and the direct surface for the guest-mode hosting, custom `Clock`, `Instrument` hooks, and deterministic `trio.testing` kit `anyio` does not expose.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `trio`
-- package: `trio` (MIT OR Apache-2.0)
-- module: `trio`
-- asset: runtime library
-- rail: concurrency
-- depends-on: `attrs`, `sortedcontainers`, `idna`, `outcome`, `sniffio`
-- namespaces: `trio`, `trio.abc`, `trio.lowlevel`, `trio.socket`, `trio.to_thread`, `trio.from_thread`, `trio.testing`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: nurseries, cancellation, and run lifecycle
 
@@ -119,7 +109,7 @@
 |  [02]   | `Sequencer`                  | ordering tool | force a deterministic interleaving across tasks (`async with seq(n)`)               |
 |  [03]   | `Memory{Send,Receive}Stream` | test stream   | in-memory byte stream with injectable `send_all_hook`/`receive_some_hook`           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: run entry, nurseries, and clock
 - `run` carries `clock=None, instruments=(), restrict_keyboard_interrupt_to_checkpoints=False, strict_exception_groups=True`
@@ -213,7 +203,7 @@
 |  [06]   | `check_{two_way,one_way,half_closeable}_stream(...)`   | conformance    | exhaustive contract test for a custom `Stream`             |
 |  [07]   | `open_stream_to_socket_listener(listener)`             | test connect   | dial a `SocketListener` with no real network round-trip    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `open_nursery()` is `async with`; every `nursery.start_soon`/`nursery.start` child completes before the block exits, and child failures aggregate into a `BaseExceptionGroup` split with `except*` — `strict_exception_groups=True` is the trio default, so a lone child raise still surfaces as a one-element group.
@@ -240,9 +230,3 @@
 - Bound every deadline-limited I/O with `fail_after`/`move_on_after` (or the `_at` absolute forms) — the deadline rides the enclosing `CancelScope` and composes through nested calls without a per-call timeout argument.
 - Dispatch blocking native/sync calls through `to_thread.run_sync(..., limiter=...)` with an explicit `CapacityLimiter`, and re-enter the loop from a thread through `from_thread.run`.
 - Checkpoint tight compute or polling loops with `lowlevel.checkpoint()` so cancellation and fairness stay live; gate test timing on `testing.wait_all_tasks_blocked()` and `testing.MockClock`, never a wall-clock sleep.
-
-[RAIL_LAW]:
-- Package: `trio`
-- Owns: the structured-concurrency runtime — nurseries, level-triggered cancel scopes + deadlines, memory channels, `outcome`-typed thread/loop bridge, abstract stream/channel/listener/clock/instrument contracts, native TCP/UNIX/SSL/DTLS transports, async `Path`, subprocess, signal receivers, guest-mode interleaving, low-level checkpoints/parking, and the deterministic `trio.testing` kit
-- Accept: `open_nursery` + `nursery.start`/`start_soon`, `fail_after`/`move_on_after`/`fail_at`/`move_on_at`, `open_memory_channel`, `open_tcp_stream`/`serve_tcp`/SSL+DTLS transports, `to_thread`/`from_thread` with explicit `CapacityLimiter`, `trio.Path`/`run_process`, `open_signal_receiver`, `lowlevel.checkpoint`/`start_guest_run`/`RunVar`/`Instrument`, `trio.testing` autojump + checkpoint assertions
-- Reject: bare un-nurseried task spawns, raw `socket`/`ssl`/`signal`/`subprocess`/`threading`/`concurrent.futures`, blocking sync `open`/`pathlib`/`time.sleep` on the loop, catching `Cancelled`/`BaseException` broadly, `asyncio` primitives mixed into a trio run, and wall-clock timing in tests

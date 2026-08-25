@@ -2,17 +2,7 @@
 
 `Avalonia.Controls.DataGrid` owns the AppUi tabular rail: a virtualized `TemplatedControl` over `ItemsSource` with two-level editable rows and sortable, groupable, pageable, frozen columns, paired with the `DataGridCollectionView` engine that folds filter, sort, group, page, and current-row state over `Avalonia.Collections`. Typed rows reach it as one DynamicData-projected `ReadOnlyObservableCollection` bound into `ItemsSource`, and selection and edit state bind through a ReactiveUI view model. This is the single tabular boundary; no parallel hand-rolled list control exists.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Controls.DataGrid`
-- package: `Avalonia.Controls.DataGrid` (MIT)
-- assembly: `Avalonia.Controls.DataGrid`
-- consumer-tfm: `net10.0` (multi-target `net10.0`/`net8.0`; `net10.0` is the bound asset)
-- namespace: `Avalonia.Controls`, `Avalonia.Controls.Primitives`, `Avalonia.Collections`
-- asset: runtime library (no native payload)
-- rail: tables
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [GRID_CONTROLS]: table controls and containers
 
@@ -81,7 +71,7 @@
 |  [08]   | `DataGridCurrentChangingEventArgs` | class         | current-row guard event                     |
 |  [09]   | `PageChangingEventArgs`            | class         | page-change guard event                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [GRID_STATE_ENTRYPOINTS]: row source, selection, and policy on `DataGrid`
 
@@ -189,7 +179,7 @@
 |  [05]   | `DataGridRowGroupHeader.PropertyName` / `IsItemCountVisible`        | property | header chrome           |
 |  [06]   | `DataGridRowClipboardEventArgs.ClipboardRowContent` / `Item`        | property | copy-row payload        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DataGrid` realizes `ItemsSource` lazily through `DataGridRowsPresenter`/`DataGridCellsPresenter`, recycling containers on `LoadingRow`/`UnloadingRow`; no `DataGridRow` exists for an off-screen item.
@@ -213,9 +203,3 @@
 
 [LOCAL_ADMISSION]:
 - A tabular surface in the AppUi shell is admitted only as a `DataGrid` bound to a DynamicData-projected `ReadOnlyObservableCollection`, its filter/sort/group/page state on `DataGridCollectionView` and its rows typed value objects.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Controls.DataGrid`
-- Owns: virtualized table projection, two-level editable rows, sortable/groupable/pageable/frozen columns, clipboard, and the `DataGridCollectionView` filter/sort/group/page/current-row engine.
-- Accept: typed rows feed one grid through a DynamicData-bound `ReadOnlyObservableCollection`; interactive filter/sort/group/page on `DataGridCollectionView`; edit and selection through a ReactiveUI view model.
-- Reject: an ad hoc table control beside the grid; filter/sort hidden in source-collection mutation; stringly-typed cells in place of value-object rows.

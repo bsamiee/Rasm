@@ -2,16 +2,7 @@
 
 `Apache.Arrow.Adbc.Drivers.Apache` mints the concrete pure-managed Thrift-over-Arrow ADBC drivers for the HiveServer2 protocol family — Spark/Databricks, Hive, and Impala/Kudu — each a concrete `AdbcDriver` whose `Open` yields an `AdbcDatabase` over `AdbcConnection`/`AdbcStatement` returning Arrow `RecordBatch` streams. Every driver configures ONLY through the `IReadOnlyDictionary<string,string>` parameter map its `adbc.*` `const string` key holders populate — the map is the wire contract, never a typed options object.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Adbc.Drivers.Apache`
-- package: `Apache.Arrow.Adbc.Drivers.Apache` (Apache-2.0)
-- assembly: `Apache.Arrow.Adbc.Drivers.Apache`
-- namespace: `Apache.Arrow.Adbc.Drivers.Apache`, `.Spark`, `.Hive2`, `.Impala`
-- asset: runtime library, pure-managed AnyCPU, no native RID asset (Thrift over `System.Net.Http`/`System.Net.Sockets`); multi-TFM `net8.0`/`netstandard2.0`/`net472`, the `net10.0` consumer binding `lib/net8.0`.
-- rail: query egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: driver entrypoints (concrete `AdbcDriver`)
 
@@ -49,7 +40,7 @@
 |  [06]   | `ImpalaServerTypeConstants`         | `http`/`standard` (server-type)                       |
 |  [07]   | `DataTypeConversionOptions`         | `None`=`"none"`/`Scalar`=`"scalar"`                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: driver open + parameter/statement keys
 
@@ -69,7 +60,7 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 
 `api-arrow-egress.md` owns the base `Apache.Arrow.Adbc` result-execution contract this driver overrides — the `AdbcConnection`/`AdbcStatement` query, bind, and metadata members.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - driver root: `SparkDriver`/`HiveServer2Driver`/`ImpalaDriver` (`AdbcDriver`) `.Open` the parameter map -> `AdbcDatabase` -> `AdbcConnection`/`AdbcStatement`, one concrete driver per protocol
@@ -87,9 +78,3 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 - auth-type and server-type are string discriminants (`SparkAuthTypeConstants.OAuth`, `SparkServerTypeConstants.Http`), mapped at the boundary through a `[SmartEnum<string>]` so the canonical token survives projection
 - `HiveServer2Exception` carries every statement fault; the boundary lifts its `SqlState`/`NativeError` onto the canonical `Fin`/typed-failure rail, and no `AdbcException` crosses into domain logic
 - result `RecordBatch` streams are consumed through the base `IArrowArrayStream`, then projected to the canonical Arrow owner — the driver is a SOURCE adapter, not a data model
-
-[RAIL_LAW]:
-- Package: `Apache.Arrow.Adbc.Drivers.Apache` (Apache-2.0)
-- Owns: the concrete HiveServer2-family ADBC drivers (`SparkDriver`/`HiveServer2Driver`/`ImpalaDriver`), their `adbc.*` connection-string parameter vocabulary, the auth/transport/TLS/proxy key sets, and the `HiveServer2Exception` error rail
-- Accept: a Spark/Hive/Impala Thrift SQL warehouse opened through the Query-federation boundary, configured by the typed parameter map, returning Arrow `RecordBatch` streams over the base `Apache.Arrow.Adbc` contract
-- Reject: an `adbc.*` key string in an interior signature; an `AdbcException` crossing into domain logic; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)

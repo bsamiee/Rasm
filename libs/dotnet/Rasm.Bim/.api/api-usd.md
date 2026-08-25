@@ -2,16 +2,7 @@
 
 `UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec throw remains the exact exceptional `Error` through `Op.Catch`; explicit scope/capability refusals mint `BimFault.Refused`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `UniversalSceneDescription`
-- package: `UniversalSceneDescription` (MPL-2.0)
-- assembly: `UniversalSceneDescription.dll`, `USD.NET.dll` — both `lib/net10.0/`, one shared `pxr` public surface
-- namespace: `pxr`
-- asset: managed SWIG wrapper over per-RID native USD — `runtimes/{osx-arm64,osx-x64,linux-x64,win-x64}/native` ship `libusd_*.dylib`/`.so`/`.dll`, the Pixar `usd/plugInfo.json` plugin tree, and `libAlembic`; a stage op with no matching RID native payload and plugin tree faults at native load
-- rail: `format#FORMAT_AXIS` (the `usd-stage` codec; scene-graph peer to the IFC semantic graph)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stage and layer composition roots
 
@@ -83,7 +74,7 @@
 |  [09]   | `SdfVariability` / `SdfSpecifier`                   | attribute kind    | varying-vs-uniform and def/over/class specifier              |
 |  [10]   | `ArResolverContext`                                 | asset resolver    | the asset-resolution context a stage open binds              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stage open, create, and export
 - note: surfaces are `UsdStage` methods unless prefixed `UsdGeom.`; `InitialLoadSet` (`LoadAll`/`LoadNone`) is the nested payload-load enum
@@ -172,7 +163,7 @@
 |  [18]   | `UsdGeomPointInstancer.GetInvisibleIdsAttr()`                                | instancer   | the per-instance visibility mask  |
 |  [19]   | `ComputeInstanceTransformsAtTime(VtMatrix4dArray, UsdTimeCode, UsdTimeCode)` | instancer   | composed per-instance matrices    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `UsdStage` composes a layer stack; authored opinions land on the active `UsdEditTarget`, so a non-destructive override layer is the edit target and a destructive flatten is the rejected form.
@@ -197,9 +188,3 @@
 - `FrameNormalization`'s Y-up→Z-up row (on `format#FORMAT_AXIS`) normalizes the imported frame; a USD-local frame leaking into the kernel is the rejected form.
 - Native handles enter only through declared `IDisposable` roots and release deterministically; a preflight proving no matching RID native payload/plugin tree mints `BimFault.Refused` under import/capability before stage construction.
 - MPL-2.0 file-level reciprocity is satisfied by referencing the unmodified NuGet binaries, never modifying its source files.
-
-[RAIL_LAW]:
-- Package: `UniversalSceneDescription`
-- Owns: the OpenUSD scene-graph read/write — `UsdStage` layer composition (sublayers, references, payloads, variants, inherits, specializes), prim/attribute authoring on an edit target, the `UsdGeom`/`UsdShade`/`UsdSkel`/`UsdLux` typed schemas, time-sampled values, and export/flatten.
-- Accept: a `.usd*` scene read/authored through `UsdStage` and the typed schemas; the mesh crossing the `VtVec3fArray`/`VtIntArray` seam to the kernel vocabulary; the frame normalized Y-up→Z-up; the shade network reconciled with `AppearanceSummary`/OpenPBR; federation and options composed on USD references/variants — coexisting with the IFC semantic graph as a scene-graph peer.
-- Reject: BIM semantics derived from USD prim type names; a raw attribute-name string beside the typed schema; a USD-local frame leaking past `FrameNormalization`; a USD↔glTF direct converter minted in Bim; a per-format USD reader family; the `SWIGTYPE_p_*`/`*PINVOKE` interop types in canonical owners.

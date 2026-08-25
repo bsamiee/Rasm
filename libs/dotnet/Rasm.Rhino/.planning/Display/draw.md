@@ -22,7 +22,7 @@ The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills,
 - Boundary: no `System.Drawing` or Eto colour becomes domain state; `LineCapStyle`/`LineJoinStyle`/`CoordinateSystem`/`BlendMode` live only as row columns.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using PenLineCap = Eto.Drawing.PenLineCap;
 using PenLineJoin = Eto.Drawing.PenLineJoin;
 using Rasm.Domain;

@@ -4,15 +4,7 @@
 
 Aggregation rides the response — `FinishPartMetadata.openrouter` carries resolved-upstream `provider`, per-call cost, and `cacheControl` breakpoint savings — while the surface binds no embedding, tokenizer, telemetry, or provider-tool; failure flows through `AiError`, all I/O `Effect`/`Stream`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/ai-openrouter`
-- package: `@effect/ai-openrouter` (MIT)
-- module: dual CJS+ESM, `sideEffects:[]`, per-module subpath exports (`@effect/ai-openrouter/OpenRouterClient`)
-- runtime: node|browser; peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect`
-- rail: ai — the OpenRouter aggregator provider row
-
-## [02]-[CLIENT]
+## [01]-[CLIENT]
 
 [CLIENT_TYPE_SCOPE]: the streaming-fold chunk family and the request-scoped client transform
 
@@ -41,7 +33,7 @@ Aggregation rides the response — `FinishPartMetadata.openrouter` carries resol
 - `createChatCompletionStream` omits the `stream` key, set internally.
 - `OpenRouterConfig.withClientTransform` mutates the request `HttpClient` per call without rebuilding transport, distinct from the build-time `transformClient`.
 
-## [03]-[LANGUAGE_MODEL]
+## [02]-[LANGUAGE_MODEL]
 
 [LANGUAGE_MODEL_TYPE_SCOPE]: the per-request override tag and the reasoning-slot metadata
 
@@ -74,7 +66,7 @@ Aggregation rides the response — `FinishPartMetadata.openrouter` carries resol
 
 - `model`/`make`/`layer` require `OpenRouterClient` and provide the core `LanguageModel` tag.
 
-## [04]-[GENERATED]
+## [03]-[GENERATED]
 
 [GENERATED_TYPE_SCOPE]: the machine-generated OpenRouter REST corpus — wire schemas, enums, the `Client` interface, and the per-status `ClientError` rail
 
@@ -103,7 +95,7 @@ Aggregation rides the response — `FinishPartMetadata.openrouter` carries resol
 
 - `Service.client.<op>` composes by `typeof X.Encoded` / `typeof X.Type`, never `Generated.make` nor an individual schema import.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every language-model entrypoint resolves the provider-agnostic `LanguageModel.LanguageModel` tag, so provider choice is one `Layer` swap and a model id stays a free-form `${provider}/${model}` string.
@@ -119,9 +111,3 @@ Aggregation rides the response — `FinishPartMetadata.openrouter` carries resol
 [LOCAL_ADMISSION]:
 - OpenRouter admits as one aggregator provider row resolved into the shared `LanguageModel` tag; `Redacted` + `Config` own credential resolution through `layerConfig`.
 - Reach REST via `OpenRouterClient.Service.client.<op>`, composing by `typeof X.Encoded` / `typeof X.Type`.
-
-[RAIL_LAW]:
-- Package: `@effect/ai-openrouter`
-- Owns: the OpenRouter aggregation binding onto `@effect/ai` — the `OpenRouterClient` curated chat rails and raw `Generated` REST corpus, `OpenRouterLanguageModel` resolving the `LanguageModel` tag, the per-request `Config` and `OpenRouterConfig` client transform, and the provider-routing / reasoning / cost / cache-breakpoint metadata
-- Accept: one `model(id)` row resolved into the shared tag, `Redacted` + `Config` credentials, aggregation knobs carried as `Config` data, `FinishPart` cost/provider read for tier routing
-- Reject: a model-id enum, an `OpenAiClient` composition for OpenAI-format aggregation, a hand-rolled provider-routing or cost meter, an arbitrary-SSE escape hatch when `createChatCompletionStream` owns streaming, an embedding/tokenizer/telemetry port bound here

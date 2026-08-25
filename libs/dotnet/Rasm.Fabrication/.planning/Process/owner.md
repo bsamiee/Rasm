@@ -24,7 +24,7 @@ Each lane returns its canonical domain result, carrying a content key or measure
 - Boundary: `EgressKind` federates to the Persistence `ArtifactKind` rows at the content-key boundary by VALUE, never a type reference.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;

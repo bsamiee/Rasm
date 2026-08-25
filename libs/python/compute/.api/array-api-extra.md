@@ -2,14 +2,7 @@
 
 `array-api-extra` owns the Array API extension operations the base standard omits, the `at` write-side indexed-update builder, and the lazy-dispatch wrapper, every op parametric over an `xp` namespace so one call runs backend-agnostic across NumPy, JAX, Torch, and Dask. It rides the extension tier directly above the `xp` namespace `array-api-compat` resolves.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `array-api-extra`
-- package: `array-api-extra` (MIT)
-- module: `array_api_extra`
-- rail: Array API extension tier over the resolved `xp` namespace
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension operations, the `at` builder, and test helpers
 
@@ -40,7 +33,7 @@
 |  [23]   | `angle`            | function      | complex phase angle        |
 |  [24]   | `testing`          | module        | lazy-backend test helpers  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: extension operations
 - `xp` carry: every op takes a trailing `*, xp=None` namespace override, elided below; `default_dtype` alone takes `xp` positionally.
@@ -88,7 +81,7 @@
 |  [08]   | `testing.pickle_flatten(obj, cls)`                                            | static  | flatten lazy pytree to leaves    |
 |  [09]   | `testing.pickle_unflatten(instances, rest)`                                   | static  | rebuild pytree from leaves       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op takes an optional `xp`; omitting it runs `array_namespace(*arrays)` internally, so a kernel resolves `xp` once at the boundary and threads it into every call.
@@ -105,9 +98,3 @@
 - Thread the resolved `xp` into every call; a hot path never re-dispatches.
 - `lazy_apply` is required where `func`'s control flow resists graph tracing (JAX, Dask); its `shape`/`dtype` declaration is what makes tracing succeed.
 - `testing.*` imports under test scope alone, never a production compute owner.
-
-[RAIL_LAW]:
-- Package: `array-api-extra`
-- Owns: the Array API extension operations absent from the base standard, the `at` indexed-update builder, and the lazy-dispatch wrapper
-- Accept: `xp`-parametric backend-agnostic calls, `at(...).set(..., copy=...)` gated by `is_writeable_array`, `lazy_apply` gated by `is_lazy_array`
-- Reject: a single-backend hand-roll of any extension pattern, a vendor `.at[]` or in-place assignment where the `at` builder spans both, a `testing` import outside test scope

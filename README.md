@@ -4,13 +4,13 @@ Rasm is a polyglot monorepo whose `libs/` branches hold independently adoptable 
 
 ## [01]-[MAP]
 
-| [INDEX] | [TREE]           | [HOLDS]                                                                        |
-| :-----: | :--------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `libs`           | independently adoptable language branches beside the cross-`libs/` core        |
-|  [02]   | `apps`           | Each `apps/<app-name>/` holds one app's projects across any languages          |
-|  [03]   | `tools`          | Repo tools and operators, each charter-owned by its own README                 |
-|  [04]   | `tests`          | C#, Python, and TypeScript suites beside the cross-language contract corpus    |
-|  [05]   | `docs`           | Durable doctrine: standards and per-language stacks                            |
+| [INDEX] | [TREE]  | [HOLDS]                                                                         |
+| :-----: | :------ | :------------------------------------------------------------------------------ |
+|  [01]   | `libs`  | independently adoptable language branches                                       |
+|  [02]   | `apps`  | Each `apps/<app-name>/` holds one app's projects across any number of languages |
+|  [03]   | `tools` | Repo tools and operators                                                        |
+|  [04]   | `tests` | C#, Python, and TypeScript test suites                                          |
+|  [05]   | `docs`  | Location for all durable documentation                                          |
 
 ## [02]-[TOOL_OWNERS]
 

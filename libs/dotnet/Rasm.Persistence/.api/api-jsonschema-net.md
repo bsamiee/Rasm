@@ -2,17 +2,7 @@
 
 `JsonSchema.Net` owns in-process JSON Schema evaluation on the `validation` rail: schema parse, compiled-node build, dialect and vocabulary resolution, `$ref`/`$dynamicRef` document resolution, format assertion, and the three-tier output model. It computes application-side the boolean verdict a server-side `CHECK` constraint enforces at write, so one frozen schema text governs both residences. Schema is data, evaluation is a pure fold over `System.Text.Json`, and the four process-global registries are the only ambient state.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `JsonSchema.Net`
-- package: `JsonSchema.Net` (MIT)
-- assembly: `JsonSchema.Net`
-- namespace: `Json.Schema`, `Json.Schema.Keywords`, `Json.Schema.Serialization`
-- depends: `JsonPointer.Net` — the `JsonPointer` model `EvaluationPath`, `InstanceLocation`, and `FindSubschema` carry
-- asset: runtime library
-- rail: validation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parse product, compiled tree, policy carriers, and the verdict
 
@@ -78,7 +68,7 @@
 
 `ErrorMessages` carries a settable template and a `Get<Keyword>` reader per assertion keyword under a `Culture` override, `ReplaceToken` substituting a named token into a template.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse or compose a schema — `JsonSchemaBuilderExtensions` adds one fluent method per JSON Schema keyword over `JsonSchemaBuilder`, `Unrecognized` covering a keyword no draft declares
 
@@ -153,7 +143,7 @@
 
 [KEYWORD_AUTHORING]: `JsonElementExtensions.GetSchemaValueType` `JsonMath.NumberCompare` `JsonMath.IsInteger` `JsonMath.Divides` `Duration.Parse` `Duration.TryParse`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `JsonSchema` is a parse-once immutable value: the frozen schema text parses at composition, the compiled tree behind `Root` is thread-safe for concurrent `Evaluate`, and parse cost never repeats.
@@ -174,9 +164,3 @@
 - `SchemaRegistry`, `VocabularyRegistry`, `DialectRegistry`, and `FormatRegistry` are process-global: external `$ref` documents, vocabularies, dialects, and custom formats register once at startup.
 - `PredicateFormat` on `FormatRegistry.Global` asserts an identity shape no draft keyword expresses, and `IKeywordHandler` with `Dialect.With(...)` admits a lane-local keyword without forking the evaluator.
 - `ValidatingJsonConverter.MapType<T>` gates typed-document ingress against the same schema the raw column checks.
-
-[RAIL_LAW]:
-- Package: `JsonSchema.Net`
-- Owns: in-process JSON Schema evaluation — parse, compiled-node build, dialect/vocabulary/meta-schema resolution, `$ref` document resolution, format assertion, and the three output tiers
-- Accept: parse-once-evaluate-many over the frozen document-lane schema, `IsValid` for the verdict and `Details`/`Errors` for failure detail, custom `Format`/`IKeywordHandler`/`Dialect` derivations registered at composition, `ValidatingJsonConverter` for typed-document ingress
-- Reject: a per-instance re-parse of the schema, a second validator path beside this one, and a hand-rolled keyword check where a `Dialect` derivation carries it

@@ -2,17 +2,7 @@
 
 `NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It decodes to the one NTS `Geometry` currency under the same precision-and-SRID configuration the core WKB and WKT codecs carry, so a value crossing the blob, the PostGIS column, and GeoJSON keeps one grid. Two folders drive one codec: `Rasm.Bim` the `Semantics/feature#GEO_BOUNDARY` GeoPackage leg (site and context ingest), `Rasm.Persistence` the `Ingest/geospatial#FEATURE_ROWS` `GeoContainer`/`GeoWire` seam (SQLite/GeoPackage store round-trip).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoPackage`
-- package: `NetTopologySuite.IO.GeoPackage` (BSD-3-Clause)
-- assembly: `NetTopologySuite.IO.GeoPackage`
-- namespace: `NetTopologySuite.IO` (`GeoPackageGeoReader`, `GeoPackageGeoWriter`)
-- asset: netstandard2.0 single TFM, IL-only AnyCPU managed, no P/Invoke, no native binaries; the net10.0 consumer binds the `lib/netstandard2.0` asset
-- dependency: `NetTopologySuite` (the `Geometry`/`Ordinates`/`CoordinateSequenceFactory`/`PrecisionModel` algebra); no `NetTopologySuite.Features` dependency — this codec is geometry-only, attributes ride the SQLite row columns
-- rail: geospatial
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: BLOB geometry reader/writer
 
@@ -23,7 +13,7 @@
 |  [01]   | `GeoPackageGeoReader` | class         | decode a geometry BLOB to an NTS `Geometry` |
 |  [02]   | `GeoPackageGeoWriter` | class         | encode an NTS `Geometry` to a geometry BLOB |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decode a GeoPackage geometry BLOB
 
@@ -46,7 +36,7 @@ Each reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` fro
 |  [01]   | `GeoPackageGeoWriter.Write(Geometry) -> byte[]`       | instance | encode a geometry to a BLOB for a SQLite insert |
 |  [02]   | `GeoPackageGeoWriter.Write(Geometry, Stream) -> void` | instance | encode directly into a stream                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Header: the codec owns the OGC StandardGeoPackageBinary blob — a `GP` magic, a version byte, a flags byte (bounding-envelope contents, byte-order, and empty bits), a 4-byte `srs_id`, the optional per-ordinate bounding envelope, then the OGC WKB body. `GeoPackageGeoWriter` writes the header little-endian with the bounding envelope from `Geometry.EnvelopeInternal` and delegates the body to the NTS `WKBWriter`; `GeoPackageGeoReader` parses the header, honors the empty bit (empty points encode as NaN ordinates), and reads the WKB body with the seeded factory.
@@ -64,9 +54,3 @@ Each reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` fro
 [LOCAL_ADMISSION]:
 - BLOB decode enters through a `GeoPackageGeoReader` seeded from `NtsGeometryServices.Instance` with `HandleSRID`/`HandleOrdinates` set for the dataset; `Read(byte[])` is the per-row call over a SQLite cursor.
 - BLOB encode enters through `GeoPackageGeoWriter.Write(geometry)` with `HandleOrdinates` set to the stored dimensionality; hand-rolling the `GP` header or treating the codec as a `.gpkg` container reader is the rejected form.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite.IO.GeoPackage`
-- Owns: the OGC GeoPackage StandardGeoPackageBinary geometry-BLOB read/write codec over NTS `Geometry`, with `Ordinates` dimensionality and `srs_id`/SRID handling
-- Accept: geometry-column BLOB decode and encode, dimensionality (XY/XYZ/XYM/XYZM) control, SRID stamping, on-read ring repair
-- Reject: the `.gpkg` SQLite container (`Microsoft.Data.Sqlite` and the OGR `GPKG` driver own it), the geometry algebra (`NetTopologySuite` owns it), datum/projection transformation (`ProjNET`/OSR own it), attribute storage (the SQLite row columns carry it), raw WKB columns standing in for GeoPackage geometry blobs

@@ -2,15 +2,7 @@
 
 `duckdb` runs an in-process analytical SQL engine over a connection-and-relation model spanning Arrow, Pandas, Polars, NumPy, CSV, JSON, and Parquet sources. `DuckDBPyConnection` owns query execution, registration, and extension load; `DuckDBPyRelation` owns lazy relational algebra, aggregation, and window functions; module-level functions proxy a default connection for one-shot use.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `duckdb`
-- package: `duckdb`
-- module: `duckdb`
-- owner: `data`
-- rail: query
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection, relation, expression, and value types
 
@@ -43,7 +35,7 @@
 [Exceptions engine]: `CatalogException` `BinderException` `ParserException` `ConversionException` `InvalidInputException` `InvalidTypeException` `OutOfRangeException`
 [Exceptions engine]: `ConstraintException` `TransactionException` `SerializationException` `InterruptException` `HTTPException` `PermissionException` `DependencyException`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module-level functions proxying the default connection
 
@@ -66,7 +58,7 @@
 
 [Logical-type constructors]: `array_type` `list_type` `map_type` `struct_type` `union_type` `row_type` `decimal_type` `enum_type` `string_type` `sqltype`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `sql`/`query` return a lazy `DuckDBPyRelation`; execution defers until an egress call (`to_df`, `fetchall`, `to_parquet`) materializes the result.
@@ -92,9 +84,3 @@
 [LOCAL_ADMISSION]:
 - `connect()` owns isolated databases; `DuckDBPyRelation` is the lazy query builder; `register`/`from_arrow` scan frames zero-copy across `datafusion`/`polars`/`deltalake`.
 - Bind parameters through `execute(query, parameters)`; register UDFs through `create_function`; load the Substrait bridge and other extensions through `load_extension`.
-
-[RAIL_LAW]:
-- Package: `duckdb`
-- Owns: in-process analytical SQL with native `MERGE INTO`, lazy relational algebra, programmatic window functions, multi-frame and file ingest/egress, UDFs, and prepared execution
-- Accept: `connect()` sessions, the `DuckDBPyRelation` builder, zero-copy Arrow/frame registration, `execute` parameter binding, Arrow-vectorized `create_function`, and `load_extension` bridges
-- Reject: string-interpolated SQL parameters, eager per-row Python iteration outside relation egress, duplicate per-frame query entrypoints, a window-SQL loop where the relation methods own the axis, and hand-rolled CSV/Parquet parsing the reader functions own

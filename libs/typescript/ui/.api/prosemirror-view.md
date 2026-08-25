@@ -2,16 +2,7 @@
 
 `prosemirror-view` owns the editable DOM: one `EditorView` renders an `EditorState` into a `contenteditable` element, reads user intent back through the DOM and the clipboard, and emits every change as a `Transaction` for the host to apply. `Decoration`/`DecorationSet` layer presentation over the document without touching it, and the `nodeViews`/`markViews` records hand a node's DOM to a caller-owned object.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-view`
-- package: `prosemirror-view` (MIT)
-- module: `type: module`, `.` entry and a `./style/prosemirror.css` subpath; `sideEffects` names that stylesheet alone
-- runtime: browser only — reads `window.Node`, mutates a live `contenteditable` element, and drives DOM mutation observers, so it never enters a server bundle
-- depends: `prosemirror-model`, `prosemirror-state`, `prosemirror-transform`
-- rail: `view/content` — the imperative editing surface the React tree hosts but never reconciles
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the props system — one flat record every plugin and the direct caller contribute to, resolved by precedence.
 
@@ -42,7 +33,7 @@
 - `getPos()` returns `number | undefined` — `undefined` once the node leaves the document, so every position read guards.
 - Omitting `contentDOM` makes the node a leaf the view never renders into, which is the correct shape for a node whose children a foreign renderer owns.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the view lifecycle — construct, update, destroy, all imperative.
 
@@ -93,7 +84,7 @@
 - `Decoration.inline` `spec` keys `inclusiveStart`/`inclusiveEnd` decide whether text typed at an edge joins the decoration.
 - `DecorationSet.map` drops a decoration whose range the change deleted and reports it through `onRemove`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `EditorView` owns its DOM outright: it renders `state.doc` into a `contenteditable` element, observes mutations, and redraws by diffing the new state against the old. Any outside mutation of that subtree is read as user input or clobbered on the next redraw, so a React tree renders only the container and never a child of `view.dom`.
@@ -118,9 +109,3 @@
 - Supply `dispatchTransaction` so every change routes through the application's own state owner before `updateState`.
 - Layer non-document presentation as a `DecorationSet` in a plugin field mapped by `tr.mapping`; presentation that must persist becomes a schema mark instead.
 - Load `prosemirror-view/style/prosemirror.css` with the editor; whitespace, hidden selection, and node-selection rendering depend on it.
-
-[RAIL_LAW]:
-- Package: `prosemirror-view`
-- Owns: the editable DOM surface — `EditorView` construction, `update`/`setProps`/`updateState`/`destroy`, and the `dispatch` transaction round trip; the `EditorProps` precedence system covering input handlers, clipboard transforms, and render props; position and coordinate queries (`posAtCoords`, `coordsAtPos`, `domAtPos`, `posAtDOM`, `endOfTextblock`); the `NodeView`/`MarkView` DOM-ownership seam; and the `Decoration`/`DecorationSet` presentation layer with its mapping
-- Accept: one imperative view per document behind a stable container ref, an explicit `dispatchTransaction`, plugin-contributed `EditorProps`, decoration sets mapped through `tr.mapping` in a plugin field, node views owning their own subtree with `stopEvent`/`ignoreMutation` declared, `coordsAtPos` as the anchor for an external floating layer, and the package stylesheet loaded with the editor
-- Reject: React children rendered inside `view.dom`, direct DOM mutation of the editable subtree, a state write that skips `dispatch`, presentation smuggled into the document where a decoration belongs, a `getPos()` result used without the `undefined` guard, a node view rendering into a missing `contentDOM`, and a bundle importing this package on the server

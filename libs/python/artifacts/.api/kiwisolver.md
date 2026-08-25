@@ -2,15 +2,7 @@
 
 `kiwisolver` owns incremental Cassowary linear-constraint solving for the artifacts layout plane: a mutable `Solver` over an operator-built `Variable`/`Term`/`Expression` algebra, `Constraint`s carrying a four-band `strength` priority, and edit-variable re-solve. It never re-implements the simplex, owns graph topology or placement (`rustworkx`/`grandalf`), or emits SVG (`visualization/diagram/draw#DRAW`); it feeds the constraint-layout arm of `visualization/diagram/layout#LAYOUT` and the `composition/sheet#SHEET` alignment math, every solver fault crossing `rasm.runtime.faults`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `kiwisolver`
-- package: `kiwisolver` (BSD-3-Clause)
-- module: `kiwisolver`
-- rail: figure
-- abi: native C extension (`kiwisolver._cext`), `py.typed`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver, free symbol, and linear-form value objects
 
@@ -38,7 +30,7 @@ Every solver-state failure is a distinct exception carrying the offending object
 |  [05]   | `DuplicateEditVariable`   | `edit_variable` | `addEditVariable` for an already-added edit variable                    |
 |  [06]   | `UnknownEditVariable`     | `edit_variable` | `suggestValue`/`removeEditVariable` for a non-edit variable             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Variable` / `Term` / `Expression` construction and linear algebra
 
@@ -87,7 +79,7 @@ Solving is two-phase: register constraints and edit variables, then `updateVaria
 |  [10]   | `Solver.reset()`                             | instance | clear all constraints and edit variables to empty                     |
 |  [11]   | `Solver.dump()` / `dumps()`                  | instance | print / return the full solver-internals text                         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Solver` is the single mutable constraint-system owner: `addConstraint`/`removeConstraint`/`addEditVariable` mutate in place and return `None`, and `updateVariables()` is the one solve commit that writes `Variable.value()` — never a per-constraint-kind solver method family, never a fluent chain. One `Solver` per laid-out diagram or sheet.
@@ -107,9 +99,3 @@ Solving is two-phase: register constraints and edit variables, then `updateVaria
 
 [LOCAL_ADMISSION]:
 - kiwisolver is the sole constraint-solve owner behind the `visualization/diagram/layout#LAYOUT` `Constrained` policy arm and the `composition/sheet#SHEET`/`composition/compose#COMPOSE` alignment math, every solver fault crossing `rasm.runtime.faults` and the solve offloaded onto the layout `CapacityLimiter` thread.
-
-[RAIL_LAW]:
-- Package: `kiwisolver`
-- Owns: incremental Cassowary linear-constraint solving (add/remove/edit-variable re-solve), the operator-built `Variable`/`Term`/`Expression` algebra, `Constraint` construction with the four-band `strength` hierarchy and `strength.create` symbolic blending, constraint-violation introspection, and full solver-internals serialization.
-- Accept: the constraint-layout policy arm of `visualization/diagram/layout#LAYOUT` (alignment/distribution/anchoring/minimum-separation/symmetry/aspect over the stable `rustworkx` node index), the `composition/sheet#SHEET`/`composition/compose#COMPOSE` alignment math, and any interactive re-layout that re-solves on a suggested value.
-- Reject: a hand-rolled simplex/LP where `Solver` exists; graph topology or force/radial/hierarchical placement (`rustworkx`/`grandalf` behind `visualization/diagram/layout#LAYOUT`); SVG emission (`visualization/diagram/draw#DRAW`); a `Variable`-keyed dict where the stable node index is the key; a from-scratch `Solver` rebuild per interactive frame; a bare escaping solver exception; a synchronous solve left on the event loop.

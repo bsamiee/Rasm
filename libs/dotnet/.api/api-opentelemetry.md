@@ -2,18 +2,7 @@
 
 `OpenTelemetry` folds the runtime's `System.Diagnostics` emission into exportable trace, metric, and log streams — admission by name, resource identity, head sampling, view surgery, exemplar policy, reader cadence, and the processor chain that drains to one exporter. Contract assembly `OpenTelemetry.Api` carries the propagation and ambient-slot surface an emitting library reaches without an SDK reference.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry`
-- package: `OpenTelemetry` (Apache-2.0)
-- assembly: `OpenTelemetry`
-- contract assembly: `OpenTelemetry.Api` — propagation, ambient runtime-context slots, and the three provider base types
-- builder assembly: `OpenTelemetry.Api.ProviderBuilderExtensions` — `IOpenTelemetryBuilder`, the seat hostless and hosted roots share
-- namespace: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`, `OpenTelemetry.Resources`, `OpenTelemetry.Context`, `OpenTelemetry.Context.Propagation`, `Microsoft.Extensions.Logging`
-- asset: runtime library
-- rail: telemetry composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [ROOT_TYPES]: SDK roots, provider handles, and resource identity
 
@@ -162,7 +151,7 @@
 - `Baggage`: every INSTANCE mutation returns a new value, so a discarded instance-`SetBaggage` return changes nothing while the STATIC overloads write `Baggage.Current` in place whenever their trailing `Baggage` argument stays default — the two families read identically at a call site and only one of them mutates.
 - `SetBaggage(string, string?)` forwards a null value to `RemoveBaggage`, so set-or-clear is one call and an ambient-store mirror needs no clearing branch.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Extension verbs list the arguments past their receiver.
 
@@ -283,7 +272,7 @@ Extension verbs list the arguments past their receiver.
 |  [18]   | `RuntimeContext.GetValue<T>(string)`                                            | static   | reads a slot by name                    |
 |  [19]   | `SuppressInstrumentationScope.Begin(bool)`                                      | static   | scoped recursion guard                  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `OpenTelemetrySdk.Create` folds one `IOpenTelemetryBuilder` into a disposable root carrying all three providers, so a hostless load context owns one telemetry object.
@@ -316,9 +305,3 @@ Extension verbs list the arguments past their receiver.
 - `SetExemplarFilter(ExemplarFilterType.TraceBased)` composes on every meter provider, so a metric point inside a sampled span carries its trace and span link.
 - Propagation registers explicitly at every root: `Sdk.SetDefaultTextMapPropagator(new CompositeTextMapPropagator([new TraceContextPropagator(), new BaggagePropagator()]))`.
 - Metric exporters declare cadence through the reader they ride — `PeriodicExportingMetricReader` for push egress, `IPullMetricExporter` where the backend scrapes.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry`
-- Owns: provider construction, resource identity, head sampling, view surgery, exemplar policy, reader cadence, the processor chain, and the propagator seat
-- Accept: one composition-root or per-plugin-context root over in-box `System.Diagnostics` emission, drained through the handle that minted it
-- Reject: an `OpenTelemetry` reference in a library project; a second provider owner inside one root; per-signal sampling probabilities beside the one root sampler

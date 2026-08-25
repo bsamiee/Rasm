@@ -2,7 +2,6 @@
 
 `Rasm.Materials` is the host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
-
 ## [01]-[DOMAIN_MAP]
 
 ```text
@@ -59,7 +58,6 @@
 ```
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
-
 
 ## [02]-[STRATA]
 
@@ -271,16 +269,16 @@ flowchart LR
 |  [13]   | new plane container or block format | `Raster/codec.md`           | one `RasterFormat` row naming its engine, storage, and extension  |
 |  [14]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
 |  [15]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
-|  [16]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
-|  [18]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
-|  [19]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
-|  [20]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
-|  [21]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` row              |
-|  [22]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
-|  [23]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
-|  [24]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |
-|  [25]   | new fatigue detail category         | `Component/capacity.md`     | one `EnFatigueCategory` or `AiscFatigueCategory` ladder rung      |
-|  [26]   | new trade size or system            | its owning trade seed page  | one roster row or one system policy row, never a stocked sweep    |
+|  [16]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and oracle  |
+|  [17]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its oracle row    |
+|  [18]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
+|  [19]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
+|  [20]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` row              |
+|  [21]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
+|  [22]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
+|  [23]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |
+|  [24]   | new fatigue detail category         | `Component/capacity.md`     | one `EnFatigueCategory` or `AiscFatigueCategory` ladder rung      |
+|  [25]   | new trade size or system            | its owning trade seed page  | one roster row or one system policy row, never a stocked sweep    |
 
 ## [06]-[BOUNDARIES]
 

@@ -2,22 +2,7 @@
 
 `Avalonia.Skia` binds the Skia render backend: `UseSkia` selects the subsystem, `SkiaOptions` sets Ganesh resource and opacity policy, and `ISkiaSharpApiLeaseFeature` hands the live `SKCanvas`/`GRContext`/`SKSurface` to an `ICustomDrawOperation` under a `using`-scoped lease. `SkiaSharpExtensions` crosses every Avalonia primitive to its SkiaSharp value, `DrawingContextHelper` and `ImageSavingHelper` rasterize and encode, and every render impl below the lease stays internal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Skia`
-- package: `Avalonia.Skia` (MIT)
-- assembly: `Avalonia.Skia` (bound `lib/net10.0/Avalonia.Skia.dll`)
-- namespace: `Avalonia`, `Avalonia.Skia`, `Avalonia.Skia.Helpers`
-- rail: visuals
-
-[PACKAGE_SURFACE]: `Avalonia`
-- package: `Avalonia` (MIT)
-- assembly: `Avalonia.Base`
-- namespace: `Avalonia`, `Avalonia.Media`, `Avalonia.Rendering.SceneGraph`
-- role: the draw host minting a custom operation and probing it onto the Skia lease
-- rail: visuals
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [BACKEND_TYPES]: backend boot and options (`Avalonia` namespace)
 
@@ -56,7 +41,7 @@
 |  [02]   | `ImageSavingHelper`    | static class  | `SaveImage` `SKImage` encode          |
 |  [03]   | `PixelFormatHelper`    | static class  | `ResolveColorType` -> `SKColorType`   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [BACKEND_ENTRYPOINTS]: backend boot and tuning
 
@@ -134,7 +119,7 @@
 |  [05]   | `ImageSavingHelper.SaveImage(SKImage, string \| Stream, BitmapEncoderOptions)` | encode under an explicit codec option set        |
 |  [06]   | `PixelFormatHelper.ResolveColorType(PixelFormat?)`                             | format -> `SKColorType`, null = platform default |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Raw `SKCanvas`/`GRContext`/`SKSurface` access flows only through the `using`-scoped `ISkiaSharpApiLease`, and a draw multiplies `CurrentOpacity` into its leased paints.
@@ -159,9 +144,3 @@
 - Every custom visual draws through the leased `SKCanvas`, crosses Avalonia values through `SkiaSharpExtensions` at the boundary, and emits deterministic bytes through `DrawingContextHelper.RenderAsync` and `ImageSavingHelper.SaveImage`.
 - `ICustomDrawOperation` carries global-coordinate `Bounds`, answers `HitTest` from its own geometry, and holds every Skia handle inside the `Render` lease scope.
 - Blur and drop shadow ride the `IEffect` scope; every other visual effect composes from primitives inside the leased draw.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Skia`
-- Owns: the Skia render-backend selection (`UseSkia`), the Ganesh GPU-resource policy (`SkiaOptions`), the raw SkiaSharp lease surface, every Avalonia<->SkiaSharp value conversion, and the visual-render/encode helpers
-- Accept: raw `SKCanvas`/`GRContext`/`SKSurface` flows through the `using`-scoped `ISkiaSharpApiLease` with `CurrentOpacity` multiplied into leased paints; a custom draw enters through `DrawingContext.Custom` and probes the lease feature off `ImmediateDrawingContext`; value crossing rides `SkiaSharpExtensions`; capture rides `DrawingContextHelper.RenderAsync` and `ImageSavingHelper.SaveImage`
-- Reject: a parallel render backend beside Skia; out-of-lease canvas mutation; a `GRContext` factory named at a draw call site; a custom `IEffect` shape pushed as an effect scope; a hand-rolled Avalonia<->Skia value converter `SkiaSharpExtensions` already owns

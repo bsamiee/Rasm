@@ -27,7 +27,7 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Boundary: `Cam` never uses pass count as an axial-depth surrogate and never chord-samples a revolution a `Move.Circular` arc states exactly. Fabricated physics, Cartesian coordinates relabeled as joints, and automatic guard lifts stay unrepresentable.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
 using LanguageExt.Common;

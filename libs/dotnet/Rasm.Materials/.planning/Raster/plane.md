@@ -29,7 +29,7 @@ Typed texels size the arena because bytes cannot: `byte[]` caps at `Array.MaxLen
 - Growth: a new combinable column is one `PlaneTrait` row plus its membership on the owning axis' rows; a new range window is one `PlaneRange` affine pair; a new fold law is one `MipPolicy` row. No arm, no ctor arity, and no consumer moves for any of the three.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -348,7 +348,7 @@ public sealed partial class PlaneFormat {
 - Boundary: the arena is TYPED end to end and exposes no whole-plane byte view. `MemoryMarshal.AsBytes` over one row span is the sole reinterpretation, taken by the key fold and by the codec bridge, so a caller cannot address the plane as bytes and no consumer can smuggle a depth reinterpretation past the format row. `AllocationMode.Clear` is the admission default because a partially-written plane must read its neutral rather than pool residue, and a press writing every texel passes `AllocationMode.Default` to skip the zeroing pass over a quarter-billion elements.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.IO.Hashing;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
@@ -605,7 +605,7 @@ internal readonly struct KeyRows(XxHash128 hash) : IPlaneFold<Unit> {
 - Boundary: arbitrary-ratio resampling is `filter#PLANE_OP` `Resize` — a mip level is the lattice's own `Coarsen` step under a declared policy and never a resize alias, so a chain cannot be minted at an arbitrary ratio and a resize cannot silently produce a level a sampler then trilinearly blends. `TexturePyramid` OWNS its levels and disposes them; a pyramid built over an adopted base at `MipPolicy.None` disposes that base too, so ownership is uniform and a caller never holds a half-owned chain.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -799,7 +799,7 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
 - Boundary: this window bounds CHAINS, never arena bands — `TexturePlane.Layer` windows one rental into layer bands inside a single plane, while `PlaneResidency` holds independent pyramids addressed by a tile coordinate, so a cube-face set and a UDIM grid never share a mechanism. The window carries no decode, no format, and no channel: every tile of one asset resolves through the caller's own mint, so a residency window over base-colour tiles and one over normal tiles are two windows and neither knows the other exists.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;

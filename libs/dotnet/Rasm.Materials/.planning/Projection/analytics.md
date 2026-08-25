@@ -24,7 +24,7 @@ Component, Properties, Appearance, and observability owners supply already-admit
 - Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. Tokens cross as TEXT and the physical decision past that is the custodian's: this folder reaches Element and never `Rasm.Persistence`, so a token Element's roster mints that the custodian's roster lacks fails at that gate, which is the compiler this seam does not have — and `TableType.KeyHex` (`fixed-hex128`) is the one token Materials' fixed-width X32 content keys added to that roster. Naming disambiguates at the source: the custodian owns `ColumnType`, `ColumnRow`, and `AnalyticsSchema`, and this page's declarations never wear those names.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Element.Graph;
 using Thinktecture;
@@ -173,7 +173,7 @@ public sealed partial class MaterialsDataset {
 - Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches through its own generic record-batch fold, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileRun`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;

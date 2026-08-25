@@ -2,18 +2,7 @@
 
 `VividOrange.Countries` owns the ISO 3166-1 national-context taxonomy: a closed `Country` enum, one `sealed` `ICountry` singleton per nation, and `Utility.GetCountry` mapping each member to its instance. One national-context owner serves both the structural and lifecycle VividOrange families, and its ISO alpha-2 `CountryCode` keys georeference, addressing, and design-code selection; every nation round-trips through the shared `ITaxonomySerializable` marker.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Countries`
-- package: `VividOrange.Countries` (contract, enum, and singletons in one assembly; `ICountry` ships here) (MIT)
-- assembly: `VividOrange.Countries`
-- namespace: `VividOrange.Countries`
-- asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0`; the `net10.0` consumer binds `lib/net8.0`
-- asset: pure-managed AnyCPU IL-only assembly; no native binaries; ALC-safe inside the in-Rhino plugin assembly
-- dependency: `VividOrange.ISerialization` (the `ITaxonomySerializable` marker) only; Countries is a leaf taxonomy
-- rail: national-context
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: national-context family
 
@@ -25,7 +14,7 @@
 |  [04]   | `Germany`/`France`/`…`    | per-nation singleton    | `sealed: SingletonCountryBase<T>, ICountry`; `CountryCode` (`"DE"`) |
 |  [05]   | `Utility`                 | enum→singleton resolver | `static ICountry GetCountry(Country)`                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: nation resolution and read
 
@@ -39,7 +28,7 @@
 
 - `Utility.GetCountry`: switches over all 249 declared members; an out-of-domain `(Country)` cast throws `NotImplementedException`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - each `Country` enum member maps 1:1 to a `sealed` `ICountry` singleton; `Utility.GetCountry` is the sole enum→instance resolver and `CountryCode` (ISO 3166-1 alpha-2) the stable boundary key
@@ -55,9 +44,3 @@
 - this branch reaches `ICountry` through TWO landed paths — `IGovernance.Country` off a `VividOrange.Stages` governing body, resolved once at `Planning/schedule#SCHEDULE` `StageLabels.Nation`, and `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime.Of(ICountry)` admitting that nation onto its design regime — and `Utility.GetCountry` is the enum→singleton resolver any other reach takes, never a `new` per call and never a free-text country string
 - `CountryCode` is the ONLY key a Bim fence matches an `ICountry` on — unique across all 249 nations where the display `Name` diverges from the annex spellings — and it carries the nation onto `NationalAnnex` and from there onto the SAF `ExcelNationalCode`
 - `AnnexRegime.Recommended` (`NationalAnnex.RecommendedValues`, SAF `EC_Standard_EN`) receives every nation with no national annex: the EN regime, never a fault and never an absent factor set
-
-[RAIL_LAW]:
-- Package: `VividOrange.Countries`
-- Owns: the ISO 3166-1 national-context taxonomy — enum, per-nation singleton family, and resolver
-- Accept: national context held as `Country`/`ICountry`; resolution through `Utility.GetCountry`; the ISO `CountryCode` as the stable boundary key
-- Reject: a free-text country string, a parallel nation enum beside this one, a claim that a compiled `Country`→`NationalAnnex` map ships here, a match on the display `Name` where the ISO code is the stable key, `new`-ing a singleton where `Utility.GetCountry` is canonical, and reading `International.Country` as a project nation where it is Whitby Wood's own domicile

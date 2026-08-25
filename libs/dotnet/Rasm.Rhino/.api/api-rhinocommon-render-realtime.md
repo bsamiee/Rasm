@@ -2,16 +2,7 @@
 
 `Rhino.Render` owns the realtime-render seam a live engine draws through: a subclass receives typed immutable scene-change snapshots through `ChangeQueue`'s `Apply*` hooks, draws the interactive viewport through `RealtimeDisplayMode`'s framebuffer/middleground/HUD hooks, spins its render thread through `AsyncRenderContext`, and answers the document light table through `LightManagerSupport`. Content resolves by CRC or id through the queue rather than riding the payload; batch lifecycle and framebuffer channels are the disjoint `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render.md` slice this catalog never crosses.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon realtime-render surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` (host-resolved from the installed Rhino app, never NuGet-pinned)
-- namespace: `Rhino.Render.ChangeQueue` (scene-change queue and immutable payload family)
-- namespace: `Rhino.Render` (realtime engine, async context, light manager)
-- rail: realtime-render boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scene-change queue and payload family
 
@@ -50,7 +41,7 @@
 - `public enum Rhino.Render.LightMangerSupportCustomEvent` — `light_added`, `light_deleted`, `light_undeleted`, `light_modified`, `light_sorted`; the `LightManagerSupport.OnCustomLightEvent` selector, `Manger` misspelled in the host API.
 - `RealtimeDisplayModeClassInfo.RequiredDisplayTechnology -> Rhino.Display.DisplayTechnology` — `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-display.md` owns the display-technology vocabulary.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CHANGEQUEUE_LIFECYCLE]:
 - `ChangeQueue(Guid, uint, ViewInfo, DisplayPipelineAttributes, bool, bool)` / `ChangeQueue(Guid, CreatePreviewEventArgs)` — protected document- and preview-driven ctors; the preview form leaves `IsPreview` true and `ViewId` `Guid.Empty`.
@@ -115,7 +106,7 @@
 - `LightManagerSupport.RegisterLightManager(PlugIn)` / `RegisterProviders(Assembly, Guid)` — static registration by plug-in or assembly; the same reflective discovery the realtime engine uses, admitting exported non-abstract subclasses with a public parameterless constructor and activating each itself. Registered instances live in a PRIVATE serial-keyed dictionary reached only by the native callbacks, so nothing public hands an instance back — a manager that must be addressed later seats itself in its own registry from a member the host is guaranteed to call (`PluginId`/`RenderEngineId` run during registration).
 - `OnCustomLightEvent` is the one member a manager calls INTO the host rather than answers: the body forwards only the document serial and the event selector to native and never reads the `ref Light`, so the light argument satisfies the signature and carries no host meaning.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ChangeQueue` is the single scene-delivery owner: a subclass constructs it document- or preview-bound, overrides the `Apply*` hooks it consumes, and drives it with `CreateWorld`/`Flush`/`OneShot`; each hook receives an immutable native-backed payload the queue alone mints.
@@ -136,9 +127,3 @@
 
 [LOCAL_ADMISSION]:
 - A change enters through the subclass `Apply*` hook or a `GetQueue*` pull; a payload stays inside the hook grant, and downstream code receives a detached value record, a resolved content reference, or a detached fact, never a live payload escaping the hook.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Render.ChangeQueue` + `Rhino.Render` realtime slice
-- Owns: the `ChangeQueue` scene-delivery owner and its immutable payload records, the `RealtimeDisplayMode`/`RealtimeDisplayModeClassInfo` interactive engine with its framebuffer/middleground/HUD hooks, `AsyncRenderContext` render-thread lifecycle, and `LightManagerSupport` custom light management.
-- Accept: a subclass overriding the `Apply*` hooks it consumes, resolving content through the queue's CRC/id resolvers, and drawing through the display pipeline at the framebuffer seam; a registered realtime mode or light manager; host crossings captured through `Op.Catch` onto `Fin` and change/event enums mapped to bounded owners at the edge.
-- Reject: a private scene diff beside `ChangeQueue`, a payload mutated or re-carried with its content graph, a batch render path merged into the realtime engine, a raw render thread beside `AsyncRenderContext`, a parallel light registry beside the registered manager, a registrable engine or light manager whose constructor takes arguments the host cannot supply, one light-hook signature spelled for both the queue-snapshot and geometry-light overloads, and a `ChangeQueue`/payload/`RealtimeDisplayMode` escaping into a domain signature.

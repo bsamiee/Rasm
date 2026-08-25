@@ -2,19 +2,7 @@
 
 `python-pptx` mints the PowerPoint `.pptx` presentation surface for the artifacts office rail: `Presentation(pptx=None)` opens a template/stream or creates from the default 16:9 template, `Slides.add_slide(layout)` mints layout-row slides, the one `SlideShapes.add_*` family and `build_freeform` author the shape tree, `SlidePlaceholders` fills layout placeholders in place, the `TextFrame`/`Font` model carries the run-appearance axis, the shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface owns fill/outline/shadow/color, the `CategoryChartData`/`XyChartData`/`BubbleChartData` builders feed `add_chart` with `Chart.replace_data` refresh, the `Table`/`_Cell` grid owns cell merge/banding, and `Length` value objects own bidirectional EMU conversion. It anchors the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `DocumentPlan.bound` template-clone fan, never re-implementing the OOXML part graph, lxml serialization, the embedded chart-data workbook, or the slide-layout/master inheritance python-pptx already owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-pptx`
-- package: `python-pptx` (MIT)
-- import: `pptx`
-- owner: `artifacts`
-- rail: office
-- floor: pure-Python, abi-agnostic; runs on cp315, offloadable to the `anyio.to_process` worker band
-- runtime deps: `lxml`, `Pillow`, `XlsxWriter`, `typing_extensions`
-- entry points: none (library only; the in-process `Presentation` surface composes directly)
-- capability: `.pptx` construction and editing — slides from layouts, masters/notes-master, placeholder fill-in-place, textboxes, runs/paragraphs/fonts with full character appearance, cropped pictures with image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes with adjustment handles, connectors, groups, movie/OLE embeds, freeform vector shapes, the DML fill/line/shadow/color surface, click-action hyperlinks, notes, core-property metadata, slide background, EMU `Length` geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: presentation root, slides, layouts (`pptx.presentation`, `pptx.slide`)
 
@@ -93,7 +81,7 @@
 - [08]-[TABLE]: `cell(row, col)`, `rows`/`columns`, `iter_cells`, `first_row`/`last_row`/`first_col`/`last_col` banding toggles, `horz_banding`/`vert_banding`.
 - [09]-[_Cell]: `text`/`text_frame`, `fill`, `merge(other_cell)`/`split()`/`is_merge_origin`/`is_spanned`/`span_height`/`span_width`, `vertical_anchor`, `margin_*`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: presentation factory, slides, metadata, save
 
@@ -151,7 +139,7 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size and return the create
 |  [09]   | `Chart.replace_data`             | `replace_data(chart_data: ChartData)`                                                    |
 |  [10]   | `Table.cell` / `_Cell.merge`     | `cell(row, col).text = ...` / `cell(a).merge(cell(b))` / `.split()`                      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - presentation: `Presentation(pptx=None)` is the single polymorphic open-or-create factory — `None` builds from the default 16:9 template, a path/stream opens the `DocumentPlan.bound` `DocumentMode.PPTX` template-clone path that appends slides into a corporate `.pptx`'s layouts — returning the `presentation.Presentation` object, never a reader/writer split.
@@ -175,9 +163,3 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size and return the create
 
 [LOCAL_ADMISSION]:
 - python-pptx is the owner for `.pptx` construction and editing; Word routes to `python-docx`, Excel to `openpyxl`/`xlsxwriter`, ODF presentation to `odfpy` (`DocumentMode.ODT`/`ODS`), and live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `python-pptx`
-- Owns: `.pptx` construction and editing — slides from layouts, placeholder fill-in-place, textboxes/runs/paragraphs/fonts with full character appearance, pictures with crop and image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes/connectors/groups, movie/OLE embeds, freeform vector shapes, the FillFormat/LineFormat/ShadowFormat DML surface, slide background, notes, core-property metadata
-- Accept: presentation authoring feeding the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `DocumentPlan.bound` template-clone fan row, downstream of the `exchange/detect#DETECT` `MediaClass.PRESENTATION` gate and the `msoffcrypto-tool` confidentiality edge, embedding the `DocumentPlan.bound` `assets` figure band via `add_picture` from a stream
-- Reject: wrapper-renames of `add_slide`/`add_picture`/`save`; an `add_*`-per-shape parallel slide type where the one `SlideShapes` collection discriminates by method row; a per-run color/font rebuild where `Font` + `ColorFormat` carry the appearance; raw-EMU integers where `Length` value objects and their read-back exist; hex-string color where `RGBColor`/`MSO_THEME_COLOR` exist; magic shape/anchor/alignment/dash strings where the `MSO_SHAPE`/`MSO_ANCHOR`/`PP_ALIGN`/`MSO_LINE_DASH_STYLE` rows exist; hand-built path or table XML where `build_freeform` and `add_table`/`Table.cell` exist; a separate chart-data spreadsheet where the embedded `XlsxWriter` workbook is in-package; identity minting the runtime owns

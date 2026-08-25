@@ -2,15 +2,7 @@
 
 `File3dm` owns the document-free `.3dm` archive — filtered and metadata reads, table mutation, write policy, nullable byte serialization, preview ownership. Each direct format engine folds a live `RhinoDoc` through its typed option carrier, `FilePdf` authors vector pages, and `RhinoDoc` owns import, export, save, template, and general write lifecycles.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon archive and file-IO surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` — in-process managed host assembly
-- namespace: `Rhino.FileIO`, `Rhino.DocObjects` (`EarthAnchorPoint`), `Rhino` (`RhinoDoc` document-attached I/O)
-- rail: host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the standalone archive
 
@@ -129,7 +121,7 @@ Each direct engine receives its typed option carrier directly; `RhinoDoc.Import`
 |  [05]   | `FileWriteOptions`      | class         | document write policy for `RhinoDoc.WriteFile`                             |
 |  [06]   | `ViewCaptureSettings`   | class         | page capture input to `FilePdf.AddPage`; the display catalog owns the type |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: archive reads — static, filtered, metadata, and byte
 
@@ -228,7 +220,7 @@ Members are `static` and dot off `File3dm`; every path argument is the archive `
 - `FilePdf.SetCustomPages`: REPLACE semantics over the host-process-global custom-page list, so a writer saves and restores the prior roster; `null` clears the set.
 - `FilePdfReadOptions`: `PreserveModelScale -> bool`, `RhinoScale -> double`, `PdfUnits -> FilePdfReadOptions.PDF_UNITS`, `PDFScale -> double`, `ImportFillsAsHatches -> bool`, `LoadText -> bool`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `File3dm` is document-free: it reads, mutates, serializes, and writes the archive without opening a `RhinoDoc`, and `TableTypeFilter`/`ObjectTypeFilter` bound a partial read to the required tables and object kinds
@@ -247,9 +239,3 @@ Members are `static` and dot off `File3dm`; every path argument is the archive `
 - direct conversion enters through the owning engine's `Write`/`Read` with its typed options carrier
 - PDF page authoring enters through `FilePdf.Create` then the page and draw surface
 - `Rhino.FileIO.Nrbf` is host-private internal serialization glue with no public entry point; native file-dialog registration (`FileImportPlugIn`/`FileExportPlugIn`/`FileTypeList`/`FileReadOptions`) is owned by `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md`
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: the standalone `.3dm` archive, direct format conversion, PDF page authoring, document-attached exchange
-- Accept: filtered, metadata, and byte archive access, typed-option conversion, vector PDF authoring
-- Reject: document identity and table mutation, block-definition graph depth, native file-dialog registration

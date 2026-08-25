@@ -19,7 +19,7 @@ THE STEEL SEED FAMILY GROUNDED IN THE PUBLISHED SECTION DATABASE. `SteelSeed.Ros
 - Boundary: `SteelFireFacts` is the WHOLE EN 1993-1-2 surface this page publishes — the section factor, the Table 3.1 retention pair, and the §4.2.4 critical temperature in ONE railed record rather than three loose statics. Its consumer is LANDED: `capacity#SECTION_CAPACITY` `CapacityLift.Fire` mints over `FireState.Steel(DesignCapacity, SteelFireFacts)`; the family-side half is LANDED beside the seed: `SteelSeed.Capacity` dispatches on `CapacityPlacement.FireExposure` through the `SteelFire` §4.2.5.1 unprotected-member temperature step onto `CapacityLift.Fire`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Globalization;

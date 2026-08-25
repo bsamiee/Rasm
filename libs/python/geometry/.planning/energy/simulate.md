@@ -23,7 +23,7 @@ Frame discipline is load-bearing: `FRAME_SCHEMA` owns the column/dtype correspon
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame whose table diverges from `FRAME_SCHEMA` is the deleted form — the C# decoder can neither attribute nor dedupe it.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from functools import partial

@@ -4,15 +4,7 @@
 
 `@tailwindcss/vite` resolves the directive surface at build with zero client JS; the typed `tailwindcss/plugin` API stays for the rare algorithmic utility family, and every utility reaches a component only through the `cva`/`clsx`/`twMerge` variant dispatch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tailwindcss`
-- package: `tailwindcss` (MIT)
-- module: CSS-first stylesheets (`index.css`, `theme.css`, `preflight.css`, `utilities.css`); a dual ESM+CJS `dist/` carries the typed JS compat surface, `sideEffects: false`
-- runtime: build-time CSS generation, zero client JS; `@tailwindcss/vite` peer binds the branch Vite build
-- rail: token plane — the utility and token vocabulary every component styles through
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `@theme` namespace vocabulary — one namespace generates a variable and its utility family; `token/theme` and `token/scale` are the folder owners that consume it.
 
@@ -38,7 +30,7 @@
 [CSS_OBJECT]: `CssInJs` `NamedUtilityValue` `PluginUtils`
 [POLICY]: `DarkModeStrategy` `ContentFile`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the CSS-first directive and function surface `@tailwindcss/vite` resolves at build — the primary authoring rail; `@theme` blocks tokens, the `--*()` functions read them inline.
 
@@ -59,7 +51,7 @@
 
 - `plugin` is the default export of `tailwindcss/plugin`, passing the `PluginAPI` (`addUtilities`/`matchUtilities`/`addVariant`/`matchVariant`/`addBase`/`addComponents`/`theme`); the default-value imports are `tailwindcss/colors`, `tailwindcss/defaultTheme`, `tailwindcss/lib/util/flattenColorPalette`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - CSS-first is the law, JS config the compat: `@import "tailwindcss"` is the single entry, `@theme` declares tokens, `@tailwindcss/vite` resolves the directive surface at build, and `tailwindcss/plugin` serves only an algorithmic utility family CSS cannot enumerate.
@@ -80,9 +72,3 @@
 - Reserve `tailwindcss/plugin` for an algorithmic utility family over a computed value set (`matchUtilities`); `@utility` and `@theme` own every static utility.
 - Bind interaction and theme state through `@custom-variant` and the react-aria-components plugin, expressed as data-attribute variants.
 - Compose every conflict-prone class string through the `cva`/`clsx`/`twMerge` rail and wire the build through `@tailwindcss/vite`.
-
-[RAIL_LAW]:
-- Package: `tailwindcss` + `@tailwindcss/vite`
-- Owns: the `@theme` token-namespace vocabulary, the CSS directive and function surface, and the typed JS compat plugin API and Vite build
-- Accept: CSS-first `@theme` token authoring, one namespace generating variable and utilities, data-attribute variants, the single `--spacing` scale, `cva`/`clsx`/`twMerge` dispatch, `colorjs.io`-computed OKLCH values
-- Reject: a `tailwind.config.js` for CSS-authorable values, a hand-written utility or raw `var()` where a namespace emits the pair, JS class-string branching for a data-attribute-expressible state, raw class concatenation bypassing `twMerge`

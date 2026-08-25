@@ -2,15 +2,7 @@
 
 `opentelemetry-exporter-otlp-proto-http` owns the OTLP/HTTP transport tail of the observability rail: `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter` encode SDK span, metric, and log-record batches as OTLP protobuf and POST them to a collector over a pooled `requests.Session`. Each is the terminal sink of one signal pipeline, wired behind an SDK processor at the composition root, owning jittered-backoff retry, per-signal env resolution, and gzip/deflate compression.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-http`
-- package: `opentelemetry-exporter-otlp-proto-http` (Apache-2.0)
-- module: `opentelemetry.exporter.otlp.proto.http`
-- namespaces: `opentelemetry.exporter.otlp.proto.http` (`Compression`), `...http.trace_exporter`, `...http.metric_exporter`, `...http._log_exporter`
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exporter family
 
@@ -26,7 +18,7 @@
 - `Deflate` = `"deflate"`, sends `Content-Encoding: deflate`
 - `Gzip` = `"gzip"`, sends `Content-Encoding: gzip`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: OTLPSpanExporter
 
@@ -55,7 +47,7 @@
 |  [03]   | `force_flush(timeout_millis=10_000) -> bool` | instance | no-op true                                         |
 |  [04]   | `shutdown()`                                 | instance | set shutdown flag, abort backoff                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - All three exporters share `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`; span/log add keyword-only `meter_provider` (drives internal self-observability metrics under `OTEL_PYTHON_SDK_INTERNAL_METRICS_ENABLED`), metric adds `preferred_temporality`, `preferred_aggregation`, and `max_export_batch_size` beside its own keyword-only `meter_provider`.
@@ -78,9 +70,3 @@
 - One exporter instance per signal, built at the composition root and handed to the matching SDK processor or reader.
 - Deployments holding a configured `Session` — mTLS client certs, proxy adapters, pool sizing — pass it through `session` rather than the env certificate files.
 - Built-in retry is the whole retry budget; an external retry around `export` multiplies the backoff.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-exporter-otlp-proto-http`
-- Owns: OTLP/HTTP protobuf encoding, gzip/deflate body compression, jittered-backoff retry, and pooled-session transport for spans, metrics, and log records
-- Accept: one exporter per signal at the composition root, `Compression.Gzip` where the backend supports it, a `session` override for mTLS/proxy, `preferred_temporality` matched to the backend, `meter_provider` for self-observability
-- Reject: calling `export`/`force_flush` directly outside an SDK processor, per-request exporter construction, an external retry wrapper around `export`, plain HTTP where the backend requires mTLS

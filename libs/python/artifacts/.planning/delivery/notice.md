@@ -24,7 +24,7 @@ Message-envelope algebra, format contract, protocol lowering, and delivery all s
 - Boundary: fact-to-message-envelope projection only. This page mints no message-envelope algebra, format, header map, wire value, content mode, or broker client, imports no artifacts sibling above the floor, and fires no hook of its own — the runtime `Delivery` settlement carries what the fan answered. Rejected: a lowering callable on an enum member; a frozen struct holding a mutable event; a `frozendict[str, str]` extension passthrough minting spec-invalid names; an event-format media type substituted for the payload's `datacontenttype`; a caller-supplied `source`; a register row projection beside the content-keyed artifact it copies.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from typing import Final
 
 from expression import Some

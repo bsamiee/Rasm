@@ -25,7 +25,7 @@ Two caller-plane tables riding `Lakehouse.run` carry the journal: the append-onl
 - Boundary: no provider opens here, no engine is named, and no duration is spelled — `WINDOWS` prices retention at the port and this owner executes the reclaim the horizon hands it. Deleted forms: a second codec beside the port's `ENCODE`/`DECODE`, a landing half derived from a merge result's fused output tally, a matched-key probe run after the commit that resolved it, an erasure touching the fact stream, and a custody row on the evidence table.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from typing import Final, assert_never
 
 import duckdb

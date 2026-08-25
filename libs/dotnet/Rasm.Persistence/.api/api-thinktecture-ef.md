@@ -2,18 +2,7 @@
 
 `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` projects every generated Smart Enum and keyed Value Object onto an EF Core value conversion through one model-building convention, so a key column's converter is the generated expression pair rather than a per-property `HasConversion`. `Configuration` carries the read strategy and the per-axis max-length strategy bounding the projected column, so key-column width is conversion policy the model finalization applies.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (LICENSE.md)
-- assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`, `Thinktecture.EntityFrameworkCore.Internal`, `Thinktecture.EntityFrameworkCore.Storage.ValueConversion`
-- depends: `Thinktecture.Runtime.Extensions`, `Microsoft.EntityFrameworkCore.Relational`
-- target: `net10.0`
-- asset: pure-managed runtime library
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: conversion policy, the column-width strategy family, and the direct converter factory
 
@@ -41,7 +30,7 @@
 - Each `Fixed*` strategy takes `(int, bool)` and each `Custom*` a `(Func<…, MaxLengthChange>, bool)` pair whose second argument overwrites an existing width; `Default*` and `NoOp*` expose a static `Instance`.
 - `MaxLengthChange` converts implicitly from `int?` and carries `None`, `IsSet`, `Value`; `MaxLengthCache` keys each memo on the strategy instance with the owner type, and `Clear` drops both tables.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: converter registration by builder grain, and the direct factory for a property EF cannot resolve
 
@@ -61,7 +50,7 @@
 
 - Every registration entry carries a parameterless overload binding `Configuration.Default`; each `DbContextOptionsBuilder<T>` form mirrors its non-generic sibling returning the typed builder, and each `Create` defaults `useConstructorForRead` to `true`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Registration reaches the model only through the extension methods; the convention plugin, options extension, and reflection probes stay internal, so a consumer never binds a plugin type.
@@ -82,9 +71,3 @@
 - `Element/identity#ELEMENT_IDENTITY` mounts `UseThinktectureValueConverters(Configuration.Default)` on the one `ConverterRail.Compose` options composition, so every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column converts under a bounded key width; `Configuration.NoMaxLength` is rejected on key columns because an unbounded key column fractures the schema fingerprint.
 - Single declared members convert through the property, complex-type, or primitive-collection entry — one builder call per column, never a converter class.
 - Key-column width rides `Configuration`: the smart-enum and keyed-value-object strategies bound the `nvarchar(n)`/`varchar(n)` column as conversion metadata, never a per-entity `HasMaxLength` annotation.
-
-[RAIL_LAW]:
-- Package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- Owns: EF Core value-converter registration and key-column width policy for generated Smart Enums and keyed Value Objects
-- Accept: `UseThinktectureValueConverters(Configuration.Default)` as the convention path, the `Add*`/`Has*` entries for per-scope and per-property grain, `Configuration` and its strategies for width policy
-- Reject: a hand-written `HasConversion` for a generated owner, a per-entity `HasMaxLength` standing in for a width strategy, `Configuration.NoMaxLength` on a key column, a second registration over the same property

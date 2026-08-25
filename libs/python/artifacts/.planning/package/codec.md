@@ -2,7 +2,6 @@
 
 `Codec` is the single-blob compression producer over the four codec rows — `ZSTD`/`LZ4`/`BROTLI`/`GZIP`. It packs already-emitted payloads into ONE content-addressed blob of self-delimiting frames and walks the inverse back into a `BundleManifest`, composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling.
 
-
 ## [01]-[INDEX]
 
 - [02]-[CODEC]: the `Codec` producer over the four single-blob rows — the `emit`/`packed`/`unpack` node contract, the `PackWorker` port kernels, the `_walked` anamorphic frame walk, and the per-codec end-of-frame decoders.
@@ -17,7 +16,7 @@
 - Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter (the kernel's trait row owns worker-death retry), and no streaming ingress (payloads are already-emitted bytes; the store crosses at the content-keyed wire). The flat `Bundle` case carries every codec, and its node identity derives from the input rather than the packed blob. Declined as architecturally incompatible: `FORMAT_ZSTD1_MAGICLESS` (no magic to delimit, breaking the bomb-guarded walk), `multi_decompress_to_buffer` on recovery (materializes every frame, breaking the bounded `_walked` anamorphism), the `lz4.block dict=` primer (the many-small-similar concern is `trained`'s zstd `FULLDICT` ownership), and `zlib_ng.crc32_combine` (the threaded gzip writer recombines its own block trailer internally; a codec-side re-combination re-derives what the writer already owns).
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from io import BytesIO
 from typing import Final, get_args

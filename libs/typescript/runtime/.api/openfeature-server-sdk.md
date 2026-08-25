@@ -2,15 +2,7 @@
 
 `@openfeature/server-sdk` mints the vendor-neutral server evaluation contract: a global `OpenFeature` singleton registers a `Provider` and mints clients that answer `ResolutionDetails` per value kind, threading a `Hook` lifecycle, a provider event plane, and evaluation context keyed by `targetingKey` over `AsyncLocalStorage`. `proc/flag` is the one `Provider`, projecting its live ruleset onto this seam so every hook, context, and event rides the client path.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@openfeature/server-sdk`
-- package: `@openfeature/server-sdk` (Apache-2.0)
-- module: ESM + CJS dual, re-exporting the `@openfeature/core` reason, error-code, and type vocabulary
-- runtime: node/bun server processes under the `runsOn: "server"` paradigm gate the SDK enforces
-- rail: flag evaluation contract
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider answers, hook lifecycle, reason and error vocabulary, provider events
 
@@ -30,7 +22,7 @@
 
 - `Provider.initialize`: receives the domain `setProvider(domain, provider)` bound this instance to, absent on the default registration — one provider class therefore specializes per domain at init instead of forking into a class per domain.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration, client reads, context altitude, transaction propagation. Leading-dot surfaces are `OpenFeature` singleton statics, `client.*` are instance reads, and `get{Boolean,String,Number,Object}Value`/`get*Details` take `(flag, fallback, context?, options?: FlagEvaluationOptions)` — the fourth slot carries per-call `hooks`/`hookHints`.
 
@@ -55,7 +47,7 @@
 - No-op propagation is the default, so request-scoped context reaches nothing until a root installs a propagator.
 - `CommonProvider.track?` is the outcome seat a provider literal implements, and `CommonProvider.domainScoped?` opts a provider into per-domain instantiation.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every flag read folds through the client, never the provider directly — the client owns hook firing, context altitude, and event handlers, while the provider answers `ResolutionDetails` as total data and never throws from a `resolve*` member.
@@ -69,9 +61,3 @@
 [LOCAL_ADMISSION]:
 - `proc/flag` implements exactly one `Provider`; a second or vendor provider is a roster decision, never a silent import. Domain fan-out rides that one class through the `initialize` domain argument, costing a specialization arm rather than a provider.
 - Reason and error vocabularies mirror rather than import into wire shapes — `Rollout.reasons` and `Verdict.codes` anchor the branch spellings against the SDK constants.
-
-[RAIL_LAW]:
-- Package: `@openfeature/server-sdk`
-- Owns: the evaluation contract — `Provider`/`ResolutionDetails`/`EvaluationContext`, the client surface, domain-scoped registration, hooks, events, transaction-context propagation, the reason and error-code vocabulary
-- Accept: one `Provider` over the ruleset cell, `setProviderAndWait` at Layer build with `close()` on release, `get*Details` reads projected into `Verdict`, one telemetry hook, `ConfigurationChanged`-driven invalidation
-- Reject: a hand-minted evaluation contract, a throwing resolve member, provider-direct evaluation bypassing hooks, a second flag source beside the provider's cell

@@ -2,14 +2,7 @@
 
 `scs` owns the first-order operator-splitting solve of a quadratic-plus-conic problem — a sparse `data` dict (`P`/`A`/`b`/`c`) and an ordered `cone` dict — running Douglas-Rachford ADMM on the homogeneous self-dual embedding and returning primal `x`, dual `y`, slack `s`, and an `info` residual dict. `cvxpy` selects it as the first-order conic backend, and the dual `y` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `SCS`, the `cone` dict, `solve`, and `update`; the splitting iteration stays SCS's.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `scs`
-- package: `scs` (MIT)
-- module: `import scs`
-- rail: convex optimization — first-order operator-splitting conic solver backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver, data, cone, and solution roots
 
@@ -18,7 +11,7 @@
 |  [01]   | `SCS`    | class         | `SCS(data, cone, **settings)` assembles the workspace and owns `solve`/`update` |
 |  [02]   | `data`   | dict          | keys `P` (upper-triangular sparse quadratic), `A` (sparse constraint), `b`, `c` |
 |  [03]   | `cone`   | dict          | ordered cone-block partition of the constraint rows; keys below                 |
-|  [04]   | solution | dict          | keys `x` (primal), `y` (dual), `s` (slack), `info` (solve measures)                    |
+|  [04]   | solution | dict          | keys `x` (primal), `y` (dual), `s` (slack), `info` (solve measures)             |
 |  [05]   | `info`   | dict          | `status`, `status_val`, `iter`, objectives, residuals, and timings; keys below  |
 
 [PUBLIC_TYPE_SCOPE]: `cone` dict keys
@@ -73,7 +66,7 @@
 |  [11]   | `verbose`                                         | iteration-log printing                              |
 |  [12]   | `write_data_filename` / `log_csv_filename`        | problem-data dump and per-iteration CSV trace paths |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, solve, warm-update, and solution recovery
 
@@ -84,9 +77,9 @@
 |  [03]   | `SCS.update(b=, c=)`                         | instance | in-place `b`/`c` update for warm re-solve        |
 |  [04]   | `scs.solve(data, cone, **settings) -> dict`  | static   | module-level one-shot solve                      |
 |  [05]   | solution `x` / `y` / `s`                     | dict key | primal, dual conic multipliers, primal slack     |
-|  [06]   | solution `info`                              | dict key | the solve-measures dict                           |
+|  [06]   | solution `info`                              | dict key | the solve-measures dict                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `SCS(data, cone, **settings)` owns the Douglas-Rachford ADMM solve of `min 0.5 xᵀPx + cᵀx s.t. Ax + s = b, s ∈ K` on the homogeneous self-dual embedding; `P` is the upper-triangular sparse cost, never a dense or full-symmetric duplicate.
@@ -102,9 +95,3 @@
 
 [LOCAL_ADMISSION]:
 - `scs` is the `cvxpy`-selected first-order conic backend beside Clarabel's interior-point arm; select SCS when the cone program is large, sparse, and moderate accuracy suffices, Clarabel when high accuracy on a small-to-medium problem is required.
-
-[RAIL_LAW]:
-- Package: `scs`
-- Owns: first-order operator-splitting solve of quadratic-plus-conic problems across the full cone set, in-place `b`/`c` warm `update`, and primal/dual/slack with infeasibility-certificate and residual recovery
-- Accept: `SCS` over standard-form sparse `data` and a `cone` dict, keyword settings tuning, `SCS.update` warm re-solve on `b`/`c`, solution-dict primal/dual/slack/`info` recovery, use as the `cvxpy` first-order conic backend beside Clarabel
-- Reject: wrapper-renames of `SCS`/`solve`; a hand-rolled splitting iteration where SCS is admitted; a dense or full-symmetric `P` where the upper-triangular sparse form is required; a per-cone solver family where the ordered `cone` dict discriminates; a phantom typed settings or solution object where SCS carries dict-shaped `data`/`cone`/`info` surfaces; a warm `update` of `P`/`A` where only `b`/`c` are updatable; choosing SCS for a small high-accuracy problem where Clarabel is the correct arm

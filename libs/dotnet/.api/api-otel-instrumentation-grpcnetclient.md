@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Instrumentation.GrpcNetClient` decorates the `Grpc.Net.Client.GrpcOut` activity each outbound call raises, folding the channel's transitional tags into RPC method, peer address, and canonical gRPC status. Registration mints no span: the client leg keeps the trace identity the channel opened, and enrichment reaches the transport message pair.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.GrpcNetClient`
-- package: `OpenTelemetry.Instrumentation.GrpcNetClient` (Apache-2.0)
-- assembly: `OpenTelemetry.Instrumentation.GrpcNetClient`
-- namespace: `OpenTelemetry.Instrumentation.GrpcNetClient`, `OpenTelemetry.Trace`
-- rail: transport instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace shaping, resolved per registration name through `IOptionsMonitor`
 
@@ -18,7 +10,7 @@
 | :-----: | :-------------------------------------- | :------------ | :-------------------------------------------- |
 |  [01]   | `GrpcClientTraceInstrumentationOptions` | class         | downstream suppression and message enrichment |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tracer-provider admission
 
@@ -37,7 +29,7 @@
 - `SuppressDownstreamInstrumentation`: suppression and injection precede the sampler verdict, so an unsampled call still collapses its transport span and propagates.
 - `EnrichWithHttpRequestMessage`: both delegates run only while `Activity.IsAllDataRequested` holds, and a throw inside either lands on the instrumentation event source, never the call.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Stamping runs on `Activity.Current` rather than a fresh span: the listener re-seats source and `Client` kind on the `GrpcOut` bracket, folds `grpc.method` and `grpc.status_code` into `rpc.method`, `rpc.response.status_code`, and `error.type`, and leaves a caller-set `Activity.Status` standing.
@@ -52,9 +44,3 @@
 
 [LOCAL_ADMISSION]:
 - Composition-root-only, wherever `Grpc.Net.Client` channels leave the process; a library emits through the channel bracket and never references this package.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.GrpcNetClient`
-- Owns: outbound gRPC client-span semantics on the channel's own activity bracket
-- Accept: one registration per tracer provider, shaped by the options delegate
-- Reject: a hand-written client tracing interceptor; a double-spanned RPC-over-transport leg

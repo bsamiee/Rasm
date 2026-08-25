@@ -2,15 +2,7 @@
 
 `trimesh` contributes one public glTF decode to the OCCT provider: the emitted GLB is re-read as a scene graph, and its placements, unique mesh faces, closure, and volume become the census the unary reply carries. Decode is the whole role here — mesh conditioning, boolean work, and file authoring stay with the geometry branch's own registration of this distribution.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `trimesh` (MIT)
-- module: `trimesh`
-- namespaces: `trimesh`, `trimesh.scene`, `trimesh.graph`, `trimesh.util`
-- depends: `numpy` for vertex and face buffers; `networkx` as the component engine `trimesh.graph.split` dispatches to
-- rail: emitted-artifact census
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: decoded scene carriers
 
@@ -21,7 +13,7 @@
 |  [03]   | `Trimesh`    | class         | one mesh carrying vertices, faces, closure, and signed volume   |
 |  [04]   | `Geometry`   | interface     | base of every scene value; only `Trimesh` carries triangles     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decode, traversal, and census
 
@@ -44,7 +36,7 @@
 - `Trimesh.merge_vertices`: mutates in place and returns `None`.
 - `Trimesh.split`: delegates to `trimesh.graph.split`, which raises `ImportError` where neither engine resolves.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Decode admits emitted bytes untouched under `process=False`, so a census counts what was written rather than what conditioning produced.
@@ -61,9 +53,3 @@
 
 [LOCAL_ADMISSION]:
 - `trimesh` is admitted here for emitted-artifact census alone; repair, boolean work, and authoring route to geometry's registration at its own stratum.
-
-[RAIL_LAW]:
-- Package: `trimesh`
-- Owns: glTF decode into a placement graph and unique mesh set, transform flattening, coincident-vertex welding, component separation, and the closure and signed-volume reads a census publishes
-- Accept: emitted GLB bytes on a provider-owned path, and the flattened mesh a placement walk produces
-- Reject: a private glTF parser, `load(force=...)` erasing the static return kind, `Scene.dump`, `merge_primitives=True` over material-free OCCT primitives, source-shape estimates standing in for an emitted census, and a sentinel count published where decode refused

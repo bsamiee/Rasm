@@ -16,7 +16,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 - Growth: a structurally distinct measurement is one `AnalysisOp` case, `_NATIVE` row, admission arm, and `_analyzed` arm; another audio scalar is one `AudioMetric` member plus one `measured` row; a native dependency is one requirement-set edit; a substitute replaces one route body behind the same `AnalysisArm` value.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from enum import StrEnum
 from heapq import nlargest

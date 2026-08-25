@@ -2,17 +2,7 @@
 
 `svgelements` owns pure-Python SVG geometry for the figure rail: SVG-document parse, the `PathSegment` path algebra, spec-faithful affine `Matrix` transform, the document-tree node vocabulary, and the `Length`/`Color`/`Angle`/`Point` value objects that resolve units, colors, angles, and coordinates. It parses, transforms, bounds, and composes the SVG that `segno`/`great-tables`/`vl-convert-python` emit; PNG/PDF egress routes downstream to `resvg-py`/`vl-convert-python`/`pyvips`/`pillow`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `svgelements`
-- package: `svgelements` (MIT)
-- module: `svgelements`
-- owner: `artifacts`
-- rail: figure — the SVG geometry, parse, transform, and bounds owner
-- entry points: none (library only)
-- capability: SVG parse from filename/stream/`str`; the full `PathSegment` algebra (move/line/close/quadratic/cubic/arc with smooth and relative variants); spec-faithful affine transform with pre/post compose and inverse; `Length`/`Color`/`Angle`/`Point` value objects with unit resolution and color-channel/blend math; the document-tree node vocabulary; bounding-box query with a stroke option; viewport/viewBox resolution; and `reify` transform-baking
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, path, and transform roots
 
@@ -64,7 +54,7 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 |  [14]   | `Desc`       | metadata      | `<desc>` annotation node                     |
 |  [15]   | `Title`      | metadata      | `<title>` annotation node                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and document iterate
 
@@ -138,7 +128,7 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 |  [09]   | `Point(x, y)` / `distance_to/angle_to/reflected_across(p)`                      | instance    | construct, distance, angle, reflect    |
 |  [10]   | `Point.matrix_transform(m)` / `polar_to(angle, distance)`                       | instance    | matrix transform / polar build         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SVG.parse` is the single ingestion factory across filename, stream, and `str`; `reify=True` bakes transforms into element geometry so a consumer reads absolute coordinates.
@@ -157,9 +147,3 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 
 [LOCAL_ADMISSION]:
 - Admitted as the sole SVG geometry, parse, transform, and bounds owner for the figure rail — ingestion, transform, scale-to-fit, n-up composition, crop, and bounds query over the SVG that `segno`/`great-tables`/`vl-convert-python` emit, feeding the document and figure owners; rasterization stays downstream at `resvg-py`/`vl-convert-python`.
-
-[RAIL_LAW]:
-- Package: `svgelements`
-- Owns: SVG document parse, the full `PathSegment` algebra, spec-faithful affine transform with pre/post compose and inverse, the `Length`/`Color`/`Angle`/`Point` value objects, the document-tree node vocabulary, bounding-box query, and viewport/viewBox resolution
-- Accept: SVG figure ingestion, transform, scale-to-fit, n-up composition, crop, and bounds query feeding the document and figure owners over the SVG that `segno`/`great-tables`/`vl-convert-python` emit
-- Reject: a hand-rolled SVG path parser or affine helper where `Path`/`Matrix` exist; a raster operation `resvg-py`/`pyvips`/`pillow` owns; a second SVG renderer where `vl-convert-python` rasterizes; a `find`/`select`/`filter` node-query family where `elements(conditional=)` discriminates; identity minting the runtime owner holds

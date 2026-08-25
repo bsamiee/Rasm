@@ -25,7 +25,7 @@
 - Growth: a new pre-pass mode is one case, one `apply` arm, and one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import copy
 import pickle
 from collections.abc import Callable

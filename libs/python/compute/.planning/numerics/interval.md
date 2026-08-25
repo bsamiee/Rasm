@@ -17,7 +17,7 @@ One validated-numerics owner produces certified enclosures over a layered floor 
 - Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_source` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new admission bar is one `_CEILING` row and one `attributes` slot the ledger already reads; a new relational op is one `Interval` method.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Sequence
 from enum import StrEnum
 from importlib.util import find_spec

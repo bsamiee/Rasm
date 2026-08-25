@@ -2,16 +2,7 @@
 
 `external-dns` is the edge tier's record reconciler: one controller reads a declared SOURCE set out of the cluster and writes the matching records at the DNS provider. Every governing knob is a top-level values key — the source list, the provider, the ownership registry, and the domain filter — and the ownership registry is what makes the controller's writes reversible rather than merely additive.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `external-dns`
-- chart: `external-dns` from `https://kubernetes-sigs.github.io/external-dns/` (Apache-2.0), chart and `appVersion` versioned independently
-- asset: the controller Deployment, a Service, a ServiceAccount, its RBAC cell, and an off-by-default ServiceMonitor
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / edge DNS
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                          | [CAPABILITY]                                                                      |
 | :-----: | :--------------------------------------------- | :-------------------------------------------------------------------------------- |
@@ -37,7 +28,7 @@
 [FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride`, both nullable — the pin reaches the Deployment, the Service, the ServiceAccount, and the RBAC objects.
 [SERVICE_NAME]: `<fullname>` UNSUFFIXED, serving the controller's metrics door. Nothing in this estate dials it; the Service exists for the ServiceMonitor.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The record set is DERIVED, never declared twice — the edge tier states hostnames on its Gateway API objects and this controller reflects them into the zone, so a hostname lives at one site and the zone converges to it.
@@ -55,9 +46,3 @@
 - State the `policy` deliberately: the `upsert-only` default leaves stale records behind on every removal, and `sync` is what makes the cluster authoritative.
 - Bind the provider credential through `env` with `valueFrom.secretKeyRef`; a token in a values literal is plaintext in the rendered ConfigMap and in every stack export.
 - Leave the metrics Service unpublished; it serves the ServiceMonitor and no consumer.
-
-[RAIL_LAW]:
-- Contract: `external-dns` chart values
-- Owns: DNS record reconciliation — the source set, the provider binding, the ownership registry, the domain filters, and the reconcile cadence
-- Accept: `sources: ["gateway-httproute"]` as the one source; `provider.name` naming the backend; `domainFilters` on the stack domain; a `secretKeyRef` credential in `env`; a distinct `txtOwnerId` per controller over a shared zone; a deliberately stated `policy`
-- Reject: a provider token as a values literal; an unfiltered domain scope; a shared `txtOwnerId` across controllers; `upsert-only` where removals must converge; a second source family armed without a record owner for it

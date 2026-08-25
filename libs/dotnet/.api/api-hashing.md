@@ -2,16 +2,7 @@
 
 `System.IO.Hashing` holds the branch's non-cryptographic digest monopoly: sealed XxHash and CRC algorithms folding through one `NonCryptographicHashAlgorithm` accumulator, each owning a static one-shot, an incremental append/finalize, and a stream drain. One accumulation owns one finalize.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.IO.Hashing`
-- package: `System.IO.Hashing` (MIT)
-- assembly: `System.IO.Hashing`
-- namespace: `System.IO.Hashing`
-- abi: managed IL, no native asset
-- rail: snapshot-identity
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: accumulator base and its sealed algorithms
 
@@ -25,7 +16,7 @@
 |  [06]   | `Crc32`                         | sealed class   | 32-bit unseeded frame checksum     |
 |  [07]   | `Crc64`                         | sealed class   | 64-bit unseeded frame checksum     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static one-shot digests
 
@@ -70,7 +61,7 @@ Seeded construction is `XxHash32(int)`, `XxHash3(long)`, `XxHash64(long)`, and `
 
 - `NonCryptographicHashAlgorithm.GetHashCode`: throws `NotSupportedException`, so an accumulator is never a dictionary key.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Input shape selects the mode: a static one-shot for a buffer in hand, `Append` with the instance value read for a chunked payload, `Append(Stream)`/`AppendAsync` for a streaming source.
@@ -100,9 +91,3 @@ Seeded construction is `XxHash32(int)`, `XxHash3(long)`, `XxHash64(long)`, and `
 - Content identity routes through the kernel `Rasm.Domain.ContentHash` entry in one of its two shapes — `Of(ReadOnlySpan<byte>)` for canonical bytes already in hand, `Of<TState>(TState, Action<TState, XxHash128>)` for a multi-part preimage the caller emits as ordered `Append` chunks — both seed-zero `XxHash128` minting the `UInt128` identity currency, with hex and two-lane-`ulong` forms as boundary projections at the consuming seam.
 - Every digest crossing a durable boundary carries algorithm, width, seed, and input domain as fields.
 - Allocation-free `Hash(source, destination, seed)`/`HashToUInt*` forms are the default — the nested `XxHash128.Hash128` carrier is `private`, so a digest consumes as `UInt128` — and an allocating `Hash(...) -> byte[]` is admitted only at a boundary that already owns a `byte[]`.
-
-[RAIL_LAW]:
-- Package: `System.IO.Hashing`
-- Owns: non-cryptographic digests — snapshot identity, cache and result fingerprints, frame checksums, stream-fed accumulation
-- Accept: span, array, and stream payloads; seeded XxHash variants; no-alloc `Try*` reads into a caller buffer; `Clone()` continuation
-- Reject: a hand-rolled FNV or Murmur kernel beside the inbox algorithms; a security or tamper claim built on a non-cryptographic digest; a second value-digest owner (`HashCode<T>.Combine`) beside the content-address identity; a raw interpolated-string seed beside the canonical-scalar seed digest

@@ -2,15 +2,7 @@
 
 `System.Security.Cryptography` owns RFC-7468 armor, X.509 and bare SubjectPublicKeyInfo admission and export, AEAD sealing, ECDSA attestation, and buffer zeroization for every credential wire, sealed object, and signed artifact the branch mints. Each allocating form carries a caller-buffer span twin sized by the surface's own probe, so credential material rides one rented destination from armor through overwrite. Confidentiality and authenticity are the claims this surface binds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Security.Cryptography`
-- package: `System.Security.Cryptography` (MIT)
-- assembly: `System.Security.Cryptography.dll` (shared framework)
-- namespace: `System.Security.Cryptography`, `System.Security.Cryptography.X509Certificates`
-- rail: credential-armor, object-seal, attestation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: armor, certificate, seal, signature, and integrity owners
 
@@ -35,7 +27,7 @@
 |  [17]   | `IncrementalHash`                    | sealed class   | segmented digest and HMAC accumulation           |
 |  [18]   | `PublicKey`                          | sealed class   | SubjectPublicKeyInfo admission, export, key bind |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: RFC-7468 armor (`PemEncoding`)
 
@@ -174,7 +166,7 @@
 - `IncrementalHash.AppendData`: segments fold in call order, so a multi-part preimage digests with no concatenation buffer between the parts.
 - `IncrementalHash.Clone`: forks the prefix accumulated so far, so one shared prefix serves many suffixes without re-appending it per name.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every allocating form has a caller-buffer twin whose destination the surface's own probe sizes — `GetEncodedSize`, `GetMaxSignatureSize`, `TagByteSizes` — so credential material occupies one rented span from armor through overwrite.
@@ -196,9 +188,3 @@
 - `CryptographicOperations` MAC and digest members serve authenticity claims; identity and cache keys ride the `api-hashing` non-cryptographic digest.
 - `HashAlgorithmName.SHA1` admits at `IncrementalHash` for the RFC 4122 name-based UUID construction alone — the specification fixes that digest, so the row carries no security claim and no other caller admits it.
 - Secret buffers rent, fill once, and overwrite through `ZeroMemory` at their owning lifecycle's terminal.
-
-[RAIL_LAW]:
-- Package: `System.Security.Cryptography`
-- Owns: RFC-7468 armor, X.509 admission and export, AEAD sealing, ECDSA attestation, buffer zeroization
-- Accept: span writes into rented destinations, size probes ahead of every span call, and each `Try*` result lowered according to its own absence-or-refusal contract
-- Reject: a hand-built `-----BEGIN-----` string, a base64 credential container, a third-party PEM codec, a hand-rolled constant-time compare

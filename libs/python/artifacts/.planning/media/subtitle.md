@@ -6,7 +6,6 @@
 
 ## [01]-[INDEX]
 
-
 ## [02]-[SUBTITLE]
 
 - Owner: `Subtitle` discriminates modality over the closed `SubtitleOp` union, each case carrying its own typed payload — never a shared erased `params` bag, a per-modality subclass, or a parallel `convert`/`retime`/`burn` trio. Each `SubtitleDialect.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume. `RetimeShift` and `RestyleStep` are per-mode unions, while `StyleConflict.KEEP`/`REPLACE` carries import behavior as a policy value instead of an `overwrite` boolean. `BurnStyle.faces` keys `(fontname, bold, italic)` to a file path and `fallback` closes an unmapped face.
@@ -17,7 +16,7 @@
 - Growth: a writable dialect is one `SubtitleDialect` member; a retime mode is one `RetimeShift` case; a restyle operation is one `RestyleStep` case; a packet-writable muxer is one `_SOFT_SUB` row; a face is one `BurnStyle.faces` row; an evidence fact is one band key; a modality is one `SubtitleOp` case plus one total dispatch arm.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterator
 from enum import StrEnum

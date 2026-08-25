@@ -6,15 +6,15 @@ Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` i
 
 ## [01]-[INDEX]
 
-- [02]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, the target-polymorphic `emit` rail with its `emit_async` operational trail, and the `drift` round-trip gate on one `StubCodegen` owner.
+- [02]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, and the target-polymorphic `emit` rail with its `emit_async` operational trail on one `StubCodegen` owner.
 
 ## [02]-[STUB_CODEGEN]
 
 - Owner: `StubCodegen` — it decodes the LANDED peer mint `dotnet:Rasm.Compute/Model/identity#GRADUATION_EVIDENCE`: `EvidenceBundle` mirrors `GraduationEvidence(SchemaVersion, Owners, BundleKey)` under the `ComputeWireContext` CamelCase policy (`rename="camel"`), `OwnerDescriptor` its `(Name, Fields)` pair, and the `FieldNode` leaf union the six `[JsonDerivedType]` kind literals `scalar`/`array`/`nested`/`mapping`/`optional`/`union` — one agreed roster at both ends, no assumed shape. `FieldScalar` transcribes the peer's eight locked rows; its runtime type lives in the one `_SCALAR` table; the composite kinds are `FieldDescriptor` union cases, not enum members, because they carry sub-shape.
 - Cases: the shape kind lives in the case the discriminant selects — parallel `element`/`nested` optionals racing the kind have no owner — and the decoder targets the closed `FieldNode` leaf union, never the open base. `schema_hook` stays reserved for a genuinely custom-typed field: the `key` scalar's `ContentKey` is itself a `Struct` and renders as a struct `$ref` without a hook. `bundle_key` crosses as the bare 32-hex key render under the estate x32 content-key law, parsed by `_bundle_key` into the typed `ContentKey`, never a raw integer column double precision shreds; the retired manifest ordinal carried no surviving case authority.
-- Law: a landed emission reaches the `python:runtime/observability/journal#LEDGER` plane as one `OPERATIONAL` `AuditFact` keyed on the bundle it projected, and `emit_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends. The fact mints off the CLEARED projection, so a decode or render fault names no stub nobody generated, and the target is the bundle key rather than a path: this owner writes no file, so naming a location asserts a write nobody made. `drift` stays on the sync leg by design — a golden-fixture re-emit proves byte stability and journalling it fills the plane with reproduction noise under one repeated key. No meter rides the leg, the fold's cpu being the resource band's one charge.
+- Law: a landed emission reaches the `python:runtime/observability/journal#LEDGER` plane as one `OPERATIONAL` `AuditFact` keyed on the bundle it projected, and `emit_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends. The fact mints off the CLEARED projection, so a decode or render fault names no stub nobody generated, and the target is the bundle key rather than a path: this owner writes no file, so naming a location asserts a write nobody made. No meter rides the leg, the fold's cpu being the resource band's one charge.
 - Entry: `emit(raw, *, target)` is polymorphic over the outbound `EmitTarget` — a consumer wanting only the wire-contract schema or only the importable stub selects a target, never a second generator; both projections descend the same fold over the same decoded descriptors, so they can never disagree on the field set. Inbound wire stays the producer's one canonical UTF-8 JSON form; no second decode arm exists without a producer emitting it.
-- Auto: every refusal on this page resolves ONE `RAISES` anchor, so a subject derives from its leg rather than being spelled at the raise: a `schema_version` the decoder does not carry rails `SCHEMA_VERSION` — the peer pins `Schema = "1"` — never a best-effort decode off a drifted wire shape; a malformed `bundle_key` render rails `BUNDLE_KEY`; a cyclic owner graph rails `OWNER_CYCLE` as the caller-repairable refusal it is, decided on the rail BEFORE the render fence opens, so no `ValueError` funnel spans a body that also raises library `ValueError`s of its own; `drift` proves decode AND emit round-trip byte-stability against the producer-minted `evidence-bundle` `CorpusFixture` in the runtime reproduction corpus, a byte drift railing `DRIFT`.
+- Auto: every refusal on this page resolves ONE `RAISES` anchor, so a subject derives from its leg rather than being spelled at the raise: a `schema_version` the decoder does not carry rails `SCHEMA_VERSION` — the peer pins `Schema = "1"` — never a best-effort decode off a drifted wire shape; a malformed `bundle_key` render rails `BUNDLE_KEY`; a cyclic owner graph rails `OWNER_CYCLE` as the caller-repairable refusal it is, decided on the rail BEFORE the render fence opens, so no `ValueError` funnel spans a body that also raises library `ValueError`s of its own.
 - Stage: `emit` is a long fold and takes the optional lane tap: `CodegenStage` is its OWN closed roster — decode, topological order, render — beaten through the hub `StageTap`, so a bundle whose render dominates reports where it stands instead of two positions across the whole projection. One cross-fold phase ladder is the refused form.
 - Growth: a new wire primitive is one `FieldScalar` member and one `_SCALAR` row the three interpreters absorb with zero extra surface, landed beside the peer's `FieldScalar` row in the same change; a new composite shape is one `FieldDescriptor` case, one `FieldNode` union member, one `_fold` arm, and one constructor field on each interpreter, beside the peer's case and `[JsonDerivedType]` literal; a new inbound wire format re-mints the `WireFormat` axis as one member and one decoder row when a producer emits it; a new output artifact is one `EmitTarget` member and one fold arm; a new refusal is one `FaultRow` anchor in `RAISES` whose coordinates are its declared `slots`; a new fold position is one `CodegenStage` member whose ordinal derives.
 
@@ -184,10 +184,7 @@ OWNER_CYCLE: Final[FaultRow[ComputeLeg]] = FaultRow(
 RENDER: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.CODEGEN, point="render", arm="boundary", defect="stub-render", retriability=TERMINAL
 )
-DRIFT: Final[FaultRow[ComputeLeg]] = FaultRow(
-    leg=ComputeLeg.CODEGEN, point="drift", arm="boundary", defect="byte-drift", retriability=TERMINAL, slots=("version",)
-)
-RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DECODE, SCHEMA_VERSION, BUNDLE_KEY, OWNER_CYCLE, RENDER, DRIFT]))
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DECODE, SCHEMA_VERSION, BUNDLE_KEY, OWNER_CYCLE, RENDER]))
 
 _ORDINAL: Final[Map[CodegenStage, int]] = Map.of_seq([(stage, index + 1) for index, stage in enumerate(CodegenStage)])
 
@@ -320,17 +317,6 @@ class StubCodegen:
                 return (await Journal.record(_evidence(module), scope=composition)).map(lambda _landed: module)
             case refused:
                 return Error(refused.error)
-
-    @staticmethod
-    def drift(golden: bytes, expected: GeneratedModule) -> RuntimeRail[GeneratedModule]:
-        pinned = msgspec.json.Encoder(order="deterministic")
-
-        def check(module: GeneratedModule) -> RuntimeRail[GeneratedModule]:
-            if pinned.encode(module) == pinned.encode(expected):
-                return Ok(module)
-            return Error(DRIFT.raised(expected.schema_version))
-
-        return StubCodegen.emit(golden).bind(check)
 
     @staticmethod
     def _carried(bundle: EvidenceBundle) -> RuntimeRail[EvidenceBundle]:

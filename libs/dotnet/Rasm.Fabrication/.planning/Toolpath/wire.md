@@ -53,7 +53,7 @@
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using CavalierContours.Core;
 using CavalierContours.Polyline;

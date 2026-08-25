@@ -2,15 +2,7 @@
 
 `pye57` owns E57 (`.e57`) point-cloud file IO over the libe57 (`xerces-c`) C++ core: an `E57` handle for multi-scan read/write and `numpy` field-buffer allocation, a `ScanHeader` typed view over each scan node (pose, bounds, acquisition times, count, fields), the `COORDINATE_SYSTEMS` enum carrying the Cartesian/spherical field-name maps, and a `convert_spherical_to_cartesian` projection. Geometry's scan owner folds `E57.read_scan` into one global-frame field-keyed `numpy` dict for the downstream registration and mesh rails, never hand-rolling E57 binary or raw libe57 node parsing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pye57`
-- package: `pye57` (davidcaron)
-- module: `pye57` re-exports `E57`, `ScanHeader`, `libe57`
-- namespaces: `pye57.e57` (`COORDINATE_SYSTEMS`, `SUPPORTED_*_POINT_FIELDS`), `pye57.utils` (`convert_spherical_to_cartesian`)
-- rail: scan-processing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file, scan, and coordinate-system family
 
@@ -38,7 +30,7 @@ Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtyp
 |  [06]   | `rowIndex`/`columnIndex`                        | numpy dtype `"H"`                                                 |
 |  [07]   | `cartesianInvalidState`/`sphericalInvalidState` | numpy dtype `"b"`                                                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: E57 file lifecycle, read, and buffer allocation
 - `read_scan` carry: `intensity`, `colors`, `row_column`, `transform`, `ignore_missing_fields`
@@ -99,7 +91,7 @@ Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtyp
 |  [22]   | `h.temperature` / `h.relativeHumidity` / `h.atmosphericPressure` | property     | environmental metadata                             |
 |  [23]   | `h.pretty_print(node=None, indent='') -> list[str]`              | debug        | recursive node dump as a line list                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import at boundary scope only; the `pye57.libe57` node API is a boundary escape hatch, never threaded into domain code.
@@ -117,9 +109,3 @@ Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtyp
 
 [LOCAL_ADMISSION]:
 - pye57 is the sole E57 (`.e57`) intake/egress owner on the geometry scan rail; raw libe57 node trees stay at the boundary and never cross into domain code.
-
-[RAIL_LAW]:
-- Package: `pye57`
-- Owns: E57 multi-scan read/write, typed scan-metadata access, `numpy` field-buffer allocation, quaternion pose-to-global transform
-- Accept: `.e57` files in read or write mode, field-keyed `numpy` dicts for raw scan write, quaternion-plus-translation pose tuples
-- Reject: wrapper-renames of `read_scan`/`write_scan_raw`; hand-rolled E57 binary or libe57 node parsing in domain code; `SUPPORTED_*_POINT_FIELDS` treated as a frozenset instead of the dtype-char map; `make_buffer`/`make_buffers` returns unpacked as bare dicts; identity minting the runtime owns

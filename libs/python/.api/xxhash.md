@@ -2,15 +2,7 @@
 
 `xxhash` binds the xxHash C library for fast non-cryptographic hashing across its classic and XXH3 families, each a stateful seedable hasher backed by a one-shot digest path. It owns content-identity keys, cache keys, and integrity tokens; its `XXH3_128` digest is the wire that agrees byte-for-byte with the C# `System.IO.Hashing` boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `xxhash`
-- package: `xxhash` (BSD-2-Clause)
-- module: `xxhash`
-- namespaces: `xxhash`, `xxhash.version`
-- rail: hashing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hasher classes
 All four hasher classes share one `_Hasher` interface. `xxh128` is the same class object as `xxh3_128`, while `xxh64` and `xxh3_64` stay distinct despite an 8-byte digest each, so identical content hashes to different values across the two.
@@ -27,7 +19,7 @@ All four hasher classes share one `_Hasher` interface. `xxh128` is the same clas
 - [BINDING_ID]: `VERSION` `XXHASH_VERSION` — release strings, mirrored in `xxhash.version`
 - [PROBE]: `algorithms_available` — `set[str]` of available algorithm names
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: hasher instance operations
 Construct with optional `input`/`seed`, feed with `update`, read the running state, `copy` to fork a partial digest, `reset` to the seed state. Constructor and `update` accept `str | Buffer` — any buffer-protocol object or a UTF-8-encoded `str`.
@@ -51,7 +43,7 @@ Each family exposes `_digest -> bytes`, `_hexdigest -> hex str`, and `_intdigest
 
 - [FAMILIES]: `xxh32` `xxh64` `xxh3_64` `xxh3_128` `xxh128`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `xxh64` and `xxh3_64` hash identical content to different values, so the family is fixed per owner identity and never mixed within one key namespace.
@@ -67,9 +59,3 @@ Each family exposes `_digest -> bytes`, `_hexdigest -> hex str`, and `_intdigest
 - one-shot `<family>_<form>(input)` is the single-buffer fast path; the stateful `update`/`digest` cycle serves incremental streaming over a chunked source.
 - content-identity and cache keys read `intdigest()` or `hexdigest()`; raw `digest()` bytes serves binary framing and declares its endianness with the consumer.
 - one seed per owner identity; seeded and unseeded hashes never mix in one key namespace.
-
-[RAIL_LAW]:
-- Package: `xxhash`
-- Owns: fast non-cryptographic hashing for content identity, cache keys, and integrity tokens across the xxHash families
-- Accept: one-shot `<family>_<form>(input, seed=)` for single-buffer hashing; the stateful `update`/`digest` cycle for streaming; a fixed family and seed per owner identity
-- Reject: xxhash for cryptographic security, password storage, or HMAC; a hand-rolled byte-folding hash; mixing families or seeds in one key namespace

@@ -25,7 +25,7 @@
 - Growth: a pipeline phase is one row; a render state one `RenderAspect` case and one total adapter arm; a filter axis one criterion case.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Numerics;

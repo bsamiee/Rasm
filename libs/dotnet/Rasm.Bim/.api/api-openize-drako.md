@@ -2,17 +2,7 @@
 
 `Openize.Drako` owns managed Draco 3D geometry compression: the `Draco` facade encodes and decodes `DracoMesh` (triangulated) and `DracoPointCloud` (unstructured points) over typed per-vertex `PointAttribute` channels, per-attribute quantization bit controls, and optional geometry metadata. It feeds the Compute glTF export rail as the `KHR_draco_mesh_compression` codec leg.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Openize.Drako`
-- package: `Openize.Drako` (commercial Openize) — requireLicenseAcceptance; admitted for the Compute `EXPORT_RAIL`, outside-Rhino only
-- assembly: `Openize.Drako`
-- namespace: `Openize.Drako`
-- asset: net8.0, net7.0, net6.0, netstandard2.1, net46 — `net10.0` consumer binds `lib/net8.0`
-- asset: IL-only AnyCPU managed, no `runtimes/` native; the bound net8.0 group has zero package deps (`System.Memory`/`System.Numerics.Vectors` ride the net46 fallback only)
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: encode/decode facade
 
@@ -54,7 +44,7 @@
 |  [01]   | `Metadata`         | mutable class | `Entries` `Dictionary<string, byte[]>`; nested `SubMetadata` `Dictionary<string, Metadata>` |
 |  [02]   | `GeometryMetadata` | mutable class | extends `Metadata`; `AttributeMetadata` `Dictionary<int, Metadata>` keyed by attribute id   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Draco` — encode/decode
 
@@ -107,7 +97,7 @@
 |  [07]   | `GetValueAsVector3(int) -> Vector3`                                        | instance | read an attribute-value index as a `Vector3`   |
 |  [08]   | `MappedIndex(int) -> int`                                                  | instance | map a point index to its attribute-value index |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DracoMesh: DracoPointCloud` — a triangulated mesh is a point cloud with an indexed face list; `Draco.Decode` returns `DracoMesh` for meshes and `DracoPointCloud` for clouds, discriminated by `is DracoMesh`.
@@ -125,9 +115,3 @@
 - Encode: populate `DracoMesh`/`DracoPointCloud` through `PointAttribute.Wrap` factories, then `Draco.Encode` with explicit `DracoEncodeOptions`.
 - Decode: `Draco.Decode(byte[])` returns `DracoPointCloud`; downcast to `DracoMesh` for face indices.
 - Read attribute buffers through `DracoPointCloud.Attribute(id).Buffer`.
-
-[RAIL_LAW]:
-- Package: `Openize.Drako`
-- Owns: Draco encode/decode for mesh and point-cloud geometry with typed attribute channels and metadata
-- Accept: managed `Span<Vector2/3>` and `float[]` intake through `PointAttribute.Wrap`; `byte[]` or `Stream` for encode egress
-- Reject: hand-rolled bit-packing, direct `DracoHeader` parsing, or encoder selection bypassing the `Draco` facade

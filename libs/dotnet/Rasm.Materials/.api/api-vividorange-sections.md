@@ -2,18 +2,7 @@
 
 `VividOrange.Sections` owns the concrete reinforced-section and reinforcement data over the `VividOrange.ISections` interface floor: `Section` and `ConcreteSection` bind profile, material, longitudinal bars, links, cover, and spacing policy, and the `VividOrange.Sections.Reinforcement` namespace owns the bar primitives, layout strategies, placement engines, and the EC2 minimum-spacing rule. Every type carries `ITaxonomySerializable`; bar positions and layer paths ride `VividOrange.Geometry` `ILocalPoint2d`/`ILocalPolyline2d`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Sections`
-- package: `VividOrange.Sections` (MIT)
-- assembly: `VividOrange.Sections`
-- namespace: `VividOrange.Sections` owns `Section`/`ConcreteSection`; `.Reinforcement` owns the bar, layout, and layer engines; `.Exceptions` owns boundary throw types
-- asset: pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds the `lib/net8.0` managed asset
-- rail: profiles / connection — the reinforced section and reinforcement data
-- floor: `ISections` interface contracts and the `BarDiameter`/`SectionFace` vocabulary resolve to the centrally pinned `VividOrange.ISections` package; the concrete carriers resolve to this assembly
-- depends: `VividOrange.IProfiles` / `VividOrange.Profiles.Perimeter` / `VividOrange.Geometry` supply profile inputs and geometry returns, `VividOrange.IMaterials` the grades, `UnitsNet` the quantities
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the section carriers — an `IProfile` and an `IMaterial`
 
@@ -61,7 +50,7 @@
 - Both are plain `Exception` subclasses thrown at the section-construction boundary, not a `Fin`/`Validation` rail; `InvalidProfileTypeException.ValidateProfileForFaceReinforcement(IProfile)` gates the profile.
 - `Reinforcement.Utility` stays `internal`, owning the `GetPath`/`GetRebars` layout geometry; consumers call the public layer surfaces.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a section
 
@@ -104,7 +93,7 @@
 
 - `LocalPolyline2d` throws `ArgumentException` under two points; a parametric `IProfile` perimeter assembles its outer and void loops from these carriers before `new Perimeter(outer, voids)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A `Section` pairs a profile and a material; `ConcreteSection` extends it with the reinforcement payload — layers, link, cover, min-spacing. A layout (`...ByCount`/`...BySpacing`) is the bar rule; a layer binds a layout to a face or perimeter and is the placement engine, so one layout reuses across faces. `ConcreteSection.Rebars` collects the positioned bars each read by materializing every layer through `GetPath`/`GetRebars`.
@@ -121,9 +110,3 @@
 [LOCAL_ADMISSION]:
 - A reinforced section admits through the Materials boundary owning the RC section and the `Connection/reinforcement` seam: a `ConcreteSection` from an `IProfile` + `EnConcreteMaterial` + an `EnRebarMaterial`-backed `Rebar`/layer arrangement maps onto the canonical Materials `ConnectionItem` (`ConnectionFamily.Reinforcement`) at the edge. A diameter reads from `BarDiameter`, a minimum clear spacing from `MinimumReinforcementSpacing.GetMinimumReinforcementSpacing`.
 - A Materials boundary traps `InvalidMaterialTypeException`/`InvalidProfileTypeException` at the in-folder edge and lowers them onto the typed section error rail (`LanguageExt.Fin`); the throw never reaches an interior domain signature, and consumers never call the `internal` `Reinforcement.Utility`.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Sections` (MIT)
-- Owns: the concrete reinforced-section and reinforcement data — the `Section`/`ConcreteSection` carriers, the `Rebar`/`Link`/`LongitudinalReinforcement` primitives over the `BarDiameter` catalogue, the `ReinforcementLayoutByCount`/`BySpacing` strategies, the `FaceReinforcementLayer`/`PerimeterReinforcementLayer` placement engines (`GetPath`/`GetRebars`), and the `MinimumReinforcementSpacing` EC2 rule — the concrete impl of the `VividOrange.ISections` floor, every type `ITaxonomySerializable`.
-- Accept: an RC `ConcreteSection` from an admitted `IProfile` + `EnConcreteMaterial`/`EnRebarMaterial` + a face/perimeter layer arrangement, mapped onto the canonical Materials `ConnectionFamily.Reinforcement` owner at the boundary; diameters from `BarDiameter`, spacing from `MinimumReinforcementSpacing`; the section consumed as the `IConcreteSection` input to the `SectionProperties`/`InteractionDiagram` RC solvers.
-- Reject: a hand-rolled `BarSize`/`RebarSection`/diameter literal where `BarDiameter` + `Rebar` carry it; a raw-`double` read of a `Length` diameter/spacing/cover; calling the `internal` `Reinforcement.Utility` directly; an `InvalidMaterialTypeException`/`InvalidProfileTypeException` left to propagate into an interior signature.

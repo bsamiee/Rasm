@@ -2,16 +2,7 @@
 
 `prosemirror-inputrules` owns typing-triggered transformation: an `InputRule` pairs a regular expression matched against the text before the cursor with a replacement string or a transaction-returning handler, `inputRules({rules})` mounts the roster as one plugin, and `undoInputRule` reverts the last applied rule on the next keystroke. Autoformatting is therefore a data row per rule, never a keystroke branch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-inputrules`
-- package: `prosemirror-inputrules` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure state functions driven by the view's `handleTextInput` prop
-- depends: `prosemirror-state`, `prosemirror-transform`
-- rail: `view/content` — the autoformat rule roster
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the rule value and the plugin's own field shape.
 
@@ -22,7 +13,7 @@
 
 - `PluginState` is declared but not exported; `inputRules` returns `Plugin<PluginState>`, so the field type infers at the call site.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: rule construction and the two builders that cover the common structural cases.
 
@@ -51,7 +42,7 @@
 
 - Spread `smartQuotes` into the rule array; passing the array itself as one rule silently disables the whole group.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Rules are data, matched in order: the plugin runs on text input, takes the text before the cursor in the current textblock, and tries each rule in roster order until one returns a transaction. Adding an autoformat is one row, and its priority is its index.
@@ -75,9 +66,3 @@
 - Anchor every pattern with `$`, and with `^` where the rule is structural.
 - Reach for `wrappingInputRule`/`textblockTypeInputRule` before a hand-written handler; a bare handler duplicating a wrap or a retype loses the admissibility check.
 - Spread `smartQuotes` into the roster and declare `inCode`/`inCodeMark` per rule where a code context needs a different answer.
-
-[RAIL_LAW]:
-- Package: `prosemirror-inputrules`
-- Owns: typing-triggered transformation — the `InputRule` value with its `undoable`/`inCode`/`inCodeMark` policy, the `wrappingInputRule` and `textblockTypeInputRule` structural builders, the `inputRules({rules})` plugin dispatching by roster order over `handleTextInput`, the `undoInputRule` reversion command, and the shipped typographic rules `emDash`, `ellipsis`, `smartQuotes`, and the four quote halves
-- Accept: one ordered rule roster per document class, patterns anchored with `$` and structural ones with `^`, the two builders bound to `schema.nodes` types with `getAttrs` derived from capture groups, `joinPredicate` where adjacent wrappers must stay separate, per-rule `inCode`/`inCodeMark` declarations, and `chainCommands(undoInputRule, undo)` on Backspace
-- Reject: a keystroke branch in `handleTextInput` where a rule row belongs, an unanchored pattern, a hand-written handler duplicating a wrap or retype builder, `smartQuotes` passed as a single rule instead of spread, and a global code-context branch where per-rule options decide

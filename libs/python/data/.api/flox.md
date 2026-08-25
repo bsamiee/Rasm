@@ -2,16 +2,7 @@
 
 `flox` owns vectorized, parallelized grouped reductions and grouped cumulative scans over NumPy and dask arrays, lowering `xarray` groupby, binned, and resample reductions onto the numpy-groupies kernel and the map-reduce/blockwise/cohorts dask strategies. It never re-implements the labelled-array container `xarray` owns; `xarray` dispatches to it automatically when installed, so `flox` is the vectorized lowering beneath the `field-dataset` selection rail's grouped, binned, resampled, and scanned arms.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `flox`
-- package: `flox` (Apache-2.0)
-- owner: `data`
-- module: `flox`
-- namespaces: `flox.xarray`, `flox.core`, `flox.aggregations`
-- rail: field-dataset
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: custom-reduction and reindex value types
 
@@ -24,7 +15,7 @@
 |  [03]   | `ReindexStrategy`  | value-object  | `ReindexStrategy(blockwise, array_type=AUTO)`, accepted by `reindex` beside a `bool` |
 |  [04]   | `ReindexArrayType` | enum          | `AUTO`, `NUMPY`, `SPARSE_COO` — dense against sparse-COO for high-cardinality groups |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grouped reduction and cumulative scan
 
@@ -48,7 +39,7 @@ Each reduction row elides the shared reduction kwargs — `- reduction carry: fu
 |  [04]   | `is_supported_aggregation(array, func, **kwargs) -> bool`                               | static  | engine-admissibility predicate     |
 |  [05]   | `core.factorize_(by, axes, *, expected_groups=None, sort=True) -> tuple`                | static  | group factorizer                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `flox` reduces pure-NumPy arrays through numpy-groupies and dask arrays through the `method` tree strategies; dask is an optional `[all]` extra, not the NumPy path.
@@ -73,9 +64,3 @@ Each reduction row elides the shared reduction kwargs — `- reduction carry: fu
 - A grouped, binned, or resampled reduction over a `field-dataset` frame enters through `xarray_reduce` or `xarray`'s auto-dispatch, naming its `func` from the registered vocabulary and declaring `expected_groups` for the lazy dask path.
 - A running total or forward/back fill over a group enters through `groupby_scan` with a scan `func`, the arm the reduce family cannot express.
 - Resample, bin, and distinct groupers enter as `xarray.groupers` objects passed as `*by`; `flox` exports none of them, and `factorize_` is reached at `flox.core`.
-
-[RAIL_LAW]:
-- Package: `flox`
-- Owns: vectorized, parallel grouped, binned, and resampled reductions and grouped cumulative scans over NumPy and dask arrays, the engine-kernel and dask-strategy dispatch, and the custom `Aggregation`/`Scan` escapes
-- Accept: `xarray_reduce(obj, *by, func=, ...)` as the xarray-aware grouped-reduction entrypoint and `groupby_reduce`/`groupby_scan` as the raw-array kernels, `func` from the registered reduction/scan vocabulary, `expected_groups` declared for the lazy dask path, `method`/`engine`/`reindex` as parallelization and kernel policy, and `xarray.groupers` objects as `by`
-- Reject: a hand-rolled group loop or cumulative scan where `groupby_reduce`/`groupby_scan` vectorizes, and a bare `xarray` `groupby` reduction where `flox` is installed and `xarray` defers to it

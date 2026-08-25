@@ -2,19 +2,7 @@
 
 `stream-zip` mints the bounded-memory streaming ZIP construction surface for the artifacts bundle rail: `stream_zip` consumes an iterable of `MemberFile` tuples and yields the ZIP container as `bytes` chunks, the `Method` family selects per-member format and compression, and `password` switches WinZip AES-256 encryption across every member. `package/archive#ARCHIVE` binds it as the `CompressionAlgo.ZIP_STREAM` arm, encoding each member as it streams so no whole-archive buffer forms and the ZIP central-directory, ZIP64 extra-field, and WinZip-AES record layout stay `stream_zip`-owned.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `stream-zip`
-- package: `stream-zip` (MIT)
-- import: `stream_zip`
-- owner: `artifacts`
-- rail: bundle
-- abi: pure-Python wheel, `py.typed`, no compiled extension
-- depends: `pycryptodome` (WinZip-AES backend)
-- entry points: import-only, no console script; the module `dir()` is the public surface (no `__all__`/`__version__`)
-- capability: bounded-memory streaming ZIP construction yielding `Iterable[bytes]`; per-member ZIP32/ZIP64 selection with size/offset auto-upgrade; raw-deflate or stored compression; the Info-ZIP `UT` extended-timestamp extra; WinZip AES-256 (PBKDF2/AES-CTR/HMAC-SHA1) keyed by `password`; streamed CRC32/uncompressed-size integrity verification for pre-sized stored members; a thread-bridged `async_stream_zip` over async iterables
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: member tuples, method family, and integrity rails
 
@@ -46,7 +34,7 @@
 |  [11]   | `CentralDirectoryNumberOfEntriesOverflowError` | `ZipOverflowError`                | entry count exceeds ZIP32 field width      |
 |  [12]   | `NameLengthOverflowError`                      | `ZipOverflowError`                | member name length exceeds field width     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: streaming functions
 
@@ -69,7 +57,7 @@
 |  [04]   | `NO_COMPRESSION_32(uncompressed_size, crc_32) -> Method` | factory  | stored ZIP32; pre-declared size + CRC32          |
 |  [05]   | `NO_COMPRESSION_64(uncompressed_size, crc_32) -> Method` | factory  | stored ZIP64; pre-declared size + CRC32          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [BUNDLE_STREAMING_ZIP]:
 - import: `from stream_zip import stream_zip, ZIP_64, ZIP_32, ZIP_AUTO, NO_COMPRESSION_32, NO_COMPRESSION_64` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -85,9 +73,3 @@
 - Byte-reproducibility is the content-addressing seam: the design fixes `modified_at` to `_EPOCH` (`1980-01-01`, the ZIP epoch) and the deflate to a fixed `level` on a deterministic codec per method row — `zlib_ng` where the hook is read, `ZIP_AUTO`'s own stdlib raw-deflate on the auto row — so an unencrypted bundle of identical payloads at one profile yields identical bytes run-to-run and dedups by the runtime content key. `get_crypto_random` makes an encrypted bundle intentionally non-reproducible: it defaults to `secrets.token_bytes`, freshly randomizing the AES salt/IV per pack, and accepts a deterministic byte source for reproducible-fixture AES-path tests.
 - `ZIP_AUTO(uncompressed_size, level)` reads the per-member size the producer already knows (a `msgspec.msgpack.encode` length, a `pikepdf`/`pymupdf` page estimate, a `segno` QR buffer length), so the ZIP32-vs-ZIP64 decision is data-driven; and because `data` is a lazy `Iterable[bytes]`, a `tomlkit.dumps(...)` document, an `svgelements`-composed SVG, or a `weasyprint`/`pymupdf` PDF stream feeds straight into a member while `stream_zip` interleaves encode-and-emit.
 - Universal-rail tier: per-member triples fold into `ContentKey` over `xxh3_128`; `BundleEvidence` crosses into `core/hooks#POINTS` and its fields bind to the shared span. `async_stream_zip` uses the shared `anyio` rail, and `stream-unzip` closes the decode round trip under the matching encryption allow-list.
-
-[RAIL_LAW]:
-- Package: `stream-zip`
-- Owns: bounded-memory streaming ZIP construction, per-member ZIP32/ZIP64 format selection and size/offset auto-upgrade, raw-deflate/stored compression, the `UT` extended-timestamp extra, WinZip AE-2/AES-256 encryption (PBKDF2/AES-CTR/HMAC-SHA1 via `pycryptodome`), and streamed CRC32/uncompressed-size integrity verification
-- Accept: streaming ZIP bundle assembly yielding ordered `bytes` chunks for file, response, or upload sinks, consuming lazy member data from the imaging/figure/document/structured-document producers through the `package/codec#CODEC` `CompressionAlgo.ZIP_STREAM` arm and the `_EPOCH`/`zlib_ng`-at-`level` reproducibility seam
-- Reject: a wrapper-rename of `stream_zip`/`async_stream_zip`; a `zipfile.ZipFile` whole-archive buffering path where streaming bounds memory; a hand-rolled ZIP64, `UT` extra, or WinZip-AES record layout; a hand-rolled AES where `pycryptodome` encrypts; a parallel member type per format or compression mode; a second function for the encrypted path the `password` row owns; a native `Method` handle on the serialized profile where the `ZipMethod` Literal and `_zip_members` match resolve it; a `datetime.now()` member stamp where `_EPOCH` keeps the unencrypted container content-addressable; a hand-rolled extractor where `stream-unzip` owns the inverse

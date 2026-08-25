@@ -78,6 +78,4 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 [TEST_SUBSTRATE]:
 - `pytest` — Spec runner; its plugin roster rides the root manifest.
 - `hypothesis` — Property-based generation and shrinking.
-- `inline-snapshot` — Inline expected-value snapshots updated in place.
 - `coverage` — Branch coverage measurement.
-- `mutmut` — Mutation testing over the spec suite.

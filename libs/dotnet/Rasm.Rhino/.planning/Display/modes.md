@@ -28,7 +28,7 @@
 - Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`, `Op`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;

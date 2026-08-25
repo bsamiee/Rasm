@@ -2,16 +2,7 @@
 
 `tempo` is the trace backend in its single-binary chart. Two facts rule a fence against it: the chart installs NO receiver by default, so a trace door exists only where the values body declares one — and its Service publishes a FIXED port roster regardless, advertising jaeger, zipkin, and opencensus doors no receiver is listening on.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tempo`
-- chart: `tempo` from `https://grafana.github.io/helm-charts` (AGPL-3.0), chart and `appVersion` versioned independently
-- asset: the server StatefulSet with its Service, ServiceAccount, ConfigMap, and PVC, beside an optional `tempo-query` sidecar, ServiceMonitor, and NetworkPolicy
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / trace backend
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                          | [CAPABILITY]                                                                       |
 | :-----: | :--------------------------------------------- | :--------------------------------------------------------------------------------- |
@@ -38,7 +29,7 @@
 [FULLNAME]: the standard collapse scaffold with flat overrides; the pin renders the StatefulSet, the Service, the ConfigMap, and the ServiceAccount under exactly the pinned name, verified by render.
 [SERVICE_NAME]: `<fullname>` UNSUFFIXED. The query door is 3200 and the OTLP doors are 4317 and 4318 — every address this estate publishes reads the pinned name with the explicit port.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Span-derived series are the collector's connectors, not this backend's generator. `span_metrics` and `service_graph` mint RED and topology series from the same admitted spans one hop earlier, so the chart's own metrics generator is declined on its row — two generators over one span stream fork the series and no board can tell which it read.
@@ -58,9 +49,3 @@
 - Read `multitenancyEnabled` off the store row's tenancy column rather than stating it locally.
 - Leave `metricsGenerator` disabled; the collector's connectors own span-derived series.
 - Never read the Service's port roster as evidence of an armed door — the list is fixed and most of it is closed.
-
-[RAIL_LAW]:
-- Contract: `tempo` chart values + the Tempo server document the `config` template renders over them
-- Owns: the trace backend — its receivers, retention, storage destination, tenancy posture, per-tenant overrides, and the optional query sidecar
-- Accept: an explicit `tempo.receivers.otlp` pair; `tempo.retention` from the profile; `multitenancyEnabled` from the store row's tenancy column; an armed persistence claim; a disabled metrics generator; addresses carrying the pinned name and the explicit port
-- Reject: an install on default receivers, which is a backend accepting nothing; the 24h retention default; persistence left off; the metrics generator beside the collector's connectors; a tenancy answer stated here; any claim that a published Service port implies a listening receiver

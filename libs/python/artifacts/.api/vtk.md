@@ -2,15 +2,7 @@
 
 `vtk` is the Visualization Toolkit demand-driven pipeline engine under the `scene` rail: dataset types (`vtkPolyData`, `vtkImageData`, `vtkUnstructuredGrid`) flow through `vtkAlgorithm` source/filter stages wired by `GetOutputPort`/`SetInputConnection`, render through the `vtkMapper` -> `vtkActor` -> `vtkRenderer` -> `vtkRenderWindow` stack, and serialize through reader/writer pairs. `pyvista` wraps this engine; a design page drops to raw `vtk` only for a stage `pyvista` does not expose. Every class lives under `vtkmodules.<Module>`, re-exported flat from `vtk`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `vtk`
-- package: `vtk` (BSD-3-Clause)
-- module: `vtk` (aggregates `vtkmodules.*`)
-- abi: C++ native extension per `vtkmodules.<Module>`; the Forge python-overlay `.pth` supplies `vtk` at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
-- rail: scene
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: dataset and core data — `vtkmodules.vtkCommonDataModel`/`vtkCommonCore`
 
@@ -93,7 +85,7 @@
 |  [11]   | `vtkWindowToImageFilter` | capture       | grab a render window's framebuffer as `vtkImageData` |
 |  [12]   | `vtkPNGWriter`           | writer        | write a captured framebuffer to PNG                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipeline connection on `vtkAlgorithm` — every source/filter/reader shares it
 
@@ -144,7 +136,7 @@
 |  [04]   | `vtkXMLPolyDataReader.SetFileName(path)` + `Update()`                     | load `.vtp`                 |
 |  [05]   | `vtkSTLWriter.SetFileTypeToBinary()` / `SetFileTypeToASCII()`             | STL encoding mode           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `downstream.SetInputConnection(upstream.GetOutputPort())` wires a live pipeline that re-executes on upstream change, and nothing computes until a terminal `Update`/`Write`/`Render` pulls; `SetInputData` snapshots a static dataset instead.
@@ -164,9 +156,3 @@
 - Call one terminal `Update`/`Write`/`Render`, never `Update` on every intermediate stage.
 - Build geometry through `vtkPoints`/`vtkCellArray` attached with `SetPoints`/`SetPolys`, and carry scalars in a named `vtkFloatArray` on `GetPointData`/`GetCellData` or the `numpy_support` zero-copy bridge for large buffers.
 - Import from `vtk` flat, or from a specific `vtkmodules.<Module>` for a narrower import surface.
-
-[RAIL_LAW]:
-- Package: `vtk`
-- Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack — the native engine under pyvista
-- Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray` or the `numpy_support` bridge; offscreen render-to-image; `vtkFeatureEdges`/`vtkPolyDataSilhouette` line extraction and `vtkGL2PSExporter` vector output for the scene drawing egress; a raw-vtk drop-down for a filter pyvista lacks
-- Reject: a per-element buffer loop where the `numpy_support` bridge is zero-copy; an `Update` on every intermediate stage; an interactor event loop in a headless export path; a re-derived reader/writer or `vtkRenderWindow`/`vtkRenderer` stack pyvista and vtk already own

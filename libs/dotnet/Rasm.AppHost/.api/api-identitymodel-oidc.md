@@ -2,18 +2,7 @@
 
 `Microsoft.IdentityModel.Protocols.OpenIdConnect` owns the OpenID Connect discovery-and-protocol-validation leg: `OpenIdConnectConfiguration` parses the `.well-known/openid-configuration` document, and `OpenIdConnectProtocolValidator` enforces the OIDC invariants bare JWT validation skips — the `nonce` round-trip and the `c_hash`/`at_hash`/`state` binding. Its refreshed discovery `JsonWebKeySet` is the rotating signing-key source the token-validation leg consumes, and its OIDC name constants name the requests the acquisition client builds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- package: `Microsoft.IdentityModel.Protocols.OpenIdConnect` (MIT)
-- assembly: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- namespace: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- asset: runtime library
-- abi: native `lib/net10.0` asset (consumer-bound)
-- depends: `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Tokens`
-- rail: oidc-protocol
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: discovery, retrieval, and validation
 
@@ -40,7 +29,7 @@
 |  [07]   | `OpenIdProviderMetadataNames`    | constants     | discovery-document field names            |
 |  [08]   | `OpenIdConnectSessionProperties` | constants     | session/logout property keys              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: discovery retrieval — `OpenIdConnectConfigurationRetriever`
 
@@ -72,7 +61,7 @@
 |  [05]   | `RequirePushedAuthorizationRequests` / `TlsClientCertificateBoundAccessTokens`     | property | PAR-required + mTLS-bound tokens |
 |  [06]   | `AuthorizationResponseIssParameterSupported` / `BackchannelAuthenticationEndpoint` | property | iss-param + CIBA support         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `OpenIdConnectConfiguration : BaseConfiguration` is the parsed `.well-known/openid-configuration`; `Create(json)` parses a pre-fetched document, and its endpoint/JWKS/capability-flag properties drive every provider negotiation rather than a hardcoded issuer.
@@ -92,9 +81,3 @@
 - Thread the discovery `HttpClient` through the host resilience handler and `Microsoft.Extensions.ServiceDiscovery`; fetch the well-known document with a resilient client.
 - Run `ValidateAuthenticationResponse` after JWT validation for interactive flows with `RequireNonce`/`RequireStateValidation` on, minting the nonce through `GenerateNonce` and round-tripping it in the request `state`.
 - Read endpoints and capability flags off `OpenIdConnectConfiguration` to drive the PAR/DPoP/mTLS negotiation the `OpenIddict.Client` registration sets consume; name parameters and scopes through the constant types, and build the standard grants through the `OpenIddict.Client` flow verbs rather than a hand-built `OpenIdConnectMessage`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- Owns: OIDC discovery-document modeling and retrieval, OIDC protocol-invariant validation (nonce/c_hash/at_hash/state), and the OIDC protocol name constants
-- Accept: `ConfigurationManager<OpenIdConnectConfiguration>` as the `TokenValidationParameters.ConfigurationManager` source; `OpenIdConnectProtocolValidator` over an `OpenIdConnectProtocolValidationContext`; discovery through `OpenIdConnectConfigurationRetriever`
-- Reject: hardcoded issuer endpoints/keys, hand-rolled `.well-known` parsing, skipped nonce/hash binding for interactive flows, string-literal OIDC parameter/scope names, bare-client discovery fetch outside the host resilience pipeline

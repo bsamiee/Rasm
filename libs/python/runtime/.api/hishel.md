@@ -2,15 +2,7 @@
 
 `hishel` owns the RFC-9111 HTTP cache above the runtime's `httpx` transport: a transport-agnostic `AsyncCacheProxy` wraps as an `AsyncCacheTransport` mounted at the `httpx` transport seam, or as an `AsyncCacheClient` subclass. `SpecificationPolicy` drives freshness, revalidation, and every stored/served decision through an `AnyState`-tagged state machine over a persistent `AsyncSqliteStorage` keyed store. `httpx` owns the client beneath — its `Timeout`/`Limits`/`Auth` and OTel spans — while this catalog owns only the cache layer above the transport.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `hishel`
-- package: `hishel[httpx]` (BSD-3-Clause)
-- module: `hishel`, `hishel.httpx`
-- rail: transport
-- namespaces: `hishel`, `hishel.httpx`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: httpx integration family (`hishel.httpx`)
 - Async members are canonical; each sync twin mirrors it over `httpx.Client`/`httpx.BaseTransport`.
@@ -80,7 +72,7 @@
 |  [01]   | `Entry`     | model         | `id`, `request`, `meta`, `response`, `cache_key`, `extra` stored row |
 |  [02]   | `EntryMeta` | model         | `created_at`/`deleted_at` soft-delete metadata                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cache-transport injection (canonical runtime seam)
 - `AsyncCacheTransport` wraps the runtime's `AsyncHTTPTransport`; the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth` and mounts it.
@@ -129,7 +121,7 @@
 |  [02]   | `CacheOptions(shared, supported_methods, allow_stale)`        | build   | shared/private mode, cached methods, stale serve |
 |  [03]   | `FilterPolicy(request_filters=[...], response_filters=[...])` | build   | allow-deny gate over `BaseFilter` predicates     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - injection law: the cache rides the `httpx` transport seam, never a swapped client class — the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth`/`base_url` and mounts `transport=AsyncCacheTransport(next_transport=AsyncHTTPTransport(...))`. `AsyncCacheClient` serves only boundary scripts owning no pre-built transport.
@@ -149,9 +141,3 @@
 - One `AsyncCacheTransport` wraps the one `AsyncHTTPTransport`; the runtime owns no second cache and no parallel per-mode caching client.
 - Revalidation is owned by `SpecificationPolicy` beside the content-keyed recipe lanes; the two owners never overlap — hishel caches HTTP responses, the recipe owner caches computed artifacts.
 - OTel `opentelemetry-instrumentation-httpx` spans the underlying transport beneath the cache; a `FromCache` state short-circuits the origin span while the cache decision rides the outcome.
-
-[RAIL_LAW]:
-- Package: `hishel[httpx]`
-- Owns: RFC-9111 HTTP caching over `httpx`, the transport-agnostic cache proxy, spec and filter policies, the `AnyState` stored/served union, and persistent sqlite / redis keyed storages behind one async storage protocol
-- Accept: `AsyncCacheTransport` injected at the transport seam, `AsyncSqliteStorage` with a required owner-derived `database_path`, `SpecificationPolicy`/`CacheOptions` for freshness and stale-serve, per-app store isolation, the `RequestMetadata` extension levers for per-request body-key/TTL/spec decisions, the `ResponseMetadata` extension keys as the reached-decision and entry-age evidence, one client `aclose()` on drain closing transport and storage
-- Reject: a swapped `AsyncCacheClient` where a pre-built transport exists, a filesystem store, redis composed without a host, hand-rolled `Cache-Control`/revalidation parsing, a `CachePolicy` subclass minted to carry a per-request decision the extension already expresses, a process-global or shared-mutable cache store, overlap with the content-keyed recipe cache

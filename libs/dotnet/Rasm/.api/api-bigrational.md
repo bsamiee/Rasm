@@ -2,18 +2,7 @@
 
 `ExtendedNumerics.BigRational` owns the exact-rational oracle at the Geometry predicate floor through two `BigInteger`-backed value structs. Both carry infinite-precision arithmetic, total comparison, and a `NormalizeSign`-canonicalized `Sign` a predicate reads once a faster tier reports an indeterminate sign. This exact tier is the runtime adjudicator and differential-fuzzing ground truth beneath the `double`, `ddouble`, and `Expansion` tiers.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ExtendedNumerics.BigRational`
-- package: `ExtendedNumerics.BigRational` (MIT)
-- assembly: `ExtendedNumerics.BigRational`
-- namespace: `ExtendedNumerics`
-- target: multi-target; the `net10.0` consumer binds `lib/net7.0` as highest available
-- asset: pure-managed AnyCPU, `System.Numerics.BigInteger` the sole dependency
-- abi: plain `struct` values implementing `IComparable`, `IComparable<T>`, `IEquatable<T>`, and `IEqualityComparer<Fraction>`
-- rail: exact-precision oracle
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two exact-rational value structs (namespace `ExtendedNumerics`)
 
@@ -22,7 +11,7 @@
 |  [01]   | `Fraction`    | struct        | flat `BigInteger` numerator/denominator rational |
 |  [02]   | `BigRational` | struct        | mixed `BigInteger` whole part plus `Fraction`    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: identity and unit anchors
 
@@ -143,7 +132,7 @@ Conversions in from `float`, `double`, and `decimal` are explicit but exact; con
 |  [13]   | `ToString(string)`                       | instance | format-string render        |
 |  [14]   | `ToString(string, IFormatProvider)`      | instance | culture-aware render        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Canonical carrier: `Fraction` stores the `BigInteger` numerator and denominator predicate determinants consume; `BigRational` is the mixed carrier, collapsing to the flat tier through `GetImproperFraction()` or its implicit `Fraction` conversion.
@@ -160,9 +149,3 @@ Conversions in from `float`, `double`, and `decimal` are explicit but exact; con
 - Tier entry: the oracle adjudicates only after interior `double`, the `ddouble` tier, and the `Expansion` branch report an indeterminate determinant sign; each adjudication allocates `BigInteger`, so the faster tiers keep the ordinary path.
 - Verdict: the determinant promotes exact ordinates to `BigInteger`, constructs `new Fraction(num, den)`, reads `Fraction.Sign`, and folds `-1`, `0`, or `+1` into the `Orient` or `InCircle` result without materializing a `double`.
 - Interior form: explicit `double`, `decimal`, and `BigInteger` conversions occur only at reporting boundaries; interior values stay `Fraction` or `BigRational`.
-
-[RAIL_LAW]:
-- Package: `ExtendedNumerics.BigRational`
-- Owns: exact-rational adjudication through the flat `Fraction` ratio and mixed `BigRational` carrier — infinite-precision arithmetic, total comparison, `NormalizeSign`-canonicalized `Sign`, `Reduce`, `Mediant`, lossless integer widening, and exact IEEE or decimal source decomposition.
-- Accept: predicate determinants reduced through `new Fraction(num, den)` and `Sign`; parametric and cell-ordering keys compared through `Compare` or `CompareTo`; differential ground truth for the predicate law matrix.
-- Reject: entering the oracle before the cheaper tiers escalate; `Sqrt`, `NthRoot`, or `Log` inside a predicate; a floating or decimal readout substituted for exact `Sign`; a parallel hand-rolled `BigInteger` rational.

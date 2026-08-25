@@ -2,18 +2,7 @@
 
 `bw-processing` (import `bw_processing`) mints the Brightway data-package format — the `fsspec`-served bundle of `numpy` structured arrays and JSON metadata that encodes every LCA matrix as COO triples (`INDICES_DTYPE` indices, a float `data` array, an optional sign `flip`, an optional `reference` production-exchange marker, an optional `UNCERTAINTY_DTYPE` distributions array). It is the serialization contract between the graph store and the solver — `bw2data` writes it, `bw2calc` maps it into `scipy` sparse matrices — and never solves, holds a graph, or reaches a database.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bw-processing`
-- package: `bw-processing` (BSD-3-Clause)
-- module: `bw_processing` (import `bwp`)
-- owner: `data`
-- rail: lca-substrate (EPD/LCA cluster)
-- asset: pure-Python `py3-none-any` purelib, zero compiled extensions, ABI-agnostic
-- depends: `fsspec` (the filesystem the bundle writes through), `jsonschema` (datapackage/label schema validation), `morefs` (in-memory + overlay filesystems), `numpy`, `pandas` (CSV-metadata resources); `pyarrow` is optional, required only for `MatrixSerializeFormat.PARQUET`
-- capability: build a multi-matrix `Datapackage` from persistent or dynamic COO vectors and arrays; serialize each group as `.npy` or parquet with a Frictionless `datapackage.json`; persist to a directory, a zip, memory, or any `fsspec` backend; carry per-resource CSV/JSON metadata; filter to a group subset without rewriting; masked-merge two datapackages; reindex or reset the integer matrix ids; round-trip with `mmap` and lazy-proxy loading
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: bundle carriers, matrix dtypes, and label shapes
 
@@ -38,7 +27,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [ERROR_ROOT]: `BrightwayProcessingError` roots the datapackage family with `FileIntegrityError` under it; both derive from `Exception`, and a mis-shaped `INDICES_DTYPE`/`UNCERTAINTY_DTYPE` vector answers the numpy `TypeError`/`ValueError` outside that root.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction (factories)
 
@@ -89,7 +78,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [UTILITIES]: `as_unique_attributes` `as_unique_attributes_dataframe` `schema_from_json_schema` `safe_filename` `clean_datapackage_name` `md5` — the naming, hashing, uniqueness, and schema helpers.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One group encodes one matrix's contribution; its index array is `INDICES_DTYPE` global `bw2data` mapping ids, never dense positions, and `matrix_utils` resolves them to dense positions at solve time.
@@ -109,9 +98,3 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [LOCAL_ADMISSION]:
 - `bw2data.process()` emits every datapackage and `bw2calc` consumes it; the data owner never hand-authors one, so `bw_processing` stays the id-keyed COO serialization contract between the two.
-
-[RAIL_LAW]:
-- Package: `bw-processing`
-- Owns: the Brightway data-package format — multi-matrix COO bundles of `numpy` structured arrays (`INDICES_DTYPE` indices, `data`, `flip`, `UNCERTAINTY_DTYPE` distributions) with JSON/CSV metadata, `fsspec`-serialized to directory/zip/memory, with persistent and dynamic groups, filtering, masked merge, and id reindexing
-- Accept: `create_datapackage(fs=...)` + `add_persistent_*`/`add_dynamic_*` as the build surface; `INDICES_DTYPE`/`UNCERTAINTY_DTYPE` as the only matrix array dtypes; `load_datapackage(mmap_mode=, proxy=True)` for large backgrounds; `filter_by_attribute`/`exclude` for selective load; `merge_datapackages_with_mask`/`reindex` for scenario and id work; any `fsspec` fs as the serialization target
-- Reject: storing dense matrix positions instead of global ids; hand-rolled `.npy`/zip IO when the `fsspec` serialization owns it; per-row Python assembly when `create_structured_array`/`add_persistent_vector_from_iterator` streams it; re-implementing the COO-to-sparse mapping `matrix_utils` owns on the `bw2calc` side; bypassing `bw2data.process()` to author what a database already serializes

@@ -2,16 +2,7 @@
 
 `rook-ceph-cluster` is the object plane's storage-cluster arm. The chart renders NO workload of its own — it emits a `CephCluster` and its companion pool, filesystem, and object-store custom resources, and the Rook operator (installed separately, in its own namespace) reconciles every daemon, Service, and StorageClass behind them. Chart values therefore decide the CRs and the OPERATOR decides every rendered object name.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rook-ceph-cluster`
-- chart: `rook-ceph-cluster` from `https://charts.rook.io/release` (Apache-2.0), versioned in lockstep with the operator's `appVersion`
-- asset: one `CephCluster`, the declared `CephBlockPool`, `CephFilesystem`, and `CephObjectStore` sets with their StorageClasses and VolumeSnapshotClasses, an optional toolbox Deployment, and the monitoring PrometheusRule set
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / object plane
-- crds: NONE in this chart — the CRD estate ships with the `rook-ceph` OPERATOR chart, which is a prerequisite
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                           | [CAPABILITY]                                                                         |
 | :-----: | :---------------------------------------------- | :----------------------------------------------------------------------------------- |
@@ -35,7 +26,7 @@
 [SERVICE_NAME]: the OPERATOR renders the RGW Service as `rook-ceph-rgw-<objectStoreName>` on the gateway's `port` (80 by default), so the address is decorated over the CUSTOM RESOURCE name and never over the Helm release name. An endpoint spelled off the release resolves to nothing, and the CR name is what the values row declared.
 [PREREQUISITE]: the `rook-ceph` operator chart must already be installed in `operatorNamespace` with its CRDs present; this chart's objects are inert without it and their reconciliation is silently absent rather than failed.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The object plane is an engine ROW: this arm answers the same profile axis `minio` answers, and each row supplies its own values, endpoint projection, and credential mint. Here the credential is the operator's — a `CephObjectStoreUser` CR yields a Secret named `rook-ceph-object-user-<store>-<user>` keyed `AccessKey`/`SecretKey`, so this tier owns the user CR and never the material.
@@ -53,9 +44,3 @@
 - Spell replication as `dataPool.replicated.size`; a bare `size` is inert and leaves the erasure-coded default in place.
 - Declare capacity as devices under `cephClusterSpec.storage`, and route the profile's storage coordinate to the arm that has a seat for it.
 - Take the credential from the operator-minted `rook-ceph-object-user-<store>-<user>` Secret with its `AccessKey`/`SecretKey` spellings; the estate's own key names belong to the other arm.
-
-[RAIL_LAW]:
-- Contract: `rook-ceph-cluster` chart values + the `ceph.rook.io` custom resources the Rook operator reconciles
-- Owns: the Ceph storage cluster and its object, block, and filesystem estates — pool topology, RGW shape, StorageClasses, snapshot classes, and the debug toolbox
-- Accept: an `operatorNamespace` naming a live operator install; one `cephObjectStores` row per owned store; `dataPool.replicated.size` for replication posture; device-claimed capacity; the operator's own credential Secret and its key spellings
-- Reject: an endpoint derived from the release name; a bare `size` on a `PoolSpec`; a top-level `storage` key, which this chart does not read; an install without the operator chart; a hand-minted RGW credential beside the one the user CR produces

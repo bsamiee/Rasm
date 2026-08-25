@@ -2,33 +2,7 @@
 
 `Grpc.AspNetCore.Server` owns the gRPC ASP.NET server rail: service registration, endpoint mapping, the global and per-service policy pair with its ordered interceptor pipeline, and the service-model seam that registers methods without a generated base. `Grpc.AspNetCore.Web` folds `application/grpc-web[-text]` traffic onto that rail, and `Grpc.AspNetCore.HealthChecks` projects the registered `Microsoft.Extensions.Diagnostics.HealthChecks` results onto `grpc.health.v1.Health`. This rail terminates calls and never dials them.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.AspNetCore.Server`
-- package: `Grpc.AspNetCore.Server` (Apache-2.0)
-- assembly: `Grpc.AspNetCore.Server`
-- namespace: `Grpc.AspNetCore.Server`, `Grpc.AspNetCore.Server.Model`, `Grpc.Core`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
-- rail: remote-server
-
-[PACKAGE_SURFACE]: `Grpc.AspNetCore.Web`
-- package: `Grpc.AspNetCore.Web` (Apache-2.0)
-- assembly: `Grpc.AspNetCore.Web`
-- namespace: `Grpc.AspNetCore.Web`, `Microsoft.AspNetCore.Builder`
-- rail: remote-server
-
-[PACKAGE_SURFACE]: `Grpc.AspNetCore.HealthChecks`
-- package: `Grpc.AspNetCore.HealthChecks` (Apache-2.0)
-- assembly: `Grpc.AspNetCore.HealthChecks`
-- namespace: `Grpc.AspNetCore.HealthChecks`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
-- rail: remote-server
-
-[PACKAGE_SURFACE]: `Grpc.HealthCheck`
-- package: `Grpc.HealthCheck` (Apache-2.0)
-- assembly: `Grpc.HealthCheck`
-- namespace: `Grpc.HealthCheck`, `Grpc.Health.V1`
-- rail: remote-server
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: server hosting, policy, and service model — `Grpc.AspNetCore.Server`
 
@@ -78,7 +52,7 @@
 |  [01]   | `HealthServiceImpl`                       | class         | reference `grpc.health.v1` serving-status service |
 |  [02]   | `HealthCheckResponse.Types.ServingStatus` | enum          | proto serving-status vocabulary                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration, endpoint mapping, and call-context access
 
@@ -191,7 +165,7 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 
 - `Check`, `Watch`: override `Grpc.Health.V1.Health.HealthBase`, served by the `MapGrpcHealthChecksService` endpoint; `Resp` is `HealthCheckResponse`, and `Watch` takes a trailing `ServerCallContext` returning `Task`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `AddGrpc()` registration owns the rail: `GrpcServiceOptions` carries global policy, `GrpcServiceOptions<TService>` overrides it per service, and `Interceptors` is the single per-call pipeline, executed in registration order.
@@ -218,9 +192,3 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 - grpc-web is server policy: `app.UseGrpcWeb()` with per-endpoint `EnableGrpcWeb()`/`DisableGrpcWeb()`, or `GrpcWebOptions.DefaultEnabled` for a host-wide default.
 - Health status derives from the `Microsoft.Extensions.Diagnostics.HealthChecks` registrations, narrowed per service by `GrpcHealthChecksOptions.Services.Map` over `HealthCheckMapContext`.
 - AppHost binds `HealthServiceImpl` as the `grpc.health.v1` singleton; every health contributor projects its result into `HealthServiceImpl.SetStatus` through the tag-predicate mapping, so broker, store, and system readiness reach one serving-status surface.
-
-[RAIL_LAW]:
-- Package: `Grpc.AspNetCore.Server`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`, `Grpc.HealthCheck`
-- Owns: gRPC service registration, endpoint mapping, server policy with its interceptor pipeline, server-side grpc-web translation, and the `grpc.health.v1.Health` service with its reference `HealthServiceImpl` serving-status map
-- Accept: server-terminated calls under `GrpcServiceOptions` policy, browser-framed calls through `UseGrpcWeb`, and health probes projected from the registered checks
-- Reject: a hand-rolled health proto or serving-status map beside `HealthServiceImpl`, a second server compression list, or a per-service options bag beside `GrpcServiceOptions<TService>`

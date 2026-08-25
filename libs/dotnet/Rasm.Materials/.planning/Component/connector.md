@@ -18,7 +18,7 @@ THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, the e
 - Boundary: `GaugeRow.AxialSectionCapacityKnPerMm` (`Fy·t`) is the AISI net-section datum a `Rasm.Compute` developed-width section check reads off the seam — the connector owns the datum, Compute owns the check. Base-metal gauge is OPTIONAL because an evaluation report publishes loads for every model and sheet thickness for only some: a row whose gauge is published refines its substance to that gauge's own SS grade and carries a fabrication plate; a row without one carries galvanized sheet steel and no plate, which is the truthful statement rather than a guessed thickness the host then cuts. The connector's own `SectionProfile.Rectangle` is its STAMPED SHEET — the plate footprint by the sheet thickness — while the carried-member operating envelope is a COMPATIBILITY column naming what the connector fits, never the connector's own section. The IFC entity class is the `Rasm.Bim` egress gate's read over the verified accessory token, the attaching fastener a SEPARATE `IfcMechanicalFastener` related at egress.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

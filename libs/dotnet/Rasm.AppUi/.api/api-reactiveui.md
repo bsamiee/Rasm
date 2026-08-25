@@ -2,18 +2,7 @@
 
 `ReactiveUI` is the MVVM rail: `ReactiveObject` change-notification, `ReactiveCommand` async/cancellable command execution, `WhenAnyValue` property streams, `ObservableAsPropertyHelper` derived properties, `Interaction` request/response for dialogs, `RoutingState` navigation, `ViewModelActivator`/`WhenActivated` lifecycle, `SuspensionHost` state persistence, and a `Bind`/`OneWayBind`/`BindCommand`/`BindInteraction` view-binding expression compiler. It sits on `System.Reactive` (every member returns/consumes `IObservable<T>`) and surfaces collection deltas as DynamicData `IChangeSet`; the Avalonia bridge (view bases, `AvaloniaScheduler`, builder admission) lives in the sibling `ReactiveUI.Avalonia` catalog. `ReactiveProperty<T>` carries the package's ONE validation surface — per-property `INotifyDataErrorInfo` through `AddValidationError`/`HasErrors`/`ObserveHasErrors` — and there is no view-model-scoped aggregator: `IReactiveObject` moved to `ReactiveUI.Core` with no type forward, so the external aggregator package type-loads against nothing and a screen-scoped rule context is owner-built on this rail (`cs:Rasm.AppUi/Shell/screens#VALIDATION_UX`). This catalog documents the advanced surface and how it stacks those rails into one screen owner; `RegisterView<…>`, `RegisterStandardConverters`, and `WithExceptionHandler` are phantom builder methods this package never shipped — `RegisterViews(m => m.Map<TViewModel, TView>())` is the registration spelling.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ReactiveUI`
-- package: `ReactiveUI` (MIT)
-- assembly: `ReactiveUI` (AnyCPU IL)
-- build-floor: `net10.0` (consumer-bound; multi-targets android/ios/maccatalyst/tizen/wasm — none bound here)
-- namespace: `ReactiveUI` (core), `ReactiveUI.Builder` (app builder), `ReactiveUI.Helpers`
-- asset: runtime library
-- rail: reactive
-- depends: `System.Reactive` (observable algebra), `DynamicData` (`IChangeSet`/`SourceList`), `Splat` (`IMutableDependencyResolver` / service location). Property/command binding (`Bind`/`BindCommand`) is platform-coupled and activated through `ReactiveUI.Avalonia`'s `UseReactiveUI`.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [VIEW_MODEL_TYPES]: reactive state, derived properties, and the validation-aware property — rail: reactive
 
@@ -101,7 +90,7 @@
 - `IViewLocator` / `DefaultViewLocator`: `ResolveView<T>` interface and default implementation pair.
 - `IBindingTypeConverter`: `interface` exposing `GetAffinityForObjects` and `TryConvert`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [STATE_ENTRYPOINTS]: property mutation and derived-state streams
 - rail: reactive
@@ -235,14 +224,9 @@ These are the alternative to compiled-XAML bindings; they keep the view-model pr
 
 View registration is `RegisterViews(m => m.Map<HomeViewModel, HomeView>())` over a `ViewMappingBuilder`, not a per-view `RegisterView<…>` method. `SetupDefaultSuspendResume` composes an AOT-safe `JsonTypeInfo<TAppState>` with the source-generated `System.Text.Json` context, so app-state persistence needs no reflection. Every `string`↔primitive `IBindingTypeConverter` registers automatically; no `RegisterStandardConverters` call exists.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - Stack: a screen view-model is `ReactiveObject` + `IActivatableViewModel`; mutable inputs use `RaiseAndSetIfChanged`; derived outputs use `WhenAnyValue(...).ToProperty(this, x => x.Derived)`; user actions are `ReactiveCommand.CreateFromTask(token => …, canExecute: this.WhenAnyValue(x => x.IsValid))`; dialogs are `Interaction<TIn,TOut>` resolved in the view's `WhenActivated`; navigation is `IScreen.Router` (`RoutingState`); cross-component facts ride `MessageBus` or a shared `Interaction`. Every subscription is scoped into the `WhenActivated` `CompositeDisposable`.
 - Accept: state is observable, disposable, command-driven, and activation-scoped; collection state surfaces as DynamicData `IChangeSet` (e.g. `RoutingState.NavigationChanged`) so list views bind deltas, not full resets.
 - Reject: manual event fanout; `async void` command bodies (use `CreateFromTask`); undisposed `IObservable` subscriptions; the phantom `RegisterView<…>`/`RegisterStandardConverters`/`WithExceptionHandler` builder methods.
-
-[RAIL_LAW]:
-- `System.Reactive` owns the stream algebra (`Throttle`/`Select`/`ObserveOn`) every ReactiveUI member composes; `DynamicData` owns collection deltas; `ReactiveUI.Avalonia` owns the `AvaloniaScheduler` (`outputScheduler`/main-thread), view bases, and `Bind`/`BindCommand` activation. Validation has exactly two rungs and no third package: `ReactiveProperty<T>` carries per-property `INotifyDataErrorInfo` (`AddValidationError`/`HasErrors`/`ObserveHasErrors`) inside this package, and a SCREEN-scoped rule context — slot rows, context validity, and the adorner bridge — is owner-built over `Validation<Error,T>` at `cs:Rasm.AppUi/Shell/screens#VALIDATION_UX`. The external aggregator is unreachable on this major: `IReactiveObject` moved to `ReactiveUI.Core` with no type forward, so its every typeref into `[ReactiveUI]` fails to load. This catalog's owner never re-implements a scheduler or a collection-delta engine — it composes those rails.
-- Accept: host panel, GH2 companion window, standalone desktop, sidecar, and headless proof share one reactive rail — the same `ReactiveCommand`/`Interaction`/`RoutingState` vocabulary across every `SurfaceMount` case.
-- Reject: per-view imperative callback chains; a second observable/property-change framework alongside ReactiveUI; treating `AvaloniaScheduler` or validation as a ReactiveUI-core concern.

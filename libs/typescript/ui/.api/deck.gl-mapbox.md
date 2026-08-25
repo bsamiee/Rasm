@@ -2,15 +2,7 @@
 
 `@deck.gl/mapbox` binds one `@deck.gl/core` `Deck` to a mapbox/maplibre `Map` as a single `MapboxOverlay` `IControl`: `addControl` mounts deck's layers over the basemap and syncs `viewState` from the map camera each `move`. `interleaved` shares the map's WebGL2 context and depth buffer to z-slot layers by `beforeId`; the map owns every camera prop, the atom fold owns `layers`/`effects`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@deck.gl/mapbox`
-- package: `@deck.gl/mapbox` (MIT)
-- abi: browser WebGL2; `interleaved:true` requires the map's `getCanvas` context to be WebGL2 and shares it with the `Deck`
-- runtime: `scope:viewer` project-local; the overlay is a map `IControl` bracketed by `addControl`/`removeControl`
-- modules: `MapboxOverlay`, `MapboxOverlayProps`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the overlay, its camera-stripped props, and the structural map contract deck ships so no maplibre typings dependency is needed.
 
@@ -30,7 +22,7 @@
 - `[LAYEROVERLAYPROPS]`: `slot?: 'bottom'|'middle'|'top'`, `beforeId?`.
 - `[CONTROLPOSITION]`: `'top-left'|'top-right'|'bottom-left'|'bottom-right'`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: members on `MapboxOverlay`; the map drives the camera, the overlay forwards props and picking to its `Deck`.
 
@@ -49,7 +41,7 @@
 - `MapboxOverlay.filterProps`: strips `useDevicePixels` on every path and gates on the live `interleaved` mode rather than the passed prop, so the map owns device-pixel ratio under interleave and a caller-supplied value never reaches the shared context.
 - `new MapboxOverlay`: overlaid construction pins `deviceProps.createCanvasContext.pixelSizeSource: 'css-dpr'` over the caller's `deviceProps` to align the deck canvas with the basemap, overriding that one key and passing the rest through.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one overlay owns one `Deck` added to one `Map` via `addControl`; a second overlay or a free `Deck` on the same canvas is the defect.
@@ -66,9 +58,3 @@
 [LOCAL_ADMISSION]:
 - imported only inside `ui/viewer` (`scope:viewer`), acquired and released with the map.
 - `MapboxOverlay` binds every map-backed surface; a free `Deck` + manual `WebMercatorViewport` sync serves only map-less scenes (orthographic, first-person).
-
-[RAIL_LAW]:
-- Package: `@deck.gl/mapbox`
-- Owns: the one `MapboxOverlay` `IControl` binding a `Deck` to a mapbox/maplibre `Map` — automatic camera sync, `interleaved` context-sharing and z-slotting, forwarded picking, and the shipped structural `Map`/`IControl`/`CustomLayerInterface`/`LayerOverlayProps` contract
-- Accept: one overlay per map via `addControl`, the map as sole camera authority, `interleaved` as a boolean mode, `MapOptions.pixelRatio` as the device-pixel authority for a shared context, `setProps` as the atom-derived `layers` sink, forwarded `pickObjects`→`GlobalId`, the structural contract in place of maplibre typings
-- Reject: manual camera sync under the overlay, camera props in `MapboxOverlayProps`, `useDevicePixels` where the canvas owner sets the ratio, a second overlay or free `Deck` on one canvas, two overlay classes where one `interleaved` flag suffices, importing maplibre-gl types for the overlay's `Map` parameter, rebuilding the overlay instead of `setProps`

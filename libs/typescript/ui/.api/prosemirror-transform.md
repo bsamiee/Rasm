@@ -2,16 +2,7 @@
 
 `prosemirror-transform` owns document change as data: every edit is a `Step` — invertible, JSON-serializable, and rebasable — and `Transform` accumulates steps beside the documents and the `Mapping` they produce. `StepMap`/`Mapping` carry a position across those changes, which is the mechanism collaborative rebasing, decoration survival, and any stored anchor compose through.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-transform`
-- package: `prosemirror-transform` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure value algebra — no DOM, no globals, so a step applies, inverts, and rebases identically on a server and in a browser
-- depends: `prosemirror-model` — steps carry `Slice`, `Mark`, and `NodeType` values and rehydrate through a `Schema`
-- rail: `view/content` — the change algebra every editing command emits and every wire carries
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: position mapping — the interface a step map, a mapping, and any foreign carrier satisfy.
 
@@ -23,7 +14,7 @@
 - `assoc` is `-1` or `1` and decides which side an insertion at exactly `pos` lands on; the default `1` pushes the position after inserted content.
 - `deleted` reports that the change removed the content around the position, so a stored anchor drops rather than silently sliding.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: position mapping — the carrier a stored position rides across any set of changes.
 
@@ -109,7 +100,7 @@
 |  [04]   | `joinPoint(doc, pos, dir)` / `insertPoint(doc, pos, NodeType)` | static  | the nearest valid join or insertion position |
 |  [05]   | `dropPoint(doc, pos, Slice)`                                   | static  | the position a dropped slice lands at        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each `Step` is the atomic unit of change and carries four guarantees: `apply` produces a new document or a typed failure, `invert(doc)` produces the exact undo, `map(mapping)` rebases it onto a changed document or returns `null`, and `toJSON`/`fromJSON(schema, json)` round-trips it as plain data. Every higher operation — a command, an input rule, a collaborative send — is a list of these.
@@ -133,9 +124,3 @@
 - Carry any stored position across a change with `tr.mapping.map(pos, assoc)` and honour `MapResult.deleted`; a recomputed anchor is a torn read.
 - Test admissibility with `canSplit`, `canJoin`, `liftTarget`, `findWrapping`, or `insertPoint` before building the step, so a command's query arm answers without mutating.
 - Register any custom step with `Step.jsonID` on every peer before it crosses a wire.
-
-[RAIL_LAW]:
-- Package: `prosemirror-transform`
-- Owns: the change algebra — the abstract `Step` contract (`apply`, `invert`, `map`, `merge`, `getMap`, `toJSON`/`fromJSON`, `jsonID`) and its registered rows `ReplaceStep`, `ReplaceAroundStep`, `AddMarkStep`, `RemoveMarkStep`, `AddNodeMarkStep`, `RemoveNodeMarkStep`, `AttrStep`, `DocAttrStep`; the `StepMap`/`Mapping`/`MapResult` position-mapping mechanism with its mirror pairs; the `Transform` builder with every schema-fitting mutator; and the structural queries `liftTarget`, `findWrapping`, `canSplit`, `canJoin`, `joinPoint`, `insertPoint`, `dropPoint`, `replaceStep`
-- Accept: one chained `Transform` per user-visible change, `maybeStep` for speculative and rebased work, `Mapping.slice` plus `Step.map` for a rebase loop, `mapping.map(pos, assoc)` with a `deleted` guard for every stored anchor, admissibility queries before construction, and `Step.toJSON`/`fromJSON(schema, json)` as the only wire form
-- Reject: a document rebuilt by hand where steps express the change, a recomputed position where a `Mapping` carries it, `Transform.step` on a step whose success is unproven, a mutation attempted before its admissibility query, an unregistered custom step on a wire, and a try/catch wrapper around a surface that already returns typed failure

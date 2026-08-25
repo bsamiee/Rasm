@@ -284,7 +284,7 @@ public sealed class CargoHost : IBridgeCargo {
             };
         } catch (Exception error) when (DriftMember(error: error) is { } member) {
             fact("scenario.drift", member);
-            return (PhaseStatus.Failed, new BridgeFault.HostDrift(MissingMember: member, BuiltAgainst: manifest.BuiltAgainst, Running: running));
+            return (PhaseStatus.Failed, new BridgeFault.HostDrift(MissingMember: member, Running: running));
         } catch (TargetInvocationException wrapped) when (wrapped.InnerException is { } inner) {
             return Failed(fact: fact, key: "scenario.exception", detail: $"{inner.GetType().Name}: {inner.Message}\n{inner.StackTrace}");
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
@@ -465,11 +465,8 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private IEnumerable<string> ScenarioAssemblyPaths() =>
-        manifest.ScenarioAssemblies is { Length: > 0 } rows
-            ? rows
-                .Select(selector: name => Path.Combine(path1: manifest.StagePath, path2: name))
-                .Where(predicate: File.Exists)
-            : Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "*.Tests.dll");
+        Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "Rasm.*.dll")
+            .Where(predicate: static path => !string.Equals(a: Path.GetFileName(path: path), b: "Rasm.Bridge.Cargo.dll", comparisonType: StringComparison.Ordinal));
 
     private static JsonElement Json(object? value) => value switch {
         null => JsonSerializer.SerializeToElement(value: (string?)null),

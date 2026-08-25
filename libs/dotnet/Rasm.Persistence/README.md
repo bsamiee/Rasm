@@ -2,7 +2,6 @@
 
 `Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`: the version-control engine over it, the consistency-split read lanes, the content-keyed artifact object plane, and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-
 ## [01]-[ROUTER]
 
 [ELEMENT]:
@@ -74,7 +73,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.EntityFrameworkCore.Sqlite`
 - `SQLitePCLRaw.bundle_e_sqlite3`
 - `SQLitePCLRaw.bundle_e_sqlite3mc` — Multiple Ciphers bundle; encrypted embedded floor under a KMS-custodied key.
-
 
 [SCALEOUT_BACKENDS]: Dedicated scale-out store clients and embedded KV engines beyond the relational tier, each a distinct backend class.
 - `ClickHouse.Driver` — Distributed columnar OLAP client; the billion-row lane beyond in-PG TimescaleDB and DuckDB.
@@ -205,6 +203,5 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `System.Text.Json` — Generated wire contexts and the `JsonDocument`/`JsonElement` payload plane.
 - `System.Threading.Channels` — Bounded fan-out lanes behind the changefeed, outbox, and egress pump, and the AMQP leg's in-flight bound.
 
-[TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
+[TEST_SUBSTRATE]: Rows bind in branch test projects, never the package csproj.
 - `Verify.XunitV3`
-- `BenchmarkDotNet`

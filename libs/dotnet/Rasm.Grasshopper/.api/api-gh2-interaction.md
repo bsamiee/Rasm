@@ -2,18 +2,7 @@
 
 `Grasshopper2` canvas interaction drives object dragging, alignment and gap snapping, numeric-space snapping, stretch layout distribution, and interactive edge resize over a live `Document`, reporting geometry in `Eto.Drawing` coordinates. Canvas-rectangle snapping against document objects (`SnappingConstraints`) stays distinct from abstract numeric-lattice snapping (`SnapSpace`). Every interaction registers as an `IResponsive` on the `api-gh2-flex` `IFlexControl` seam, which owns the responsive dispatch spine this surface enters through.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: host assembly `Grasshopper2`
-- package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
-- assembly: `Grasshopper2`
-- namespace: `Grasshopper2.UI.Canvas` (`ObjectDragInteraction`, `SnappingConstraints`, `SnappingSettings`, `SnappingAction`)
-- namespace: `Grasshopper2.UI.Snap` (`SnapSpace`)
-- namespace: `Grasshopper2.UI` (`StretchLayoutSolver`, `ResizingFrame`)
-- asset: host assembly; `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll` resolved from the installed RhinoWIP bundle
-- rail: gh2-interaction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: canvas drag, snapping, and layout types
 
@@ -27,7 +16,7 @@
 |  [06]   | `StretchLayoutSolver`   | class         | min/ideal/max stretch solver distributing a total across segments                |
 |  [07]   | `ResizingFrame`         | class         | interactive resize of a bounded rectangle — per-edge state and cursor hit-test   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: object drag and constraint snapping
 
@@ -56,7 +45,7 @@ Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a ne
 |  [06]   | `ResizingFrame.Begin` / `Continue`            | mouse + edges              | resize lifecycle             |
 |  [07]   | `ResizingFrame.CursorAt`                      | mouse + padding → `Cursor` | edge cursor                  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ObjectDragInteraction` runs a live drag over a `Document` from an anchor; a handler registered on the `api-gh2-flex` `IFlexControl` seam snaps at content coordinates and paints at control coordinates.
@@ -73,9 +62,3 @@ Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a ne
 - Canvas interaction is the Rasm.Grasshopper folder's own domain, composing the Rasm kernel for host-agnostic geometry and referencing no sibling Rasm package.
 - Interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` seam; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
 - Snapping enters through `SnappingConstraints` for canvas rectangles or `SnapSpace` for numeric pairs; a hand-rolled alignment or grid solve is the deleted form.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (canvas interaction)
-- Owns: object dragging, constraint and numeric snapping, stretch layout distribution, and interactive edge resize over document objects
-- Accept: drag construction, snap resolution, lattice snapping, and layout and resize solving
-- Reject: responsive event dispatch and the `IFlexControl` seam (`api-gh2-flex`), canvas paint and skinning (`api-gh2-canvas`), editor chrome and toolbars (`api-gh2-editor`), and the document graph and mutation verbs (`api-gh2-document`)

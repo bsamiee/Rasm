@@ -4,16 +4,7 @@
 
 One columnar contract feeds the chart, one declarative options tree configures it, and one hook-array bus carries every extension; a plugin contributes hook rows, never a subclass, and data streams through `setData`, never React reconciliation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `uplot`
-- package: `uplot` (MIT)
-- module: ESM `dist/uPlot.esm.js`, CJS `dist/uPlot.cjs.js`, IIFE global `uPlot`; types `dist/uPlot.d.ts`, no `exports` map, no subpaths.
-- runtime: browser canvas 2D; zero dependencies, no React coupling.
-- plane: `plane:runtime` (W4 `ui`), the telemetry/sensor/simulation time-series lane.
-- rail: `ui` data-viz — the high-frequency time-series owner.
-
-## [02]-[ALIGNED_DATA_MODEL]
+## [01]-[ALIGNED_DATA_MODEL]
 
 `AlignedData` is columnar and immutable-by-convention: one x column, N y columns, typed arrays first-class. `null` marks an author gap (`undefined` is only a `uPlot.join` alignment artifact); `spanGaps` bridges nulls per series and `gaps` refines the computed gap list.
 
@@ -23,7 +14,7 @@ One columnar contract feeds the chart, one declarative options tree configures i
 - `Options.mode`: `1` aligned (ordered, shared x) | `2` faceted (unordered per-series points via `Series.facets: { scale, auto?, sorted? }[]`).
 - Timestamps: x in seconds by default; `ms: 1` switches to milliseconds; `tzDate: uPlot.tzDate(date, tzName)` renders a fixed zone.
 
-## [03]-[OPTIONS_TREE]
+## [02]-[OPTIONS_TREE]
 
 `Options` is one declarative value configuring the whole chart — `width`/`height` and `series` required, every other branch a policy row. Axis ticks are data (`incrs`/`splits`/`values` functions), never string formats; the live legend reads the cursor idx and `isolate` solos a series; `select`/`bands`/`focus`/`padding`/`drawOrder`/`pxAlign` are the remaining render leaves, and `hooks`/`plugins` are the extension bus.
 
@@ -43,7 +34,7 @@ One columnar contract feeds the chart, one declarative options tree configures i
 |  [12]   | `padding` / `drawOrder` / `pxAlign` | box `padding`; `["axes","series"]` order; `pxAlign`                                               |
 |  [13]   | `hooks` / `plugins`                 | `Hooks.Arrays`; `Plugin = { opts?: (self, opts) => void \| Options; hooks: Hooks.ArraysOrFuncs }` |
 
-## [04]-[INSTANCE_AND_STATICS]
+## [03]-[INSTANCE_AND_STATICS]
 
 `uPlot` instance methods are imperative: every mutation is a `set*` call and `batch(txn)` coalesces a transaction; the statics build path geometry, ranges, formatters, and cohort sync.
 
@@ -60,13 +51,13 @@ One columnar contract feeds the chart, one declarative options tree configures i
 |  [09]   | `uPlot.sync(key)` `uPlot.assign` `orient` `addGap` `clipGaps` `pxRatio`            | statics          | `sync(key)` links cursor cohorts |
 |  [10]   | `fmtNum` `fmtDate(tpl)` `tzDate` `rangeNum` `rangeLog` `rangeAsinh`                | statics          | format + range helpers           |
 
-## [05]-[HOOK_BUS]
+## [04]-[HOOK_BUS]
 
 Hooks compose as arrays: the closed lifecycle roster is `init` `addSeries` `delSeries` `setScale` `setCursor` `setLegend` `setSelect` `setSeries` `setData` `setSize` `drawClear` `drawAxes` `drawSeries` `draw` `ready` `destroy` `syncRect`, each an array (`Hooks.Arrays`) so N plugins compose without wrapper towers.
 
 Each plugin optionally rewrites options at construction (`opts`) then contributes hook rows; custom rendering draws into `u.ctx` between `drawClear` and `draw`, or mounts DOM into `u.over`/`u.under` at `init` — annotations, threshold shading, and tooltips are hook rows, never draw-loop forks.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every extension rides the hook-array bus and every per-tick update rides `setData`; options rebuild on a config change and the fold streams data ticks, so the chart is one canvas the fold owns, never a React-reconciled tree.
@@ -79,9 +70,3 @@ Each plugin optionally rewrites options at construction (`opts`) then contribute
 [LOCAL_ADMISSION]:
 - uplot owns the extreme-point-count time-series regime — telemetry, sensor, and simulation traces streamed on canvas through `AlignedData`/`setData`; one chart binds one engine, an SVG-scale series routes to `@visx/*` or `@observablehq/plot`, and geospatial GPU scale routes to deck.gl. `.api/observablehq-plot.md` LOCAL_ADMISSION owns the full engine-selection matrix.
 - uplot's canvas carries no per-point DOM or ARIA; the accessible summary beside the chart is the consumer's obligation.
-
-[RAIL_LAW]:
-- Package: `uplot`
-- Owns: canvas time-series rendering at extreme point counts — the `AlignedData` columnar contract, the options tree (series/scales/axes/cursor/legend/bands/select), path-builder geometry swaps, the hook-array plugin bus, cursor-sync cohorts, pixel↔value mapping, and mode-2 faceted scatter.
-- Accept: typed-array columns with `null` gaps; `setData` as the only per-tick write inside an effect-bracketed instance; `batch` around multi-writes; plugins as hook rows; `uPlot.paths.*` geometry; `distr`/`range`/`incrs` policy functions over hardcoded ticks; token-resolved colors rebuilt on theme flip; `uPlot.sync` cohorts.
-- Reject: rebuilding the instance per data tick; React state mirroring chart data; SVG-scale charts routed here; a second time-series engine beside it; subclassing where a hook row exists; hand-linked CSS per chart; `undefined` as an authored gap.

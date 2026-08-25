@@ -2,15 +2,7 @@
 
 `@opentelemetry/api` is the vendor-neutral contract the whole `@opentelemetry/*` tree peers on: the trace, metric, context, propagation, and diag type shapes every SDK implements, the five global entry singletons, and the wire constants and guards. It ships no SDK — every global resolves to a no-op until a provider registers, so inside Rasm it is a type source only, with span and metric emission riding the Effect facade.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/api`
-- package: `@opentelemetry/api` (Apache-2.0)
-- module: ESM; the dependency-free leaf every `@opentelemetry/*` and `@effect/opentelemetry` peer ranges over
-- runtime: neutral — node, bun, browser
-- rail: observability/contract
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace, metric, context, and propagation contracts every SDK implements and Rasm names in type position only
 
@@ -26,7 +18,7 @@
 |  [08]   | `Counter` / `Gauge` / `Histogram` / `UpDownCounter`      | instrument types  | typed metric writes                  |
 |  [09]   | `DiagLogger` / `DiagLogLevel` / `DiagConsoleLogger`      | diag contract     | SDK self-diagnostics only            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: global singletons over the guard and mint tier; Rasm admits guards, mints, and one global bracket — the browser boot's `context.setGlobalContextManager`/`context.disable()` pair inside the `Instrument` node
 
@@ -38,7 +30,7 @@
 |  [04]   | `createContextKey(desc)` / `createNoopMeter()`                 | factory   | context-key and null-object plumbing |
 |  [05]   | `baggageEntryMetadataFromString(value)`                        | factory   | baggage metadata admission           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one tree copy — the API registers its globals in a versioned `globalThis` slot, so a duplicated install splits registration and `trace.getTracer` on the orphan returns a no-op; the workspace catalog pins one version and dedupe is the admission proof.
@@ -52,9 +44,3 @@
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits only inside `scope:runtime`; the browser instrumentation rows the app root composes reach it there in type position too.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/api`
-- Owns: the vendor-neutral trace, metric, context, propagation, and diag contracts, the global registration slot, and the wire constants and guards
-- Accept: type imports at SDK-bridge and continuation seams; guard and mint calls on span contexts arriving as values; the browser boot's one `context.setGlobalContextManager`/`context.disable()` bracket; one deduped tree copy
-- Reject: `trace.getTracer`/`metrics.getMeter` spans or instruments in Rasm code, a second tree copy, diag as a domain log channel

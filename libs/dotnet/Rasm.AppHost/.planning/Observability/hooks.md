@@ -25,7 +25,7 @@ Settled composition: `HookId`, `TraceScope`, `HookModality`, `IHookRoster<TSelf>
 - Boundary: the rail carries no queue, no scheduler, and no retry — ordered delivery is the HLC stamp every `DomainEvent` carries and durability is the outbox leg, so a tap that must never lose an event is a durable outbox consumer selected by the delivery-honesty axis, never a hook subscriber.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Threading;
 using Thinktecture;

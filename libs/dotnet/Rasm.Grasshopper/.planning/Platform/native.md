@@ -58,7 +58,7 @@ Vocabularies are the kernel's wherever the kernel owns the concept: workspace ac
 - Growth: a new workspace policy axis is one kernel `MotionConcession` row with one probe-table entry, and a new retuning value is one `WorkspaceFact` field; the fold, observation, and teardown never widen.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Runtime.InteropServices;
 using AppKit;
 using CoreGraphics;

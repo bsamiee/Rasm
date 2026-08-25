@@ -2,15 +2,7 @@
 
 Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto-hosted Grasshopper 2 canvas that the pacing core does not reach: `CoreAnimation` owns the composited layer graph and its animation values, `AppKit` owns the local event monitor, gesture and pressure recognizers, vibrancy chrome, and haptics, and `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own leased capture and locked pixel-row egress. View-window-screen anchor chain, display link, run loop, accessibility gates, and object bridge are the branch pacing core this partition registers. Each retained native object carries its removal, invalidation, or disposal inverse.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: installed macOS bindings — Grasshopper2 canvas partition
-- host: `Grasshopper2` inside the Rhino WIP macOS process
-- assemblies: `Microsoft.macOS.dll`; `Eto.macOS.dll`
-- namespaces: `AppKit`, `CoreAnimation`, `CoreGraphics`, `CoreImage`, `CoreMedia`, `CoreVideo`, `ScreenCaptureKit`, `Foundation`, `ObjCRuntime`
-- rail: UI-affine native interop
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 - Registers the macOS pacing core (`libs/dotnet/.api/api-macos-native.md`): the `NSView`-to-`NSWindow`-to-`NSScreen` anchor chain with its display facts, coordinate maps (`NSView.ConvertPointFromView`), and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there; the rows below are the subsystem this canvas boundary adds beyond it.
 - `Eto.Mac` value bridge — `MacConversions`, `CGConversions`, `MacControlExtensions` — is tabled at member depth by `.api/api-eto-platform`, which owns the `Eto.macOS` partition; this catalog composes it and adds only the AppKit-side facts a conversion call site needs.
@@ -60,7 +52,7 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 |  [07]   | `CMSampleBuffer`; `CMTime`                                            | family        | delivered sample and capture timing  |
 |  [08]   | `CVImageBuffer`; `CVPixelBuffer`; `CVPixelBufferLock`; `CVReturn`     | family        | locked pixel-row raster egress       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: layer attachment on the registered view
 
@@ -169,7 +161,7 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 - `NSVisualEffectView` carries `Material`, `BlendingMode`, `State`, and `EmphasizedAppearance`; the material is a semantic role the host re-resolves on an appearance flip, so a captured blur value stales at the flip.
 - `NSHapticFeedbackManager.DefaultPerformer` performs an `NSHapticFeedbackPattern` at an `NSHapticFeedbackPerformanceTime`; a snap or alignment confirmation performs once at the commit, never per motion frame.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every retained native object carries its exact inverse and disposal order, and a native op never widens or narrows the `nint`, `double`, `NFloat`, or `float` carrier inside the boundary.
@@ -188,9 +180,3 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 - Seam admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
 - Layer, recognizer, monitor, and capture work binds to the extracted container view; canvas extraction stays the explicit control-object branch and never a widened cast.
 - Value crossings take the `Eto.Mac` conversion owners; a local conversion beside them is the deleted form.
-
-[RAIL_LAW]:
-- Package: `Microsoft.macOS.dll`; `Eto.macOS.dll`
-- Partition: the Grasshopper2 canvas native subsystem — layer graph and animation, local event monitoring, gesture and pressure attachment, vibrancy chrome and haptics, and ScreenCaptureKit capture with locked pixel egress
-- Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, leased capture with locked pixel egress, and the installed conversion owners
-- Reject: a re-tabling of the registered pacing core, `IMacViewHandler.Control`, unpaired native retention, a local conversion beside `Eto.Mac`, and a per-frame haptic or filter mint the transaction batch replaces

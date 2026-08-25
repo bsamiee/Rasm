@@ -2,16 +2,7 @@
 
 `System.Numerics.Tensors` owns two composable numeric planes: `Tensor<T>` and its span views carry `nint`-indexed strided data under one operator algebra, and `TensorPrimitives` folds every elementwise, reduction, and predicate operator over flat caller-owned spans. Both planes write into a caller-supplied destination and allocate nothing, so a fused chain threads one buffer through every stage.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Numerics.Tensors`
-- package: `System.Numerics.Tensors` (MIT)
-- assembly: `System.Numerics.Tensors`
-- namespaces: `System.Numerics.Tensors`, `System.Buffers`, `System.Runtime.InteropServices`
-- abi: strided `nint`-indexed views over caller-owned memory; span and dimension-span types are `ref struct` and `Tensor<T>` the array-backed heap owner
-- rail: tensor
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: strided owners, borrowed views, native indexing, and the two operator roots
 
@@ -32,7 +23,7 @@
 |  [13]   | `NRange`                         | readonly struct | native-sized half-open range              |
 |  [14]   | `TensorMarshal`                  | static class    | raw reference to strided view bridge      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Tensor` construction and `TensorMarshal` raw-memory admission
 - Each `TensorMarshal` factory takes `(ref T data, nint dataLength, ReadOnlySpan<nint> lengths, ReadOnlySpan<nint> strides, bool pinned)` over memory the caller already owns.
@@ -121,7 +112,7 @@
 - [STRIDED_UNARY]: `Abs` `Negate` `Increment` `Decrement` `Round` `Floor` `Ceiling` `Truncate` `Reciprocal` `Sqrt` `Cbrt` `Exp` `Exp2` `Exp10` `ExpM1` `Exp2M1` `Exp10M1` `Log` `Log2` `Log10` `LogP1` `Log2P1` `Log10P1` `Sin` `Sinh` `SinPi` `Cos` `Cosh` `CosPi` `Tan` `Tanh` `TanPi` `Asin` `Asinh` `AsinPi` `Acos` `Acosh` `AcosPi` `Atan` `Atanh` `AtanPi` `DegreesToRadians` `RadiansToDegrees` `Sigmoid` `SoftMax` `ILogB` `OnesComplement` `PopCount` `LeadingZeroCount` `TrailingZeroCount`
 - [STRIDED_BINARY]: `Add` `Subtract` `Multiply` `Divide` `Pow` `Log` `Atan2` `Atan2Pi` `Hypot` `Ieee754Remainder` `CopySign` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber` `BitwiseAnd` `BitwiseOr` `Xor`; the integer-parameter family is `RootN` `RotateLeft` `RotateRight` `ShiftLeft` `ShiftRightArithmetic` `ShiftRightLogical`
 - [STRIDED_REDUCE]: `Sum` `SumOfSquares` `Product` `Average` `StdDev` `Norm` `Dot` `CosineSimilarity` `Distance` `IndexOfMax` `IndexOfMin` `IndexOfMaxMagnitude` `IndexOfMinMagnitude`; the strided conversion family is `ConvertChecked` `ConvertSaturating` `ConvertTruncating` alone.
-- The strided plane is a proper subset: every ternary fuse (`MultiplyAdd`, `MultiplyAddEstimate`, `FusedMultiplyAdd`, `AddMultiply`, `Lerp`, `Clamp`), `Remainder`, `ScaleB`, `Sign`, `DivRem`, `SinCos`/`SinCosPi`, `BitIncrement`/`BitDecrement`, the estimate family (`ReciprocalEstimate`, `ReciprocalSqrt`, `ReciprocalSqrtEstimate`), `SumOfMagnitudes`, `ProductOfSums`/`ProductOfDifferences`, `HammingDistance`/`HammingBitDistance`, the `Is*` predicate masks, and the `ConvertToHalf`/`ConvertToSingle`/`ConvertToInteger` narrowings live on `TensorPrimitives` alone — a chain needing one drops through `GetSpan` or `FlattenTo` and returns through the strided window.
+- Strided-plane coverage is a proper subset: every ternary fuse (`MultiplyAdd`, `MultiplyAddEstimate`, `FusedMultiplyAdd`, `AddMultiply`, `Lerp`, `Clamp`), `Remainder`, `ScaleB`, `Sign`, `DivRem`, `SinCos`/`SinCosPi`, `BitIncrement`/`BitDecrement`, the estimate family (`ReciprocalEstimate`, `ReciprocalSqrt`, `ReciprocalSqrtEstimate`), `SumOfMagnitudes`, `ProductOfSums`/`ProductOfDifferences`, `HammingDistance`/`HammingBitDistance`, the `Is*` predicate masks, and the `ConvertToHalf`/`ConvertToSingle`/`ConvertToInteger` narrowings live on `TensorPrimitives` alone — a chain needing one drops through `GetSpan` or `FlattenTo` and returns through the strided window.
 
 [ENTRYPOINT_SCOPE]: `TensorPrimitives` unary elementwise operators
 - Each operator takes `(ReadOnlySpan<T> x, Span<T> destination)` under the generic-math constraint its family names.
@@ -175,7 +166,7 @@
 |  [06]   | `ConvertToHalf(ReadOnlySpan<float>, Span<Half>)`                    | static  | narrow singles to halves       |
 |  [07]   | `ConvertToSingle(ReadOnlySpan<Half>, Span<float>)`                  | static  | widen halves to singles        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each `TensorPrimitives` operator lowers to the widest `System.Runtime.Intrinsics` ISA the target carries and falls back to a scalar loop, so the operator is correct on every target and vectorized wherever the hardware admits.
@@ -193,15 +184,9 @@
 - `NetTopologySuite`(`.api/api-nettopologysuite.md`): crossing and containment signs resolve on its robust predicate floor, and this rail carries only the metric and transform passes downstream of that decision.
 - Within-library fold: `CreateFromShapeUninitialized` mints the destination, the extension operator set composes the expression, `GetDimensionSpan` walks the reduced rank, and `Tensor<T>.GetPinnedHandle` holds the buffer across a native call — one allocation spanning the whole pipeline.
 - `Rasm.AppHost`: `Agent/reasoning` discovery freezes governed `Embedding<float>.Vector` embeddings into a `FrozenDictionary<string, ReadOnlyMemory<float>>` index and ranks every candidate through the `float` `TensorPrimitives.CosineSimilarity` overload — the one AppHost tensor seam, with no `Tensor<T>` or `ref struct` view crossing a domain signature.
-- `Rasm.Compute`: a `TensorOpFamily` key IS `nameof(TensorPrimitives.X)` wherever `Lowering.Member` holds — so a renamed or retired host member breaks the build rather than missing a table silently, and no case transform stands between key and member — with each `Tensor/dispatch#KERNEL_DISPATCH` span row seated in the `FrozenDictionary<TensorOpFamily, …Kernel<T>>` table its typed `TensorArity` column names and every name-suffix variant folded onto an `[OP_FORMS]` axis column rather than a sibling row; kernel selection is a table read, never a per-call switch — and the `Activations<T>` author-folds (`ReLU`/`Gelu`/`SiLU`/`LogSoftMax`) compose `Clamp`/`Sigmoid`/`Multiply`/`MultiplyAdd`/`Tanh`/`Max`/`Exp`/`Sum`/`Subtract`, never a fabricated `TensorPrimitives.Relu` phantom; the matrix family (`MatMul`, `Conv1D`/`2D`/`3D`) holds no `TensorPrimitives` member and resolves through the GEMM/im2col lowering or the WGSL `ComputePipeline`, `Tensor<T>.GetPinnableReference`/`TensorMarshal.GetReference` rooting the ORT crossing (`OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>`), so one `Tensor<T>` crosses the CPU, WebGPU, and ONNX boundaries with no parallel tensor type; `FillGaussianNormalDistribution`/`FillUniformDistribution` seed the `EquivalenceLaw.Prove` samplers.
+- `Rasm.Compute`: every `TensorOpFamily` key IS `nameof(TensorPrimitives.X)` wherever `Lowering.Member` holds — so a renamed or retired host member breaks the build rather than missing a table silently, and no case transform stands between key and member — with each `Tensor/dispatch#KERNEL_DISPATCH` span row seated in the `FrozenDictionary<TensorOpFamily, …Kernel<T>>` table its typed `TensorArity` column names and every name-suffix variant folded onto an `[OP_FORMS]` axis column rather than a sibling row; kernel selection is a table read, never a per-call switch — and the `Activations<T>` author-folds (`ReLU`/`Gelu`/`SiLU`/`LogSoftMax`) compose `Clamp`/`Sigmoid`/`Multiply`/`MultiplyAdd`/`Tanh`/`Max`/`Exp`/`Sum`/`Subtract`, never a fabricated `TensorPrimitives.Relu` phantom; the matrix family (`MatMul`, `Conv1D`/`2D`/`3D`) holds no `TensorPrimitives` member and resolves through the GEMM/im2col lowering or the WGSL `ComputePipeline`, `Tensor<T>.GetPinnableReference`/`TensorMarshal.GetReference` rooting the ORT crossing (`OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>`), so one `Tensor<T>` crosses the CPU, WebGPU, and ONNX boundaries with no parallel tensor type; `FillGaussianNormalDistribution`/`FillUniformDistribution` seed the `EquivalenceLaw.Prove` samplers.
 
 - `Rasm` (kernel): the `Numerics/matrix` transform band REFUSES the `Tensor<T>` plane on four structural grounds — array-only static entrypoints at the mint, `ref struct` span views that cannot cross the kernel `Fin` rail, an allocating `PermuteDimensions` on every transpose, and `CellLattice`/`ReadOnlySpan2D` already owning lattice addressing under a one-linearization law — so kernel spectra stay on the MathNet arena pair and only `TensorPrimitives` folds enter kernel fences.
 
 [LOCAL_ADMISSION]:
 - Compute tensor lanes admit these shapes and primitives as first-class execution material, and a consuming model or vector rail takes the span without re-declaring tensor ownership.
-
-[RAIL_LAW]:
-- Package: `System.Numerics.Tensors`
-- Owns: strided tensor owners and views, native-sized indexing and ranges, raw-memory marshalling, and the vectorized span operator set
-- Accept: a fused vectorized chain over caller-owned spans whose measured BenchmarkDotNet report beats the scalar baseline on the hot lane
-- Reject: a package-local numeric loop over a span this surface already vectorizes, a bespoke tensor wrapper or `DeviceTensor`/`GpuTensor` parallel type — device-ness is a residency discriminant — a single-call `TensorPrimitives.Normalize` row (no such member; compose `Norm` then `Divide`), and an exact-predicate decision routed through a floating reduction

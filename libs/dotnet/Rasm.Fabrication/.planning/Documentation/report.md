@@ -22,7 +22,7 @@ Every column writer here frames over the `Rasm.Element` `CanonicalWriter` compos
 - Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, or declaration kind is one row on its own owner; an attestation role is one row at the Element owner.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;

@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Instrumentation.AWS` binds the AWS SDK for .NET's own telemetry seat: admission seats an `AWSSDK.*`-scoped tracer and meter provider on the SDK telemetry provider and hooks a tracing customizer into every service client's runtime pipeline, so the SDK mints one `Client`-kind span per operation and this package enriches it with aws-semconv attributes. Emission is per-service — one `ActivitySource` and one `Meter` per `AWSSDK.<Service>` scope, never one package-wide source.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.AWS`
-- package: `OpenTelemetry.Instrumentation.AWS`
-- assembly: `OpenTelemetry.Instrumentation.AWS`
-- namespace: `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Instrumentation.AWS`
-- rail: cloud-sdk instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options carrier and the convention pin it holds
 
@@ -21,7 +13,7 @@
 
 [SemanticConventionVersion]: `Latest` `V1_28_0` (default) `V1_29_0` `V1_40_0`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder admission over the trace and metric legs
 
@@ -34,7 +26,7 @@
 - `MeterProviderBuilder.AddAWSInstrumentation`: pins `SemanticConventionVersion.V1_28_0`, so the metric leg never follows the tracer's convention selection.
 - `AWSClientInstrumentationOptions.SuppressDownstreamInstrumentation`: opens the ambient suppression scope around the whole SDK invocation, so every nested instrumentation drops its span, never the HTTP leg alone.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Admission writes two process-global seats: `RuntimePipelineCustomizerRegistry.Instance` takes the tracing customizer and ignores a later same-name registration, while `AWSConfigs.TelemetryProvider` takes the convention-bound provider and lets a later call overwrite it — a second admission runs the newer convention pin against the first call's attribute options.
@@ -49,9 +41,3 @@
 [LOCAL_ADMISSION]:
 - Composition-root-only: both registries are process-global, so the first admitted options govern every app co-hosted in the process.
 - `SuppressDownstreamInstrumentation` sets wherever the root also admits HTTP instrumentation.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.AWS`
-- Owns: aws-semconv enrichment and `AWSSDK.*` source and meter admission for every SDK client in the process
-- Accept: `AddAWSInstrumentation` on the tracer and meter builders at the composition root, ahead of client construction
-- Reject: per-client or per-app customizer registration; hand-rolled aws-semconv tagging over SDK operations; a bare `AddSource`/`AddMeter` standing in for admission; customizer registration inside a store or keyring fold

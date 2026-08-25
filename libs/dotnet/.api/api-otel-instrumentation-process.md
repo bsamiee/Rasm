@@ -2,16 +2,7 @@
 
 `OpenTelemetry.Instrumentation.Process` mounts the host process's own absolute resource series — memory, CPU seconds by mode, threads, uptime, and the platform handle count — through one zero-argument verb over `MeterProviderBuilder`. `AddProcessInstrumentation` constructs the observable instruments and subscribes their meter in one call, so this package publishes no options carrier and no meter-name row substitutes for it; provider view rows are the whole shaping surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Process`
-- package: `OpenTelemetry.Instrumentation.Process` (Apache-2.0)
-- assembly: `OpenTelemetry.Instrumentation.Process`
-- namespace: `OpenTelemetry.Metrics`
-- meter: `OpenTelemetry.Instrumentation.Process` — package-minted, stamping the package version as its scope version and `https://opentelemetry.io/schemas/1.43.0` as its scope schema url
-- rail: process instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one admission seat; no options carrier ships, so every knob a caller reaches is a provider view row
 
@@ -19,7 +10,7 @@
 | :-----: | :------------------------------- | :------------ | :---------------------------------------- |
 |  [01]   | `MeterProviderBuilderExtensions` | class         | seats admission on `MeterProviderBuilder` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: metric admission — one zero-argument verb extending `MeterProviderBuilder` and returning it for chaining.
 
@@ -29,7 +20,7 @@
 
 - `AddProcessInstrumentation`: registration alone mints the instruments, so `AddMeter` on the meter name subscribes an empty scope.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AddProcessInstrumentation` fixes instrument identity at construction, so one registration per process yields one copy of each series.
@@ -57,9 +48,3 @@
 [LOCAL_ADMISSION]:
 - `SignalGovernance.Govern` at the hosted root is the one registration seat per process.
 - `PluginTelemetryHost` capsules admit kernel scopes alone, so no co-resident capsule double-reports one process.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.Process`
-- Owns: absolute process-resource series admission onto a meter provider
-- Accept: one verb registration per process, shaped downstream by view rows
-- Reject: a hand-rolled `System.Diagnostics.Process` poller or an `Environment.WorkingSet` gauge beside this meter

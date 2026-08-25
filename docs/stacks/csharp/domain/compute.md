@@ -34,7 +34,7 @@ This table routes a compute concern to its owning surface; the most specific row
 ```csharp
 public static class TensorGate {
     public static Fin<Tensor<double>> Admit(ReadOnlySpan<double> payload, params ReadOnlySpan<nint> shape) =>
-        TensorPrimitives.Product(shape) is var volume && volume == payload.Length
+        TensorPrimitives.Product(shape) is nint volume && volume == payload.Length
             ? Fin.Succ(Covered(payload, shape))
             : Fin.Fail<Tensor<double>>(Error.New(8101, $"<cover-gap:{payload.Length}:{volume}>"));
 
@@ -54,7 +54,7 @@ public static class TensorGate {
     }
 
     static Tensor<double> Covered(ReadOnlySpan<double> payload, ReadOnlySpan<nint> shape) {
-        var owner = Tensor.CreateFromShapeUninitialized<double>(shape, pinned: true);
+        Tensor<double> owner = Tensor.CreateFromShapeUninitialized<double>(shape, pinned: true);
         payload.CopyTo(owner.GetSpan(new nint[shape.Length], payload.Length));
         return owner;
     }
@@ -98,12 +98,12 @@ public sealed partial class KernelRow {
 
     public (double Bound, double CancellationRatio) Envelope(ReadOnlySpan<double> payload) =>
         TensorPrimitives.SumOfMagnitudes(payload) switch {
-            var mass => (Tolerance.Bound(payload.Length, mass), Math.Abs(TensorPrimitives.Sum(payload)) / mass),
+            double mass => (Tolerance.Bound(payload.Length, mass), Math.Abs(TensorPrimitives.Sum(payload)) / mass),
         };
 
     public static (double Mean, double Variance) Moments(ReadOnlySpan<double> payload) =>
         (TensorPrimitives.Sum(payload) / payload.Length) switch {
-            var mean => (mean, TensorPrimitives.SumOfSquares(payload) / payload.Length - mean * mean),
+            double mean => (mean, TensorPrimitives.SumOfSquares(payload) / payload.Length - mean * mean),
         };
 }
 ```
@@ -134,7 +134,7 @@ public static class StagingAxis {
 
     public static MemoryOwner<byte> Admitted(int capacity, Func<Memory<byte>, int> fill) {
         ArgumentNullException.ThrowIfNull(fill);
-        var staged = MemoryOwner<byte>.Allocate(capacity, AllocationMode.Clear);
+        MemoryOwner<byte> staged = MemoryOwner<byte>.Allocate(capacity, AllocationMode.Clear);
         return staged.Slice(0, fill(staged.Memory));
     }
 
@@ -170,7 +170,7 @@ public static class StreamPool {
 
     public static RecyclableMemoryStreamManager Open(PoolPolicy policy) {
         ArgumentNullException.ThrowIfNull(policy);
-        var pool = new RecyclableMemoryStreamManager(policy.Frozen);
+        RecyclableMemoryStreamManager pool = new RecyclableMemoryStreamManager(policy.Frozen);
         pool.StreamCreated += static (_, fact) => Record(fact.Tag, "<created>");
         pool.StreamDisposed += static (_, fact) => Record(fact.Tag, "<disposed>");
         pool.StreamFinalized += static (_, fact) => Record(fact.Tag, "<finalized>");
@@ -185,7 +185,9 @@ public static class StreamPool {
             "<disposed>" => (acc.C, acc.D + 1, acc.F),
             "<finalized>" => (acc.C, acc.D, acc.F + 1),
             _ => acc,
-        }) is var sum && sum.C == sum.D + live + sum.F;
+        }) switch {
+            (int created, int disposed, int finalized) => created == disposed + live + finalized,
+        };
 
     static void Record(string? tag, string kind) =>
         ignore(Ledger.Swap(facts => facts.Add(new PoolFact(tag ?? "<untagged>", kind))));
@@ -224,24 +226,24 @@ public sealed record AdmissionResult(string Fingerprint, Seq<string> Vetoed, Seq
 public static class SessionAdmission {
     public static Fin<(InferenceSession Session, AdmissionResult Admission)> Admit(SessionPlan plan, string input, string output, float[] golden, long[] shape, float[] reference, float tolerance) {
         ArgumentNullException.ThrowIfNull(plan);
-        var capable = toSeq(OrtEnv.Instance().GetAvailableProviders());
-        var applied = plan.Providers.Filter(row => capable.Exists(held => held == row.Name));
-        var vetoed = plan.Providers.Filter(row => !capable.Exists(held => held == row.Name)).Map(static row => row.Name);
-        using var options = new SessionOptions { GraphOptimizationLevel = plan.Level, EnableMemoryPattern = true };
+        Seq<string> capable = toSeq(OrtEnv.Instance().GetAvailableProviders());
+        Seq<ProviderRow> applied = plan.Providers.Filter(row => capable.Exists(held => held == row.Name));
+        Seq<string> vetoed = plan.Providers.Filter(row => !capable.Exists(held => held == row.Name)).Map(static row => row.Name);
+        using SessionOptions options = new SessionOptions { GraphOptimizationLevel = plan.Level, EnableMemoryPattern = true };
         applied.Iter(row => options.AppendExecutionProvider(row.Name, row.Knobs));
         plan.Pinned.Iter(pin => options.AddFreeDimensionOverrideByName(pin.Dim, pin.Extent));
         InferenceSession? session = new(plan.Model.ToArray(), options);
         try {
-            using var run = new RunOptions();
-            using var probe = OrtValue.CreateTensorValueFromMemory(OrtMemoryInfo.DefaultInstance, golden.AsMemory(), shape);
-            using var warm = session.Run(run, [input], [probe], [output]);
-            var defect = TensorPrimitives.Distance<float>(warm[0].GetTensorDataAsSpan<float>(), reference);
+            using RunOptions run = new RunOptions();
+            using OrtValue probe = OrtValue.CreateTensorValueFromMemory(OrtMemoryInfo.DefaultInstance, golden.AsMemory(), shape);
+            using IDisposableReadOnlyCollection<OrtValue> warm = session.Run(run, [input], [probe], [output]);
+            float defect = TensorPrimitives.Distance<float>(warm[0].GetTensorDataAsSpan<float>(), reference);
             if (defect > tolerance) {
                 return Fin.Fail<(InferenceSession, AdmissionResult)>(Error.New(8401, $"<warmup-defect:{defect}>"));
             }
 
-            var result = new AdmissionResult(plan.Fingerprint(applied.Map(static row => row.Name)), vetoed, applied.Map(static row => row.Name), defect);
-            var admitted = session;
+            AdmissionResult result = new AdmissionResult(plan.Fingerprint(applied.Map(static row => row.Name)), vetoed, applied.Map(static row => row.Name), defect);
+            InferenceSession admitted = session;
             session = null;
             return Fin.Succ((admitted, result));
         }
@@ -283,7 +285,7 @@ public sealed class BoundLoop : IDisposable {
         binding.SynchronizeBoundInputs();
         session.RunWithBinding(run, binding);
         binding.SynchronizeBoundOutputs();
-        var view = sink.GetTensorMutableDataAsSpan<float>();
+        Span<float> view = sink.GetTensorMutableDataAsSpan<float>();
         TensorPrimitives.Max(view, floor, view);
         return TensorPrimitives.Sum<float>(view);
     }
@@ -345,8 +347,8 @@ public sealed partial class SubstrateRow {
     [UseDelegateFromConstructor] public partial double Arrow(ReadOnlyMemory<double> payload);
 
     static double ScalarFold(ReadOnlyMemory<double> payload) {
-        var total = 0d;
-        foreach (var value in payload.Span) { total += value; }     // Exemption: the scalar reference fold is the named kernel statement seam
+        double total = 0d;
+        foreach (double value in payload.Span) { total += value; }     // Exemption: the scalar reference fold is the named kernel statement seam
         return total;
     }
 }
@@ -356,13 +358,13 @@ public static class MassEngine {
 
     public static RouteResult Route(Intent intent, Seq<SubstrateRow> rows, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string isa) {
         ArgumentNullException.ThrowIfNull(intent);
-        var live = lane.Stamp(isa);
-        var routed = rows.Map(row => (Row: row, Veto: Vetoes(intent, row, claims, lane, live)))
+        string live = lane.Stamp(isa);
+        (Option<SubstrateRow> Taken, Seq<(string, string)> Trail) routed = rows.Map(row => (Row: row, Veto: Vetoes(intent, row, claims, lane, live)))
             .Fold((Taken: Option<SubstrateRow>.None, Trail: Seq<(string, string)>()),
                 static (state, slot) => state.Taken.IsSome ? state
                     : slot.Veto is { IsSome: true, Case: string reason } ? (state.Taken, state.Trail.Add((slot.Row.Key, reason)))
                     : (Some(slot.Row), state.Trail));
-        var taken = routed.Taken.IfNone(SubstrateRow.Reference);
+        SubstrateRow taken = routed.Taken.IfNone(SubstrateRow.Reference);
         return new RouteResult(intent.Kernel, taken.Key, routed.Trail, taken.Arrow(intent.Payload));
     }
 
@@ -399,7 +401,7 @@ public readonly record struct AdmittedSpan(double CanonicalMeters, double Origin
 
 public static class UnitSeam {
     public static Fin<AdmittedSpan> Admit(string text) =>
-        Quantity.TryParse(typeof(Length), text, out var parsed) && parsed is Length raw
+        Quantity.TryParse(typeof(Length), text, out IQuantity? parsed) && parsed is Length raw
             ? Fin.Succ(new AdmittedSpan(raw.As(LengthUnit.Meter), (double)raw.Value, raw.Unit.ToString()))
             : Fin.Fail<AdmittedSpan>(Error.New(8501, $"<unparsed:{text}>"));
 

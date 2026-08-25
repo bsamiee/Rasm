@@ -2,16 +2,7 @@
 
 `Eto.macOS` is the AppKit backend behind every Eto widget a Grasshopper2 panel raises on macOS: `Eto.Mac.Platform` seats the handler set, `IMacControlHandler` partitions the native `NSView` roles for layout, content, events, focus, and text input, `MacControlExtensions` extracts the Eto-backed view, `NativeControlHandler` admits a raw AppKit object, and `MacConversions`/`CGConversions` carry every value across the Eto, AppKit, and CoreGraphics boundary. Handler-factory root itself is the branch surface this partition registers.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto.macOS` — the AppKit handler partition
-- package: `Eto.Forms` macOS backend (BSD-3-Clause)
-- assembly: `Eto.macOS.dll` (`Eto.Mac` handler set) over the `Eto.dll` handler root
-- namespace: `Eto.Mac`, `Eto.Mac.Forms`, `Eto.Mac.Forms.Controls`
-- target: in-process ALC reference inside the Rhino 9 WIP bundle, not a NuGet asset
-- rail: platform-handlers
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 - Registers the `Eto` platform-handler root (`libs/dotnet/.api/api-eto-platform.md`): `Platform` identity, capability probes, the handler-registration map with `Create`/`CreateShared`/`Find`/`Add`, the `HandlerCreated`/`WidgetCreated` mint events, `Platform.Cache<TKey,TValue>`, the boot, context, and marshal surfaces, the `WidgetHandler` family, the `Style` registry, and `NativeControlHost`/`CreateNativeControlArgs`/`IControlObjectSource` carry their algebra there; the rows below are the macOS backend this partition adds beyond it.
 
@@ -30,7 +21,7 @@
 |  [09]   | `CGConversions`                 | static        | CoreGraphics and Eto value conversion                 |
 |  [10]   | `MacExtensions`                 | static        | low-level AppKit extensions for concrete handlers     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Eto.Mac.Platform` — macOS backend seating and overrides
 
@@ -171,7 +162,7 @@ Every row is an extension over the named receiver; `ToNS`/`ToNSUI` is the Eto-to
 
 - `Retain`/`Release` take a raw `nint` and bypass the managed lifetime entirely; a native handle held across a managed boundary pairs them inside one capsule or leaks, so they never appear as loose call-site statements.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Eto.Mac.Platform` separates runtime identity (`IsMac`, `ID`), app-bundle validity (`IsValid`), and admitted capability (`SupportedFeatures`), each read off the concrete override rather than the registered base.
@@ -190,9 +181,3 @@ Every row is an extension over the named receiver; `ToNS`/`ToNSUI` is the Eto-to
 - Native-view work enters through `GetContainerView` or `IMacControlHandler.ContainerControl` behind the folder nullable boundary; raw AppKit runs only inside a verified host-valid window lifetime.
 - Every Eto-to-AppKit or Eto-to-CoreGraphics value crossing takes a `MacConversions` or `CGConversions` member; a local conversion beside them is the deleted form.
 - Handler resolution, style registration, and native-host construction take the registered branch surface; this partition never re-mints them.
-
-[RAIL_LAW]:
-- Partition: `Eto.macOS` AppKit backend — the `Eto.Mac` handler set, native `NSView` role partitioning, container-view extraction, and the Eto/AppKit/CoreGraphics conversion surface
-- Owns: the macOS backend and its value bridge over the registered branch handler root
-- Accept: the seated `Eto.Mac` platform and its overrides, `IMacControlHandler` view roles, `MacControlExtensions` extraction, admitted AppKit payloads, and the installed conversion owners
-- Reject: a re-tabling of the branch handler root, a native lookup beside `GetContainerView`, a local Eto-to-AppKit conversion beside `MacConversions`, an unguarded runtime-nullable extraction, and a loader type string treated as runtime `ID`

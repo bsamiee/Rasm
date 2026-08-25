@@ -2,15 +2,7 @@
 
 `awkward` owns variable-length, nested, and ragged array capability over columnar memory: `ak.Array` wraps an irregular payload with NumPy ufunc and jagged-indexing behavior over typed `ak.contents` layouts, `ak.Record` holds one row, and `ak.ArrayBuilder` grows an array by append. Construction and export functions bridge NumPy, Arrow, Parquet, JSON, and pandas, and one array dispatches across `cpu`, `cuda`, and `jax` backends without copying layout structure.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `awkward`
-- package: `awkward` (BSD-3-Clause)
-- module: `awkward` (alias `ak`)
-- namespaces: `ak.contents`, `ak.forms`, `ak.types`, `ak.behaviors`, `ak.numba`, `ak.jax`
-- rail: irregular-arrays
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core array types
 
@@ -29,7 +21,7 @@ Two published classes, BOTH builtin refinements, so a consumer's catch set names
 |  [01]   | `errors.AxisError`          | axis refusal  | `ValueError`/`IndexError`; axis outside the layout depth |
 |  [02]   | `errors.FieldNotFoundError` | field absence | `IndexError`; a record field the layout does not carry   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ak.ArrayBuilder` members
 
@@ -122,7 +114,7 @@ Two published classes, BOTH builtin refinements, so a consumer's catch set names
 |  [18]   | `validity_error(array)`                                                      | static  | layout validity check                   |
 |  [19]   | `metadata_from_parquet(path, *, storage_options, row_groups, ...)`           | static  | parquet metadata without reading rows   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ak.Array` wraps a typed `ak.contents` layout; `to_layout` descends to it and `from_buffers` rebuilds an array from a form and its buffers with no data copy
@@ -145,9 +137,3 @@ Two published classes, BOTH builtin refinements, so a consumer's catch set names
 - Field access uses `fields` and named indexing, keeping the record structure self-describing
 - Arrow and Parquet interchange uses `from_arrow`/`to_arrow` and `from_parquet`/`to_parquet`; cloud paths pass `storage_options` resolved through `fsspec`
 - Custom domain methods attach through the `behavior` mapping keyed on record name and resolved by `with_name`
-
-[RAIL_LAW]:
-- Package: `awkward`
-- Owns: variable-length nested arrays, option types, record and union arrays, behavior mixins, and multi-backend (`cpu`/`cuda`/`jax`) columnar irregular data
-- Accept: irregular event-data payloads wrapped in `ak.Array` with named fields and an explicit backend
-- Reject: hand-rolled ragged list structures, positional-only field access where `fields` applies, NumPy arrays for irregular data awkward owns, Python loops where `__array_ufunc__` or a Numba/JAX backend kernel applies, and `ak.Array` subclassing where the `behavior` mapping applies

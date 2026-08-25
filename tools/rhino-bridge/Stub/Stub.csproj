@@ -7,6 +7,11 @@
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <RhinoPluginAssemblyGuid>23898819-e84f-4fd3-bb2c-85b208718cba</RhinoPluginAssemblyGuid>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
-        <InformationalVersion>0.1.0-stub</InformationalVersion>
     </PropertyGroup>
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../Shell/Shell.csproj" ReferenceOutputAssembly="false" RasmInfra="true" />
+    </ItemGroup>
+    <ItemGroup Label="Yak Payload">
+        <YakPayloadProject Include="../Shell/Shell.csproj" />
+    </ItemGroup>
 </Project>

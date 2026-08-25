@@ -2,19 +2,7 @@
 
 `Velopack` owns desktop-application provisioning and the self-update lifecycle at the host boundary: a startup hook gate dispatches install, update, and uninstall phases ahead of normal startup, and a feed-checked `UpdateManager` resolves, downloads, and applies releases against a locator-owned install state. Provisioning binds only at the host composition root; domain code never constructs it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Velopack`
-- package: `Velopack`
-- assembly: `Velopack`
-- namespace: `Velopack`
-- namespace: `Velopack.Locators`
-- namespace: `Velopack.Sources`
-- namespace: `Velopack.NuGet`
-- asset: runtime library
-- rail: runtime provisioning and update
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: startup hook gate
 
@@ -41,7 +29,7 @@
 |  [03]   | `IUpdateSource`    | interface     | release feed and entry download       |
 |  [04]   | `SemanticVersion`  | class         | comparable major/minor/patch identity |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: startup gate — fluent hook registration then dispatch
 
@@ -130,7 +118,7 @@ Identity and install-path reads return `string?`.
 |  [14]   | `GetLatestLocalFullPackage() -> VelopackAsset?` | instance | latest local release                   |
 |  [15]   | `GetOrCreateStagedUserId() -> Guid?`            | instance | staged-rollout identity                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `VelopackApp.Build()` opens a fluent gate registering first-run, restart, install, update, and uninstall hooks; `Run()` dispatches the matching `--veloapp-*` hook, applies pending updates when auto-apply is on, then returns to normal startup — it executes once at the earliest point of startup, and a second `Run()` corrupts locator state.
@@ -147,9 +135,3 @@ Identity and install-path reads return `string?`.
 - Provisioning and self-update are host-level concerns; domain code never constructs `UpdateManager` and never sets channel strings.
 - Install paths, current version, and channel resolve through `IVelopackLocator`, not the filesystem.
 - `VelopackAsset` hashes and `VelopackAssetType` are read-only release evidence; the apply decision lives in the owning update-policy surface.
-
-[RAIL_LAW]:
-- Package: `Velopack`
-- Owns: desktop application provisioning, self-update lifecycle, and release-feed evidence
-- Accept: hook-gated startup, feed-checked update apply, and locator-resolved install state
-- Reject: hand-rolled installer scripting, manual binary swapping, or filesystem version probing

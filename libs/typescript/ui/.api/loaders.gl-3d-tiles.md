@@ -2,17 +2,7 @@
 
 `@loaders.gl/3d-tiles` decodes the OGC 3D Tiles / Cesium tile formats — the `cmpt`/`pnts`/`b3dm`/`i3dm` binary tiles and the `tileset.json` manifest — that `Tile3DLayer` resolves through `@loaders.gl/core`. It owns ONLY the content-decoder family and the `Tiles3DLoader` registration deck defaults to; runtime tileset traversal (`Tileset3D`/`Tile3D` LOD, screen-space error, tile lifecycle) is `@loaders.gl/tiles`, deck-owned transitive. `scope:viewer` project-local, compile-time excluded from the `ui` core.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@loaders.gl/3d-tiles`
-- package: `@loaders.gl/3d-tiles` (MIT)
-- abi: isomorphic browser/node; binary tile parse runs Web Worker-backed through core's parse engine (`options.worker`); embedded glTF, Draco geometry, and texture decode delegate to the transitive `@loaders.gl/gltf`/`@loaders.gl/draco`/`@loaders.gl/images` decoders
-- deps (transitive loaders.gl substrate): `@loaders.gl/loader-utils` (`StrictLoaderOptions`/`LoaderContext`), `@loaders.gl/gltf` (`GLTFPostprocessed`/`FeatureTableJson`, the embedded-glTF decode batched/instanced tiles delegate to), `@loaders.gl/draco`, `@loaders.gl/images`, `@loaders.gl/schema`
-- runtime: `scope:viewer` project-local, peer `@loaders.gl/core` (`.api/loaders.gl-core.md`) — stateless decoders whose only mutable surface is the core loader registry, registered app-scoped, never a global two apps contend over
-- modules: `Tiles3DLoader`, `CesiumIonLoader`, `Tile3DSubtreeLoader`, `Tiles3DArchiveFileLoader`, `Tiles3DArchive`, `Tile3DWriter`, `Tile3DFeatureTable`, `Tile3DBatchTable`, `TILE3D_TYPE`, `_getIonTilesetMetadata`; types `Tiles3DLoaderOptions`, `Tiles3DTileContent`, `Tiles3DTilesetJSONPostprocessed`, `Tiles3DTileJSONPostprocessed`, `Tile3DBoundingVolume`, `B3DMContent`, `Subtree`, `FeatureTableJson`
-- absent (not admitted): `@loaders.gl/tiles` (the `Tileset3D`/`Tile3D` traversal engine reached through deck), `@loaders.gl/i3s` (the ESRI I3S variant `Tile3DLayer` also accepts, its own admission); the sibling core registrations `@loaders.gl/las`/`mvt`/`terrain` and core's `parse`/`load`/`registerLoaders` surface stay their own owners
-
-## [02]-[DECODER_FAMILY]
+## [01]-[DECODER_FAMILY]
 
 [TYPE_SCOPE]: the decoder descriptors — one `Loader` value each, registered into `@loaders.gl/core` or passed per `parse`/`load` call `(data, options?, context?)`. Content magic (`cmpt`/`pnts`/`b3dm`/`i3dm`), transport (open href vs Ion token vs `.3tz` archive vs `.subtree` bitstream), and manifest-vs-tile shape are the discriminants; `isTileset: 'auto'` sniffs manifest from tile, never a `parseTileset`/`parseTile` split.
 - each content descriptor shares the tile format identity (`id: '3d-tiles'`, `extensions`/`tests`: `['cmpt','pnts','b3dm','i3dm']`, `binary: true`), so `selectLoader` resolves the decoder from the four-byte magic; `Tiles3DLoader.parse` returns a tileset-or-tile whole and `batchType` is `never` — a large tileset streams through the `@loaders.gl/tiles` traversal fetch fanout, not `parseInBatches`.
@@ -28,7 +18,7 @@
 |  [07]   | `Tile3DFeatureTable`                                         | class   | `featureTable` per-feature property accessor                   |
 |  [08]   | `Tile3DBatchTable`                                           | class   | `batchTable` per-batch metadata accessor                       |
 
-## [03]-[OPTIONS_AND_TYPES]
+## [02]-[OPTIONS_AND_TYPES]
 
 [TYPE_SCOPE]: the `'3d-tiles'` sub-options bag on `Tiles3DLoaderOptions`, the `TILE3D_TYPE` content vocabulary, and the decoded output shapes the loaders return — the vocabulary `Tile3DLayer` traversal and mesh graft consume.
 - `Tiles3DLoaderOptions` — `StrictLoaderOptions & DracoLoaderOptions & ImageLoaderOptions & { '3d-tiles'?: {...} }`; the base bag (`worker`/`fetch`/`CDN`) lives in `.api/loaders.gl-core.md`, the Draco/image sub-bags decode compressed geometry and embedded textures.
@@ -39,7 +29,7 @@
 - `Tile3DBoundingVolume` — `{ box?: number[12], sphere?: number[4], region?: number[6] }`; the tile spatial bound — oriented box, sphere, or EPSG:4979 `[west,south,east,north,minH,maxH]` region — driving the cull frustum test.
 - `B3DMContent` — `{ batchTableJson?, featureTableJson?/featureTableBinary?, gltf?: GLTFPostprocessed, gltfUpAxis, rtcCenter: [number,number,number], type }`; the specialized `b3dm` decode shape.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - loaders arrive per call site: `Tiles3DLoader` passes through the `Tile3DLayer` `loaders` prop or a `load(url, Tiles3DLoader)` argument — `registerLoaders` ships `@deprecated` (registration erases loader type information and mutates a process-wide roster two apps contend over), so the registry path is the rejected form, not an app-scoped alternative. Binary tile decode runs in the core worker pool by default, embedded glTF/Draco/texture decode through the transitive decoders — no tile parse blocks the main thread.
@@ -53,9 +43,3 @@
 [LOCAL_ADMISSION]:
 - imported only inside the `ui/viewer` Nx project (`scope:viewer`); the `ui` core never resolves it, keeping heavy tile-decoder/worker deps compile-time excluded from non-spatial apps.
 - pick the decoder by transport: `Tiles3DLoader` for open hrefs, `CesiumIonLoader` for Ion tokens, `Tiles3DArchiveFileLoader` for `.3tz` archives, `Tile3DSubtreeLoader` for implicit-tiling availability; `@loaders.gl/tiles` traversal and the `@loaders.gl/i3s` variant are their own admissions.
-
-[RAIL_LAW]:
-- Package: `@loaders.gl/3d-tiles`
-- Owns: the 3D-tiles/Cesium content-decoder family — the `Tiles3DLoader`/`CesiumIonLoader`/`Tile3DSubtreeLoader`/`Tiles3DArchiveFileLoader` transports, `Tile3DWriter` inverse encode, `Tile3DFeatureTable`/`Tile3DBatchTable` metadata accessors, the `TILE3D_TYPE` vocabulary, the `'3d-tiles'` option bag, and the decoded output shapes
-- Accept: per-call-site loader passing (`Tile3DLayer` `loaders` prop, `load(url, Tiles3DLoader)`), decoder selection by transport and `isTileset` sniff, `Tile3DLayer` driving the `@loaders.gl/tiles` traversal over this decoder, embedded glTF/Draco/texture decode delegated to the transitive decoders
-- Reject: hand-parsing tile bytes off the worker pool, a `parseTileset`/`parseIonTile` family instead of core's polymorphic `parse`/`load`, importing the `@loaders.gl/tiles` traversal engine directly, `registerLoaders` in any form — deprecated upstream, type-erasing, and a global roster two apps contend over

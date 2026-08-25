@@ -6,7 +6,6 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 ## [01]-[INDEX]
 
-
 ## [02]-[TIMELINE]
 
 - Owner: `Timeline` discriminates modality over the closed `TimelineOp` union, each case carrying its own typed payload — never a shared erased bag, a per-op subclass, or a parallel `trim`/`concat`/`xfade` trio. `Clip` carries `data: bytes` and `key: ContentKey`, so a clip is a content-keyed node and an op's dependency is its clips' keys, never a path or a re-minted key. Strategy is never a field — packet-versus-filter choice derives from stream identity for `Concat` and keyframe alignment for `Trim`. `Effect` carries the ordered `FilterNode` program directly, so every single-input filtergraph member is one data value under the existing grammar rather than another timeline case. `Transition` is the `media/filtergraph#FILTER` transition vocabulary the `Xfade` payload carries, composed from the blend owner rather than re-declared beside a second kernel. `_lanes`/`_packed` are the one interleaved-audio axis every timing fold reads, so channel count is arithmetic rather than an arm. `MediaFault` remains the one fault rail across the media plane.
@@ -17,7 +16,7 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 - Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `media/filtergraph#FILTER` `Transition` member plus one `_WEIGHT` row, this page untouched; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key on the existing product.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from typing import Final, Literal, assert_never
 
 from builtins import frozendict
@@ -175,7 +174,7 @@ class Timeline(Struct, frozen=True):
 ```
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from math import isfinite
 from typing import TYPE_CHECKING

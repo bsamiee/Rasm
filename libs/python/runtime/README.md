@@ -39,7 +39,6 @@
 - [24]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
 - [25]-[IDENTITY](.planning/evidence/identity.md): Content keys, canonical peer framing, and distinct hash-input/generated-wire projections.
 - [26]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [27]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -97,9 +96,6 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 [PARSING]:
 - `cyclopts` — Typed CLI entrypoint grammar for the daemon.
 - `lark` — CESQL grammar engine behind the `sql` filter dialect; geometry registers the same substrate for its selector grammar.
-- `tree-sitter`
-- `tree-sitter-python`
-- `tree-sitter-typescript`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

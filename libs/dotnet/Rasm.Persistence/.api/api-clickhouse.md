@@ -2,16 +2,7 @@
 
 `ClickHouse.Driver` owns the distributed columnar OLAP backend over the ClickHouse HTTP interface: the thread-safe connection-pooled `ClickHouseClient`, the full ADO.NET provider mirror, the parallel RowBinary bulk-ingest rail, the `QueryStats` throughput summary, and an `ActivitySource` diagnostics surface emitting `db.*`/`db.clickhouse.*` OpenTelemetry tags. It is the billion-row scale-out backend class beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor, admitted through the `Store/provisioning` store-profile algebra as a non-transactional append sink.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ClickHouse.Driver`
-- package: `ClickHouse.Driver` (MIT)
-- assembly: `ClickHouse.Driver`
-- namespace: `ClickHouse.Driver` (`ClickHouseClient`, POCO/JSON attributes, `JsonReadMode`/`JsonWriteMode`), `ClickHouse.Driver.ADO` (settings, `QueryStats`, connection/command/reader/data-source), `ClickHouse.Driver.Copy` (`RowBinaryFormat`), `ClickHouse.Driver.Diagnostic`, `ClickHouse.Driver.Numerics` (`ClickHouseDecimal`)
-- asset: pure-managed, no native payload; transport is `HttpClient` over the ClickHouse HTTP port (8123 plaintext, 8443 TLS)
-- rail: store-backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: high-ingest primary client — `ClickHouseClient : IClickHouseClient, IDisposable`, one instance per cluster shared across threads, the primary entry over the ADO mirror
 
@@ -54,7 +45,7 @@
 |  [08]   | `ClickHouseServerException`      | server failure     | `DbException`; carries `Query` + numeric `ErrorCode`                        |
 |  [09]   | `ClickHouseDiagnosticsOptions`   | diagnostics toggle | `ActivitySourceName`, `IncludeSqlInActivityTags`, `StatementMaxLength`      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction, query, and registration
 
@@ -101,7 +92,7 @@
 |  [07]   | `ClickHouseConnectionStringBuilder { … }`                                 | builder     | typed keys (above); `ToSettings()`         |
 |  [08]   | `ClickHouseParameterCollection` + `{name:Type}` placeholders              | parameters  | named, server-typed parameter substitution |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - transport is the HTTP interface only; `HttpClient` and `HttpClientFactory` are mutually exclusive at `Validate()`, and the client owns a default pooled factory, an injected `IHttpClientFactory`, or a caller-supplied `HttpClient`.
@@ -132,9 +123,3 @@
 - `ClickHouseClient.InsertBinaryAsync` over POCO or `object[]` is the bulk-ingest rail; batch size and parallelism are profile policy.
 - inserts record as idempotent append blocks keyed by `InsertOptions.QueryId`, never under a transaction scope.
 - `ClickHouse.Driver.Types` column type-system stays internal; the profile declares column types in DDL or `[ClickHouseColumn(Type=...)]`, never a CLR type instance.
-
-[RAIL_LAW]:
-- Package: `ClickHouse.Driver`
-- Owns: HTTP-interface columnar OLAP query, parallel RowBinary bulk ingest, the ADO.NET provider mirror, the `QueryStats` throughput summary, and `ActivitySource` diagnostics
-- Accept: thread-safe `ClickHouseClient` reuse, `InsertBinaryAsync` with profile-declared batch and parallelism, `QueryStats`-driven throughput telemetry, `ActivitySource` telemetry through the AppHost tracer, `ClickHouseServerException` fault discrimination on `ErrorCode`
-- Reject: per-call `HttpClient` construction, parallel bulk insert under an enabled session, transaction-scoped writes, surfacing the internal `ClickHouse.Driver.Types` type-system as a consumer API, reading `ClickHouseConnection.State` or `DbConnection.StateChange` as a health signal, and the retired `ClickHouseBulkCopy` ingest path whose `BatchSent` reports a cumulative row total the admitted `InsertBinaryAsync` rail publishes no callback for

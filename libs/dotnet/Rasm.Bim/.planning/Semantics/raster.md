@@ -22,7 +22,7 @@ Every measurement a band carries rides the `Rasm/Domain/validation#VERDICT_CARRI
 - Boundary: `SampleAt` was an erased-to-float convenience with no reader that silently narrowed a survey-grade `Float64` DEM and an `Int64` classification raster alike — the typed `Plane` continuation is the pixel read and an erased one beside it is the deleted form; `OSGeo.GDAL.*` types stay confined to `RasterBandInfo` and the `GeoRaster` owner and never cross to the seam node; every `ColorTable`/`RasterAttributeTable`/`ColorEntry` SWIG handle is read under `using` and only the lowered `ColorBin` rows cross; the DEM mode roster carries its own gdal token as the row KEY, so the lowering is a key read rather than a `ToString().ToLowerInvariant()` that couples the wire token to a C# identifier's casing; colour relief carries no row because its `wrapper_GDALDEMProcessing` arm also takes a colour-file argument no row can hold.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using CommunityToolkit.HighPerformance;
 using LanguageExt;

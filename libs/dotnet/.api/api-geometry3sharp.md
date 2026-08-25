@@ -2,16 +2,7 @@
 
 `geometry3Sharp` serves two disjoint surfaces of one pure-managed distribution. The mesh-text leg owns OBJ/STL/OFF/G3 triangle-mesh decode: the `StandardMeshReader` extension-dispatching facade over per-format `MeshFormatReader` handlers, the `DMesh3` refcounted indexed-mesh carrier with per-vertex normal/color/UV channels, and the `IMeshBuilder`/`DMesh3Builder` accumulator the readers drive — the managed-import leg of the `Rasm.Bim` `MeshText` interchange codec (PLY and 3MF carry no reader here). The biarc leg owns `g3.BiArcFit2`, the line-sourced biarc fitter folding a line-only chord run into two `G1`-continuous `Arc2d`/`Segment2d` spans that emit as `Rasm.Fabrication` `G2`/`G3` arc moves with no downstream refit. Neither leg reads the other's types.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `geometry3Sharp`
-- package: `geometry3Sharp` (Boost-1.0)
-- assembly: `geometry3Sharp`
-- namespace: `g3`
-- asset: pure-managed AnyCPU IL, multi-target `netstandard2.0`/`net45` (no native asset, no RID burden), ALC-safe, zero package dependencies; the `net10.0` consumer binds `lib/netstandard2.0/geometry3Sharp.dll`
-- rail: geometry — mesh-text decode and line-sourced biarc fit
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reader facade and dispatch
 
@@ -109,7 +100,7 @@
 |  [21]   | `Vector2d Vector2d.Perp` / `UnitPerp`                                             | property      | perpendicular vectors |
 |  [22]   | `static Vector2d Vector2d.Zero` / `AxisX` / `AxisY`                               | field         | origin and axes       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `StandardMeshReader` — read and dispatch
 
@@ -173,7 +164,7 @@
 |  [04]   | `Arc2d.SampleT(double)` / `Arc2d.Center` / `Arc2d.IsReversed` | instance | `G2`/`G3` mapping  |
 |  [05]   | `Segment2d.P1`                                                | property | `G1` fallback      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `StandardMeshReader` registers `OBJFormatReader`, `STLFormatReader`, `OFFFormatReader`, and `BinaryG3FormatReader` by default, dispatching on case-insensitive bare extension through each handler's `SupportedExtensions`; `AddFormatHandler` throws on a duplicate extension.
@@ -196,9 +187,3 @@
 [LOCAL_ADMISSION]:
 - The mesh-text leg enters at the `Rasm.Bim` import boundary alone: read through `StandardMeshReader.Read(stream, extension, ReadOptions.Defaults)` into a `DMesh3Builder`, gating on `IOReadResult.code == IOCode.Ok`; `ReadMesh(stream, extension)` returns the first `DMesh3` or `null` for a one-shot, and projection iterates `VertexIndices()`/`TriangleIndices()`. `ReadInvariantCulture` defaults `true`, so the float parse stays locale-independent.
 - The biarc leg enters at the `Rasm.Fabrication` toolpath rail alone: feed `BiArcFit2` a `Vector2d` point/tangent pair with tangents pre-normalized through `Normalized` — the two-arg constructor solves the symmetric fit, the explicit-`d1` constructor pins the first arc distance — and gate emission with `BiArcFit2.Distance(p)` against `BiarcPolicy.FitTolerance`; an over-tolerance fit falls back to chorded `G1` output. Reach `g3.BiArcFit2` only for a line-sourced kernel mesh-section chain; an arc-native loop reads `Geometry2D/arcs` through `CavalierContours` directly.
-
-[RAIL_LAW]:
-- Package: `geometry3Sharp`
-- Owns: pure-managed OBJ/STL/OFF/G3 triangle-mesh-text decode into the `DMesh3` carrier, and line-sourced biarc fitting — two `G1`-continuous `Arc2d`/`Segment2d` spans from a point/tangent pair, with `SampleT`/`SampleArcLength` arc reads and `Distance` fit-error query
-- Accept: `Stream` or file input through `StandardMeshReader.Read`/`ReadMesh` keyed by a bare-extension discriminant driving an `IMeshBuilder` sink; a unit-normalized `Vector2d` point/tangent pair from a genuinely line-only chord run, the `Arc2d`/`Segment2d` frame read straight for `G2`/`G3` emit
-- Reject: a hand-rolled STL/OBJ tokenizer, a per-format reader family beside the `MeshFormatReader` dispatch, the in-package writer family whose export leg the glTF rail owns, fitting a path already carrying bulge through the `CavalierContours` offset, a hand-rolled biarc solver beside `BiArcFit2`, admitting `DMeshAABBTree3`, `MeshSignedDistanceGrid`, `Remesher`, mesh-Boolean surfaces, or the `geometry4Sharp` fork into the fabrication rail

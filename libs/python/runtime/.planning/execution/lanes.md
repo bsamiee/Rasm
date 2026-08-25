@@ -24,7 +24,7 @@ Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain`
 - Boundary: no daemon scheduler beside the one `AsyncIOScheduler` the `scheduled` case mints, no second cron owner, no app lifecycle hook, no background loop without a `Drained`, and no unbounded task creation. A scheduling model may read `LanePolicy.slots.total` as the outer concurrency geometry it estimates; an executing native kernel never does — whole work receives `LaneGrant.width`, shared work receives no width, and a literal thread count or folder-local limiter is the rejected capacity twin. A blocking leg outside a lane rides `on_thread`, so every plain thread hop in the branch is `THREAD_BAND`-bounded by construction, and the pooled settle hop rides the workers-owned `WORKER_BAND`. Consumer contract on `Drained` is column-driven: the line reads every count off `DRAIN_COLUMNS` and the metrics counter off the `DRAIN_DISPOSITIONS` carve, per column and never a full-struct `asdict` allocating the containers per export cycle.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 from contextlib import ExitStack, asynccontextmanager, contextmanager

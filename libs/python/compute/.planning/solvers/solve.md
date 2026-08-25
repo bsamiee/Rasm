@@ -20,7 +20,7 @@ Three exported folds stay stable across the solver plane: `status_of`, the one t
 - Boundary: `SolveStatus` is the vocabulary the C# graduation gate reads, not the gate itself; the admit/reject verdict belongs to the `convex_program`/`solver` `HandoffAxis` cases, and the graduation crossing to the one `graduate` projection rather than a per-owner inline `HandoffAxis(solver=...)`. Family DEFAULT ceilings are policy rows on each family's own carrier beside its route table; the caller's tighter row overrides. Composition custody is the caller's — `graduate` forwards the key it is handed and defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free and the registry partition is the hub owner's mechanic, never re-derived here.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from math import isfinite
 from types import ModuleType

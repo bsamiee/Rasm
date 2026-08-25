@@ -2,16 +2,7 @@
 
 `AspNetCore.HealthChecks.System` mints the concrete `IHealthCheck` probes that grade a live host or process against a discrete threshold — free disk space, memory ceilings, file and folder presence, process liveness, a Windows-service predicate — over BCL primitives (`DriveInfo`, `GC`, `Process`, `File`/`Directory`, `ServiceController`). Every probe evaluates synchronously to a completed `Task<HealthCheckResult>` and enters the AppHost health fold as a `pressure`-tagged contributor row through the one `ProbeSource.Driver` case.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AspNetCore.HealthChecks.System`
-- package: `AspNetCore.HealthChecks.System` (Apache-2.0)
-- assembly: `HealthChecks.System`
-- namespace: `HealthChecks.System`, `Microsoft.Extensions.DependencyInjection`
-- target: `net8.0`, `netstandard2.0` — the `net10.0` consumer binds the `net8.0` asset
-- rail: health
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe family — each implements `IHealthCheck`
 
@@ -35,7 +26,7 @@
 
 - `DiskStorageOptions.FailedDescription` is the `ErrorDescription(driveName, minimumFreeMegabytes, actualFreeMegabytes)` delegate customizing per-drive failure text; `AddDrive(string, long minimumFreeMegabytes = 1)`, `AddFile(string)`, and `AddFolder(string)` append targets.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration extensions on `IHealthChecksBuilder` (`SystemHealthCheckBuilderExtensions`) — shared tail `(string? name, HealthStatus? failureStatus, IEnumerable<string>? tags, TimeSpan? timeout)`, `name` defaulting to the check slug
 
@@ -56,7 +47,7 @@
 - `AddProcessAllocatedMemoryHealthCheck` grades `GC.GetTotalMemory(false)` in MB and throws `ArgumentException` at registration when the ceiling is nonpositive.
 - `AddWindowsServiceHealthCheck` throws `PlatformNotSupportedException` at registration off Windows.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every probe implements `IHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)`, returns synchronously through `Task.FromResult(...)` (the green path reusing a cached `HealthCheckResultTask.Healthy`), and the disk/file/folder checks join failure strings via `string.Join("; ", …)` into one `HealthCheckResult(FailureStatus, joined)`.
@@ -69,9 +60,3 @@
 [LOCAL_ADMISSION]:
 - `Disk` and `Allocations` are the admitted probes; a threshold breach is a typed `HealthCheckResult` with `FailureStatus`, folded by `HealthReport.Snapshot` into a `HealthSnapshot.Entry`, never a thrown exception crossing the fold.
 - `WindowsServiceHealthCheck` is never admitted on osx-arm64; daemon liveness rides the `Wire/companion` sidecar host and `Microsoft.Extensions.Hosting.Systemd` lifecycle.
-
-[RAIL_LAW]:
-- Package: `AspNetCore.HealthChecks.System`
-- Owns: concrete process/host threshold and filesystem-presence `IHealthCheck` probes over BCL primitives
-- Accept: disk free-space floors, memory ceilings, process-presence predicates, and required path sets, each admitted through the `Driver` adapter as a `pressure`-tagged row
-- Reject: an `Add*` registration face beside the `Driver` adapter, the Windows-service probe on a non-Windows host, a thrown probe failure crossing the health fold

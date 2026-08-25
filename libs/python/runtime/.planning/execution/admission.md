@@ -35,7 +35,7 @@ Each `isolation` value names the worker crossing that answers it; `Kernel` selec
 |  [05]   | `remote`    | `WorkerKind.REMOTE` fleet arm         | `Feature.OUTBOUND_TRANSPORT` |
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Mapping
 from datetime import timedelta
 from enum import StrEnum
@@ -536,7 +536,7 @@ class RuntimeContext(Struct, frozen=True):
 - Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider generation execution and journal identity stay outside this owner; recovery evidence stays observation-side and never enters `parity.Backend`, so the emitted document and every peer decode remain unchanged by a recovery reading. `ContractEvidence` holds the mutable generated message only for the admission fold; the returned generation retains one frozen `CapabilityPolicy` projection carrying exactly the behavior columns it reads. ProtoJSON comparison is semantic; byte-identity graduation belongs to a future real cross-runtime binary fixture, never a formatting assertion.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections import Counter
 from collections.abc import Callable, Iterable
 from enum import StrEnum
@@ -987,7 +987,7 @@ _FACTS: Final[Block[ContractFact]] = Block.of_seq([
 - Boundary: no code here reads `os.environ` after admission, and no admitted client is left to reach one for a credential — GCP and Azure resolve ambient workload identity inside their own construction as their catalogues rule, while the Vault token is admitted material precisely because `hvac.Client` at `token=None` falls back to `VAULT_TOKEN` and then `~/.vault-token`. Keystore and cloud tiers read credentials for the OUTBOUND transport legs only — the companion UDS serve leg reads no keyring, peer identity being the kernel accept-time credential (`transport/serve#SERVE`).
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 import threading
 from collections.abc import Callable, Iterator

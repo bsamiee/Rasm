@@ -21,7 +21,7 @@ Element identity is established HERE — the IFC is the source of element identi
 - Boundary: the projector is the ONE GeometryGym-to-seam lowering — the retired `BimModel.Project` produced a second stored `BimElement` keyed by `GlobalId`, and any owner re-storing the element off the seam graph is the deleted form; `Ingest` reads the LIVE `db.Project.Extract<T>()` entity graph, never the `Exchange/import#IMPORT_RAIL` decoded rows, because those carry mesh geometry alone and projecting them drops the whole relationship roster, the `OwnerHistory`, and the `StepHeader`; GeometryGym is captured INTERNALLY and an `IfcProduct`/`IfcRel*`/`DatabaseIfc` type crossing `IElementProjection.Project` is the named seam violation; the rooted `NodeId` is a neutral kernel-minted id and the IFC GUID never becomes node identity [H6]; the value narrowing is `Projection/value#PROPERTY_LOWERING`'s because an `IfcValue` or dataType string crossing a seam signature is the deleted form; the unit regime is the seam `UnitScheme` built ONCE per projection at `Projection/value#UNIT_INGRESS` and threaded from the fold head — a per-entity rebuild re-reads one project regime per row and falls to SI on a null database; geometry is referenced by `RepresentationContentHash` only [M2] and an inline `Vector3`/`BoundaryPolygon`/`Axis` member is the deleted §4-RT-M2 violation, `Rasm.Compute` resolving the analytical axis and footprint one-hop by content key; ingress class lookup is PERMISSIVE so one unknown entity never aborts an import, class validity deferred to the `Emit` egress gate [PREDEFINED_TOKEN_RULING][H8]; `Emit` is Bim-INTERNAL, NOT an `IElementProjection` member, because IFC egress is one runtime's wire concern and the seam owns only ingress projection.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 global using Rasm.Bim.Projection;
 global using Rasm.Bim.Semantics;
 
@@ -583,7 +583,7 @@ public sealed partial class SemanticProjector(
 - Boundary: `IfcLegality` decides IFC RELATIONSHIP legality ONLY — re-checking the seam's structural invariants here is the deleted form [M3] and class/token validity is the egress `Emit` gate whole [PREDEFINED_TOKEN_RULING]; the rules read the generic `Classification` branch and the `ObjectKind` through the query algebra, never an `IfcProduct` runtime type and never a second matcher, because GeometryGym stays captured in the projector; each `BimFault.Refused` lifts bare, `Error.Many` retains every member, and consumers discriminate the typed `Reason` payload rather than testing the shared leaf type twice.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Bim.Model;

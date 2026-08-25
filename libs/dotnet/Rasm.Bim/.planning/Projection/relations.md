@@ -28,7 +28,7 @@ The roster is the ADMISSION for that wire-name — a `WireName` mints from a row
 - Boundary: the seam `Relationship` is the NEUTRAL edge algebra plus `Generic` — re-introducing typed `IfcRel*` cases is the deleted form [NEUTRAL_EDGE_RULING]; the IFC names, directionality, and inverse live HERE, reconstructing at egress through the reverse index. The material occurrence-usage rides the `Associate` edge's typed `MaterialUsage` payload [OCCURRENCE_USAGE_RULING] and a parallel usage node is deleted; the structural and space-boundary connectivity ride the NEUTRAL `Generic` wire-name payload, so a space boundary's interface surface rides the `InterfaceKey` ATTR while an element connect's rides the typed `Connect.Interface` SLOT — the seam `ConnectKind` medium vocabulary is closed at element/path/port and a space-to-surface boundary is none of the three, so a fourth medium row minted to reach the typed slot is the deleted phantom. Both keys name the same preserved STEP fragment in the one store. The census verdict rides the `Fin` rail BOTH entrypoints already return, so a pin bump that renames an attribute, narrows a SET member type, or seals a setter refuses at the first roster touch with a rostered token — where a type-initializer throw died in a frame no caller reads and no diagnostic vocabulary owns.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections;
 using System.Collections.Frozen;
 using System.Reflection;

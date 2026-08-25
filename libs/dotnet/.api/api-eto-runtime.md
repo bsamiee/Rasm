@@ -2,15 +2,7 @@
 
 `Eto.Forms` ambient runtime is the process-wide singleton set beside the control tree: UI-thread dispatch and message-loop iteration, the repeating clock, live input and cursor state, typed clipboard and drag transfer, tray presence and toast delivery, and per-display density. One Rhino process holds one `Application.Instance` and one `Clipboard.Instance`, so this surface admits no per-folder partition — the branch tier owns it whole and each host-boundary folder registers it and states its own composition law over it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` ambient runtime
-- host: Rhino host runtime, in-process; the same `Eto.dll` every boundary binds, never a second NuGet admission (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`) from the RhinoWIP `RhCore.framework` bundle
-- namespace: `Eto.Forms`
-- rail: eto-runtime
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application dispatch and clock — `Application` is the process singleton reached through `Application.Instance`, and UI-thread affinity routes every control mutation through one of its dispatch shapes
 
@@ -79,7 +71,7 @@
 [NOTIFICATION_STATE]: `Title` `Message` `ContentImage` `UserData` `RequiresTrayIndicator` `Activated`
 [TRAY_STATE]: `Title` `Image` `Menu` `Visible` `Activated`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: UI-thread dispatch, iteration, and lifecycle
 
@@ -140,7 +132,7 @@ Every payload keys by a MIME type string; `SetString`/`SetData`/`SetDataStream`/
 |  [15]   | `TrayIndicator.SetMenu(ContextMenu)`               | instance | bind the tray context menu           |
 |  [16]   | `TrayIndicator.Show()` / `TrayIndicator.Hide()`    | instance | show and hide the tray presence      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every control-tree read or write executes on the UI thread and a background producer crosses through exactly one `Application` dispatch shape: `Invoke`/`Invoke<T>` block and return the UI-side result, `AsyncInvoke` posts without completion, `InvokeAsync`/`InvokeAsync<T>` return an awaited `Task`. `EnsureUIThread` guards a UI-only method and `RunIteration` pumps the loop for a synchronous wait.
@@ -159,9 +151,3 @@ Every payload keys by a MIME type string; `SetString`/`SetData`/`SetDataStream`/
 - A cross-thread marshal calls `Application.Instance` and a tick uses `UITimer`; a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them is the deleted form.
 - Transfer payloads ride the typed `Clipboard`/`DataObject` accessors keyed by `DataFormats`, and display density reads from `Screen`.
 - Each boundary internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload, never `Application.Instance` or a stringy MIME key in a domain signature.
-
-[RAIL_LAW]:
-- Package: `Eto`
-- Owns: UI-thread dispatch and loop iteration, clock pacing, live input, cursor, and display projection, typed clipboard and drag payloads, tray presence and toast delivery
-- Accept: marshalled effects, keyed transfer payloads, input and modifier reads, resource-scoped clocks and tray icons, density resolution
-- Reject: control, layout, window, and menu construction (`.api/api-eto-forms.md`), custom painting (`.api/api-eto-drawing.md`), platform selection and native hosting (`.api/api-eto-platform.md`), a hand-rolled dispatch or timer beside the singletons, a stringly-parsed clipboard blob past the typed accessors, a hardcoded scale constant past `Screen`, and a folder partition re-tabling these singletons at member depth

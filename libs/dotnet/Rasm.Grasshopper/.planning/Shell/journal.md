@@ -30,7 +30,7 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Generator.Equals;
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
@@ -173,12 +173,12 @@ public sealed class SessionJournal : IDisposable {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                          | [CASES] |
-| :-----: | :---------------- | :--------------------------- | :---------------------------------------------- | :-----: |
-|  [01]   | fact admission    | `JournalRow`                 | one envelope family → sequenced row evidence    |    1    |
-|  [02]   | bounded fold      | `JournalLedger`              | one `Cell.Commit` — row, ordinal, tallies whole |    1    |
-|  [03]   | drain consumption | `SessionJournal.Mount`       | async `Op.Catch` loop → `FaultCell` parks       |    1    |
-|  [04]   | export + replay   | `JournalExport`              | one record — bundle rows AND `Signals` window   |    1    |
+| [INDEX] | [CONCERN]         | [OWNER]                | [RAIL]                                          | [CASES] |
+| :-----: | :---------------- | :--------------------- | :---------------------------------------------- | :-----: |
+|  [01]   | fact admission    | `JournalRow`           | one envelope family → sequenced row evidence    |    1    |
+|  [02]   | bounded fold      | `JournalLedger`        | one `Cell.Commit` — row, ordinal, tallies whole |    1    |
+|  [03]   | drain consumption | `SessionJournal.Mount` | async `Op.Catch` loop → `FaultCell` parks       |    1    |
+|  [04]   | export + replay   | `JournalExport`        | one record — bundle rows AND `Signals` window   |    1    |
 
 `Op`, `Lease<T>`, `FaultCell`, `MonotonicTimeline`, `EvidenceDrain<GhFact>`, and `UiEvent<GhFact>` are composed upstream owners; the evidence-union tee and the per-row journal stamp are deleted (one fact family, so the envelope's own stamp orders the partition); retention, serialization, and upload policy compose at the app root over the detached export.
 

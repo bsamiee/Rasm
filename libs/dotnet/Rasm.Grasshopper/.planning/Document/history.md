@@ -23,7 +23,7 @@ Every undo verb is a case of one `HistoryOp` union handled by one `Commit` gate 
 - Growth: a new undo verb is one `HistoryOp` case breaking the gate's total `Switch` loudly; a new object-scoped verb is one `ObjectUndoVerb` case; a new direction semantics is one `LedgerStride` row carrying both columns — zero new entrypoints.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
 using Rasm.Domain;
@@ -137,7 +137,7 @@ public static partial class HistoryLedger {
 - Growth: a new tree read is one projection member beside `Crown` returning its own evidence value; the reconciliation shape never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Undo;
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -197,14 +197,14 @@ public static partial class HistoryLedger {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]             | [OWNER]                      | [RAIL]                                                  | [CASES] |
-| :-----: | :-------------------- | :--------------------------- | :------------------------------------------------------ | :-----: |
-|  [01]   | stride direction      | `LedgerStride`               | `Stride`/`Replay` (internal)                            |    2    |
-|  [02]   | object-scoped verbs   | `ObjectUndoVerb`             | cases inside `SubjectCase`                              |    2    |
-|  [03]   | undo commands         | `HistoryOp`                  | `Commit → Fin<GateOutcome>`                           |    5    |
-|  [04]   | the one seal          | `HistoryLedger.Seal`         | `Seal → Fin<Unit>`                                      |    1    |
-|  [05]   | record banking        | `HistoryLedger.Bank`         | `Bank → Fin<Record>`                                    |    1    |
-|  [06]   | branch reconciliation | `BranchPath` + `BranchCrown` | `Reconcile`/`Crown` → `Fin<T>`                          |  2 + 2  |
+| [INDEX] | [CONCERN]             | [OWNER]                      | [RAIL]                         | [CASES] |
+| :-----: | :-------------------- | :--------------------------- | :----------------------------- | :-----: |
+|  [01]   | stride direction      | `LedgerStride`               | `Stride`/`Replay` (internal)   |    2    |
+|  [02]   | object-scoped verbs   | `ObjectUndoVerb`             | cases inside `SubjectCase`     |    2    |
+|  [03]   | undo commands         | `HistoryOp`                  | `Commit → Fin<GateOutcome>`    |    5    |
+|  [04]   | the one seal          | `HistoryLedger.Seal`         | `Seal → Fin<Unit>`             |    1    |
+|  [05]   | record banking        | `HistoryLedger.Bank`         | `Bank → Fin<Record>`           |    1    |
+|  [06]   | branch reconciliation | `BranchPath` + `BranchCrown` | `Reconcile`/`Crown` → `Fin<T>` |  2 + 2  |
 
 - [01]-[STRIDE_DIRECTION]: `[SmartEnum<int>]` stride + replay columns.
 - [02]-[OBJECT_SCOPED_VERBS]: `[Union]` verb pair under one subject custody.

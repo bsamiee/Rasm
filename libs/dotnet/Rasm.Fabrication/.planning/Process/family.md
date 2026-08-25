@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 - Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;

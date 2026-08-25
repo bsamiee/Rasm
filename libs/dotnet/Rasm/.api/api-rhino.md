@@ -2,20 +2,7 @@
 
 This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Rasm` composes above the branch value substrate — the single-precision mesh carriers, the analytic primitive solids, the curve and mesh reference geometry with its typed topology, the native remesh and unwrap seam, the `Intersection` parametric lattice the `Analysis` layer folds, and the `RTree` point-neighborhood index. Kernel code authors discrete predicate-exact crossing and broad-phase acceleration itself, so host parametric intersection and kernel crossing meet at no interior.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon kernel-crossing surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Geometry.Collections`
-- asset: in-process `RhinoCommon.dll` from the RhinoWIP host bundle; managed structs wrap the `opennurbs` C++ core through `UnsafeNativeMethods` P/Invoke
-- abi: value structs marshal blittably, so a struct copy is a managed value copy; reference geometry (`Mesh`/`Curve`/`Brep`/`GeometryBase`) owns native handles as `IDisposable`, so a leaked reference strands the unmanaged buffer
-- runtime: net48 in-Rhino ALC; the geometry-only slice below the document stratum is the sole kernel-admitted surface
-- rail: host-rhino
-
-- Registers `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): `Point3d`, `Vector3d`, `Plane`, `Line`, `BoundingBox`, `Transform`, `MeshFace`, `Quaternion`, `Interval`, `Box`, and the `GeometryBase` bounds triple carry their whole member algebra there — the point, vector, frame, segment, extent, affine, and rotor entrypoint families included — and this partition never re-tables them.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: single-precision mesh carriers and the analytic primitive solids the substrate does not carry
 
@@ -93,7 +80,7 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 - Search: `RTree.Search(box | sphere, callback)` and static `SearchOverlaps(treeA, treeB, tolerance, callback)`.
 - Batch: static `RTree.Point3dKNeighbors(hay, needles, amount)` `Point3dClosestPoints(hay, needles, limitDistance)` `PointCloudKNeighbors` `PointCloudClosestPoints` return `IEnumerable<int[]>` leased `as IDisposable` for the read window.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: analytic primitive sampling and ray parameterization; instance members unless the surface names `static`
 
@@ -167,7 +154,7 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 [CURVE_INTERSECTION]: `Intersection.CurveLine` `CurvePlane` `CurveSelf` `CurveSurface` `CurveBrep` — curve-vs-primitive parametric hits, each leasing `CurveIntersections`.
 [MESH_INTERSECTION]: `Intersection.MeshLine` `MeshLineSorted` `MeshPolyline` — host mesh-vs-line and mesh-vs-polyline point probes.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every kernel op reads a `Rhino.Geometry` value type's full member surface and composes it through `Rasm.Numerics`, never re-deriving the operation nor re-minting the type.
@@ -186,9 +173,3 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 - Reference geometry is the kernel's disposable native-handle owner, released at the seam.
 - Geometry values cross the seam as `Rasm.Numerics` carriers, the robust core re-emitting `Polyline`/`Point3d`/`Mesh` at the boundary.
 - Substrate carriers read their members from the branch catalogue, and a row for one lands there rather than here, so the kernel and both host boundaries meet one spelling.
-
-[RAIL_LAW]:
-- Partition: RhinoCommon kernel crossing (`Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Geometry.Collections`)
-- Owns: the single-precision mesh carriers and analytic primitive solids, the curve, polyline, mesh, and brep reference geometry with its typed topology, the native remesh/reduce/unwrap seam, the host parametric intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) the `Analysis` layer composes, and the host `RTree` point-neighborhood tier the `Spatial/neighbors` `NeighborIndex` composes.
-- Accept: reference geometry read through its full member surface over the registered substrate carriers; the `Analysis/Intersect` parametric lattice disposing each `CurveIntersections` under a lease; the geometry-only surface below the document, view, command, and display strata.
-- Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); a re-tabling of the substrate carrier algebra; an epsilon-snapped coordinate where the robust core owns an exact construction; a kernel discrete crossing or primitive broad-phase routed through host `Intersection.Mesh*` or `RTree` where the predicate-exact straddle is required; `Mesh.IsPointInside(Point3d, double, bool)` — the tolerance-bearing approximate inside predicate the kernel's generalized winding test replaces; a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel.

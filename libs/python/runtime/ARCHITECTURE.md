@@ -1,6 +1,5 @@
 # [PY_RUNTIME_ARCHITECTURE]
 
-
 ## [01]-[DOMAIN_MAP]
 
 ```text
@@ -36,7 +35,6 @@ runtime/
     ├── clock.py        # Hlc, ElementId, Tenant, and causal-frame mints on the faults root
     ├── identity.py     # Content identity and key implementing the shared digest contract
     ├── reproduction.py # Parity fold over KEY_FMT/KeyRender views; corpus rows keyed by ContentKey
-    └── evidence.py     # Scope/Disposition folds over the registered grammar; the assay code rail's one source
 ```
 
 ## [02]-[STRATA]
@@ -246,9 +244,7 @@ flowchart LR
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
 
-
 Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
-
 
 ## [04]-[INTERNAL]
 

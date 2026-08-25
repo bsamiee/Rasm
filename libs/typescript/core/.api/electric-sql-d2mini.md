@@ -1,14 +1,5 @@
 # [TS_CORE_API_ELECTRIC_SQL_D2MINI]
 
-[PACKAGE_SURFACE]:
-- package: `@electric-sql/d2mini` (Apache-2.0)
-- module: ESM only (`type: module`); single `.` barrel, no subpaths.
-- asset: `dist/index.d.ts`; bundles `fractional-indexing`, `murmurhash-js`, `sorted-btree`.
-- runtime: pure-TS in-process dataflow under node, bun, browser, worker; zero peer dependencies.
-- abi: fully synchronous scheduler — `run()`/`step()` drain on the calling thread; every barrel-reachable operator is sync.
-- plane: `plane:runtime` (W1); folder-local to `state`.
-- rail: incremental-dataflow / fold-maintenance.
-
 `@electric-sql/d2mini` maintains a time-free incremental fold in memory: a dataflow graph of one-shape `PipedOperator`s over signed `MultiSet` deltas, pushed by `sendData(collection)` and drained synchronously by `run()`. Zero peer dependencies make it the browser-safe altitude of `state/fold` — no durability, time coordinate, or replication.
 
 ## [01]-[GRAPH_AND_DELTA]
@@ -72,10 +63,3 @@ Every operator is one `PipedOperator<I, O>` composed by `pipe`; the roster is se
 [STACK: `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`) versioned counterpart] — d2mini has no time coordinate; d2ts adds partial-order versions and frontiers. Both root graphs remain in-process.
 
 [STACK: presence + `state/fold` (`.api/effect.md` `Subscribable`)] — an `output(fn)` sink drives a `SubscriptionRef`, so `state/fold` exposes the in-memory fold as an `effect` `Subscribable` re-fired each `run()`; `serve/live` serves that presence view, and `orderByWithFractionalIndex` keeps its live-list order incremental as rows churn.
-
-## [04]-[RAIL_LAW]
-
-- Owns: time-free incremental dataflow, keyed folds, fractional ordering, and a public standalone `Index` usable as an output-sink mirror.
-- Accept: `sendData(delta)` of signed multisets, `pipe(...)` composition of the operator roster, `reduce`/`groupBy` as incremental `@effect/typeclass` `Semigroup` application, `output(fn)` driving a `Subscribable`, and `topKWithFractionalIndex`/`orderByWithFractionalIndex` for ordered views.
-- Reject: treating public `Index` as an operator's internal trace, reaching for version/frontier APIs, full re-sorts beside fractional ordering, citing barrel-inaccessible B-tree files, or adding a second fold engine.
-- Boundary: no time coordinate means no time travel or frontier. `min`/`max` are group aggregates, `distinct` rejects negative multiplicity, and every reachable surface drains synchronously.

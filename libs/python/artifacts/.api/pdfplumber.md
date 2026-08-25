@@ -2,18 +2,7 @@
 
 `pdfplumber` owns ruled-table, word-geometry, region, and tagged-structure recovery over `pdfminer.six`: `pdfplumber.open` parses a PDF stream into a `PDF`/`Page` hierarchy carrying per-object geometry as plain dicts, a `TableFinder` resolves ruled-line intersections into `Table` cell grids, and a `WordExtractor` clusters chars into positioned word dicts. It feeds the `document` lens `LensProvider.PLUMBER` arm as the higher-recall `lines`/`lines_strict`/`text`/`explicit` ruled-table arm beside the native `pymupdf` bulk arm, meeting it at PDF bytes and the shared `DocumentNode` grid.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pdfplumber`
-- package: `pdfplumber` (MIT)
-- import: `pdfplumber`
-- owner: `artifacts`
-- rail: table
-- build: pure-Python wheel, no native build, runs in-process on the cp315 runtime; `pdfminer.six`/`pypdfium2`/`Pillow` are the transitive parse/raster deps
-- entry points: console script `pdfplumber` dumps CSV/JSON/text; library use is import-only via `pdfplumber.open`
-- capability: PDF parsing into a `PDF`/`Page` hierarchy; per-object char/line/rect/curve/image/annot/hyperlink/edge geometry; ruled-line `TableFinder` cell detection over four strategies with full snap/join/intersection tolerance; tolerance- and direction-clustered word/char extraction; layout-preserving text and regex `search`; tagged-PDF `structure_tree`; bbox crop/within/outside/filter/dedupe views; `to_csv`/`to_json`/`to_dict` export; `PageImage` raster debug overlays; Ghostscript repair
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: container roots, table grid, and faults
 
@@ -33,7 +22,7 @@
 |  [12]   | `utils.exceptions.PdfminerException`     | error                | pdfminer.six parse fault -> `LensFault`/`Result.Error`              |
 |  [13]   | `utils.exceptions.MalformedPDFException` | error                | malformed-PDF fault; routes to `open(repair=True)`                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open and document navigation
 - `pages` restricts to the 1-indexed page list; `repair=True` runs Ghostscript over a malformed file before parsing.
@@ -136,7 +125,7 @@
 |  [07]   | `PageImage.reset` / `copy`                  | instance | clear overlays / fork the image       |
 |  [08]   | `PageImage.save(dest, format, quantize)`    | instance | write the rendered/annotated raster   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `pdfplumber.open` owns parsing; `pages`/`laparams`/`password`/`repair` are call rows, and `repair=True` routes through Ghostscript before the same parse path, never a per-config loader type.
@@ -155,9 +144,3 @@
 [LOCAL_ADMISSION]:
 - import at boundary scope only; the module-level import is barred by the manifest import policy.
 - each op's `LensSpec`/`bbox`/`needle` precondition is a `Result[Self, LensFault]` gate before any `open`, so an empty-payload or missing-bbox request fails total without parsing.
-
-[RAIL_LAW]:
-- Package: `pdfplumber`
-- Owns: PDF parsing into a container hierarchy over `pdfminer.six`, ruled-line table detection with full snap/join/intersection tolerance and cell-grid extraction, tolerance- and direction-clustered word/char extraction, layout-preserving text and regex `search`, tagged-PDF `structure_tree`, `to_csv`/`to_json`/`to_dict` export, bbox crop/within/outside/filter/dedupe views, and `PageImage` raster debug overlays via `pypdfium2`/`pillow`
-- Accept: ruled-table and word/char extraction feeding the table, document, and visuals owners
-- Reject: wrapper-renames of `open`/`find_tables`/`extract_words`; a hand-rolled PDF tokenizer where pdfminer.six parsing is in-package; a re-implemented line-snap/intersection cell detector; an open-coded coordinate or raster renderer where `TableSettings`/`pypdfium2` own it; a parallel `Page`, `WordExtractor`, or finder type per strategy or region; reaching here for bulk page text where `pymupdf` is faster; identity minting the runtime owner already owns

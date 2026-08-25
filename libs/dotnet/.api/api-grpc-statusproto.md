@@ -2,16 +2,7 @@
 
 `Grpc.StatusProto` owns the rich-error carriage between a `google.rpc.Status` message and the gRPC call: the producer folds a `Status` carrying typed `Any` details into the `grpc-status-details-bin` trailer and raises it as one `RpcException`, the client reads the same trailer back off the raised exception. It ships four extension classes over `Google.Api.CommonProtos` and `Grpc.Core.Api` alone — no transport, no hosting.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.StatusProto`
-- package: `Grpc.StatusProto` (Apache-2.0)
-- assembly: `Grpc.StatusProto`
-- namespace: `Grpc.Core`
-- depends: `Google.Api.CommonProtos` (`Google.Rpc.Status`, `DebugInfo`), `Grpc.Core.Api` (`Metadata`, `RpcException`, `Status`, `StatusCode`)
-- rail: remote-contracts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension owners, each a static class over one carrier
 
@@ -22,7 +13,7 @@
 |  [03]   | `RpcStatusExtensions`    | static class  | raise a `google.rpc.Status` as one `RpcException`   |
 |  [04]   | `ExceptionExtensions`    | static class  | project a CLR exception onto `google.rpc.DebugInfo` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: trailer carriage
 
@@ -45,7 +36,7 @@
 - `Status.ToRpcException()`: a `Code` outside `StatusCode` lands `StatusCode.Unknown` on the wire while the trailer keeps the original integer; the trailer, not the wire code, is the detail carrier.
 - `Metadata.SetRpcStatus`: removes every existing `grpc-status-details-bin` entry before adding one, so a stamped trailer never carries two statuses.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One trailer key carries the whole richer-error model: `google.rpc.Status{code, message, details}` serialized whole, details as `Any` the client resolves by descriptor.
@@ -62,9 +53,3 @@
 [LOCAL_ADMISSION]:
 - Every producer status mints through `ToRpcException`; `ServerCallContext.ResponseTrailers` is never written by hand.
 - Every client detail read goes through `GetRpcStatus()` under the default parse posture, so malformed and absent stay distinct.
-
-[RAIL_LAW]:
-- Package: `Grpc.StatusProto`
-- Owns: the `grpc-status-details-bin` carriage of `google.rpc.Status` in both directions and the exception-to-`DebugInfo` projection
-- Accept: one `Status.ToRpcException()` per failing arm at the producer, one `RpcException.GetRpcStatus()` per caught call at the client
-- Reject: a hand `Metadata.Add("grpc-status-details-bin", …)`, a `Status.Parser.ParseFrom(trailer)` beside `GetRpcStatus`, `ignoreParseError: true` at an admission that distinguishes malformed from absent, a stack string rendered outside `ToRpcDebugInfo`

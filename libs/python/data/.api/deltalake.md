@@ -2,16 +2,7 @@
 
 `deltalake` binds a native Rust delta-rs Delta Lake reader and writer with ACID transactions, time travel, schema evolution, and change-data-feed reads over object-store and local backends. `DeltaTable` owns table lifecycle, reads, mutation, and maintenance; `write_deltalake` owns appends and overwrites; `QueryBuilder` runs embedded DataFusion SQL over registered tables.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `deltalake`
-- package: `deltalake` (Apache-2.0)
-- module: `deltalake`
-- asset: native Rust/maturin extension (`deltalake._internal` PyO3 core over delta-rs)
-- owner: `data`
-- rail: columnar
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: table, query, and schema owners
 
@@ -55,7 +46,7 @@
 |  [04]   | `CommitFailedError`   | class         | commit conflict after retries |
 |  [05]   | `SchemaMismatchError` | class         | write schema drift            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: table construction, lifecycle, and time travel
 - `create`/`restore` carry: `commit_properties`, `post_commithook_properties`
@@ -174,7 +165,7 @@
 |  [09]   | `enable_nanosecond_timestamps()`                 | function | opt into nanosecond timestamp writes     |
 |  [10]   | `rust_core_version()`                            | function | delta-rs core version string             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `write_deltalake`/`merge` accept any Arrow C-stream-exportable (PyArrow, Polars, pandas via Arrow); `mode` discriminates `error`/`append`/`overwrite`/`ignore`, `schema_mode` selects `merge` versus `overwrite` evolution.
@@ -204,9 +195,3 @@
 - open through `DeltaTable(table_uri, ...)`, write through `write_deltalake`, mutate through `merge(...).execute()` clause chains; the egress frame is a call argument, never a per-frame wrapper.
 - tune through `WriterProperties` with nested `ColumnProperties`/`BloomFilterProperties`; carry commit metadata and retries through `CommitProperties`.
 - federate through `to_pyarrow_dataset()` registered into a `datafusion`/`duckdb` engine; probe `schema()`/`metadata()` before a heavy read.
-
-[RAIL_LAW]:
-- Package: `deltalake`
-- Owns: Delta Lake table read/write, ACID merge/delete/update, time travel and CDF, compaction/z-order/log-compaction and vacuum, schema evolution and column metadata, OpenTelemetry tracing, and embedded DataFusion SQL egress
-- Accept: `DeltaTable` as lifecycle owner, `write_deltalake` for appends/overwrites, `merge(...).execute()` clause chains, Arrow-exportable inputs from any sibling frame or engine, `WriterProperties`/`CommitProperties` tuning, `to_pyarrow_dataset()` federated into a `datafusion`/`duckdb` engine, `init_tracing` for commit observability
-- Reject: per-clause merge commits, eager `to_pyarrow_table` reads where `to_pyarrow_dataset` pushdown applies, hand-rolled Parquet log parsing, a `DataType` factory call where the type-string `Field`/`PrimitiveType` path applies, and duplicate per-frame write entry points outside `write_deltalake`

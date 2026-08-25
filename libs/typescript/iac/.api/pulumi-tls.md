@@ -4,15 +4,7 @@
 
 `iac` folds it into ONE cert-chain pipeline — an `issuer`-tag `Match` arm signs each leaf self-signed or CA-chained — driven by one decoded cert-profile; `allowedUses` bounds key usage, `readyForRenewal` triggers the drift fold's reissue, and a private key crosses a boundary only as secret `Output`/`Redacted`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/tls`
-- package: `@pulumi/tls` (Apache-2.0)
-- module: `@pulumi/tls` — flat resource-class and data-source exports over the Terraform-bridge provider plugin
-- runtime: `node`; the provider plugin auto-downloads on first resource registration and key material persists in stack state
-- rail: fabric
-
-## [02]-[RESOURCE_SURFACE]
+## [01]-[RESOURCE_SURFACE]
 
 Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` and `constructor(name, args, opts?)`; private-key and certificate PEM surface as `Output<string>`, the private-key forms state-encrypted sensitive. `subject` is a structured DN, `dnsNames`/`ipAddresses`/`uris` the SAN lists, and `SelfSignedCert`/`LocallySignedCert` share `certPem`, `validityStartTime`/`validityEndTime`, and `readyForRenewal`.
 
@@ -38,7 +30,7 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` an
 |  [03]   | `getPublicKey(privateKeyPem \| privateKeyOpenssh)` | `Promise` | derive public key + fingerprints           |
 |  [04]   | `getPublicKeyOutput(...)`                          | `Output`  | Input-accepting mirror                     |
 
-## [03]-[CERT_CHAIN]
+## [02]-[CERT_CHAIN]
 
 ONE pipeline owns issuance; the four resources are its stages, not four recipes.
 
@@ -54,7 +46,7 @@ ONE pipeline owns issuance; the four resources are its stages, not four recipes.
 [PATTERN]: renewal trigger
 - `validityPeriodHours` sets lifetime, `earlyRenewalHours` moves the window forward, and `readyForRenewal: Output<boolean>` flips inside it; the `previewRefresh` drift fold watches `readyForRenewal`/`validityEndTime` to schedule reissue — the cert analog of `@pulumi/random`'s `keepers`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `privateKeyPem`/`privateKeyPemPkcs8`/`privateKeyOpenssh` are sensitive and cross a boundary only as secret `Output`/`Redacted`; publish `publicKeyPem` and fingerprints freely.
@@ -69,9 +61,3 @@ ONE pipeline owns issuance; the four resources are its stages, not four recipes.
 
 [LOCAL_ADMISSION]:
 - Admitted wherever certificate or key material must persist and diff in state and rotate under audit; an ad-hoc openssl invocation or inline PEM literal is rejected for that role.
-
-[RAIL_LAW]:
-- Package: `@pulumi/tls`
-- Owns: private keys, CSRs, self-signed and CA-signed certificates, external certificate and public-key reads
-- Accept: one `Schema`-decoded cert profile driving the chain; `allowedUses` as a `Schema.Literal` union; `readyForRenewal` as the drift-fold rotation signal; the `*Output` mirror when an arg is an `Input`
-- Reject: a private-key PEM as a plain output; free-string `allowedUses`; separate self-signed and CA-signed code paths where one `issuer`-tag dispatch owns both; the eager `Promise` data source where the arg is an `Output`

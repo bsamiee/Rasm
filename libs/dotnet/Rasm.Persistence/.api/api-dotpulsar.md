@@ -2,18 +2,7 @@
 
 `DotPulsar` speaks the native Apache Pulsar binary protocol as a pure-managed client, backing the `pulsar` binding row and a distinct log-streaming ingress backend (`Version/egress#EGRESS_SINK`). Separated compute/storage makes `IReader` replay cursorless from any `MessageId` — the trait distinguishing Pulsar from the Kafka (`api-kafka`), NATS JetStream (`api-nats`), and RabbitMQ (`api-rabbitmq`) legs. `Google.Protobuf` (`Schema.Protobuf<T>`) and `Chr.Avro` (`Schema.Avro*`) are the typed payload codecs, and the built-in `ActivitySource`/`Meter` folds into the AppHost `telemetry` port.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DotPulsar`
-- package: `DotPulsar` (Apache-2.0)
-- assembly: `DotPulsar`
-- namespace: `DotPulsar` (concrete + enums), `DotPulsar.Abstractions` (client/builder/message/schema/state contracts), `DotPulsar.Extensions` (verb surface), `DotPulsar.Schemas` (built-in schemas), `DotPulsar.Exceptions` (failure family); `DotPulsar.Internal.*` is implementation, never a consumer API
-- target: multi-target; the `net10.0` consumer binds `lib/net10.0`
-- native: pure-managed, no `runtimes/<rid>/native` payload; the binary protocol rides `System.IO.Pipelines` over a TCP socket, compression managed
-- depends: `Google.Protobuf` (wire framing + `Schema.Protobuf<T>`), `System.Diagnostics.DiagnosticSource` (`ActivitySource`/`Meter`), `System.Text.Json` (`Schema.Json<T>`)
-- rail: egress-sink
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, builder, and producer/consumer/reader contracts
 
@@ -93,7 +82,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 |  [11]   | `ReaderState`                 | state enum        | lifecycle; finals `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic`               |
 |  [12]   | `DotPulsarException`          | failure family    | lifts onto the egress fault rail                                                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client build and client creation
 
@@ -162,7 +151,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 |  [08]   | `producer.StateChangedTo(ProducerState, ct)` (extension)              | state watch   | typed state-change await                 |
 |  [09]   | `entity.DelayedStateMonitor(state, delay, onLeft, onReached, ct)`     | state monitor | reconnect-aware state callback loop      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - protocol: native Pulsar binary protocol over `System.IO.Pipelines` on a TCP socket; `Google.Protobuf` frames the wire (`DotPulsar.Internal.PulsarApi`). One `PulsarClient` owns the shared connection pool and, as `IAsyncDisposable`, disposes every producer/consumer/reader it minted; the async surface is `ValueTask`-based throughout.
@@ -194,9 +183,3 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 - client lifecycle (connection pool, producer/consumer/reader handles) is egress-profile ceremony — `IAsyncDisposable` resources bracketed by the sink, never ambient singletons. Teardown DRAINS before it disposes: `Producer.DisposeAsync` cancels its token and disposes each sub-producer, and the only drain is `ISendChannel.Completion()` over `WaitForSendQueueEmpty`, so a dispose reached first abandons every queued delivery.
 - durable rows state `MaxPendingMessages` and `InitialSequenceId` explicitly whichever construction path they take, because both carry a default that reads as configuration nobody wrote.
 - subscription name, type, initial position, and ack policy are sink policy declared on the egress profile, never chosen per-message.
-
-[RAIL_LAW]:
-- Package: `DotPulsar`
-- Owns: native Pulsar binary-protocol produce/consume/read, durable subscriptions, acks, cursorless replay, schema-typed payloads, reactive state, and built-in `ActivitySource`/`Meter` telemetry
-- Accept: `PulsarClient.Builder()` construction, typed `ProducerOptions`/`ConsumerOptions`/`ReaderOptions` with an explicit `ISchema<T>`, awaited `Send`/`Acknowledge` for at-least-once egress, `Process` auto-ack under bounded parallelism, `WaitForExclusive` leader-election for exactly-once, and `ActivitySource` telemetry through the AppHost tracer
-- Reject: hand-rolled Pulsar wire framing, `DotPulsar.Internal.*` as a consumer API, fire-and-forget `SendChannel` without `Completion()` on the at-least-once path, an unstated `MaxPendingMessages` on an object-initialized `ProducerOptions`, a `SequenceId` written from a hash or any other unordered value, a missing `ISchema<T>`, and the `DotPulsarException` family collapsed onto one error rail

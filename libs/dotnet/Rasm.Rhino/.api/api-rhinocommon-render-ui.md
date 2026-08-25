@@ -2,17 +2,7 @@
 
 `Rhino.Render` owns the render-editor UI backing surface: the `RhinoSettings` editor-to-document bridge, the bounded layout and assignment vocabulary, the `RenderPanels`/`RenderTabs` custom panel and tab registries keyed by render session, the `WorldMapDayNight` sun-editor map, and the PBR and basic named-parameter and child-slot constant owners a content editor binds. Native `RhinoSettings`/`MetaData` wrappers and the `DataSources` editor internals stay host-side; a detached value record crosses the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon render-editor-UI surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Render.DataSources`, `Rhino.Render.UI`, `Rhino.Render.ParameterNames`, `Rhino.Render.ChildSlotNames`, `Rhino.Render`
-- kernel: `Rasm` (host-agnostic size and color owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: render-editor-UI boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: editor data sources and settings bridge
 
@@ -56,7 +46,7 @@ Each owner is a static class of name constants the `RenderContent.GetParameter`/
 - `public enum Rhino.Render.RenderPanelType` — `RenderWindow = 0`, the custom-panel kind hosted in the render output window.
 - `public enum Rhino.Render.RenderPanels.ExtraSidePanePosition` — `Left = 0`, `Top = 1`, `Right = 2`, `Bottom = 3`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SETTINGS_BRIDGE]:
 - `Rhino.Render.DataSources.RhinoSettings.GetRenderSettings() -> RenderSettings` / `SetRenderSettings(RenderSettings renderSettings) -> void` — read and write the document render settings the editor binds; `RenderSettings` is `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-rendersettings.md`'s.
@@ -83,7 +73,7 @@ Each owner is a static class of name constants the `RenderContent.GetParameter`/
 - `Rhino.Render.ChildSlotNames.PhysicallyBased` — get-only static `string` properties, each a call to `FromTextureType(TextureType textureType) -> string` on a fixed `TextureType`, so the whole roster derives from that one resolver and a consumer keyed on `TextureType` needs none of the named properties; the resolver answers an unmapped type with `""`, never `null`: `BaseColor`, `Subsurface`, `SubsurfaceScatteringColor`, `SubsurfaceScatteringRadius`, `Specular`, `SpecularTint`, `Metallic`, `Roughness`, `Anisotropic`, `AnisotropicRotation`, `Sheen`, `SheenTint`, `Clearcoat`, `ClearcoatRoughness`, `ClearcoatBump`, `OpacityIor`, `Opacity`, `OpacityRoughness`, `Emission`, `Displacement`, `Bump`, `AmbientOcclusion`, `Alpha`; `TextureType` is `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document.md`'s.
 - `Rhino.Render.RenderMaterial.BasicMaterialParameterNames` — `public const string` basic-material parameter names: `Ambient = "ambient"`, `Emission = "emission"`, `FlamingoLibrary = "flamingo-library"`, `DisableLighting = "disable-lighting"`, `Diffuse = "diffuse"`, `Specular = "specular"`, `TransparencyColor = "transparency-color"`, `ReflectivityColor = "reflectivity-color"`, `Shine = "shine"`, `Transparency = "transparency"`, `Reflectivity = "reflectivity"`, `Ior = "ior"`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RhinoSettings` is the single editor-to-document bridge: one owner reads and writes the document `RenderSettings`, the current renderer id, the active/rendering view, and the custom render sizes, so a domain owner binds through it rather than re-reading the document.
@@ -102,9 +92,3 @@ Each owner is a static class of name constants the `RenderContent.GetParameter`/
 [LOCAL_ADMISSION]:
 - Editor state enters through `RhinoSettings`/`MetaData`, mutates inside the `using` grant, and commits through the settings bridge; a detached value record leaves the boundary.
 - A custom panel or tab enters through `RenderPanels.RegisterPanel`/`RenderTabs.RegisterTab` with a `GuidAttribute`-decorated `Type` and resolves by render-session id; named parameters and editor layout enter through the constant owners and the bounded `Modes`/`Shapes`/`Sizes`/`AssignBys` vocabulary.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Render.DataSources` + `Rhino.Render.UI` + `Rhino.Render.ParameterNames` + `Rhino.Render.ChildSlotNames` + the `Rhino.Render` panel/tab-registration and basic-parameter-name slice
-- Owns: the render-editor seam — the `RhinoSettings` editor-to-document bridge, the `MetaData` preview descriptor, the `Modes`/`Shapes`/`Sizes`/`AssignBys` vocabulary, the `RenderPanels`/`RenderTabs` registries, the `WorldMapDayNight` map, and the PBR/basic named-parameter and child-slot constant owners.
-- Accept: editor settings read and mutation through the `RhinoSettings` bridge with a `using` window; panel/tab registration over a `GuidAttribute`-keyed `Type` resolved by session; named parameters composed from the constant owners; editor vocabulary mapped to bounded owners at the edge.
-- Reject: a parallel settings mirror beside `RhinoSettings`, a stringly editor-mode or assign key or a literal parameter string beside the bounded and constant owners, a panel or tab minted outside the registries, a registration issued outside the two `RenderPlugIn` register overrides, a `RenderPanels`/`RenderTabs` instance minted rather than host-handed, a PBR name roster mirroring `FromTextureType`, and a live `RhinoSettings`/`MetaData` escaping into a domain signature.

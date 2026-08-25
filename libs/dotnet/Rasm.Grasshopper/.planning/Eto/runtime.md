@@ -29,7 +29,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 - Growth: a measured per-lane pathology is one stretch row in the policy this producer seats; the entry never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;

@@ -2,17 +2,7 @@
 
 `geoarrow-rust-compute` owns the native GeoArrow geometry-compute surface for the geospatial-ingress rail: vectorized GeoRust algorithms compiled to a static Rust package operating directly over Arrow-backed geometry arrays through the Arrow PyCapsule interface. Every operation consumes and returns Arrow capsules in-process, so a geometry crosses the ingress path once as a capsule and never round-trips through a Shapely/GEOS scalar loop; the package owns the algorithm kernels and never re-implements them.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `geoarrow-rust-compute`
-- package: `geoarrow-rust-compute`
-- import: `geoarrow.rust.compute`
-- owner: `data`
-- rail: geospatial-ingress
-- entry points: import-only; namespace-packaged under `geoarrow.rust`; no console script
-- capability: vectorized GeoRust compute over Arrow GeoArrow arrays and chunked arrays — measurement, construction, morphology, affine transforms, linear referencing, and broadcast predicates, each metric selecting its method through one keyword enum row
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result carriers
 
@@ -47,7 +37,7 @@ Each is a `StrEnum` paired with a lowercase `Literal` alias (`AreaMethodT`, `Len
 |  [04]   | `AffineTransform`       | `Union[tuple[float, ...]]` — 6- or 9-float affine; pairs with the `affine` library     |
 |  [05]   | `BroadcastGeometry`     | `Union[ScalarGeometry, ArrowArrayExportable, ArrowStreamExportable]` broadcast operand |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: measurement and predicate operations
 
@@ -93,7 +83,7 @@ Affine ops return `GeometryArray`/`ChunkedGeometryArray`; `affine_transform` app
 |  [04]   | `skew`             | `skew(geom, xs, ys)`                 | skew from bounding-box center by per-axis angles |
 |  [05]   | `translate`        | `translate(geom, xoff, yoff)`        | translate by `(xoff, yoff)` offsets              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op consumes the Arrow PyCapsule interface: an `ArrowArrayExportable` input selects the `GeometryArray`/`Array` overload, an `ArrowStreamExportable` input the `ChunkedGeometryArray`/`ChunkedArray` overload, so any capsule producer feeds compute zero-copy and chunking mirrors the input; `total_bounds` collapses to a 4-tuple and `explode` to a `Table`.
@@ -110,9 +100,3 @@ Affine ops return `GeometryArray`/`ChunkedGeometryArray`; `affine_transform` app
 
 [LOCAL_ADMISSION]:
 - Admitted for Arrow-capsule geometry compute on the geospatial-ingress path; geometry-array construction routes to `geoarrow.rust.core` and file IO to `geoarrow.rust.io`.
-
-[RAIL_LAW]:
-- Package: `geoarrow-rust-compute`
-- Owns: vectorized GeoRust geometry compute over Arrow GeoArrow arrays and chunked arrays — measurement, construction, morphology, affine transforms with `affine`/`shapely`-equivalent semantics, linear referencing, broadcast predicates, and method-selected metrics; emits `arro3.core` carriers for scalar and table results
-- Accept: Arrow-capsule geometry compute feeding the geospatial-ingress and downstream geometry owners; scalar `__geo_interface__`/`Geometry` broadcast operands for `frechet_distance`/`line_locate_point`
-- Reject: a wrapper-rename of a compute function; a hand-rolled QuickHull/RDP/VW/Chaikin/polylabel/Fréchet kernel; a Shapely/GEOS scalar loop where a vectorized Arrow op exists; a parallel per-metric function family where one `method` keyword row discriminates; geometry-array construction (`geoarrow.rust.core`) or file IO (`geoarrow.rust.io`) this package does not own

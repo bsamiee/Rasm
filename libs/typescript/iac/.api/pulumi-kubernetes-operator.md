@@ -2,17 +2,7 @@
 
 `pulumi-kubernetes-operator` is the in-cluster reconciler: the chart installs one controller and its four CRDs, and each reconciled estate is a `Stack` custom resource the controller drives on its own clock. Chart values decide the controller's identity, RBAC reach, and metrics posture; the `Stack` CRD decides which program runs, from where, and how often. The chart publishes NO watch-namespace value, so reach is an RBAC shape rather than a scope setting.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pulumi-kubernetes-operator`
-- chart: `pulumi-kubernetes-operator` from `oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator` (Apache-2.0), source `deploy/helm/pulumi-operator` in `pulumi/pulumi-kubernetes-operator` — the directory name and the chart name DIVERGE
-- asset: the controller Deployment, one Service, a ServiceAccount, both RBAC pairs, an off-by-default ServiceMonitor, and the four CRDs in `crds/`
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / continuous reconciliation
-
-[REPOSITORY_ROUTE]: REFUTED — `https://pulumi.github.io/pulumi-kubernetes-operator` serves no `index.yaml`; it answers a 301 onto a `pulumi.com` 404. OCI is the only published route, spelled inline as the `chart` reference with no `repositoryOpts`.
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                        | [CAPABILITY]                                                                        |
 | :-----: | :------------------------------------------- | :---------------------------------------------------------------------------------- |
@@ -35,7 +25,7 @@
 [SERVICE_NAME]: the Service is `<fullname>` UNSUFFIXED and hardcoded ClusterIP, serving `http-fileserver` 80 onto container 9090 and `http-metrics` 8383 onto 8383; the Deployment is `<fullname>-controller-manager` and its probes answer on 8081 at `/healthz` and `/readyz`. Reading the workload suffix onto the Service is the address that resolves to nothing.
 [CRD_LIFECYCLE]: `crds/` ships `pulumi.com_stacks`, `pulumi.com_programs`, `auto.pulumi.com_workspaces`, and `auto.pulumi.com_updates`. `helm upgrade` installs that directory once and never revisits it; a render carrier that hands each object to a provider escapes the rule entirely, which is why the estate's install diffs its CRDs on every bump and owes no out-of-band apply.
 
-## [03]-[STACK_CONTRACT]
+## [02]-[STACK_CONTRACT]
 
 [CRD_ESTATE]: group `pulumi.com` — `Stack` (NAMESPACED, plural `stacks`, `v1` served and storage beside a served `v1alpha1`) and `Program` (`v1` only); group `auto.pulumi.com` — `Workspace` and `Update`, the execution companions the controller mints per reconcile.
 
@@ -62,7 +52,7 @@
 [DEPRECATED]: `envs` and `envSecrets` yield to `envRefs`, `secrets` to `secretsRef`, `gitAuthSecret` to `gitAuth`, and `accessTokenSecret` to an `envRefs` secret entry keyed `PULUMI_ACCESS_TOKEN`. `spec.stack`, `projectRepo`, `branch`, `repoDir`, `refresh`, `continueResyncOnCommitMatch`, `resyncFrequencySeconds`, and `envRefs` are confirmed NOT deprecated.
 [V2_ONLY]: `updateTemplate`, `workspaceReclaimPolicy`, `shallow`, `runProgram`, `expectNoRefreshChanges`, `targets`, `targetDependents`, `prerequisites`, `configRef`, `secretsRef`, and `environment` exist on v2 alone.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two clocks never watch one stack: an estate under this operator drops out of the deploy-host drift fleet, so evidence has one producer per stack and the remediation posture stays deliberate on both paths.
@@ -81,9 +71,3 @@
 - Leave `secret.namespace` empty; a non-empty value is invalid under the controller's own namespace isolation.
 - Read the cadence floor: a `resyncFrequencySeconds` under 60 is silently raised, so a tighter loop is not expressible and a fence spelling one states an intent the controller discards.
 - Derive the address from the UNSUFFIXED Service name; the `-controller-manager` suffix belongs to the Deployment alone.
-
-[RAIL_LAW]:
-- Contract: `pulumi-kubernetes-operator` chart values + the `pulumi.com` and `auto.pulumi.com` CRD estate
-- Owns: in-cluster continuous reconciliation — the controller, its RBAC shape and metrics door, the four CRDs, and the `Stack` vocabulary over source, cadence, refresh posture, environment binding, and workspace execution shape
-- Accept: the OCI chart reference; `skipCrds: false` under a render carrier that diffs CRDs on bump; explicit `rbac.createClusterRole`; one workspace `Secret` bound through `envRefs`; `refresh` with `continueResyncOnCommitMatch` for a continuous loop; typed `Stack`/`Program` CRs from the generated module
-- Reject: the dead Pages repository URL; a namespace-watch value, which does not exist; the `envs`/`envSecrets`/`secrets`/`gitAuthSecret`/`accessTokenSecret` spellings; a non-empty `secret.namespace`; a sub-60-second cadence stated as if honored; an endpoint carrying the Deployment's `-controller-manager` suffix; a second reconciler over a stack this operator already drives

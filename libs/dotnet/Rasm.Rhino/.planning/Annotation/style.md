@@ -31,7 +31,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - Growth: a component table joins with one lens row and one grip; a new table verb is one `TableOp` case beside one grip column every table already answers.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -1116,26 +1116,26 @@ internal static class DraftSpine {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]                         | [FORM]                                        | [ENTRY]                     |
-| :-----: | :--------------- | :------------------------------ | :-------------------------------------------- | :-------------------------- |
-|  [01]   | native crossing  | `DraftCrossing`                 | detached handle crossing                      | `Crossed`                   |
-|  [02]   | table revision   | `TableGrip<T, TDef>`            | Document lens + the host verb column roster   | `Revised(target, ...)`      |
-|  [03]   | table verbs      | `TableOp<T, TDef>`              | eight cases every component table shares      | `Apply(grip, ...)`          |
-|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared seam    | `Apply(surface, op)`        |
-|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag     | `Apply(owner, op)`          |
-|  [06]   | object singleton | `TargetResolution`              | exactly-one id + typed cast on `TableTarget`  | `Only<TNative>`             |
-|  [07]   | input custody    | `DraftBorrow`                   | nested lease scopes over a handle or a run    | `Typed<TNative, TOut>`      |
-|  [08]   | drafting scalars | `DraftScale`/`DraftAngle`       | positive scale and radian owners              | `Create` / `Value`          |
-|  [09]   | unit vocabulary  | `LengthDisplayRow`              | rows keyed on host values                     | `Host` projection           |
-|  [10]   | enum admission   | `EnumFamily`                    | per-family flags mask and membership memo     | `For<TEnum>` / `Admits`     |
-|  [11]   | schema mechanism | `FieldTable<TOwner, THostEnum>` | nine payload adapters + one seat + row read   | `Real` … `Glyph` / `Row`    |
-|  [12]   | config schema    | `StyleField`                    | one row per proven property/`Field` pairing   | `Read` / `Write` / `On`     |
-|  [13]   | edit currency    | `StylePatch`                    | exact-family run, table and override folds    | `Apply` / `Overlay`         |
-|  [14]   | drawing standard | `DraftStandard`                 | kernel sheet ladders projected onto the rows  | `Patch(size, form, scale)`  |
-|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override     | `Apply(annotation, op)`     |
-|  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases        | `Styles.Commit`             |
-|  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped     | `Styles.Ask`                |
-|  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                           | `Commit`                    |
+| [INDEX] | [CONCERN]        | [OWNER]                         | [FORM]                                       | [ENTRY]                    |
+| :-----: | :--------------- | :------------------------------ | :------------------------------------------- | :------------------------- |
+|  [01]   | native crossing  | `DraftCrossing`                 | detached handle crossing                     | `Crossed`                  |
+|  [02]   | table revision   | `TableGrip<T, TDef>`            | Document lens + the host verb column roster  | `Revised(target, ...)`     |
+|  [03]   | table verbs      | `TableOp<T, TDef>`              | eight cases every component table shares     | `Apply(grip, ...)`         |
+|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared seam   | `Apply(surface, op)`       |
+|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag    | `Apply(owner, op)`         |
+|  [06]   | object singleton | `TargetResolution`              | exactly-one id + typed cast on `TableTarget` | `Only<TNative>`            |
+|  [07]   | input custody    | `DraftBorrow`                   | nested lease scopes over a handle or a run   | `Typed<TNative, TOut>`     |
+|  [08]   | drafting scalars | `DraftScale`/`DraftAngle`       | positive scale and radian owners             | `Create` / `Value`         |
+|  [09]   | unit vocabulary  | `LengthDisplayRow`              | rows keyed on host values                    | `Host` projection          |
+|  [10]   | enum admission   | `EnumFamily`                    | per-family flags mask and membership memo    | `For<TEnum>` / `Admits`    |
+|  [11]   | schema mechanism | `FieldTable<TOwner, THostEnum>` | nine payload adapters + one seat + row read  | `Real` … `Glyph` / `Row`   |
+|  [12]   | config schema    | `StyleField`                    | one row per proven property/`Field` pairing  | `Read` / `Write` / `On`    |
+|  [13]   | edit currency    | `StylePatch`                    | exact-family run, table and override folds   | `Apply` / `Overlay`        |
+|  [14]   | drawing standard | `DraftStandard`                 | kernel sheet ladders projected onto the rows | `Patch(size, form, scale)` |
+|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override    | `Apply(annotation, op)`    |
+|  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases       | `Styles.Commit`            |
+|  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped    | `Styles.Ask`               |
+|  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                          | `Commit`                   |
 
 ## [08]-[RESEARCH]
 

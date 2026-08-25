@@ -2,26 +2,7 @@
 
 `Speckle.Sdk` owns the `Base` object-graph model, its dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`; `Speckle.Objects` layers the geometry roster and the `Speckle.Objects.Data` host-object family onto `Base`. Two folders split one graph: `Rasm.Persistence` owns the SEND half — the serialiser, transports, and client feeding the sync rail's `SyncTransport.SpeckleLikeDiff` case, the send `rootObjId` mapping to `UInt128 ContentKey` through `SyncPump.Offer` — and `Rasm.Bim` owns the RECEIVE half: the deduplicating `Flatten` traversal, the display-mesh geometry, the metre-conversion surface, and the `DataObject` typed-parameter family folding onto the canonical Bim carriers at the exchange import seam. A non-display `Brep`/`Surface`/`Curve` with no `displayValue` hands off to the Compute tessellation companion.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Speckle.Sdk`
-- package: `Speckle.Sdk` (Apache-2.0)
-- assembly: `Speckle.Sdk`
-- companion: `Speckle.Sdk.Dependencies` (transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
-- transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
-- namespace: `Speckle.Sdk`, `Speckle.Sdk.Api`, `Speckle.Sdk.Models`(`.Extensions`, `.GraphTraversal`), `Speckle.Sdk.Transports`, `Speckle.Sdk.Serialisation`, `Speckle.Sdk.Credentials`, `Speckle.Sdk.Common`
-- asset: `net10.0`, `net8.0`, `netstandard2.0`; the net10.0 consumer binds `lib/net10.0` — the host-neutral exchange assembly binds it, never the in-Rhino plugin ALC
-- rail: interchange and sync
-
-[PACKAGE_SURFACE]: `Speckle.Objects`
-- package: `Speckle.Objects` (Apache-2.0)
-- assembly: `Speckle.Objects`
-- companion: `Speckle.Sdk` (supplies the `Base`/`ISpeckleObject` base graph)
-- namespace: `Speckle.Objects`, `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects.Primitive`, `Speckle.Objects.Other`, `Speckle.Objects.Annotation`
-- asset: `net10.0`, `net8.0`, `netstandard2.0`; the net10.0 consumer binds `lib/net10.0`
-- rail: interchange and sync
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` object-graph model and attributes
 
@@ -129,7 +110,7 @@ Family base `DataObject : Base, IDataObject, IProperties, IDisplayValue<IReadOnl
 
 `Speckle.Objects.Data` is the sole host-object roster; built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`). `IDisplayValue<out T>` is the generic display-value contract.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SPECKLE_SYNC]: `IOperations` send/receive over the DI-resolved surface
 
@@ -204,7 +185,7 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 |  [02]   | `Parent`   | property | `TraversalContext?` containment-reconstruction link |
 |  [03]   | `PropName` | property | `string?` member name the parent reached through    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Base` is a `DynamicBase`; a seam reads typed members through the package surface and never reflects the dynamic bag; host subtypes add typed columns over the one inherited `properties` dictionary.
@@ -224,9 +205,3 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 - `ServerInfo`/`UserInfo` acquisition and the `Account` token lifecycle are connection input from app roots, not a fence member.
 - `Version/ledger#SYNC_TRANSPORTS` owns the `rootObjId`→`ContentKey` projection, gated by the `SyncFault.SpeckleMarshal` drift fault; this catalog records only that the send tuple's first element and `SerializeProcessResults.RootId` are the content hash.
 - Bim display fold: `root.Flatten` → per-node `TryGetDisplayValue?.OfType<Mesh>` → fan `faces` n-gons to triangles → scale by `Units.GetConversionFactor(mesh.units, Units.Meters)`; semantic fold: `root.Flatten().OfType<DataObject>()` → project `name`/`speckle_type`/`applicationId`, flatten `properties` to typed parameter rows.
-
-[RAIL_LAW]:
-- Packages: `Speckle.Sdk`, `Speckle.Objects`
-- Owns: the `Base` object-graph model, its detach/chunk serialisation, the DI-resolved send/receive/transport surface feeding the `SpeckleLikeDiff` sync case, the dedup traversal, the display-mesh geometry, and the host-object semantic family
-- Accept: instance `IOperations.Send`/`Receive`/`Send2` off the wired provider over a declared transport set; a Rasm owner marshalled to `Base`/`DataObject` at the sync seam; an already-deserialized `Base` root read through the package `Flatten`/`TryGetDisplayValue` surface
-- Reject: `static Operations.Send`, a hand-rolled `Base`-graph serialiser beside `SpeckleObjectSerializer`, a snapshot-codec payload double-encoded through Speckle, a hand-rolled `Base`-graph recursion, a per-type display ladder, a managed Speckle BRep tessellator, and a second `IOperations.Receive` in the import seam

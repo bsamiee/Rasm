@@ -2,16 +2,7 @@
 
 `Silk.NET.SDL` is the managed SDL2 binding generated against `SDL.h`: `Sdl.GetApi()` returns one static `Sdl` function-table root whose unsafe instance methods P/Invoke the native SDL2 runtime over raw pointers. `InputFabric` consumes the `SDL_Haptic` force-feedback surface — device open/close, rumble, `HapticEffect` upload and run — with the joystick and game-controller `GUID` identity surface, over the single SDL2 native bundle shared with `Silk.NET.Input`, one `Sdl` handle per process.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.SDL`
-- package: `Silk.NET.SDL` (MIT)
-- assembly: `Silk.NET.SDL`
-- namespace: `Silk.NET.SDL`
-- asset: managed runtime library + native SDL2 binaries resolved through `Silk.NET.SDL.targets`
-- rail: input
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and native handles
 
@@ -49,7 +40,7 @@
 |  [08]   | `SdlBool`              | enum          | native tri-state boolean       |
 |  [09]   | `SdlException`         | class         | typed wrap of native error     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the static `GetApi()` factory mints it.
 
@@ -147,7 +138,7 @@ Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the 
 |  [03]   | `GetErrorAsException() -> SdlException?` | instance | typed exception for the boundary lift |
 |  [04]   | `ClearError()`                           | instance | reset error state before a call       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Sdl.GetApi()` mints the native function-table root; every native call is an unsafe instance method taking raw pointers, so the call site marshals `stackalloc`/`Span<T>` structs and passes pointers, never a managed wrapper.
@@ -168,9 +159,3 @@ Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the 
 - Haptic devices, joysticks, and controllers open through their `XxxOpen` call and close through `HapticClose`/`JoystickClose`/`GameControllerClose` matched in a scoped fold; the native handles carry no `IDisposable`.
 - Native results carry SDL's int-status convention (`0` success, negative failure); the boundary capsule lifts a negative status through `GetErrorAsException()` or `GetErrorS()` into a typed input-rail failure, and `ClearError()` resets state before an attribution-sensitive sequence.
 - Device identity persists as the `GUID` value, never the volatile device or instance index; reconnect matching resolves through `GetJoystickGUIDInfo` with `GameControllerMappingForGUID`.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.SDL`
-- Owns: the managed SDL2 binding for force-feedback — `SDL_Haptic` open/close, effect upload and run, simple rumble, controller and joystick rumble — and the joystick and game-controller `GUID` identity surface.
-- Accept: raw-pointer unsafe calls on the single `Sdl.GetApi()` root; `InitHaptic` arming before device open; native-handle scoped open-close pairs; native int-status lifted through `GetErrorAsException()`; composition under the one `InputFabric` edge beside `api-silk-input`, `api-hidsharp`, and `api-drywetmidi`.
-- Reject: a second `Sdl` instance or reloaded native bundle beside `Silk.NET.Input`; a managed wrapper renaming the native surface; device-index identity persisted over the stable `GUID`; a raw negative native status crossing into domain code.

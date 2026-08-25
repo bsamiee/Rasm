@@ -2,16 +2,7 @@
 
 `virtualizarr` mints virtual Zarr datasets over remote archival files for the data virtual-dataset rail: a per-format `Parser` reads a URL through an `ObjectStoreRegistry` into a `ManifestStore` — a zarr-v3 read store of `ManifestArray` chunk-reference views — that `to_virtual_dataset` lifts into an xarray `Dataset` with no bytes copied, then the `vz` accessor exports to Icechunk or Kerchunk. `virtualizarr` owns the manifest reference model, parser dispatch, and reference serialization; byte fetch is the registry-resolved object store's, the `Dataset`/`DataTree` algebra xarray's.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `virtualizarr`
-- package: `virtualizarr`
-- module: `virtualizarr`
-- namespaces: `virtualizarr.manifests`, `virtualizarr.parsers`, `virtualizarr.parallel`, `virtualizarr.codecs`
-- rail: virtual-dataset
-- capability: `Parser`-dispatched `ManifestStore` construction over registry-resolved object stores, eager `loadable_variables` materialization, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `vz` accessor export to Kerchunk and Icechunk
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: manifest reference stack and read store
 
@@ -87,7 +78,7 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 |  [07]   | `codecs.zarr_codec_config_to_v3`                  | codec bridge  | convert a zarr-v2 codec config to v3                           |
 |  [08]   | `codecs.zarr_codec_config_to_v2`                  | codec bridge  | convert a zarr-v3 codec config to v2                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: virtual dataset constructors
 
@@ -117,7 +108,7 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 
 - Both `to_icechunk` forms also take `validate_containers` and `last_updated_at` — store-integrity check and staleness stamp for the written references.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Parser axis: one `Parser` Protocol (`__call__(url, registry) -> ManifestStore`) owns format intake; the format is a parser-instance row, never a per-format `open_*` family, and `group`/`skip_variables`/`drop_variables`/`reader_options` are constructor rows on the parser.
@@ -137,9 +128,3 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 [LOCAL_ADMISSION]:
 - Import `ObjectStoreRegistry` from `obspec_utils.registry`, and pass a constructed `Parser` instance carrying its format options to `open_virtual_dataset`.
 - Build manifests through `ChunkManifest.from_arrays`, export through the `vz` accessor, and share one registry across every open.
-
-[RAIL_LAW]:
-- Package: `virtualizarr`
-- Owns: virtual Zarr `ManifestStore` construction, `Parser`-Protocol format dispatch, the `ChunkManifest`/`ManifestArray`/`ManifestGroup`/`ManifestStore` reference stack, registry-resolved eager `loadable_variables`, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `vz` accessor export to Kerchunk and Icechunk
-- Accept: remote files referenced by URL with a `Parser` instance and an `obspec_utils` `ObjectStoreRegistry`; manifests lifted via `to_virtual_dataset` and exported via accessor methods
-- Reject: data-copying ingest where virtual reference applies; a hand-rolled kerchunk builder or per-chunk manifest dict where `ChunkManifest.from_arrays` applies; a per-format `open_*` family where one `Parser` Protocol discriminates

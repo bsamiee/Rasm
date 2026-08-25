@@ -137,7 +137,7 @@ public static class ShapeOps {
     DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [ValidationError<Fault>]
 public readonly partial struct Offset : Amount<Offset, double>, DomainType<Offset, double> {
-    public static Fin<Offset> From(double repr) => Validate(repr, null, out var value) is { } fault ? Fin.Fail<Offset>(fault) : value;
+    public static Fin<Offset> From(double repr) => Validate(repr, null, out Offset value) is { } fault ? Fin.Fail<Offset>(fault) : value;
     public double To() => (double)this;
     public static Offset operator -(Offset value) => Create(-(double)value);
 }
@@ -150,7 +150,7 @@ public readonly partial struct Offset : Amount<Offset, double>, DomainType<Offse
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Explicit)]
 [ValidationError<Fault>]
 public readonly partial struct Station : Locus<Station, Offset, double>, DomainType<Station, double> {
-    public static Fin<Station> From(double repr) => Validate(repr, null, out var value) is { } fault ? Fin.Fail<Station>(fault) : value;
+    public static Fin<Station> From(double repr) => Validate(repr, null, out Station value) is { } fault ? Fin.Fail<Station>(fault) : value;
     public double To() => (double)this;
     public static Station AdditiveIdentity => Create(0d);
     public static Offset operator -(Station head, Station tail) => Offset.Create((double)head - (double)tail);
@@ -213,7 +213,7 @@ public sealed partial class Variant {
     public partial (double Primary, double Secondary) Project(double input);
 
     public static Option<Variant> Ranked(int rank) =>
-        ByRank.Value.TryGetValue(rank, out var row) ? Optional(row) : None;
+        ByRank.Value.TryGetValue(rank, out Variant? row) ? Optional(row) : None;
 
     private static (double, double) ProjectA(double input) => (input, input);
     private static (double, double) ProjectB(double input) => (input * 2d, input * 4d);
@@ -406,13 +406,13 @@ public static class Admission {
         where TOwner : class, IObjectFactory<TOwner, TRaw, ValidationError>
         where TRaw : notnull, allows ref struct {
         public static Validation<Error, TOwner> Admitted(TRaw raw, IFormatProvider? culture = null) =>
-            TOwner.Validate(raw, culture, out var owned) is { } invalid ? KernelFault.Invalid(invalid) : owned!;
+            TOwner.Validate(raw, culture, out TOwner? owned) is { } invalid ? KernelFault.Invalid(invalid) : owned!;
 
         public static Validation<Error, Option<TOwner>> AdmittedMaybe(TRaw raw) =>
-            TOwner.Validate(raw, null, out var owned) is { } invalid ? KernelFault.Invalid(invalid) : Optional(owned);
+            TOwner.Validate(raw, null, out TOwner? owned) is { } invalid ? KernelFault.Invalid(invalid) : Optional(owned);
 
         public static Fin<TOwner> AdmittedFin(TRaw raw) =>
-            TOwner.Validate(raw, null, out var owned) is { } invalid ? Fin.Fail<TOwner>(KernelFault.Invalid(invalid)) : owned!;
+            TOwner.Validate(raw, null, out TOwner? owned) is { } invalid ? Fin.Fail<TOwner>(KernelFault.Invalid(invalid)) : owned!;
     }
 }
 ```

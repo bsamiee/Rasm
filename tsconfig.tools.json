@@ -1,9 +1,0 @@
-{
-    "extends": "./tsconfig.node.json",
-    "compilerOptions": {
-        "emitDeclarationOnly": true,
-        "outDir": ".cache/typescript/out/tools",
-        "tsBuildInfoFile": ".cache/typescript/tools.tsbuildinfo"
-    },
-    "include": ["*.config.ts"]
-}

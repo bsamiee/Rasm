@@ -2,16 +2,7 @@
 
 `Grasshopper2.Parameters.Special` owns the interactive document objects the installed Grasshopper 2 plug-in supplies: value inputs, editors, samplers, pickers, data panels, the expiry scheduler, and the shout/listen/relay connection routers. Every type derives the `Parameter`/`Parameter<T>` value contract — `Listen` on `GenericParameter`, `TimerObject` on `DocumentObject` — and round-trips through the host IO archive.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: host assembly `Grasshopper2`
-- package: `Grasshopper2` (Rhino 9 WIP Grasshopper 2 plug-in SDK; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
-- assembly: `Grasshopper2`
-- namespace: `Grasshopper2.Parameters.Special`, `Grasshopper2.SpecialObjects` (`ScribbleObject`, `ScribbleFont`)
-- adjacent namespaces: `Grasshopper2.Data`, `Grasshopper2.Parameters`, `Grasshopper2.Types.Colour`, `Grasshopper2.UI`, `GrasshopperIO` resolve the value carriers, pears, and IO seams
-- rail: host-grasshopper special objects
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interactive special objects, ordered by role family. Every type also carries a public `()` and `(IReader)` deserialization constructor; the parameterized constructor rides its `[03]` roster line.
 
@@ -46,7 +37,7 @@
 |  [27]   | `Listen`               | `GenericParameter`           | resolves a shout, file dependency, or cluster pin |
 |  [28]   | `Relay`                | `Parameter`                  | relays, freezes, and safely reconnects wires      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Each roster line carries one type's constructor and public members grouped by access; a caveat line states behavior a signature cannot show. `params Complex[]` is the declared final parameter of `ComplexPickerObject`.
 
@@ -106,7 +97,7 @@ Each roster line carries one type's constructor and public members grouped by ac
 - `Relay.Frozen`: setting true captures `State.Data.Tree()` into `FrozenCachedData`, marks the cache current, suppresses recipient expiration, and serves the captured tree during collection; upstream expiration marks it stale, and thawing clears the cache, expires the relay when the captured data went stale, and resets the flag, so `FrozenCachedData` is nullable whenever thawed or unrestored.
 - `Relay.SafeDisconnect()`: returns an `ActionList`, copies every relay input to every downstream parameter, disconnects both sides, refreshes downstream relay names, and expires the downstream parameters; `ResolveDisplayName()` derives the name from `UserName` or the distinct sorted names propagated by upstream relays.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every object round-trips through its public `(IReader)` constructor and its `Store(IWriter)` override; a domain value crosses the archive only as that IO pair.
@@ -122,9 +113,3 @@ Each roster line carries one type's constructor and public members grouped by ac
 [LOCAL_ADMISSION]:
 - These special objects are the Rasm.Grasshopper folder's interactive-parameter domain; each composes the Rasm kernel for host-agnostic logic and never references a sibling Rasm package.
 - Value enters through the typed `Parameter<T>` contract; the internal `ValueListItem`/`SampleContinuous` members are not admitted, and canvas attributes arrive from the protected factory the base owns.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (interactive special objects)
-- Owns: the `Grasshopper2.Parameters.Special` value inputs, editors, samplers, pickers, data and utility panels, the expiry scheduler, and the shout/listen/relay routers
-- Accept: parameter construction, public state read and mutation, interactive method invocation, and IO round-trip over these objects
-- Reject: document graph mutation (`api-gh2-document`), canvas paint and picking (`api-gh2-canvas`), component declaration and pin typing (`api-gh2-components`), and the internal sampling and list-assignment members

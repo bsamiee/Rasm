@@ -656,7 +656,6 @@ class TessellationDaemon:
         logger(self._composition).warning("tessellation.spill", **fault.facts())
 ```
 
-
 ## [03]-[RESEARCH]
 
 (none)

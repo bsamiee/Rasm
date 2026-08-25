@@ -2,25 +2,7 @@
 
 `PDFsharp` owns the structured vector-PDF page model: `PdfDocument` holds the page tree, `XGraphics` draws the device-independent mark algebra over a page, image, or form, and `PdfReader` opens existing PDFs for read-modify-merge, with sibling namespaces adding encryption, digital signing, AcroForm fields, annotations, and tagged-PDF accessibility. `PDFsharp-MigraDoc` renders an auto-paginated flow-report DOM (`Document`/`Section`/`Paragraph`/`Table`/`Chart`) onto a `PdfDocument` through `PdfDocumentRenderer`. Together they own the branch vector-PDF rail: precise sheets draw through `XGraphics`, flow reports author a MigraDoc `Document`, and platform-neutral rendering stays on the headless path.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PDFsharp`
-- package: `PDFsharp` (MIT)
-- assembly: `PdfSharp` (+ `PdfSharp.Cryptography` carrying the ready CMS signer)
-- namespace: `PdfSharp.Drawing`, `PdfSharp.Drawing.Layout`, `PdfSharp.Pdf`, `PdfSharp.Pdf.IO`, `PdfSharp.Pdf.Security`, `PdfSharp.Pdf.Signatures`, `PdfSharp.Pdf.AcroForms`, `PdfSharp.Pdf.Annotations`, `PdfSharp.Pdf.Content`, `PdfSharp.Pdf.Structure`, `PdfSharp.Pdf.Actions`, `PdfSharp.UniversalAccessibility`, `PdfSharp.Capabilities`
-- target: `net10.0`
-- depends: `Microsoft.Extensions.Logging.Abstractions`, `System.Security.Cryptography.Pkcs`
-- rail: pdf
-
-[PACKAGE_SURFACE]: `PDFsharp-MigraDoc`
-- package: `PDFsharp-MigraDoc` (MIT)
-- assembly: `MigraDoc.DocumentObjectModel`, `MigraDoc.Rendering`, `MigraDoc.RtfRendering`
-- namespace: `MigraDoc.DocumentObjectModel` (with `.Tables`, `.Shapes`, `.Shapes.Charts`, `.Fields`, `.IO`), `MigraDoc.Rendering`, `MigraDoc.RtfRendering`
-- target: `net10.0`
-- depends: `PDFsharp` (renders onto its `PdfDocument`/`XGraphics`)
-- rail: pdf
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DOCUMENT_TYPES]: `PdfSharp.Pdf` page-tree model.
 
@@ -147,7 +129,7 @@
 |  [03]   | `FormattedDocument`   | class         | paginated document with page geometry  |
 |  [04]   | `RtfDocumentRenderer` | class         | RTF emit                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DOCUMENT_LIFECYCLE]: `PdfDocument` and `PdfReader` create, persist, open, and inspect.
 
@@ -230,7 +212,7 @@
 - A bookmark binds to its heading's page through the RENDERER: `RenderDocument()` (or `PrepareRenderPages()`) paginates, then `DocumentRenderer.GetDocumentObjectsFromPage(page)` answers which `DocumentObject` values that page rendered, so matching a retained heading `Paragraph` by reference identity yields its page.
 - `FormattedDocument` keeps its own bookmark map PRIVATE, and `Paragraph` exposes no `AddBookmark` — the member is on `ParagraphElements`, reached as `paragraph.Elements.AddBookmark(name)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `PdfDocument` owns the page tree, and every vector mark lands through one `XGraphics` device-independent draw algebra over a page, image, or form; `PdfReader.Open(..., Import)` folds imported pages back as `XPdfForm` drawn through `DrawImage`, so read-modify-merge and fresh authoring share the one surface.
@@ -244,9 +226,3 @@
 
 [LOCAL_ADMISSION]:
 - PDFsharp and MigraDoc are the host-neutral stratum's vector-PDF and flow-report owners: precise sheet layout draws directly with `XGraphics`, multi-page flow reports author a MigraDoc `Document`, and the drafting sheet-PDF and Diagnostics report-PDF both compose this pair.
-
-[RAIL_LAW]:
-- Package: `PDFsharp` + `PDFsharp-MigraDoc`
-- Owns: the vector-PDF deliverable — the `PdfDocument` page tree, the `XGraphics` draw algebra, `PdfReader` open/import/merge, the security/signing/AcroForm/annotation/tagged-PDF namespaces, and the auto-paginated MigraDoc flow DOM rendered onto it.
-- Accept: precise sheet layout drawn with `XGraphics` and `XTextFormatter`; imported pages merged as `XPdfForm`; multi-page flow reports authored as a MigraDoc `Document` and rendered by `PdfDocumentRenderer`; output policy on `PdfDocumentOptions`; signatures and AES encryption applied to the underlying `PdfDocument`.
-- Reject: hand-emitting PDF byte syntax or a parallel page model; a page number derived from block positions where the layout engine already answers which page an object rendered on; a raster path where `XGraphics` draws vector directly; hand-paginating a report with `DrawString` cursor math where the flow DOM owns pagination; a bespoke report model duplicating `Document`/`Section`/`Table`; AppUi-held signing key bytes where the AppHost secrets lease owns credential lifecycle.

@@ -2,22 +2,7 @@
 
 `VividOrange.Sections.SectionProperties` owns the closed-polygon section-property solver: one Green's-theorem integral with void subtraction and parallel-axis transfer computes every elastic section property over any `IProfile` as a `UnitsNet` quantity. `ConcreteSectionProperties` extends it over an `IConcreteSection` for transformed-section reinforcement, and the `.Utility` static kernels answer any single property without a carrier. It serves the Materials Profiles family axis, replacing every per-family rectangular section-property literal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Sections.SectionProperties`
-- package: `VividOrange.Sections.SectionProperties` (MIT)
-- assembly: `VividOrange.Sections.SectionProperties`
-- namespace: `VividOrange.Sections.SectionProperties`, `.Utility`
-- asset: runtime library, pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds the `net9.0` asset
-- rail: profiles (section computation)
-- depends: the input, geometry, and quantity floors live outside this assembly
-  - `ISectionProperties`: `VividOrange.Sections.ISectionProperties`
-  - `IProfile`/`IPerimeter`/`ISection`: `VividOrange.IProfiles`, `VividOrange.Profiles.Perimeter`
-  - `ILocalPoint2d`/`ILocalDomain2d`: `VividOrange.Geometry`
-  - `IConcreteSection`/`IRebar`/`ILongitudinalReinforcement`/`SectionFace`: `VividOrange.ISections`
-  - `Area`/`Volume`/`AreaMomentOfInertia`/`Length`/`Ratio`: `UnitsNet`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: section-property carriers and their floor contracts
 
@@ -45,7 +30,7 @@ Each kernel integrates one property directly from an `IProfile` or `IConcreteSec
 |  [07]   | `Extends`           | static class  | bounding domain           |
 |  [08]   | `Rebars`            | static class  | RC reinforcement results  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver construction and elastic properties
 
@@ -105,7 +90,7 @@ Build a `ConcreteSection` from an admitted `IProfile`, EN material, and rebar la
 |  [17]   | `Rebars.CalculateRadiusOfGyrationZz(IConcreteSection) -> Length`          | static  | Zz reinforcement gyration |
 |  [18]   | `Rebars.CalculateEffectiveDepth(IConcreteSection, SectionFace) -> Length` | static  | `d` to face reinforcement |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SectionProperties` folds one Green's-theorem integral over the `IProfile` perimeter — outer boundary minus void edges, parallel-axis transferred to the elastic centroid — so it runs over any closed section (catalogued steel, parametric timber/CMU/masonry/composite) with no per-family literal; every kernel takes `IProfile`, never a shape enum.
@@ -125,9 +110,3 @@ Build a `ConcreteSection` from an admitted `IProfile`, EN material, and rebar la
 - Admission runs through the Materials Profiles boundary that computes section properties for the family axis; the `IProfile` input and `UnitsNet` outputs map onto the canonical Profile/section owner at the edge.
 - Properties are read as `UnitsNet` quantities, never reduced to `double` in an interior signature; a measured-series aggregation (e.g. layered composite) folds through `UnitMath.Sum<T>` (`libs/dotnet/.api/api-unitsnet.md`), never a raw accumulation.
 - A Profiles family that needs `Area` or `MomentOfInertia` computes it from the perimeter, never from an inline closed-form constant.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Sections.SectionProperties` (MIT)
-- Owns: the arbitrary-closed-polygon section-property solver (Green's-theorem integral, void subtraction, parallel-axis transfer) over any `IProfile`, the `SectionProperties` and `ConcreteSectionProperties` carriers, the `.Utility` static kernels, and the reinforced-concrete transformed-section reinforcement surface — all returning `UnitsNet` quantities
-- Accept: a section property computed from an `IProfile` (catalogued or parametric), read as a `UnitsNet` quantity, the carrier admitted at the boundary; a reinforced-section property from `ConcreteSectionProperties` over a `ConcreteSection` built from `VividOrange.Sections`
-- Reject: a per-family rectangular section-property literal where the polygon integral computes it; a raw-`double` read of a `UnitsNet` property; a computation that bypasses the `IProfile` perimeter contract

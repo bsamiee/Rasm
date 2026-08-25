@@ -2,24 +2,7 @@
 
 `VividOrange.Serialization` owns the polymorphic JSON round-trip for the VividOrange taxonomy: one generic `ToJson`/`FromJson` pair constrained to the `ITaxonomySerializable` marker preserves every data type's concrete runtime type through Newtonsoft.Json `$type` tags and its `UnitsNet` quantities through the transitive `UnitsNet.Serialization.JsonNet` converter stack. Every round-trip stays inside the C# layer for persist and clone, while the Materials Thinktecture System.Text.Json owner holds the cross-language wire.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Serialization`
-- package: `VividOrange.Serialization` (MIT)
-- assembly: `VividOrange.Serialization`
-- namespace: `VividOrange.Serialization`
-- asset: managed AnyCPU runtime library, no native asset; the consumer `net10.0` binds `lib/net8.0`
-- depends: `Newtonsoft.Json`, `UnitsNet.Serialization.JsonNet`, and the `ITaxonomySerializable` marker floor `VividOrange.ISerialization`
-- rail: serialization — the in-C# VividOrange-taxonomy JSON wire
-
-[PACKAGE_SURFACE]: `UnitsNet.Serialization.JsonNet`
-- package: `UnitsNet.Serialization.JsonNet` (MIT-0)
-- assembly: `UnitsNet.Serialization.JsonNet`
-- namespace: `UnitsNet.Serialization.JsonNet`
-- asset: managed runtime library; the consumer `net10.0` binds `netstandard2.0`
-- rail: quantity converter — the Json.NET side of the `IQuantity` SI-scalar+unit wire the taxonomy settings register
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the VividOrange round-trip surface
 
@@ -41,7 +24,7 @@
 |  [03]   | `UnitsNetIQuantityJsonConverter`   | class          | object `{ Value, Unit }` read and write         |
 |  [04]   | `UnitsNetIComparableJsonConverter` | class          | read-only `IComparable` object form             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: round-trip a taxonomy object and inject a deterministic quantity wire
 
@@ -55,7 +38,7 @@ Both extension members constrain `T` with `ITaxonomySerializable` and fall back 
 
 - `AbbreviatedUnitsConverter(IDictionary, UnitAbbreviationsCache, IEqualityComparer)`: injects an invariant abbreviations cache through its three-arg ctor for a deterministic quantity wire.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One generic pair constrained `where T: ITaxonomySerializable` is the single polymorphic round-trip rail for the whole taxonomy; no per-type serializer exists.
@@ -74,9 +57,3 @@ Both extension members constrain `T` with `ITaxonomySerializable` and fall back 
 - `ToJson`/`FromJson` persists or clones a VividOrange data object inside the C# layer; the Thinktecture System.Text.Json owner governs the cross-language wire, and the Newtonsoft `$type` shape never leaves the C# boundary.
 - Boundary code traps `FromJson<T>` `null` results and Newtonsoft exceptions, then lowers them onto the typed wire-decode rail.
 - A non-default wire passes a consumer-owned `JsonSerializerSettings` retaining `TypeNameHandling.Objects` and the UnitsNet converter, never reading or mutating the `internal` `TaxonomyJsonSerializer`.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Serialization`
-- Owns: the polymorphic JSON round-trip for the VividOrange taxonomy — `JsonSerializationExtensions.ToJson<T>`/`FromJson<T>` over a Newtonsoft.Json and `UnitsNet.Serialization.JsonNet` settings stack — the sole generic round-trip rail for every VividOrange data type.
-- Accept: a VividOrange data object round-tripped inside the C# layer preserving concrete type via the `$type` tag and quantities via the SI-scalar+unit converter; a consumer-owned `JsonSerializerSettings` keeping `TypeNameHandling.Objects` and the UnitsNet converter; the `FromJson` `null`-or-throw trapped onto the typed wire-decode rail; the abbreviations cache injected invariant for a deterministic wire.
-- Reject: this Newtonsoft `$type` round-trip as the cross-language canonical wire, which the Materials Thinktecture STJ owner holds; an untrusted external document fed to `FromJson<T>` under `TypeNameHandling.Objects`; dropping `TypeNameHandling.Objects` from custom settings; a quantity hand-parsed instead of registered through the converter, serialized as a bare `double` dropping its unit, or the culture-default abbreviated ctor bound on a deterministic boundary.

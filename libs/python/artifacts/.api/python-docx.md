@@ -2,15 +2,7 @@
 
 `python-docx` owns read+write `.docx` word-processing for the artifacts office rail: one polymorphic `Document` factory, the `add_*` content family, the block/style/review/metadata owners, and the `Font`/`ParagraphFormat` direct-formatting surface over full OOXML fidelity. It never re-implements the Office Open XML part graph or the lxml serialization it already owns. It is the `document/emit#DOCUMENT` `DocumentMode.DOCX` lowering arm and the `document/lens#LENS` `.docx` extraction inverse over one `DocumentNode` algebra.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-docx`
-- package: `python-docx` (MIT)
-- module: `docx`
-- abi: pure-Python wheel, cp315-resident, in-process (no worker offload)
-- rail: office — `.docx` word-processing authoring and editing feeding the document owners
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and block content types
 
@@ -54,7 +46,7 @@
 |  [14]   | `enum.style.WD_STYLE_TYPE`              | style-kind enum   | `add_style` discriminant (`PARAGRAPH`/`CHARACTER`/`TABLE`/`LIST`) |
 |  [15]   | `enum.table.WD_CELL_VERTICAL_ALIGNMENT` | cell-align enum   | `_Cell.vertical_alignment`                                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document factory, content, save
 
@@ -130,7 +122,7 @@
 |  [15]   | `BaseStyle` flags          | `priority` / `hidden` / `locked` / `quick_style` / `unhide_when_used`                                   |
 |  [16]   | `_ParagraphStyle` adds     | `font -> Font` / `paragraph_format -> ParagraphFormat` / `base_style` / `next_paragraph_style`          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - document: `docx.Document(docx=None)` is the single polymorphic open-or-create factory — path/stream opens, `None` creates from the default template — returning `document.Document`.
@@ -156,9 +148,3 @@
 [LOCAL_ADMISSION]:
 - Import at boundary scope (`import docx`); the distribution is `python-docx`, the import name `docx`.
 - Word-processing authoring lowering from the `document/model#NODE` `DocumentNode` tree feeding the office and export-bundle owners, downstream of the `docxtpl` template path and the `msoffcrypto-tool` confidentiality edge, gated by the `exchange/detect#DETECT` sniffer.
-
-[RAIL_LAW]:
-- Package: `python-docx`
-- Owns: `.docx` construction and editing — paragraphs/runs/headings, tables with horizontal+vertical merge/grid-span/nesting and per-row geometry, document- and run-level inline pictures, breaks/tabs, sections with the header/footer triad and full page geometry, the named-style catalog with latent styles and base-style inheritance, the full `Font` direct-formatting surface, the full `ParagraphFormat` block-geometry surface, comments with range marking, the 15-field core properties, ordered block iteration; the `document/emit#DOCUMENT` `DocumentMode.DOCX` lowering arm and the `document/lens#LENS` `.docx` extraction inverse.
-- Accept: word-processing authoring lowering from the `DocumentNode` tree feeding the office and export-bundle owners, downstream of the `docxtpl` template path and the `msoffcrypto-tool` confidentiality edge, gated by `exchange/detect#DETECT`.
-- Reject: wrapper-renames of `add_paragraph`/`save`; a per-run style rebuild where `Styles.add_style` and named styles exist; per-run direct font duplication where a `_CharacterStyle` carries the recurring formatting; raw-EMU integers where `Length` value objects exist; magic alignment/break/underline strings where the `WD_*` enums exist; per-page section objects where a section sequence suffices; ad-hoc paragraph-stitching where a `docxtpl` template carries the layout; opaque-payload emission where the `DocumentNode` lowering fold belongs; raised exceptions crossing the boundary where the `expression` `Result` rail belongs; identity minting the runtime owns.

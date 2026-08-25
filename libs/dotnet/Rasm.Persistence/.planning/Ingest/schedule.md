@@ -439,21 +439,21 @@ public static class ScheduleSource {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                      | [BINDING]                                                         |
-| :-----: | :----------------- | :------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | one schedule owner | `ScheduleSource.Run` over `ScheduleOp`       | parse/serialize/probe are cases of ONE dispatch                   |
-|  [02]   | container ingress  | always `ReadAll`, format-sniffed             | `Read` truncates multi-project XER; extension branching deleted   |
-|  [03]   | egress axis        | `ScheduleFormat` seven writable rows         | no MPP writer exists; unreachable target unrepresentable          |
-|  [04]   | egress arity       | graph count selects `Write` overload         | one vs many is the value's shape, never a flag                    |
-|  [05]   | durable payload    | full activity/edge/calendar/resource rows    | the persisted P6/MS-Project record; CPM math stays `Rasm.Bim`     |
-|  [06]   | unit fidelity      | `Option<ScheduleSpan>` unit-tagged crossing  | absence stays absence; re-minted via `Duration.GetInstance`       |
-|  [07]   | local stamps       | `LocalDateTime`/`LocalDate` durable form     | a schedule date is unzoned wall time; no fabricated UTC `Instant` |
-|  [08]   | seam vocabularies  | three smart-enum vocabularies                | foreign enums cross once; durable rows carry keys                 |
-|  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`          | proxy types and `JavaObject` never escape the two members         |
-|  [10]   | row-boundary fault | `Validation<Error, …>` both legs             | dialect, selector, and codec refusals stay typed                  |
-|  [11]   | fault band         | `[FaultCase]` ordinals on `Fault`            | 8400-8403; contiguous case-grain identity                         |
-|  [12]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
-|  [13]   | proxy admission    | identity admitted; text and rate `Option`    | `?? 0` collided keyless rows; `?? ""` forged a real name          |
+| [INDEX] | [POLICY]           | [VALUE]                                     | [BINDING]                                                         |
+| :-----: | :----------------- | :------------------------------------------ | :---------------------------------------------------------------- |
+|  [01]   | one schedule owner | `ScheduleSource.Run` over `ScheduleOp`      | parse/serialize/probe are cases of ONE dispatch                   |
+|  [02]   | container ingress  | always `ReadAll`, format-sniffed            | `Read` truncates multi-project XER; extension branching deleted   |
+|  [03]   | egress axis        | `ScheduleFormat` seven writable rows        | no MPP writer exists; unreachable target unrepresentable          |
+|  [04]   | egress arity       | graph count selects `Write` overload        | one vs many is the value's shape, never a flag                    |
+|  [05]   | durable payload    | full activity/edge/calendar/resource rows   | the persisted P6/MS-Project record; CPM math stays `Rasm.Bim`     |
+|  [06]   | unit fidelity      | `Option<ScheduleSpan>` unit-tagged crossing | absence stays absence; re-minted via `Duration.GetInstance`       |
+|  [07]   | local stamps       | `LocalDateTime`/`LocalDate` durable form    | a schedule date is unzoned wall time; no fabricated UTC `Instant` |
+|  [08]   | seam vocabularies  | three smart-enum vocabularies               | foreign enums cross once; durable rows carry keys                 |
+|  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`         | proxy types and `JavaObject` never escape the two members         |
+|  [10]   | row-boundary fault | `Validation<Error, …>` both legs            | dialect, selector, and codec refusals stay typed                  |
+|  [11]   | fault band         | `[FaultCase]` ordinals on `Fault`           | 8400-8403; contiguous case-grain identity                         |
+|  [12]   | element projection | per-app schedule→element map                | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
+|  [13]   | proxy admission    | identity admitted; text and rate `Option`   | `?? 0` collided keyless rows; `?? ""` forged a real name          |
 
 ## [03]-[DURABLE_NETWORK]
 

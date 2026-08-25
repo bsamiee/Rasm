@@ -2,24 +2,7 @@
 
 `K4os.Compression.LZ4` owns the managed LZ4 codec on the snapshot-compression axis: raw blocks into a caller-sized buffer, a self-describing frame carrying its own decoded length, and a chained pipeline whose cross-block dictionary beats independent blocks over a multi-block payload. It frames a standalone payload exactly once — a payload whose serializer already compresses in-codec pairs with an uncompressed policy row.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `K4os.Compression.LZ4`
-- package: `K4os.Compression.LZ4` (MIT)
-- assembly: `K4os.Compression.LZ4`
-- namespace: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Encoders`, `K4os.Compression.LZ4.Internal`
-- target: the `net10.0` consumer binds `lib/net6.0`
-- asset: pure-managed AnyCPU runtime library, no native runtime
-- rail: snapshot-codec
-
-[PACKAGE_SURFACE]: `K4os.Compression.LZ4.Streams`
-- package: `K4os.Compression.LZ4.Streams` (MIT)
-- assembly: `K4os.Compression.LZ4.Streams`
-- namespace: `K4os.Compression.LZ4.Streams`
-- asset: separate distribution over the block codec; the `Stream` adapter half lives here alone
-- rail: snapshot-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: block codec, frame, and level (`K4os.Compression.LZ4`)
 
@@ -46,7 +29,7 @@
 |  [11]   | `EncoderAction`        | enum           | `None`/`Loaded`/`Copied`/`Encoded` step result                  |
 |  [12]   | `LZ4EncoderExtensions` | static class   | span and cursor combinators over both interfaces                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: raw block codec
 
@@ -122,7 +105,7 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 - TRAP: `leaveOpen` defaults FALSE on every `LZ4Stream` factory, the INVERSE of `api-zstd`'s adapters, which default it true. Codec families carrying both rows spell the flag on each arm rather than reading either default.
 - `LZ4Level` values are explicit and NON-CONTIGUOUS — `L00_FAST = 0`, the HC band 3 through 9, `L10_OPT`, `L11_OPT`, `L12_MAX` — so a level column carries the enum value and never a positional ordinal.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `LZ4Codec` decodes only against an out-of-band decoded length; `LZ4Pickler` prepends that length itself, so a framed payload round-trips with no sidecar and `UnpickledSize` reads it back before allocation.
@@ -139,9 +122,3 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 [LOCAL_ADMISSION]:
 - `CompressionPolicy.Lz4Fast`/`Lz4High` pack through `LZ4Pickler.Pickle` at `LZ4Level.L00_FAST`/`L09_HC` and unpack through `Unpickle`; the frame carries its decoded size, so `SnapshotHeader` stores the row's `HeaderId` alone.
 - Level, frame shape, and both bounds remain codec policy, and the `Crc32`/`XxHash128` integrity tag folds the framed bytes independently.
-
-[RAIL_LAW]:
-- Package: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Streams`
-- Owns: LZ4 block compression, self-describing framing, `Stream` frame adapters, and chained streaming for snapshot and blob payloads
-- Accept: `LZ4Pickler` frames for standalone payloads; the `LZ4EncoderExtensions` span fold for streamed payloads; `LZ4Codec` raw blocks into `MaximumOutputSize`-bounded buffers; `IBufferWriter<byte>` sinks on both frame legs
-- Reject: a second frame over a payload its serializer already compressed; a raw-block decode with no out-of-band size; a compression tag standing in for an integrity hash; a pointer pump where a span combinator spans the same step

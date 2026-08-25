@@ -32,7 +32,7 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 - Growth: a new session verb is one `SessionOp` case and one total `Switch` arm; a new repaint posture is one `RepaintPlan` case; a new budget band is one `SessionLane` row.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Parametric;

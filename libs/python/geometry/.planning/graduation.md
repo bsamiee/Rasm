@@ -16,7 +16,7 @@
 - Boundary: no compute import, generic outcome carrier, caller-authored evidence map, page-local span manager, signal harvesting, or duplicate benchmark model exists in this folder.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from enum import StrEnum
 from functools import partial

@@ -4,23 +4,7 @@
 
 Both public verb families run span-first: `TryCreateBlob(ReadOnlySpan<byte>, …)` and `TryWrite(ReadOnlySpan<byte>, int)` are the live overloads, and each `byte[]` twin carries `[Obsolete]` naming its span replacement and a removal-in-next-major notice. Compositions reaching a `byte[]` overload take a build warning today and a break at the next major.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.PersistentStorage.FileSystem`
-- package: `OpenTelemetry.PersistentStorage.FileSystem`
-- assembly: `OpenTelemetry.PersistentStorage.FileSystem`
-- namespace: `OpenTelemetry.PersistentStorage.FileSystem`
-- asset: runtime library
-- rail: telemetry
-
-[PACKAGE_SURFACE]: `OpenTelemetry.PersistentStorage.Abstractions`
-- package: `OpenTelemetry.PersistentStorage.Abstractions`
-- assembly: `OpenTelemetry.PersistentStorage.Abstractions`
-- namespace: `OpenTelemetry.PersistentStorage.Abstractions`
-- asset: transitive base contract restored with the file-system provider
-- rail: telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file-system provider family
 - namespace: `OpenTelemetry.PersistentStorage.FileSystem`
@@ -38,7 +22,7 @@ Both public verb families run span-first: `TryCreateBlob(ReadOnlySpan<byte>, …
 |  [01]   | `PersistentBlobProvider` | abstract owner | public create/get/enumerate wrappers over `protected On*` virtuals |
 |  [02]   | `PersistentBlob`         | abstract blob  | public lease/read/write/delete wrappers over `protected On*`       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider construction and lifetime
 - namespace: `OpenTelemetry.PersistentStorage.FileSystem`
@@ -83,7 +67,7 @@ Both public verb families run span-first: `TryCreateBlob(ReadOnlySpan<byte>, …
 
 - `TryRead` returns the whole batch as one `byte[]`; no span read exists, so a drain pays one array per replayed blob and bounds its own concurrency accordingly.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `FileBlobProvider` extends `PersistentBlobProvider` and implements `IDisposable`; `FileBlob` extends `PersistentBlob`.
@@ -106,9 +90,3 @@ Both public verb families run span-first: `TryCreateBlob(ReadOnlySpan<byte>, …
 - Construct one `FileBlobProvider` per OTLP transmission owner at the composition root, rooted at a per-owner writable queue directory, disposed with the owner.
 - Drive every constructor policy value from the governance table.
 - Reach the span overloads alone; the `byte[]` twins are obsolete and removed at the next major.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.PersistentStorage.FileSystem`
-- Owns: on-disk durability for OTLP export batches — offline queue, replay, retention
-- Accept: composition-root `FileBlobProvider` construction; span `TryCreateBlob`/`TryWrite`; drain order `GetBlobs`/`TryGetBlob` → `TryLease` → `TryRead` → successful export → `TryDelete`
-- Reject: hardcoded queue policy at call sites; reading a blob without a lease; storing unredacted payload bytes; obsolete `byte[]` overloads; arming the exporter's own disk retry beside a branch-owned queue

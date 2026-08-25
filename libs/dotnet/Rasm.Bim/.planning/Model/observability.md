@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL, BCL-only. Point capsule, rail, mount custody, fault ce
 - Boundary: point ids compose the kernel `HookId` grammar with the package segment pinned `bim`, so a Bim point joins any app-tier registry census unrenamed — Bim declares its points here and the composing app subscribes direct; ids, planes, and modalities derive from the roster row alone, so an inline `HookId.Create` at a fire site does not compile; the payload closes at declaration, so a stringly payload cannot enter the rail; cases carry the CLOSED vocabulary key a sibling owner published (`InterchangeFormat.Key`, `IdsOutcome.Key`, `RuleSeverity.Key`, `ArtifactKey.Value`) rather than that owner's type, so this S0 Model stratum consumes no Exchange, Energy, or Review sibling type and each announcement re-admits the key through its owning gate; telemetry is a tap, never a producer — `[03]-[TELEMETRY_TAP]` subscribes one tap row here and `Exchange/events#EVENT_PROJECTION` subscribes beside it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Linq;
@@ -196,7 +196,7 @@ public static class BimHooks {
 - Boundary: library altitude holds zero OpenTelemetry reference and zero span custody — the meter reaches the process only through the composing root's mint, so provider disposal owns instrument lifetime, and the kernel `SpanBand` owns the one `ActivitySource` per admitted scope, its listener gate, its `using` close, and its typed fail-leg status, so this page declares `BimPoint.Scopes` and holds no source, no wrapper, and no disposable; instrument custody is one-per-composition — either the app fan materializes the `Telemetry` port or a root binds `InstrumentSet.Of` locally, never both; subscription law — the tap mounts at `Live` ahead of the first fire, because the rail fans a `Replay` point's held window to each fresh subscriber and a late attach therefore re-counts that window onto the verdict counter; span law — the span name IS the kernel `Op` and the plane the point's own id head, so bracket and fact never name two scopes, and the typed verdict, not a tag, carries the error fact; attribution law — dimension slots carry this package's dotted `rasm.bim.<dimension>` namespace so a concept a sibling package also tags never collides, fault identity stays on the preserved Error as generated numeric code plus locally derived recovery rather than a string owner/category tag, tenancy is the kernel `TenantContext` projection every metric write folds so this page holds no tenant key and no baggage read, and model identity is identifier-grade: it rides the span alone as `Traced`'s own required argument, because one metric series per model is unbounded cardinality no view cap recovers and a slot left to caller discipline is a slot no caller stamps; the span fold never re-stamps the tenant partition the app root's baggage promotion already carries; SDK composition, exporters, exemplars, views, and cardinality caps stay at the app roots.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics;
 using LanguageExt;
 using Rasm.Domain;
@@ -401,7 +401,7 @@ public static class BimTelemetry {
 - Boundary: the bench edge resolves the claim's corpus slug, admits the harness sample through `BenchMeasurement.Of`, and passes that measurement directly to `Benchmark.Of` with suite `rasm.bim`, the claim key, and the corpus fingerprint; `Rasm.Bim` exports only the `BenchClaim` rows.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Element.Graph;
 using static LanguageExt.Prelude;

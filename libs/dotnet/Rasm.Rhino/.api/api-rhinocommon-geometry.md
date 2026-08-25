@@ -4,17 +4,7 @@ This catalog owns the host-bound `Rhino.Geometry` crossing surface the substrate
 
 Substrate `libs/dotnet/.api/api-rhinocommon.md` owns the `Transform` factory/decomposition/inverse algebra, the `BoundingBox` member set, the `GeometryBase.GetBoundingBox` bounds triple, `GeometryBase.Transform(Transform)`, and the `Point3d`/`Vector3d`/`Plane`/`Line`/`Box` carriers, which this crossing registers. Kernel-grade geometry algorithms live in `Rasm` and compose the host surface; the hidden-line and intersection families catalog the host offering a design page reads for parity, and the kernel reservation binds those pages.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon geometry-crossing surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Collections`
-- kernel: `Rasm` (host-agnostic geometry and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: geometry-crossing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: crossing owners
 
@@ -83,7 +73,7 @@ Substrate `libs/dotnet/.api/api-rhinocommon.md` owns the `Transform` factory/dec
 - `LightStyle`: `None=0`, `CameraDirectional=4`, `CameraPoint=5`, `CameraSpot=6`, `WorldDirectional=7`, `WorldPoint=8`, `WorldSpot=9`, `Ambient=10`, `WorldLinear=11`, `WorldRectangular=12`.
 - `Light.Attenuation`: `Constant`, `Linear`, `InverseSquared`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: geometry identity and mutation
 
@@ -295,7 +285,6 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 |  [05]   | `RTree.PointCloudClosestPoints(PointCloud, IEnumerable<Point3d>, double)`        | radius  | R-tree           |
 |  [06]   | `RTree.Point3dClosestPoints(IEnumerable<Point3d>, IEnumerable<Point3d>, double)` | radius  | R-tree           |
 
-
 - `Point3dList`: `Point3dList(IEnumerable<Point3d>)` and `Point3dList(params Point3d[])` ctors; `BoundingBox`, per-axis `X`/`Y`/`Z` accessors, `SetAllX`/`SetAllY`/`SetAllZ`, and static `ClosestIndexInList`/`ClosestPointInList`.
 - `CurveList.Add`: `Circle`/`Arc`/`Ellipse`/`IEnumerable<Point3d>` overloads; `Insert(int, …)` mirrors each and `Transform(Transform) -> bool` transforms every curve.
 - `TransformObjectList`: `IDisposable`; `Add(RhinoObject)`/`Add(ObjRef)`, `ObjectArray() -> RhinoObject[]`, `GripArray() -> GripObject[]`, `GripOwnerArray() -> RhinoObject[]`, `Count`/`GripCount`/`GripOwnerCount`, `DisplayFeedbackEnabled`, `GetBoundingBox(bool, bool) -> BoundingBox`, `UpdateDisplayFeedbackTransform(Transform) -> bool`, `Clear()`.
@@ -320,7 +309,7 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 - `[Light attenuation]`: `AttenuationType` `AttenuationVector` `GetAttenuation(double) -> double`, with static `ConstantAttenuationVector`/`LinearAttenuationVector`/`InverseSquaredAttenuationVector` presets.
 - `[Light spot]`: `SpotAngleRadians` `SpotExponent` `HotSpot`. `[Light identity]`: `Name` `Id`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `GeometryBase` owns the native crossing: `DuplicateShallow` shares the native pointer (`IsShallowDuplicate` reports it), `Duplicate` lifts geometry off `IsDocumentControlled` document ownership, and `DataCRC` is the content-identity hash. A boundary that mutates or retains document-controlled geometry duplicates first, keys it by `DataCRC`, and carries its user strings. In-place mutation and bounds derivation cross the substrate `Transform`/`BoundingBox` value algebra at the wire.
@@ -340,9 +329,3 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 [LOCAL_ADMISSION]:
 - Native geometry enters through the crossing owner: a document-controlled instance is `Duplicate`d before retention or mutation, keyed by its `DataCRC` content hash and carried user strings.
 - Host geometry types hold only inside the crossing; downstream code holds canonical `Rasm` geometry keyed by the content hash, and the crossing is the only place native `GeometryBase` state is read or written.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: native geometry identity and duplication, `DataCRC` content hashing, mesh texture-coordinate cache lifecycle, clip participation, the `HiddenLineDrawing`/`Silhouette` Make2D projection surface, the `Rhino.Geometry.Intersect` roster recorded as host parity, the `Rhino.Collections` point/curve buffers, and the `Light` geometry type.
-- Accept: document-control-aware duplication, content-keyed identity, coordinate-cache prime/read/invalidation, clip participation projected onto `Fin`/`Option` rails, Make2D projection compute and result classification, intersection results fanned onto `Fin`/`Seq` rails, host list buffers read into canonical collections, and a `Light` kind read through `LightStyle`/`Is*Light`.
-- Reject: re-deriving the kernel geometry algorithms `Rasm` owns, retaining document-controlled geometry without duplication, leaking host geometry types past the boundary, calling the host `Intersection`/`HiddenLineDrawing` static where a design page reserves the kernel, retaining a host `RhinoList`/`Point3dList` past the boundary, and branching a light on construction rather than its `LightStyle`.

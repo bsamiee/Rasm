@@ -2,7 +2,6 @@
 
 `FrameInterop` translates any admitted native dataframe to any backend over `narwhals`, and `ArrowCStream` carries Arrow across the seam pyarrow-free over the Arrow C Data Interface — one owner over the two interchange hops. `FrameInterop` discriminates a single `Backend` axis bound to the live `narwhals.Implementation` vocabulary against one `_BACKEND` behavior table, so a new backend is one `Backend` row plus one `_BACKEND` row, never a parallel adapter family and never an `isinstance` dispatch over native frame types. This is the tier-0 base of the tabular plane: it imports nothing from `rasm.data`, and every folder composition edge points strictly down into it.
 
-
 ## [01]-[INDEX]
 
 - [02]-[INTEROP]: the backend-agnostic translation owner over the seven-row eager/lazy `Backend` axis and `_BACKEND` table, the folder-wide `DataLeg` raise-leg and `DataHook` point-id rosters, this module's `RAISES` table, the locally-declared `FieldShape`/`FieldBreach`/`ShapeSource` and the `ColumnSpec` durable-column declaration with its four derivations, the null-mask schema fold, the folder's `arrow_bytes` serialization, the `cohort_bytes` numeric-cohort projection, and the content-keyed `FrameTranslation`.
@@ -23,7 +22,7 @@
 - Boundary: no compute (the numeric and labelled-array ownership stays in `compute`), no durable store, no query rail (`tabular/query#QUERY` owns the relational plane), no lazy-scan execution (`tabular/columnar#SCAN` owns the `register_io_source` pushdown); `narwhals` owns only the frame-translation hop and the schema fold; `DoeDataset` is the WIRE ADMISSION only — the fit itself is the `compute` companion's and the graduated ONNX crosses back over `GraduationEvidence`, never a training loop here. Rejected forms: a per-backend `PolarsAdapter`/`PandasAdapter` trio or `isinstance` dispatch where one `_BACKEND` row owns lowering; a `FieldShape` re-declared on a consumer page where this minter owns it; a second `collect_schema()` path beside `schema_of`; a bare result-less lowering entrypoint beside `translate`, whose `FrameTranslation` already carries the lowered frame with its key; a second whole-table serialization beside `arrow_bytes` — `nanoarrow.ArrayStream(table).read_all().serialize()` is the falsified twin, emitting a bare batch message with NO schema, so `pyarrow.ipc.open_stream` refuses those bytes outright and two frames differing in schema alone mint one identical key.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from collections.abc import Buffer, Callable, Iterable, Iterator
 from enum import StrEnum

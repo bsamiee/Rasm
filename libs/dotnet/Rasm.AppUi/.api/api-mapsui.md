@@ -4,29 +4,7 @@
 
 This catalog owns the control binding, the `Mapsui` core model, layer, style, thematic, widget, and projection stack, and the `Mapsui.Tiling` tile rail; `.api/api-mapsui-nts.md` owns NTS geometry, providers, and the editing session.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Mapsui.Avalonia12`
-- package: `Mapsui.Avalonia12` (MIT)
-- assembly: `Mapsui.UI.Avalonia` — package id and assembly id differ; ships `MapControl`, `RenderController`, `PointExtensions`
-- namespace: `Mapsui.UI.Avalonia`, `Mapsui.UI.Avalonia.Extensions`, `Mapsui.Rendering`
-- depends: `Avalonia`, `Avalonia.Skia`, `SkiaSharp`, `Svg.Skia`, `Topten.RichTextKit`, `Mapsui.Rendering.Skia`, `Mapsui.Tiling`, `BruTile`
-- rail: map — the Avalonia viewport binding
-
-[PACKAGE_SURFACE]: `Mapsui`
-- package: `Mapsui` (MIT)
-- assembly: `Mapsui` — zero package dependencies; pure managed
-- namespace: `Mapsui`, `Mapsui.Layers`, `Mapsui.Styles`, `Mapsui.Widgets`, `Mapsui.Projections`, `Mapsui.Extensions`
-- rail: map — model, camera, layers, features, styles, widgets, projection
-
-[PACKAGE_SURFACE]: `Mapsui.Tiling`
-- package: `Mapsui.Tiling` (MIT)
-- assembly: `Mapsui.Tiling`
-- namespace: `Mapsui.Tiling`, `Mapsui.Tiling.Layers`, `Mapsui.Tiling.Provider`, `Mapsui.Tiling.Fetcher`, `Mapsui.Tiling.Rendering`
-- depends: `BruTile`, `Mapsui`
-- rail: map — BruTile tile sources, tile layers, fetch planning, and render strategy
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CONTROL_TYPE_SCOPE]: the Avalonia binding — `Mapsui.UI.Avalonia`
 
@@ -219,7 +197,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `GlobalSphericalMercator` : `TileSchema`; its ctor arities strip `(format, yAxis, minZoomLevel, maxZoomLevel, name)` from the left and one further arity takes an explicit `zoomLevels` set with an `Extent`, every parameter defaulted — so a zoom-band-only call resolves to the narrowest `(minZoomLevel, maxZoomLevel, name)` arity by the fewest-omitted-optionals rule and takes `"png"` with `YAxis.OSM`, the slippy-map orientation every `{z}/{x}/{y}` template assumes.
 - `IPersistentCache<T>` : `ITileCache<T>` adds no member of its own — it is the marker distinguishing a durable store from the in-memory `MemoryCache<T>` the layer keeps around the viewport.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CONTROL_ENTRY_SCOPE]: the `MapControl` binding surface — `Mapsui.UI.Avalonia`
 
@@ -420,7 +398,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `RulerWidget`: `Color` `ColorOfBeginAndEndDots` `IsActive` `ShowInfoNextToRuler` `InfoBox` with read-only `StartPosition` `CurrentPosition` `DistanceInKilometers` and the `DistanceUpdated` event; distance folds through `SphericalMercator.ToLonLat` and haversine, so it reads kilometres over the sphere.
 - `LoggingWidget`: `LogLevelFilter` `MaxNumberOfLogEntriesToKeep` `ErrorTextColor` `WarningTextColor` `InformationTextColor` `ListOfLogEntries`; `ImageButtonWidget`: `Padding` `Image` `Rotation` over a transparent `BackColor`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every draw folds through one `Map`: its grouped `LayerCollection` painted by the transitive `Mapsui.Rendering.Skia` renderer, `Map.Widgets` painted as screen-space chrome above it, and the control only binding and hosting.
@@ -439,9 +417,3 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 [LOCAL_ADMISSION]:
 - One `MapControl` over a `Map` is the Shell 2D geo viewport; the model builds from `Mapsui` core, and every camera move routes through `Navigator` under animation.
 - `ScaleBarWidget`, `MapInfoWidget`, `PerformanceWidget`, and `LoggingWidget` bind their map at construction, so a widget row carries `Func<Map, IWidget>` rather than a bare `Func<IWidget>`.
-
-[RAIL_LAW]:
-- Package: `Mapsui.Avalonia12` over `Mapsui` and `Mapsui.Tiling`, composing the transitive `Mapsui.Rendering.Skia`, the directly admitted `Mapsui.Nts`, and the `BruTile` tile-source contract `Mapsui.Tiling` is spelled in
-- Owns: the Shell 2D slippy-map, basemap, and vector-overlay viewport — one `MapControl` over a `Map` with a tile basemap, feature overlays, and screen-anchored chrome on the shared Skia surface
-- Accept: `MapControl` bound to a `Map` via `MapProperty`; a BruTile `TileLayer` basemap over an `HttpTileSource` carrying its own schema, credit, cache, and request hook; a `MemoryLayer`, `WritableLayer`, or provider-fed `Layer` overlay; `LayerCollection` groups for z-banding; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `GradientTheme`/`ThemeStyle`/`ColorBlend` for data-driven symbology; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
-- Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling; a post-render tile recolour standing in for a dark tile source; domain coordinates entering the model un-reprojected; a widget modeled as a world-space feature; a z-order branch where a layer group decides; reimplementing the `Mapsui` core model behind `Mapsui.UI.Avalonia`; re-declaring the `Mapsui.Nts` geometry, provider, or editing members here

@@ -2,9 +2,7 @@
 
 `Provenance` is the C2PA content-credential owner at the exchange boundary — ONE closed `tagged_union` binding a signed tamper-evident manifest into an emitted artifact and reading it back, discriminating `Sign`/`Read`/`ReadFragment`/`Embed`/`ArchiveIngredient` by payload shape and owning the dispatch, the async entry, and every case body directly. `SignerSpec` is the one signer policy union — a `CertKeySigner` feeding `Signer.from_info` and a `CallbackSigner` feeding `Signer.from_callback` whose `ed25519` factory binds the in-process `ed25519_sign` primitive for the common no-HSM case, the signing algorithm a `SigningAlg` `StrEnum` whose `C2paSigningAlg` row derives by name. `CredentialPolicy` is the admitted trust/TSA value every operation carries; each `_run` arm materializes one `Context` inside a deterministic `with` window, and `_signed` brackets the single-use `Builder` and `Signer` together so no native handle enters a spec or crosses the result rail. `CredentialEvidence` is the rich provenance output one `Reader.json()` manifest-STORE decode folds — signer chain, validation codes, the declared `c2pa.actions` edit/AI-source history, per-ingredient lineage, and the bound thumbnail `resources` extracted through `Reader.resource_to_stream` (the forensic evidence a DAM consumer walks). `Manifest.with_parents` lowers `core/plan#PLAN` `ArtifactWork.parents` content keys into `parentOf` ingredient rows, so a composed sheet attests the charts and renders it derives from by the same identities the pipeline dedups on.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[CREDENTIAL]
 
@@ -14,7 +12,7 @@
 - Growth: a new operation is one `Provenance` case with its payload and one `match` arm (the `Embed` case is exactly this); a new signer seam one `SignerSpec` case with one `_cose`/`alg` arm, an in-lane convenience one `CallbackSigner` factory (the `ed25519` factory needing no new case); a new signing algorithm, intent, or digital-source origin one `SigningAlg`/`Intent`/`DigitalSource` member the c2pa row derives by name; a new ingredient modality one `Ingredient` case and one `_author` arm; a new lineage source one `with_parents` caller, the fold untouched; a new assertion one `ActionDefinition` row; a new evidence fact one `CredentialEvidence` field (the thumbnail `resources` band is exactly this), and when contract-settled one scalar on `CredentialEvidence`; a new readable store field one field on the `_Store`/`_Manifest`/`_ResourceRef` boundary struct; a new verify/trust knob one field on `CredentialSettings` projected to `CredentialPolicy` plus one `Context.from_dict` key; a transient fault widens `_TRANSIENT`; zero new surface. A whole-builder archive is deliberately unbuilt — the frozen `Manifest` value is the reusable template, so only the processed-ingredient archive (which the JSON re-author cannot cheaply reproduce) earns an `Ingredient` case, and the `ArchiveIngredient` op is its mint half so the blob never arrives hand-carried.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial

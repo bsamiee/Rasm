@@ -4,16 +4,7 @@
 
 Every provider resolves a `Model.make` row into these tags, so provider choice is one composition-root layer swap.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/ai`
-- package: `@effect/ai` (MIT)
-- module: per-namespace subpath exports (`@effect/ai/LanguageModel`), `sideEffects:[]`
-- runtime: node|browser; peers `effect`, `@effect/platform`, `@effect/experimental`, `@effect/rpc`
-- asset: provider-agnostic LLM service tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OTel conventions, native MCP server
-- rail: ai-core
-
-## [02]-[LANGUAGE_MODEL]
+## [01]-[LANGUAGE_MODEL]
 
 [PUBLIC_TYPE_SCOPE]: generation contract and the free functions binding it
 
@@ -39,7 +30,7 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 [CONSTRUCTOR_PARAMS]: `generateText: (ProviderOptions) => Effect<Array<Response.PartEncoded>, AiError, IdGenerator>` `streamText: (ProviderOptions) => Stream<Response.StreamPartEncoded, AiError, IdGenerator>`
 [SURFACES]: `generateText(GenerateTextOptions) -> Effect<GenerateTextResponse, ExtractError, LanguageModel|ExtractContext>` `generateObject(GenerateObjectOptions) -> Effect<GenerateObjectResponse, ExtractError, LanguageModel|R|ExtractContext>` `streamText(GenerateTextOptions) -> Stream<Response.StreamPart, ExtractError, LanguageModel|ExtractContext>` `make(ConstructorParams) -> Effect<Service>`
 
-## [03]-[MODEL]
+## [02]-[MODEL]
 
 [PUBLIC_TYPE_SCOPE]: the capability-asymmetry row abstraction
 
@@ -58,7 +49,7 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 |  [04]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
 |  [05]   | OpenRouter      | `effect-ai-openrouter.md`     | aggregator provider-routing + per-response cost metadata               |
 
-## [04]-[EMBEDDING_MODEL]
+## [03]-[EMBEDDING_MODEL]
 
 [PUBLIC_TYPE_SCOPE]: vector embedding with built-in batch and cache
 
@@ -68,7 +59,7 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 [RESULT]: `index: number` `embeddings: Array<number>`
 [SURFACES]: `make({…}) -> Effect<Service>` `makeDataLoader({…}) -> Effect<Service, never, Scope>`
 
-## [05]-[TOOL_AND_TOOLKIT]
+## [04]-[TOOL_AND_TOOLKIT]
 
 [PUBLIC_TYPE_SCOPE]: `Schema`-typed tools as data
 
@@ -90,7 +81,7 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 |  [12]   | `Tool.FailureMode`                                     | union        | `"error" \| "return"` failure-routing policy              |
 |  [13]   | `Tool.Any`                                             | erased bound | `Record<string, Tool.Any>` keys every options/toolkit sig |
 
-## [06]-[PROMPT_AND_RESPONSE]
+## [05]-[PROMPT_AND_RESPONSE]
 
 [PUBLIC_TYPE_SCOPE]: prompt construction and the response part algebra
 
@@ -115,7 +106,7 @@ Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Res
 |  [06]   | `@effect/ai/Response` | `ToolCall`/`ToolResult` `PartMetadata`                                                 |
 |  [07]   | `@effect/ai/Response` | `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` |
 
-## [07]-[CHAT]
+## [06]-[CHAT]
 
 [PUBLIC_TYPE_SCOPE]: stateful conversation and persistence
 
@@ -123,7 +114,7 @@ Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Res
 
 [SURFACES]: `Chat` `Service` `empty` `fromPrompt` `fromExport` `fromJson` `ChatNotFoundError` `Persistence` `Persisted` `makePersisted` `layerPersisted`
 
-## [08]-[TOKENIZER]
+## [07]-[TOKENIZER]
 
 [PUBLIC_TYPE_SCOPE]: token counting and budget truncation
 
@@ -132,7 +123,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 [SERVICE]: `tokenize: (input:Prompt.RawInput) => Effect<Array<number>, AiError>` `truncate: (input:Prompt.RawInput, tokens:number) => Effect<Prompt.Prompt, AiError>`
 [SURFACES]: `make({tokenize: (Prompt.Prompt) => Effect<Array<number>, AiError>}) -> Service`
 
-## [09]-[MCP_HOSTING]
+## [08]-[MCP_HOSTING]
 
 [PUBLIC_TYPE_SCOPE]: native MCP server and protocol schema
 
@@ -154,7 +145,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 - [09]-[ASSEMBLY]: `run` and `layer` are the interior the `layerStdio`/`layerHttp` rows compose; a fence reaches them only where no transport row expresses the deployment.
 - [10]-[CLIENT_TAG]: elicitation rides this tag, so `Host.confirm` reaches it through `McpServer.elicit` rather than the tag directly.
 
-## [10]-[TELEMETRY_IDS_ERRORS]
+## [09]-[TELEMETRY_IDS_ERRORS]
 
 [PUBLIC_TYPE_SCOPE]: GenAI telemetry, id generation, error rail
 
@@ -168,7 +159,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 [AI_ERROR]: `AiError = HttpRequestError | HttpResponseError | MalformedInput | MalformedOutput | UnknownError`
 [SURFACES]: `addGenAIAnnotations(Span, GenAITelemetryAttributeOptions) -> void` `addSpanAttributes(Span, GenAITelemetryAttributes) -> void` `SpanTransformer` — the provider-package hook interface a client layer accepts to reshape generation spans; the branch declines it (Convention owns every stamp) — `defaultIdGenerator: Service` `make(MakeOptions) -> Effect<Service, Cause.IllegalArgumentException>` `layer(MakeOptions) -> Layer<IdGenerator, Cause.IllegalArgumentException>` `isAiError(unknown) -> u is AiError`
 
-## [11]-[IMPLEMENTATION_LAW]
+## [10]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Generation rides `Effect`/`Stream`; failure flows through the tagged `AiError` union under `Match.tag` dispatch; a new provider is a new `Model.make` row, never a fork.
@@ -185,9 +176,3 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 
 [LOCAL_ADMISSION]:
 - `@effect/ai` with its five provider siblings is the admitted LLM surface; `@modelcontextprotocol/sdk` admits as MCP client only, never a second host.
-
-[RAIL_LAW]:
-- Package: `@effect/ai`
-- Owns: the provider-agnostic LLM contract — service tags, prompt/response/tool algebra, chat, embeddings, tokenizer, GenAI telemetry, MCP hosting.
-- Accept: one `Model.make` row per provider resolved into the shared tags, every call folded through the `ai/model.ts` guardrail gate.
-- Reject: a per-provider generation API, an ad-hoc `throw`, a hand-rolled MCP host, a second embedding or tokenizer port.

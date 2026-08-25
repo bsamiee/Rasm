@@ -466,7 +466,7 @@ app.MapMcp();
 await app.RunAsync();
 ```
 
-## [07]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

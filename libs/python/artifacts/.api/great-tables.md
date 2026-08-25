@@ -2,15 +2,7 @@
 
 `great_tables` mints the publication-quality table surface for the artifacts tables rail: one fluent `GT` builder folds locale-aware cell formatting, structural layout, value substitution, cell styling, data-driven colour, summary rows, and theme identity, then emits HTML, LaTeX, or a raster image. Its `loc` and `style` submodules supply the location selectors and cell-style value objects every targeted operation consumes; the top-level helpers configure plots, units, fonts, and footnote marks, and `vals.fmt_*` formats a series outside any `GT` chain.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `great_tables`
-- package: `great-tables` (MIT)
-- module: `great_tables`
-- namespaces: `great_tables.loc`, `great_tables.style`, `great_tables.vals`
-- rail: tables
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: table builder
 
@@ -67,7 +59,7 @@
 
 - [08]-[VALS_ROSTER]: `vals` carries `fmt_number` `fmt_integer` `fmt_currency` `fmt_percent` `fmt_scientific` `fmt_engineering` `fmt_partsper` `fmt_bytes` `fmt_roman` `fmt_date` `fmt_time` `fmt_duration` `fmt_image` `fmt_markdown`; `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` stay `GT`-only.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and structure
 
@@ -177,7 +169,7 @@
 - [20]-[SAVE]: `web_driver` default `'chrome'` ∈ chrome/safari/firefox/edge or a `webdriver.Remote`.
 - [28]-[TEXT_CASE_MATCH]: `match` is `str | list[str]`, `replace` ∈ `{'all','partial'}`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `GT` is the single fluent builder; every transform returns a copied `GT` (`GTSelf`), so a chain never mutates in place. Terminal emitters split by return: `render`/`as_raw_html`/`as_latex` -> `str`, `write_raw_html` -> `None`, `save` -> `GTSelf`, `show` displays.
@@ -196,9 +188,3 @@
 - one `GT(data)` owns the entire table; column selection uses `SelectExpr` (name strings, selectors, or `None` for all), row selection uses `RowSelectExpr`, and `tab_style` accepts a `CellStyle` or list and a `Loc` or list for multi-target application.
 - `data_color` derives text colour from background luminance under `autocolor_text=True`; `palette` is a matplotlib-compatible palette name or a hex list, `domain` a `list[str] | list[int] | list[float]`.
 - `as_raw_html` is the server-side artefact path; `save` is reserved for raster previews where a headless browser is available.
-
-[RAIL_LAW]:
-- Package: `great-tables`
-- Owns: fluent publication-quality table construction, locale-aware cell formatting, value substitution, structural layout, cell styling, data-driven colouring, theme identity, group and grand summary rows, and HTML/LaTeX/image export
-- Accept: a Pandas/Polars DataFrame or dict-like as `GT(data)`; `loc.*`/`style.*` objects for structural and styling operations; the polars `DataFrame.style` accessor returning a real `GT`
-- Reject: hand-rolled HTML table generation; manual CSS where `tab_style`/`opt_*`/`opt_css`/`tab_options` owns the surface; hand-rolled value substitution, column merging, cell-text transformation, or footnote marking where `sub_*`/`cols_merge_*`/`text_*`/`tab_footnote` owns the operation

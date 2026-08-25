@@ -4,17 +4,7 @@
 
 `browser/route` composes only the React-free `nuqs/server` codec; the `useQueryState*` hooks and their adapters are a `ui`-tier surface, and the RSC `createSearchParamsCache` is the streaming-SSR non-goal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nuqs`
-- package: `nuqs` (MIT)
-- module: pure ESM (`type: module`); entries `nuqs` (React hooks + re-exported core) and `nuqs/server` (framework-agnostic codec — the browser rail); types `dist/index.d.ts`, `dist/server.d.ts`
-- runtime: browser or isomorphic; the `nuqs/server` parsers, serializer, and loader stay React-free, only `createSearchParamsCache` imports React and tree-shakes when unused; peer `@standard-schema/spec`
-- marker: `sideEffects` only `./dist/debug.js`; `Options.startTransition` references React `TransitionStartFunction` type-only, never a runtime pull
-- admission: folder-local `# browser` catalog group
-- rail: `browser/route`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the parser algebra and the URL-write option vocabulary
 - `.withDefault(v)` makes a key non-nullable and, with `clearOnDefault`, drops it from the URL at the default; `.withOptions` overrides write behavior per key.
@@ -36,7 +26,7 @@
 
 - Rows [08] and [11] declare inside the entry module and reach no export specifier, so an import of the bare name resolves nowhere — each reads off the surface returning it: `ReturnType<typeof throttle>`, `ReturnType<typeof createSerializer<Parsers>>`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parser atoms, the parameterized constructors, the pure codec, and the rate-limit builders
 
@@ -67,7 +57,7 @@
 - `createSerializer`: honors only `clearOnDefault`, `urlKeys`, `processUrlSearchParams`; `history`/`scroll`/`shallow`/`startTransition`/`limitUrlUpdates` are hook-only.
 - `createLoader`: returns a loader re-decoding any `LoaderInput` per `navigate` event.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `createParser`/`createMultiParser` own any state `T` beyond the fixed `parseAs*` atoms — each a `parse`/`serialize`/`eq` triple over one key, the whole surface — so a bespoke shape is one of those under a Schema.
@@ -82,9 +72,3 @@
 
 [LOCAL_ADMISSION]:
 - One `ParserMap` per route; `createParser` owns any bespoke encoding rather than string-mashing `URLSearchParams`.
-
-[RAIL_LAW]:
-- Package: `nuqs`
-- Owns: typed URL query-state parse, serialize, and load — the codec half of `browser/route`.
-- Accept: the `nuqs/server` core (`parseAs*` atoms, `createParser`, `createSerializer`, `createLoader`, `createStandardSchemaV1`) composed against the Navigation API and kernel `Schema`.
-- Reject: the `useQueryState`/`useQueryStates` hooks and `nuqs/adapters/*` (a `ui`-tier surface); `createSearchParamsCache` (RSC non-goal); manual `URLSearchParams` manipulation for state a parser owns; treating nuqs as the router.

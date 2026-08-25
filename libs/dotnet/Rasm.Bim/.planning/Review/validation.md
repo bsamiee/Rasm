@@ -19,7 +19,7 @@ The three-tier model-QA owner exposes one model-health verdict over the frozen s
 - Events: an issued `IdsAudit` fires the `Model/observability#HOOK_RAIL` `rasm.bim.review.verdict` point with `BimFact.Verdict` — the specification name beside its document ORDINAL (IDS spec names are not unique, so the ordinal keeps two same-named specifications' verdicts apart), the `Model` provenance address the fold ran over, the tier, the `IdsOutcome` key, the `RuleSeverity` key, the finding tally, and the failing `GlobalId` set — at the `Audit` fold's own edge; the point is REPLAY modality so a late panel drains the recent window, and the CloudEvents announcement is `Exchange/events#EVENT_PROJECTION`'s observe subscription over it, subject `name#ordinal` matching the coordination key. Minting a verdict message envelope at this rail is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -767,7 +767,7 @@ public static class IdsSchema {
 - Boundary: the scope split with the seam audit is absolute — `Rasm.Element/Projection/audit#AUDIT_FOLD` `ModelAudit` owns neutral structural integrity and coverage ratios, while this page owns IFC semantics. The baseline stream is produced by `Semantics/properties#TEMPLATE_AUDIT`; this owner composes those rows. The convergence is the finding family, never the matcher vocabularies. Document-validity `AuditFile` stays independent of model audit.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Bim.Model;
 using Rasm.Bim.Semantics;

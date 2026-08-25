@@ -2,15 +2,7 @@
 
 `tus-js-client` drives the browser leg of the tus resumable-upload protocol: one `Upload` instance owns POST creation, HEAD offset discovery, PATCH chunk transfer, retry policy, and URL-storage resume against a tus server. Proven server offsets gate every transfer, and the client owns no bytes past finalization — content-address folding stays server-side.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tus-js-client`
-- package: `tus-js-client` (MIT)
-- module: CJS + ESM; the package `browser` field remaps the `main`/`module` node builds to browser builds for the ui bundle
-- runtime: browser — the upload boundary for the ui bundle
-- rail: upload client for the `object/stream` resumable-upload lane
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: upload lifecycle, resume state, and protocol callbacks
 
@@ -34,7 +26,7 @@
 |  [05]   | `defaultOptions`                            | policy seed      | `httpStack`/`fileReader`/`urlStorage`/`fingerprint` |
 |  [06]   | `isSupported` / `canStoreURLs`              | capability facts | gate upload support and persistent resume storage   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: start, resume, retry, and terminate
 
@@ -48,7 +40,7 @@
 |  [06]   | `onBeforeRequest` / `onAfterResponse` / `onShouldRetry`                             | property | signing and retry-refusal policy  |
 |  [07]   | `onProgress` / `onChunkComplete` / `onUploadUrlAvailable` / `onSuccess` / `onError` | property | progress, URL persist, and fault  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every transfer op proves the server offset before sending bytes; resume rebinds a stored `uploadUrl` rather than restarting.
@@ -65,9 +57,3 @@
 - Resume through `findPreviousUploads` then `resumeFromPreviousUpload`, binding the server offset before transfer.
 - Persist `uploadUrl` through the `UrlStorage` port; completion or termination clears it.
 - Classify retry on `DetailedError.originalResponse.getStatus()` through `onShouldRetry`.
-
-[RAIL_LAW]:
-- Package: `tus-js-client`
-- Owns: browser tus upload sessions — `Upload`, resume discovery and URL storage, chunking, progress and request/response hooks, retry policy, custom `HttpStack`, file reader, and termination
-- Accept: one session per source, verified-offset resume, callback-to-effect progress and success projection, custom request policy through `HttpStack`/hooks, server-owned finalization
-- Reject: whole-file retry after a resumable URL exists, a second resume store beside the port, secret literals in headers, client-side content-address finalization, a shared `Upload` across independent files

@@ -25,7 +25,7 @@ Every mutation enforces the seam's STRUCTURAL edge law through the generated tot
 - Boundary: the working EDGE half is an ordered `ImmutableList` whose O(edges) membership/splice cost is batch-shaped and deliberate — the fence's `WorkingGraph` comment owns the full law (order is what the wire emits; every read-path query is a frozen-snapshot read), stated once there.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

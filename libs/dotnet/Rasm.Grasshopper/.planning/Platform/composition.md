@@ -48,7 +48,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 - Growth: a new mounted family is one roster row naming its entry; a new process-wide registry is one cell on this capsule, never a static on a library page.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Reflection;
 using Rasm.Domain;
 using Rasm.Grasshopper.Components;
@@ -121,12 +121,12 @@ public sealed class PlatformRoot : IDisposable {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]       | [OWNER]                  | [RAIL]                               | [CASES] |
-| :-----: | :-------------- | :----------------------- | :----------------------------------- | :-----: |
-|  [01]   | plugin identity | kernel `PackageIdentity` | one `Resolve`, typed `HookScope` key |    1    |
+| [INDEX] | [CONCERN]       | [OWNER]                  | [RAIL]                                | [CASES] |
+| :-----: | :-------------- | :----------------------- | :------------------------------------ | :-----: |
+|  [01]   | plugin identity | kernel `PackageIdentity` | one `Resolve`, typed `HookScope` key  |    1    |
 |  [02]   | session clock   | `PlatformRoot.Clock`     | one mint, injected into gauged owners |    1    |
-|  [03]   | fault custody   | `PlatformRoot.Faults`    | one bounded cell across every mount  |    1    |
-|  [04]   | mount roster    | `[03]` table             | one ordered walk, reverse teardown   |    8    |
+|  [03]   | fault custody   | `PlatformRoot.Faults`    | one bounded cell across every mount   |    1    |
+|  [04]   | mount roster    | `[03]` table             | one ordered walk, reverse teardown    |    8    |
 
 `PlatformIdentity`/`PlatformTelemetry` deleted onto the kernel resolve; the CoreAnimation estate lives at `Platform/layers.md`; the AppHost and cache lacings are shell obligations, never package fences.
 

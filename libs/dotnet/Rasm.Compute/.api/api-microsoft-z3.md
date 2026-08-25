@@ -2,16 +2,7 @@
 
 `Microsoft.Z3` binds the Z3 SMT theorem prover: a first-order satisfiability engine over combined theories of real and integer arithmetic (NRA/NIA), booleans, bit-vectors, arrays, and uninterpreted functions. Typed rule sets lower to assertions and the solver returns `SATISFIABLE` with a witnessing `Model`, `UNSATISFIABLE` with an `UnsatCore` naming the exact conflicting constraints, or `UNKNOWN` — the verify-and-explain complement of the `Google.OrTools` CP-SAT lane that optimizes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Z3`
-- package: `Microsoft.Z3` (MIT)
-- assembly: `Microsoft.Z3` (`netstandard2.0` managed wrapper P/Invoking native `libz3`)
-- namespace: `Microsoft.Z3`
-- asset: managed wrapper with per-RID `libz3` for win-x64 and osx-x64; the osx-arm64 `libz3` is Forge-provisioned, so a `Context` operation on osx-arm64 without it faults at native init rather than degrading silently
-- rail: satisfaction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context, expressions, sorts
 
@@ -36,7 +27,7 @@
 |  [06]   | `Statistics`       | class         | per-check counter table `: Z3Object`; `Size`, `Keys`, `Entries`, `this[string]` (null on miss)     |
 |  [07]   | `Statistics.Entry` | class         | one counter `Key` with `IsUInt`/`IsDouble` discriminating `UIntValue`/`DoubleValue`/`Value`        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build constants and constraints — `Context`
 
@@ -72,7 +63,7 @@
 - `Statistics` re-reads per check and its indexer answers `null` on an unknown key, so a counter name a tactic never published projects to absence rather than zero; `Entry` discriminates `IsUInt`/`IsDouble` and neither field carries meaning under the other flag.
 - `Set` overloads on `(string|Symbol, bool|uint|double|string|Symbol)` are the typed knob face of `Parameters`; `"timeout"` takes milliseconds as `uint`, so a `Duration` past `uint.MaxValue` is unrepresentable rather than truncating.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - ONE `Context` owns every `Expr`/`Sort`/`Solver`/`Model` for a solve and disposes at the boundary, releasing the native AST arena; a term minted by one context never mixes into another. Each rule-verify pass builds a fresh context per content-keyed request, asserts, checks, projects the verdict, and disposes, so the native handles never outlive the `AssessmentResult`.
@@ -86,9 +77,3 @@
 
 [LOCAL_ADMISSION]:
 - `Solver/satisfy` owns rule satisfaction: a verdict enriches an existing discipline's `AssessmentResult` on that discipline's route, or persists as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches under a seam `Discipline.Compliance` row.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Z3`
-- Owns: SMT satisfiability and explanation over NRA/NIA, boolean, bit-vector, array, and UF theories — `Context` construction, `Solver` incremental assert/check, `Model` witness extraction, `UnsatCore` conflict explanation, `Consequences` implied-literal extraction, `Statistics` search counters, and `Optimize` where the objective is a RULE-SET optimum over the same assertion stack (the recorded satisfy growth row)
-- Accept: a typed rule set lowered from `SymbolicExpr`, verified SAT/UNSAT with a witnessing model or a rule-naming unsat core, a universal implication set over declared variables, and a measured shortfall behind an `UNKNOWN`
-- Reject: a DESIGN-SPACE objective over variables and constraints, which CP-SAT/MILP owns; a context shared across sweep workers; a `libz3` assumption on osx-arm64 absent the Forge provisioning; a `Context`/`Model`/`Solver` leaked past the `AssessmentResult` boundary; a zero standing in for a counter key the run never published

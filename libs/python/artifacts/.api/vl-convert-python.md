@@ -2,17 +2,7 @@
 
 `vl-convert-python` renders Vega-Lite or Vega specs to SVG/PNG/JPEG/PDF/HTML/scenegraph and rasterizes finished SVG through its embedded V8 and resvg stack. It is the host-free chart-export engine and shared chart-SVG raster floor; each call returns bytes directly under the universal fault, observation, and retry rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `vl-convert-python`
-- package: `vl-convert-python` (BSD-3-Clause)
-- import: `vl_convert` (render alias `import vl_convert as vlc`)
-- owner: `artifacts`
-- rail: visuals — the `visualization/chart/export#EXPORT` host-free engine and the shared chart-SVG raster floor
-- entry points: none (library only)
-- capability: Vega-Lite/Vega static render to SVG/PNG/JPEG/PDF/HTML/scenegraph; standalone SVG-string rasterization to PNG/JPEG/PDF over the same embedded `resvg` core; Vega-Lite-to-Vega compilation; Vega-editor share-URL minting; font-directory registration; named-theme/config application; d3-format and d3-time-format locale resolution; IANA timezone reporting; bundled Vega-Lite/Vega/Vega-Embed/Vega-Themes version queries; self-contained JS-bundle synthesis
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: module surface and the typed render vocabularies
 
@@ -28,7 +18,7 @@
 
 - [02]-[VEGATHEMES]: `carbong10` `carbong100` `carbong90` `carbonwhite` `dark` `excel` `fivethirtyeight` `ggplot2` `googlecharts` `latimes` `powerbi` `quartz` `urbaninstitute` `vox`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Vega-Lite converters
 
@@ -79,7 +69,7 @@ Vega rows take a compiled `vg_spec` (`VlSpec`) and share `allowed_base_urls`/`fo
 |  [09]   | `javascript_bundle(snippet=None, vl_version=None)` -> `str` | self-contained Vega/Vega-Lite/Vega-Embed JS bundle   |
 |  [10]   | `get_local_tz()` -> `str \| None`                           | the IANA tz Vega applies to time axes                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Render axis: `import vl_convert as vlc`, and `vegalite_to_*`/`vega_to_*` is one converter surface keyed by output format × spec dialect; `visualization/chart/export#EXPORT` carries the per-format member pair as a `VlRow(vl, vega, text)` cell in the `VL_RENDER` table totalled over `ExportFormat`, each typed cell calling the provider with explicit format-correct keywords while the spec's `$schema` selects the dialect. Vega-Lite is the authoring dialect; `vegalite_to_vega` materializes the compiled Vega for cache or inspection; `vegalite_to_scenegraph`/`vega_to_scenegraph` expose the resolved scenegraph dict for measurement without committing a raster.
@@ -98,8 +88,3 @@ Vega rows take a compiled `vg_spec` (`VlSpec`) and share `allowed_base_urls`/`fo
 
 [LOCAL_ADMISSION]:
 - Admitted as the primary host-free chart export for `altair`/`vegafusion` output feeding `visualization/chart/export#EXPORT`, and the shared chart-SVG raster floor every chart-origin (`altair`/Vega/`lets-plot`/`typst`) SVG converges on over the bundled `resvg` core. `altair` produces the input spec and `vegafusion` pre-evaluates its transforms; the rendered PDF/PNG composes into `composition/compose#COMPOSE` and the `pymupdf`/`reportlab` owners; live UI stays outside.
-
-[RAIL_LAW]:
-- Package: `vl-convert-python`
-- Owns: headless Vega-Lite/Vega static render to SVG/PNG/JPEG/PDF/HTML/scenegraph, chart-origin SVG-string rasterization over the embedded `resvg` core, Vega-Lite-to-Vega compilation, Vega-editor URL minting, font registration, d3 locale + IANA tz resolution, and bundled version/theme/JS-bundle queries — no browser, no Node, no external process
-- Accept: spec-to-bytes render for `altair`/`vegafusion` output feeding `visualization/chart/export#EXPORT` and the `composition/compose#COMPOSE`/document owners; chart-origin (`altair`/Vega/`lets-plot`/`typst`) SVG-to-raster; all wrapped by the universal `anyio`/`msgspec`/`structlog`/`opentelemetry`/`expression`/`stamina` rails

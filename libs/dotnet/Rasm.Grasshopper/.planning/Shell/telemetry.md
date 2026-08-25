@@ -79,7 +79,7 @@ Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefi
 - Growth: a new lane is one write member with its roster row; a new tag axis on an existing write is one `Tag` pair inside the member.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Logging;
@@ -343,12 +343,12 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                                    | [RAIL]                                   | [CASES] |
-| :-----: | :------------------ | :----------------------------------------- | :--------------------------------------- | :-----: |
-|  [01]   | instrument roster   | `GhInstruments`                            | `Rows` + `Board` + 12 write members      |   15    |
-|  [02]   | telemetry admission | `GhTelemetry`                              | `Of → Fin<GhTelemetry>`; seat inverse    |    1    |
-|  [03]   | ambient log seam    | `GhLog`                                    | `For(category) → ILogger`; `Cell.Seat`   |    1    |
-|  [04]   | classification      | kernel `Sensitivity` + 4 attach attributes | port roster + `[LoggerMessage]` params   |    4    |
+| [INDEX] | [CONCERN]           | [OWNER]                                    | [RAIL]                                 | [CASES] |
+| :-----: | :------------------ | :----------------------------------------- | :------------------------------------- | :-----: |
+|  [01]   | instrument roster   | `GhInstruments`                            | `Rows` + `Board` + 12 write members    |   15    |
+|  [02]   | telemetry admission | `GhTelemetry`                              | `Of → Fin<GhTelemetry>`; seat inverse  |    1    |
+|  [03]   | ambient log seam    | `GhLog`                                    | `For(category) → ILogger`; `Cell.Seat` |    1    |
+|  [04]   | classification      | kernel `Sensitivity` + 4 attach attributes | port roster + `[LoggerMessage]` params |    4    |
 
 `Op`, `Lease<T>`, the kernel instrument mechanism (`InstrumentSpec.Create`, `InstrumentSet`, `Buckets`, `BoardPack`, `Sensitivity`, `Cell.Seat`), and every result owner are composed upstream; the app root owns `IMeterFactory` custody, provider binding, views, and OTLP egress — nothing on this page names an exporter. Deleted: the evidence union and its total projection fold (each producer writes its own instrument at its site), the `GhSensitivity` taxonomy twin (S1-41), the hand-rolled seat ladder (S1-42), the three folder-named spec factories (`Advised`/`Count`/`Distribution` → the kernel's one `Create`), the off-ladder objective ceilings (S1-43), the `DocumentToken`/session-cache/`ReportTagMetrics` obligations (cache estate deleted), and the `EtoDispatch.Watch`/`RuntimeLog`/`UiEventsLog` references (kernel `UiThread.Watch` and the kernel input estate own those seams).
 

@@ -2,17 +2,7 @@
 
 `VividOrange.Profiles.Catalogue` mints the published AISC and EN 10365:2017 section database as typed sealed-singleton profile classes, each carrying its geometry as `UnitsNet.Length` dimensions behind the `VividOrange.IProfiles` family contracts. `CatalogueFactory` maps a section-identity enum to an `ICatalogue`/`IProfile`; the catalogue owns the DATA half of the Materials Profiles section-property seam, and `VividOrange.Sections.SectionProperties` consumes each `IProfile` as the computation half. Published data seeds the Profiles steel and EN family axis over hand-keyed section literals.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Profiles.Catalogue`
-- package: `VividOrange.Profiles.Catalogue` (MIT)
-- assembly: `VividOrange.Profiles.Catalogue`
-- namespace: `VividOrange.Profiles`
-- asset: runtime library, pure-managed AnyCPU, no native RID; the `net10.0` consumer binds `lib/net8.0`
-- floor: geometry contracts and `UnitsNet.Length` dimensions ride the transitive `VividOrange.IProfiles`; the `ITaxonomySerializable` JSON taxonomy contract rides `VividOrange.ISerialization`; `UnitsNet` is the shared quantity floor
-- rail: profiles (section data)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: catalogue factory + entry contracts
 
@@ -52,7 +42,7 @@
 - channel / tee / angle: `Height` `Width` `WebThickness` `FlangeThickness`; `IDoubleAngle.BackToBackDistance`
 - rectangular / circular: `Height`/`Width` or `Diameter`; the hollow variants add `IHollowStructuralSection.Thickness`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: catalogue construction + entry properties
 
@@ -69,7 +59,7 @@
 
 - Dimension access is a family-selected cast returning `UnitsNet.Length`: `((II)entry).FlangeThickness`, `((ICircularHollow)entry).Diameter`, `((IHollowStructuralSection)entry).Thickness`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each entry is a sealed CRTP singleton over `SingletonCatalogueBase<T>` (`SingletonAmericanBase<T>` / `SingletonEuropeanBase<T>`): identity is reference equality, geometry is immutable published data, and the base folds `Type => Shape` with a constant `Catalogue` provenance.
@@ -85,9 +75,3 @@
 - `CatalogueFactory` admits only through the Materials Profiles boundary that seeds the steel/EN section families; `American`/`European` and the `ICatalogue` instance map onto the canonical Profile owner at the edge.
 - Geometry is read as `UnitsNet.Length` in its native unit and never converted inside an interior signature; the `UnitsNet` boundary (`libs/dotnet/.api/api-unitsnet.md`) owns any rescale.
 - A Profiles family that needs an AISC/EN section reads it from the catalogue, never from an inline dimension table.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Profiles.Catalogue` (MIT)
-- Owns: the published AISC + EN 10365 section database as typed sealed-singleton profiles carrying `UnitsNet.Length` geometry, the `American`/`European` identity enums, the `AmericanShape`/`EuropeanShape` family enums, and `CatalogueFactory`
-- Accept: a steel/EN section seeded into the Materials Profiles family axis by `CatalogueFactory`, geometry read as `UnitsNet.Length`, its `IProfile` fed to the section-property solver
-- Reject: a hand-keyed section-dimension literal where the catalogue carries the published value; a raw-`double` read of a `UnitsNet.Length` dimension; a blind `((II)entry)` cast on a non-I family; a parallel section-family enum duplicating `AmericanShape`/`EuropeanShape`

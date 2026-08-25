@@ -1,15 +1,8 @@
 # [PY_TESTS_API_HYPOTHESIS]
 
-`hypothesis` is the sole property substrate on the Python dev plane: it draws typed inputs from `SearchStrategy` values, shrinks every counterexample to a minimal witness, and persists failing examples for deterministic replay. `_testkit` owns the repo-facing surface and folds the msgspec and pydantic schema algebras into one `resolve(subject)`, so a law module imports `@spec`, the oracles, and `resolve`, never raw `given` or a hand-built strategy.
+`hypothesis` is the sole property substrate on the Python dev plane: it draws typed inputs from `SearchStrategy` values, shrinks every counterexample to a minimal witness, and persists failing examples for deterministic replay. `testkit` owns the repo-facing surface and folds the msgspec and pydantic schema algebras into one `resolve(subject)`, so a law module imports `@spec`, the oracles, and `resolve`, never raw `given` or a hand-built strategy.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `hypothesis` · license `MPL-2.0`
-- namespace: `hypothesis`; strategies `hypothesis.strategies as st`; stateful `hypothesis.stateful`; database `hypothesis.database`
-- asset: pure-Python wheel; profile registration and example storage live under `.cache/hypothesis` via `HYPOTHESIS_STORAGE_DIRECTORY`
-- rail: property / generative law — every `@spec(given=True)` law terminates here through `hyp_given(resolve(subject))`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                        | [KIND]            | [CAPABILITY]                                                                     |
 | :-----: | :------------------------------ | :---------------- | :------------------------------------------------------------------------------- |
@@ -50,7 +43,7 @@ class Bundle[Ex](SearchStrategy[Ex]):
     def __init__(self, name: str, *, consume: bool = False, draw_references: bool = True) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                          | [KIND]      | [CAPABILITY]                                                                          |
 | :-----: | :--------------------------------- | :---------- | :------------------------------------------------------------------------------------ |
@@ -84,7 +77,7 @@ def run_state_machine_as_test(state_machine_factory: type[RuleBasedStateMachine]
 
 [STATEFUL_VOCABULARY]: `rule(*, targets=(), target=None, **strategies)` and `initialize(...)` register command methods; `precondition(predicate)` guards a rule; `invariant(...)` asserts between steps; `Bundle(name)` names a symbolic store; `consumes(bundle)` removes a drawn reference; `multiple(*values)` emits zero-or-many bundle entries.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [HYPOTHESIS_TOPOLOGY]:
 - One engine folds three surfaces: `SearchStrategy` construction, `@given` example generation, and automatic shrinking to a minimal counterexample — a law never loops or shrinks by hand.
@@ -94,17 +87,11 @@ def run_state_machine_as_test(state_machine_factory: type[RuleBasedStateMachine]
 - Observability routes through `hypothesis.internal.observability.add_observability_callback` to `.artifacts/python/hypothesis` when `TESTS_OBSERVABILITY` is set, preserving the built-in callback.
 
 [STACKING]:
-- `strategies.py`(`../_testkit/strategies.py`): `resolve(subject)` is the ONE strategy source over the msgspec node taxonomy and the pydantic-core schema algebra; the [STRATEGY_ALGEBRA] rows are the primitives it composes — a law module never hand-authors a strategy.
-- `laws.py`(`../_testkit/laws.py`): `@spec` owns profile selection, `hyp_given(resolve(subject))` injection, marker application, and coverage attribution; a law decorates with `@spec`, never bare `@given`/`@settings`.
-- `spec.py`(`../_testkit/spec.py`): the stateful and algebraic oracles re-export `rule`/`initialize`/`precondition`/`invariant`/`Bundle`/`consumes`/`multiple`/`target` and drive `run_state_machine_as_test` through `model_based`.
-- `runtime.py`(`../_testkit/runtime.py`): owns `register_profile`, `set_hypothesis_home_dir`, the database composition, and the observability callback — a consumer selects a profile by name, never re-registers one.
+- `strategies.py`(`../testkit/strategies.py`): `resolve(subject)` is the ONE strategy source over the msgspec node taxonomy and the pydantic-core schema algebra; the [STRATEGY_ALGEBRA] rows are the primitives it composes — a law module never hand-authors a strategy.
+- `laws.py`(`../testkit/laws.py`): `@spec` owns profile selection, `hyp_given(resolve(subject))` injection, marker application, and coverage attribution; a law decorates with `@spec`, never bare `@given`/`@settings`.
+- `spec.py`(`../testkit/spec.py`): the stateful and algebraic oracles re-export `rule`/`initialize`/`precondition`/`invariant`/`Bundle`/`consumes`/`multiple`/`target` and drive `run_state_machine_as_test` through `model_based`.
+- `runtime.py`(`../testkit/runtime.py`): owns `register_profile`, `set_hypothesis_home_dir`, the database composition, and the observability callback — a consumer selects a profile by name, never re-registers one.
 
 [LOCAL_ADMISSION]:
 - Admitted on the `tests/` dev plane only; no `plane:runtime` module imports `hypothesis`.
-- `_testkit` internalizes the strategy registry, profile registry, and stateful driver; downstream law modules compose `@spec` and the oracles, never the engine directly.
-
-[RAIL_LAW]:
-- Package: `hypothesis`
-- Owns: typed input generation, minimal-counterexample shrinking, seeded replay via the example database, profile-governed run policy, and stateful command-trace exploration.
-- Accept: `resolve(subject)`-derived strategies through `@spec`; a registered profile named by `profile=`; `target`/`event` for search bias and statistics; `RuleBasedStateMachine` subjects through `model_based`.
-- Reject: a hand-rolled strategy where `resolve` folds the schema; bare `@given`/`@settings` on a law (use `@spec`); a manual shrink or retry loop; re-registering a profile a consumer selects by name; any import from a `plane:runtime` folder.
+- `testkit` internalizes the strategy registry, profile registry, and stateful driver; downstream law modules compose `@spec` and the oracles, never the engine directly.

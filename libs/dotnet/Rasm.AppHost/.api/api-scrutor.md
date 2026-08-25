@@ -2,15 +2,7 @@
 
 `Scrutor` folds assembly scanning into convention-driven `ServiceDescriptor` registration on the AppHost DI rail, and decorates a resolved service behind its own public contract.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Scrutor`
-- package: `Scrutor`
-- assembly: `Scrutor`
-- namespace: `Scrutor`, `Microsoft.Extensions.DependencyInjection`
-- rail: composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scan and decoration family
 
@@ -29,7 +21,7 @@
 |  [11]   | `DecoratedService<T>`         | class         | decorated-service handle      |
 |  [12]   | `ServiceDescriptorAttribute`  | class         | attribute-based mapping       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scan, source, and filter operations
 
@@ -78,7 +70,7 @@
 |  [17]   | `GetDecoratedServices<T>`        | static   | decorated-service enumeration |
 |  [18]   | `GetRequiredDecoratedService<T>` | static   | required decorated lookup     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Scan` folds one fluent chain — source selection, assembly selection, class admission, type filtering, service mapping, lifetime — into `ServiceDescriptor` rows, each intermediate stage a selector interface returning the next stage.
@@ -93,9 +85,3 @@
 - Scanning runs only at composition bootstrap.
 - Scan filters are deterministic and package-owned.
 - Decoration admits a cross-cutting port only where the decorated contract stays the public contract.
-
-[RAIL_LAW]:
-- Package: `Scrutor`
-- Owns: assembly scanning, convention registration, and decoration
-- Accept: scan chains mint `ServiceDescriptor` rows onto the composition collection
-- Reject: runtime reflection loops and hand-rolled registration conventions

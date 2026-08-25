@@ -2,15 +2,7 @@
 
 `matplotlib` owns the artifacts visuals rail's imperative publication 2D plotting and offscreen raster/vector export through the Agg/PDF/SVG/PS/PGF backend canvases. Every `ChartSpec.Matplotlib(figure, palette)` case renders through `_matplotlib_savefig` on the `anyio.to_process` subprocess seam, so matplotlib never resolves in the runtime process and re-implements neither the rendering backends nor the colormap registry it already owns. It holds the imperative-plotting band alone; declarative Vega/grammar charts, 3D scenes, display tables, and color-science models route to their own owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `matplotlib`
-- package: `matplotlib` (Matplotlib License)
-- import: `matplotlib`
-- owner: `artifacts`
-- rail: visuals
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: figure, axes, layout, and backend types
 
@@ -66,7 +58,7 @@
 |  [07]   | `FormatStrFormatter` / `StrMethodFormatter`                    | formatter      | `%`-style / `str.format`                        |
 |  [08]   | `FixedFormatter` / `LogFormatterSciNotation` / `NullFormatter` | formatter      | explicit-list / log-sci / no-label              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: figure construction, layout, and save
 
@@ -115,7 +107,7 @@ Every `[SURFACE]` is `Axes.*`, and the `c=`/`cmap=`/`norm=`/`colorizer=` ScalarM
 |  [14]   | `set_{title,xlabel,ylabel,xscale,yscale}`                           | axes labelling + log/linear/symlog scale                    |
 |  [15]   | `legend` / `annotate` / `grid` / `table`                            | legend, annotation, grid, embedded table                    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - backend axis: select a non-interactive backend (`Agg`/`pdf`/`svg`) via `matplotlib.use("Agg")` at boundary scope before constructing figures; `matplotlib.style`/`pyplot.style` (`use`/`context`/`available`) and `matplotlib.rc_context` set rcParams as a scoped context, never global mutation in domain code.
@@ -131,9 +123,3 @@ Every `[SURFACE]` is `Axes.*`, and the `c=`/`cmap=`/`norm=`/`colorizer=` ScalarM
 - palette source: `graphic/color/derive#DERIVE` is the single color source — `_matplotlib_savefig` registers `colors.ListedColormap(palette, name=f"chart-{id(figure):x}")` with `force=True` (idempotent re-register), then threads `axes.set_prop_cycle(color=hex_ramp(palette))` per axes with `hex_ramp` declared once on `visualization/chart/spec#CHART`, so the palette-thread is data, never a per-engine pick.
 - `structlog`/`opentelemetry` (`libs/python/.api/structlog.md`, `libs/python/.api/opentelemetry-api.md`): each render binds figure size, dpi, axes count, colormap/norm identity, format, and byte length to one event and the `async_boundary("chart.export.{fmt}", ...)` span.
 - downstream handoff: flat-SVG/raster bytes hand to the `composition/compose#COMPOSE` placement owner, which re-renders nothing; a multi-page `PdfPages` sink feeds `package/archive`; a vector SVG/PDF `savefig` feeds `export/dxf` and the imposition rail.
-
-[RAIL_LAW]:
-- Package: `matplotlib`
-- Owns: imperative 2D plotting, figure layout (subplots/mosaic/gridspec/layout-engines), the colormap/color-sequence registries and the `Normalize`/`Colorizer` color machinery, ticking/formatting, and offscreen raster/vector export to PNG/PDF/SVG/EPS/PS/PGF (and pillow-backed JPEG/TIFF/WebP/AVIF/GIF)
-- Accept: a `ChartSpec.Matplotlib(figure, palette)` figure rendered through `_matplotlib_savefig` on the `anyio.to_process` subprocess seam; `numpy` arrays into every plot method; a `ListedColormap`/`Colorizer` palette-thread; a `BytesIO` save sink
-- Reject: wrapper-renames of `savefig`; an interactive backend on the host-free path; a figure constructed on the runtime process instead of the worker; a hand-rolled colormap or tick loop where the `colormaps` registry and `ticker` families own it; a per-chart-kind type where axes methods suffice; a `matplotlib.animation` writer where PyAV owns temporal media; a declarative-Vega, grammar, or 3D claim matplotlib does not own

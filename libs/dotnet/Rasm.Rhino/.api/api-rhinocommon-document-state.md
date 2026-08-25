@@ -2,17 +2,7 @@
 
 This catalog owns the document-scoped saved-state presets — named construction planes, named positions, named layer states, the snapshot name roster, and the worksession reference-model roster — beside the `SnapShotsClient` seam through which a plugin captures and restores snapshots. `NamedViewTable` stays owned by Viewport/operations.md through `NamedViewOp`; the `ArchivableDictionary` and `PersistentSettings` custody spine lives in `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`. `SnapshotTable` carries its name roster alone: capture and restore ride `RunScript` and `SnapShotsClient`, never a table method.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon document-state surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.SnapShots`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: document-state-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: named-preset tables
 - rail: document-state-boundary
@@ -38,7 +28,7 @@ This catalog owns the document-scoped saved-state presets — named construction
 [ENUM_ROSTERS]:
 - `[Flags] public enum Rhino.DocObjects.Tables.RestoreLayerProperties : uint` — `None = 0`, `Current = 1`, `Visible = 2`, `Locked = 4`, `Color = 8`, `Linetype = 0x10`, `PrintColor = 0x20`, `PrintWidth = 0x40`, `ViewportVisible = 0x80`, `ViewportColor = 0x100`, `ViewportPrintColor = 0x200`, `ViewportPrintWidth = 0x400`, `RenderMaterial = 0x800`, `SectionStyle = 0x1000`, `NewDetailOn = 0x2000`, `Expanded = 0x4000`, `All = uint.MaxValue`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CONSTRUCTION_PLANES]:
 - `Rhino.DocObjects.Tables.NamedConstructionPlaneTable.Add(string name, Plane plane) -> int` / `Add(ConstructionPlane constructionPlane) -> int` — an empty name mints a unique one, an existing name REPLACES that cplane, `-1` signals rejection; Add/Find/Delete/indexer/Count is the whole roster, no `Modify` or `Rename`.
@@ -90,7 +80,7 @@ This catalog owns the document-scoped saved-state presets — named construction
 - `Worksession.FileName -> string` / `Name -> string` / `RuntimeSerialNumber -> uint` / `Document -> RhinoDoc` — worksession identity and owner; `FileName` is null and `Name` empty when no worksession or an unsaved one is active.
 - `Worksession.ModelPathFromSerialNumber(uint modelSerialNumber) -> string` — instance resolver against the owning worksession's document; `Worksession.FileNameFromRuntimeSerialNumber(uint runtimeSerialNumber) -> string` (static) — the one static worksession-file resolver.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PRESET_TOPOLOGY]:
 - each named table is a document-scoped name-to-state store: `NamedConstructionPlaneTable` over one cplane's plane, grid metric, and axis-color vocabulary; `NamedPositionTable` over per-object transforms keyed by id and name and reapplied on restore; `NamedLayerStateTable` over a full layer property set restored through the `RestoreLayerProperties` mask.
@@ -106,9 +96,3 @@ This catalog owns the document-scoped saved-state presets — named construction
 [LOCAL_ADMISSION]:
 - a preset enters through the owning table's `Save` or `Add`; restore and update return `bool` outcomes the rail lifts to `Fin`; snapshot participation enters once through `RegisterSnapShotClient`.
 - live `ConstructionPlane`, `Worksession`, and archive-reader handles stay inside the document grant; downstream code receives detached preset values, decoded transforms, or detached results.
-
-[RAIL_LAW]:
-- Surface: `Rhino.DocObjects.Tables` named-preset tables + `Rhino.DocObjects` cplane and worksession carriers + `Rhino.DocObjects.SnapShots` participation
-- Owns: named construction planes, named positions, named layer states, the snapshot name roster, the worksession reference-model roster, and plugin snapshot participation.
-- Accept: preset save, restore, update, rename, and delete, layer-state restore under a property mask, snapshot participation registration, and worksession roster reads projected onto `Fin`/`Option` rails.
-- Reject: snapshot capture and restore through the table, named-view ownership, assumed preset existence, and exception-style table outcomes.

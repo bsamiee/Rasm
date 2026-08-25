@@ -2,17 +2,7 @@
 
 `CavalierContours` owns arc-native (bulge) 2D polyline algebra — offset, closed-polyline Boolean, containment, measure, and spatial indexing. Each circular arc rides as one `PlineVertex<T>` pair carrying `Bulge = tan(theta/4)`, so the offset and Boolean engine runs in exact arc-space where the line-only `Clipper2` (`api-clipper2`) cannot. It produces the kerf, lead-arc, and morphed-spiral adaptive-clearing paths in arc-space, retiring the post-hoc `Clipper2`-offset-then-`g3.BiArcFit2`-refit on the `Toolpath` and `Posting` arc rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CavalierContours`
-- package: `CavalierContours` (ISC)
-- assembly: `CavalierContours`
-- namespace: `CavalierContours.Polyline`, `.Shape`, `.Spatial`, `.Core`
-- asset: pure-managed AnyCPU IL, multi-target `net10.0`/`net8.0`, ALC-safe, zero package dependencies
-- generic: `T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>` — the `System.Numerics` generic-math floor, instantiated `double`
-- rail: fabrication — arc-native `Polygon` offset and Boolean, the `Clipper2` line-space peer
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: polyline carriers (`CavalierContours.Polyline`)
 - note: a carrier is an ordered `PlineVertex<T>` list with `IsClosed`; `Polyline<T>` is the mutable owner, `PlineView<T>`/`PlineViewData<T>` the zero-copy slices the offset and Boolean pipelines read.
@@ -87,7 +77,7 @@
 |  [03]   | `ShapeOffsetOptions<T>` | options record   | offset policy   |
 |  [04]   | `IndexedPolyline<T>`    | indexed loop     | loop plus index |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: polyline construction and mutation — `Polyline<T>`, with `CreateFrom` materializers over any `IPlineSourceMut<T>`
 
@@ -233,7 +223,7 @@
 |  [09]   | `Query(T, T, T, T) -> List<int>` / `QueryIter(...)`                 | materialized box hits     |
 |  [10]   | `Bounds` / `Count` / `NodeSize` / `ItemBoxes` / `ItemIndices`       | index shape and spans     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - each vertex is `(X, Y, Bulge)` where `Bulge = tan(theta/4)` of the arc to the next vertex: `0` straight, `> 0` sweeps CCW, `< 0` sweeps CW, `|Bulge| == 1` a semicircle. One constant-radius arc is one vertex pair — the whole reason to choose this owner over `Clipper2` for an arc-walled profile.
@@ -258,9 +248,3 @@
 - `Posting/program`: `PlineVertex<T>.Bulge` maps to a `G2`/`G3` arc move — center and radius derive from the vertex pair, and `Move.ArcCenter` reads straight from the segment with no refit.
 - `Nesting/nfp`: `PlineBoolean` `Not` mints the kerf-inflated `Remnant` in arc-space; the remnant's bulge threads into the next pass's `StaticAABB2DIndex` placement scan.
 - kernel: `Core.Vector2<double>` and `AABB<double>` boundary-map to `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box at the `Polyline<double>` ⇄ `Loop` seam, bulge preserved into the `Loop` arc-segment.
-
-[RAIL_LAW]:
-- Package: `CavalierContours`
-- Owns: arc-native (bulge) 2D polyline parallel offset, closed-polyline Boolean, containment and winding, closest-point, arc-aware area/path-length/extents, arc-length sampling, arc-to-line densification, the exact segment algebra and six-verdict segment-pair intersection under `PlineSeg`, and the flatbush `StaticAABB2DIndex` over open, closed, and self-intersecting polylines.
-- Accept: a `Polyline<double>` carrying real `Bulge` from the `ACadSharp` arc ingest; the static `PlineOffset`/`PlineBoolean` slice pipelines with a once-built `StaticAABB2DIndex` threaded through the options; a plain-`struct` `IQueryVisitor` for the hot index loop; the `PlineSeg` primitives where a test reaches one segment.
-- Reject: densifying an arc to a line fan at ingest; re-implementing offset or Boolean on `Clipper2` for an arc-walled profile; a `g3.BiArcFit2` refit of a bulge-carried path; a hand-rolled O(n²) self-intersection scan beside the `StaticAABB2DIndex`; a hand-rolled segment-pair test beside `PlineSegIntersection`, or a boolean hit predicate that erases its overlap verdicts; a non-`double` `T` on the fabrication rail; a medial-axis expectation this owner does not carry.

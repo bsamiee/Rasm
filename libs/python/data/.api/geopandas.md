@@ -2,16 +2,7 @@
 
 `geopandas` extends pandas with an active geometry column, holding CRS as a `pyproj.CRS` and dispatching vectorized Shapely GEOS ops, spatial and nearest joins, overlay, and dissolve over `GeoDataFrame`/`GeoSeries`. Geometry, projection, codec, and driver concerns delegate to their owners — the column is a `shapely` `GeometryArray`, IO routes through `pyogrio` (GDAL) and the GeoArrow/GeoParquet `pyarrow` wire, `GeoSeries.to_wkb()`/`points_from_xy` arrays feed the `h3ronpy` DGGS rail — so geopandas composes the geospatial stack, never re-implements it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `geopandas`
-- package: `geopandas` (BSD-3-Clause)
-- module: `import geopandas as gpd`
-- owner: `data`
-- rail: geospatial
-- asset: pure Python; geometry kernel is `shapely` 2 GEOS, CRS is `pyproj`, file IO is `pyogrio` (GDAL), Arrow interchange is `pyarrow`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry-aware frame, column, and index
 
@@ -22,7 +13,7 @@
 |  [03]   | `GeometryArray` | extension array | shapely-backed geometry buffer under a column (`geopandas.array`)                               |
 |  [04]   | `SpatialIndex`  | spatial index   | `.sindex` STRtree with `query`/`nearest`/`query_bulk`                                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction, IO, CRS, and spatial operations
 
@@ -50,7 +41,7 @@
 - constructive: `buffer` `intersection` `union` `union_all` `intersection_all` `difference` `symmetric_difference` `clip_by_rect` `convex_hull` `concave_hull` `envelope` `minimum_bounding_circle` `minimum_rotated_rectangle` `minimum_bounding_radius` `simplify` `segmentize` `offset_curve` `shared_paths` `shortest_line` `snap` `polygonize` `build_area` `line_merge` `voronoi_polygons` `delaunay_triangles` `constrained_delaunay_triangles` `make_valid` `boundary` `centroid` `representative_point` `extract_unique_points` `remove_repeated_points` `set_precision` `get_precision`
 - measurement: `area` `length` `distance` `hausdorff_distance` `frechet_distance` `bounds` `total_bounds` `interpolate` `project` `affine_transform` `translate` `rotate` `scale` `skew` `transform` `force_2d` `force_3d` `normalize` `reverse` `count_coordinates` `count_geometries` `count_interior_rings`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One active geometry column drives every predicate, constructive, and measurement op; `set_geometry`/`rename_geometry` reassign it and additional geometry columns coexist inert.
@@ -68,9 +59,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `geopandas` as the geometry-aware tabular owner on the data geospatial rail, composing shapely/pyproj/pyogrio/pyarrow rather than re-importing them per row.
-
-[RAIL_LAW]:
-- Package: `geopandas`
-- Owns: geometry-aware tabular structures, CRS assignment and reprojection, vectorized predicate/constructive/measurement ops, spatial and nearest joins, overlay set algebra, dissolve aggregation, sampling and coordinate extraction, geocoding, and geospatial IO
-- Accept: `GeoDataFrame`/`GeoSeries` owners, `.geometry` active-column dispatch, `set_crs` versus `to_crs` discipline, `sjoin`/`sjoin_nearest`/`overlay` for spatial relations, GeoParquet/GeoArrow round-trips, `to_arrow`/`to_wkb` as the zero-copy hand-off to the columnar and DGGS rails
-- Reject: per-row geometry iteration where a vectorized `GeoSeries` method exists, CRS reassignment via `set_crs` where reprojection is required, hand-rolled spatial-index loops when `sindex` is the STRtree, re-implementing shapely/pyproj/pyogrio capability, and duplicate per-format read/write wrappers outside the `read_*`/`to_*` family

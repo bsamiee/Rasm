@@ -1,6 +1,5 @@
 # [APPUI_CONTROL_MATERIALIZATION]
 
-
 Appearance is the page's ruling shape: the fold writes NO resolved paint, metric, or shadow onto a control. Emphasis resolves to one `ControlTheme` row of the `Theme/tokens#CONTROL_THEMES` table through `StyledElement.Theme`, the semantic `PaintRole` and the `TypographyRole` land as style classes the theme's own selectors match, and every value inside those themes binds `{DynamicResource}` — so a variant swap re-tints a materialized screen through Avalonia's own resource resolution and a `SetValue` of a resolved brush is unspellable in this fold.
 
 ## [01]-[INDEX]

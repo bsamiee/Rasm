@@ -2,19 +2,7 @@
 
 `SharpGLTF.Ext.3DTiles` owns the Cesium 3D Tiles metadata surface over `SharpGLTF.Core`: `EXT_structural_metadata` schema-class-property authoring, `EXT_mesh_features` and `EXT_instance_features` feature-ID binding, and the property table, texture, and attribute storage builders. Every type lives in `SharpGLTF.Schema2.Tiles3D` and registers through the Core `ExtensionsFactory`, overlaying metadata on the `ModelRoot`/`MeshPrimitive`/`Node` graph Core authors. `Rasm.Bim` authors the overlay and `Rasm.Compute` seats the registration at its composition root, so the surface homes at the branch tier beside its Core owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SharpGLTF.Ext.3DTiles`
-- package: `SharpGLTF.Ext.3DTiles` (MIT)
-- assembly: `SharpGLTF.Ext.3DTiles`
-- namespace: `SharpGLTF.Schema2.Tiles3D` (extension types, schema model, storage builders, feature-ID family)
-- namespace: `SharpGLTF.Schema2` (`Tiles3DExtensions` registration and binding statics, `ComponentCount` size queries)
-- namespace: `SharpGLTF.Memory` (`BinaryTable` binary encoder)
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`; IL-only AnyCPU, no native binaries
-- depends: `SharpGLTF.Core` (the `ExtensionsFactory` and the `ModelRoot`/`MeshPrimitive`/`Node` parents), `OneOf` (transitive, only on the `FeatureIDBuilder` ctor)
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: structural-metadata schema model
 
@@ -65,7 +53,7 @@
 |  [05]   | `BinaryTable`     | class         | static binary encode for property storage; bytes, string and array offsets            |
 |  [06]   | `ComponentCount`  | class         | static size queries: `ByteSizeForComponentType`, `ElementCountForType`                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Tiles3DExtensions` static extension methods on `ModelRoot`/`MeshPrimitive`/`Node`
 
@@ -124,7 +112,7 @@
 |  [07]   | `MeshExtInstanceFeatures.CreateFeatureID(IMeshFeatureIDInfo)`         | instance | add an instance feature-ID set      |
 |  [08]   | `MeshExtMeshFeatureID.UseTexture()`                                   | instance | create the feature-ID texture       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Tiles3DExtensions.RegisterExtensions()` registers every owned extension on the `SharpGLTF.Core` `ExtensionsFactory`, idempotent and run once before any read or write touching a Tiles3D extension.
@@ -140,9 +128,3 @@
 
 [LOCAL_ADMISSION]:
 - Admission enters through `Tiles3DExtensions.RegisterExtensions()` at startup, then `ModelRoot.UseStructuralMetadata()` for the schema-authoring root; `Rasm.Bim` admits the extension surface and the canonical schema shape.
-
-[RAIL_LAW]:
-- Package: `SharpGLTF.Ext.3DTiles`
-- Owns: `EXT_structural_metadata`, `EXT_mesh_features`, `EXT_instance_features`, `CESIUM_primitive_outline`
-- Accept: 3D Tiles metadata authoring, feature-ID binding, property storage encode
-- Reject: glTF core read/write, mesh building, runtime decode, tile pyramid streaming

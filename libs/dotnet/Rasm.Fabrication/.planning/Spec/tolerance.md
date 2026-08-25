@@ -25,7 +25,7 @@ The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters,
 - Boundary: a row states legality alone — the frame that composes them, its datum system, and its settled projection live at `[03]`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;

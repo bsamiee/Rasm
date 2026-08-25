@@ -2,15 +2,7 @@
 
 `@opentelemetry/instrumentation-fetch` patches the browser-global `fetch`, opening one client span per request with W3C trace headers injected on same-origin and CORS-allow-listed calls. `Vital.enrich` projects Performance-Timeline resource timings onto those spans, so the span and its network breakdown compose from two owners. Global patching makes it composition-root material — it registers in the `web` SDK configuration, never a library.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation-fetch`
-- package: `@opentelemetry/instrumentation-fetch` (Apache-2.0)
-- base: extends `@opentelemetry/instrumentation` `InstrumentationBase`; span shapes from `@opentelemetry/sdk-trace-web`
-- runtime: browser only — patches `globalThis.fetch`
-- rail: observability/rum
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumentation, config, and the two hook shapes
 
@@ -21,7 +13,7 @@
 |  [03]   | `FetchCustomAttributeFunction` | hook shape      | `(span, request, result) => void` post-settle stamp |
 |  [04]   | `FetchRequestHookFunction`     | hook shape      | `(span, request) => void` pre-dispatch stamp        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction policy — one `FetchInstrumentationConfig` object is the whole knob surface
 
@@ -34,7 +26,7 @@
 |  [05]   | `ignoreNetworkEvents` / `measureRequestSize`  | config field | timing-event and request-size toggles              |
 |  [06]   | `clearTimingResources`                        | config field | resource-timing buffer hygiene after projection    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - composition-root only — patching `globalThis.fetch` at library altitude double-instruments the host.
@@ -48,9 +40,3 @@
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, browser lane; registration lives only in the browser boot graph.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation-fetch`
-- Owns: browser fetch client spans and their `traceparent` injection
-- Accept: one root construction with `ignoreUrls` covering telemetry egress and `propagateTraceHeaderCorsUrls` naming the API origins
-- Reject: library-altitude registration, unbounded custom attributes, propagation outside the allow-list

@@ -2,16 +2,7 @@
 
 `@tus/server` owns tus resumable-upload protocol conformance as one `Server` over a pluggable `DataStore`: POST creates, HEAD answers `Upload-Offset`, PATCH appends from the verified offset, DELETE terminates, and resume is offset arithmetic against the store, never a re-trusted byte. `onUploadCreate` admits and `onUploadFinish` finalizes at the rail's seams; `handle` serves node and `handleWeb` serves any fetch-shaped runtime from one instance.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tus/server`
-- package: `@tus/server` (MIT)
-- module: ESM, one root export (`dist/index.js`, `dist/*.d.ts`)
-- runtime: server plane — `handle` binds node, `handleWeb` binds any fetch-shaped runtime (Bun, Workers); the browser leg is `tus-js-client` on the ui branch
-- backing: `srvx` mints the cross-runtime `ServerRequest` shape; `@tus/utils` re-exports whole — `Upload`, `DataStore`, `Locker`/`Lock`/`RequestRelease`, `KvStore` with its `Memory`/`File`/`Redis`/`IoRedis` rows, the `Metadata` parse/stringify/validate namespace, `StreamSplitter`/`StreamLimiter`, `Uid`, `EVENTS`, `ERRORS`, `CancellationContext`
-- rail: the `object/stream` resume rail, Effect-wrapped at the seam (`Effect.tryPromise` per dispatch)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the server, its options record, and the hook seams
 
@@ -42,7 +33,7 @@
 - `[ERRORS]` by status: 400 `ABORTED` `INVALID_TERMINATION` `INVALID_LENGTH` `INVALID_METADATA`; 403 `MISSING_OFFSET` `INVALID_CONTENT_TYPE`; 404 `FILE_NOT_FOUND`; 409 `INVALID_OFFSET`; 410 `FILE_NO_LONGER_EXISTS`; 413 `ERR_SIZE_EXCEEDED` `ERR_MAX_SIZE_EXCEEDED`; 500 `ERR_LOCK_TIMEOUT` `UNKNOWN_ERROR` `FILE_WRITE_ERROR`; 501 `UNSUPPORTED_CONCATENATION_EXTENSION` `UNSUPPORTED_CREATION_DEFER_LENGTH_EXTENSION` `UNSUPPORTED_EXPIRATION_EXTENSION`.
 - `[EVENTS]`: `POST_CREATE(req, upload, url)` `POST_RECEIVE(req, upload)` `POST_FINISH(req, res, upload)` `POST_TERMINATE(req, res, id)`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serving and lifecycle under Effect
 
@@ -57,7 +48,7 @@
 |  [05]   | `server.cleanUpExpiredUploads()`                           | instance | scheduled sweep of expired staging uploads                 |
 |  [06]   | `server.on(EVENTS.POST_FINISH, (req, res, upload) => ...)` | instance | observability beside the finish hook, not the seam         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - mismatched `Upload-Offset` refuses at the protocol: PATCH appends only at the verified offset and no byte re-trusts, so any failure resumes with one HEAD and one PATCH from that offset.
@@ -82,9 +73,3 @@
 - attach admission and finalize logic through `onUploadCreate`/`onUploadFinish` alone, never forking the handler classes or reading store internals.
 - throw a `{ status_code, body }` carrier out of a hook and map every remaining rail fault onto an `ERRORS` row inside `onResponseError`, so no reply falls through to the 500 `UNKNOWN_ERROR` default.
 - wire `cleanUpExpiredUploads` on the maintenance cadence and serve through `handle`/`handleWeb` under the serving plane's route, so the process keeps its own boot edge.
-
-[RAIL_LAW]:
-- Package: `@tus/server`
-- Owns: tus protocol conformance — creation, offset-verified PATCH resume, HEAD/DELETE, expiration sweep, the `ServerOptions` policy record with its CORS admission rows, the hook seams, `onResponseError` as the fault-to-reply map, the `Locker` contract, and the re-exported `@tus/utils` model (`Upload`, `DataStore`, `ERRORS`, `EVENTS`, `Metadata`)
-- Accept: one scoped `Server` per staging band, hooks as the admission/finalize seams, `{ status_code, body }` carriers as the refusal shape, `ERRORS` rows as the reply vocabulary, `handleWeb` for fetch-shaped runtimes, `maxSize` as the admission ceiling, `MemoryLocker` on a single node
-- Reject: per-request server construction, handler subclassing, `listen()` inside library code, finalize logic outside `onUploadFinish`, a bare `Error` thrown from a hook, a hand-minted status/body pair where an `ERRORS` row exists, a staging band without an expiration sweep, an id sanitizer re-implemented over the built-in extraction, a `.getFileIdFromRequest` returning an id it never checked for traversal

@@ -2,16 +2,7 @@
 
 `@connectrpc/connect-node` is the Node dual-role package `runtime` owns: `connectNodeAdapter` projects a server router into an `http.RequestListener`, while the public Connect, gRPC-Web, and gRPC client factories form the scoped Node capability `net/client` hands `Invoke.Dial`. One `Http2SessionManager` supplies all three client transports for a peer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@connectrpc/connect-node`
-- package: `@connectrpc/connect-node` (Apache-2.0)
-- peer: `@connectrpc/connect` (transport and router contracts; `core/.api/connectrpc-connect.md`), `@bufbuild/protobuf` (codec options; `../../.api/bufbuild-protobuf.md`)
-- effect-peer: none direct — the server `NodeHandlerFn` mounts at `serve/live.md`, the client `Transport` wraps in `effect` at `net/client.md` (`../../.api/effect.md`)
-- catalog-verdict: KEEP — the Node server+client transport authority
-- module: single `.` export, dual ESM+CJS; server and client over `http`/`https`/`http2`, the gRPC arm pins `http2`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client transport options trio — the factory names the protocol, `httpVersion` selects the Node module where applicable, and all three yield `Transport`
 
@@ -60,7 +51,7 @@
 
 [HANDLER_REJECTION_TRAP]: the returned `NodeHandlerFn` returns void and never rejects — it drives the universal handler's promise itself, returns silently on `Code.Aborted`, and routes every other failure to `console.error`. So a mounting fence's own error rail sees NOTHING from a served call: an RPC fault renders as a Connect wire error on the response and a transport fault reaches the package's console sink alone, which also means the sink escapes any log rail the host installed.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the three public `(options) -> Transport` factories, compression values, and HTTP/2 manager forming the scoped Node adapter; rail net/client
 
@@ -80,7 +71,7 @@
 |  [02]   | `universalRequestFromNodeRequest(req,res,json,ctx)` | framework adapter | Node request → `UniversalServerRequest`; careful-use     |
 |  [03]   | `universalResponseToNodeResponse(res, nodeRes)`     | framework adapter | `UniversalServerResponse` → Node response; careful-use   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - dual role, one package: connect-node is BOTH the `connectNodeAdapter` server mount (the `serve/live.md` Mount port) and the three client transports (the `net/client.md` lane) — the reason `runtime` holds it distinct from `core`'s browser-only `connect-web` (`core/.api/connectrpc-connect-web.md`), which exposes no server surface and no `http2` client lane.
@@ -107,9 +98,3 @@
 - `Http2SessionManager` and `contextValues` carry no process-global state — per-transport session, per-request context — so two apps compose the serve port and client lane without registry or connection collision.
 - scope each `Http2SessionManager` and `abort()` it on release; a manager outliving its root holds an open connection and every stream on it.
 - construct every client arm through its public factory and bind the same scoped `Http2SessionManager`; reach `universalRequestFromNodeRequest`/`universalResponseToNodeResponse` only when hosting a non-standard Node server framework.
-
-[RAIL_LAW]:
-- Package: `@connectrpc/connect-node`
-- Owns: the three public client `Transport` factories over `Http2SessionManager`/`Http2SessionOptions`, the `connectNodeAdapter` server mount projecting a `ConnectRouter` into an `http.RequestListener`, and the zlib `compressionGzip`/`compressionBrotli` pair
-- Accept: the public factory record handed to `Invoke.Dial`'s Node adapter seam, `connectNodeAdapter` mounting the emitted `DescService` router at the `serve/live.md` Mount port, the credential `Interceptor` on the dial's seam, gzip/brotli handed to the seam's compression roster, one scoped `Http2SessionManager` per origin, `Config`-decoded `baseUrl`
-- Reject: a client concept `connect` owns sourced here (`CallOptions`/`ContextValues`/the fault algebra), a second `Code` grading, a frame cap or deadline minted beside the core dial's, a hand-written Node request switch instead of `connectNodeAdapter`, an unscoped session manager, the `universal*` helpers in ordinary mount code

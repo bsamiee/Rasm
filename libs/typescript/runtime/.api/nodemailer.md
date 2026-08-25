@@ -4,16 +4,7 @@
 
 `Effect.tryPromise` lifts `sendMail`/`verify` around the callback/`Promise` library, `Redacted` carries every secret, the `Transporter` is a scoped `Layer`, and a durable job retries on `SMTPError.code` classification.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nodemailer`
-- package: `nodemailer` (MIT-0)
-- module format: CJS (`main: lib/nodemailer.js`); named factory exports `createTransport`/`createTestAccount`/`getTestMessageUrl`, transport classes internal behind `createTransport`
-- runtime target: Node-only — binds `node:net`/`node:tls`/`node:stream`/`node:dns`, no browser build, no native addon; SESv2 is structural (`SES: { sesClient, SendEmailCommand }`), so `@aws-sdk/client-sesv2` stays an optional app dependency
-- peer/asset: zero runtime npm dependencies — DKIM, XOAuth2, and MIME machinery ship in-tree; `@types/node` is the sole transitive type dependency
-- rail: mail egress (folder-tier; internalized at `runtime/src/work/deliver.ts`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send result
 - rail: boundaries
@@ -51,7 +42,7 @@
 [SENT_MESSAGE_INFO]: `SMTPTransport.SentMessageInfo` — `envelope` `messageId` `accepted` `rejected` `pending` `response`; `rejectedErrors` and the `envelopeTime`/`messageTime`/`messageSize` timing band ride the `SMTPConnection`/`SMTPPool` variants alone, which is why the consuming fence declares a widened optional band
 [SMTPERROR]: `SMTPError.code: string` `SMTPError.response: string` `SMTPError.responseCode: number` `SMTPError.command: string`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a transport, send, and verify
 - rail: boundaries
@@ -82,7 +73,7 @@
 
 - `wellKnown` and `shared.parseConnectionUrl` are DEEP imports (`nodemailer/lib/well-known`, `nodemailer/lib/shared`), never root entrypoints.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `createTransport` is one polymorphic factory: the option shape selects the transport — `pool: true` → pooled SMTP, `SES: {...}` → SESv2, `streamTransport`/`jsonTransport` → inspect sinks, `sendmail: true` → local binary, else plain SMTP from a URL string or `Options`. One transport policy row per environment replaces a factory per backend.
@@ -107,9 +98,3 @@
 - `SMTPError.code` classifies into a `Data.taggedEnum` for `Effect.retry`; `EAUTH` is terminal.
 - `SentMessageInfo.rejected`/`rejectedErrors` is a domain outcome the durable job reconciles.
 - `streamTransport`/`jsonTransport` + `createTestAccount` drive kit-driven specs and dry-runs.
-
-[RAIL_LAW]:
-- Package: `nodemailer` (+ `@types/nodemailer`)
-- Owns: mail egress — the polymorphic `createTransport`, `sendMail`/`verify`/`close`/`isIdle`, the one `Mail.Options` message shape, the `LOGIN`/`OAUTH2`/`CUSTOM` auth union, native DKIM signing, SMTP pooling with rate limits, `wellKnown` provider resolution, the `SentMessageInfo` delivery result
-- Accept: `Effect.tryPromise`-lifted send/verify, a scoped `Layer` transporter with `close` release, `Redacted`/`Config.redacted` secrets, one `Schema`-decoded message, `SMTPError.code` as a `Data.taggedEnum` retry discriminant, partial-rejection reconciliation, `streamTransport`/`jsonTransport` specs
-- Reject: a factory per transport, an untyped inline message, secrets outside `Redacted`, a module-level transporter singleton, string-matched error retry, partial rejection treated as success, live SMTP in a deterministic test

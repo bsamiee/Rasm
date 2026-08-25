@@ -2,17 +2,7 @@
 
 `grandalf` owns the pure-Python hierarchical (Sugiyama layered "dot") graph-drawing surface behind one `HierarchyEngine` arm: a `Graph`/`graph_core` topology algebra, a `SugiyamaLayout` assigning layered coordinates by Brandes-Köpf, and a `route_with_*` family clamping edge endpoints to node bounding boxes. It lays out through a caller-supplied `view` provider without graphviz, a native dependency, or permanent topology mutation; the owner reads `view.xy` and `view._pts` into its glyph geometry at the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `grandalf`
-- package: `grandalf` (GPLv2 OR EPLv1)
-- module: `grandalf` (`grandalf.graphs` / `grandalf.layouts` / `grandalf.routing` / `grandalf.utils`)
-- owner: `artifacts`
-- rail: figure (diagram layout)
-- abi: pure-Python, no native extension, ABI-agnostic across 3.15
-- depends: `pyparsing` (dot tokenizer); `numpy`/`ply` are the `[full]` extra only — `geometry` falls back to the bundled `linalg` `array`/`matrix` without numpy and `Dot` degrades (`_has_ply=False`) without ply, so the layered+routing path needs neither
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph topology layer (`grandalf.graphs`)
 
@@ -46,7 +36,7 @@
 |  [03]   | `route_with_splines`         | router        | line route + round-corner cubic Béziers on `view.splines`           |
 |  [04]   | `route_with_rounded_corners` | router        | line route + distance-rounded corners (`ROUND_AT_DISTANCE=40`)      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: graph construction + analysis (`grandalf.graphs`)
 
@@ -127,7 +117,7 @@ Each `route_with_*(e, pts)` clamps the polyline tail/head to node bounding boxes
 |  [04]   | `Dot` (`grandalf.utils.dot`)                  | interop | LALR(1) graphviz `.dot` parser (`ply` `[full]` extra; `_has_ply` gate) |
 |  [05]   | `array` / `matrix` (`grandalf.utils.linalg`)  | support | numpy-free linear-algebra fallback `geometry` uses when numpy absent   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Build `GrandalfVertex(node_index)` per `rustworkx` node and `GrandalfEdge(src, dst)` per edge, taking `GrandalfGraph(vertices, edges).C[0]` as the `SugiyamaLayout` component; the stable `rustworkx` integer node index lives on `Vertex.data`, the one key resolved coordinates and emitted glyph marks share and never re-key. Zero vertices return `({}, {})` before construction, a `graph_core` over them being degenerate.
@@ -140,9 +130,3 @@ Each `route_with_*(e, pts)` clamps the polyline tail/head to node bounding boxes
 
 [LOCAL_ADMISSION]:
 - grandalf is admitted as the `HierarchyEngine.GRANDALF` layered provider behind the one `LayoutPolicy` owner, reached only by the `Layered(engine=GRANDALF)` `match` arm; its layered-engine standing — default, fallback, retirement — is decided at `visualization/diagram/layout#LAYOUT` `HierarchyEngine`.
-
-[RAIL_LAW]:
-- Package: `grandalf`
-- Owns: the pure-Python layered (Sugiyama "dot") engine for the `HierarchyEngine.GRANDALF` arm — `Graph`/`graph_core` topology with Tarjan feedback-arc detection, `SugiyamaLayout` rank/order/Brandes-Köpf xy assignment, `DummyVertex` long-edge control points, and the `route_with_lines`/`route_with_splines` bounding-box routers, read through `VertexViewer`/`EdgeViewer` into the local `LayoutResult`.
-- Accept: layered coordinate assignment and line/spline edge routing for the stacking and program-flow AEC diagram kinds, behind the one `LayoutPolicy` owner, with the `rustworkx` node index as the shared key and the native draw off-loaded onto `to_thread.run_sync`.
-- Reject: a hand-rolled Sugiyama or orthogonal-routing loop inside the grandalf arm, `EdgeRoute.ORTHOGONAL` binding `pyelk`; a re-keying of layout coordinates away from the `rustworkx` node index; raw grandalf vertices, edges, or viewers crossing the boundary; grandalf minting the content key owned by `rustworkx` `node_link_json` and `ContentIdentity`; the `Dot`/`networkx` ingress adapters or the `[full]` `numpy`/`ply` extras where `rustworkx` ingress and the bundled `linalg` fallback serve this owner.

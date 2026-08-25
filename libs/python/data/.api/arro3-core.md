@@ -2,16 +2,7 @@
 
 `arro3.core` owns a zero-copy Apache Arrow memory model in Rust over `arrow-rs`: arrays, chunked columns, record batches, tables, and schema/type value objects, each exporting and consuming the Arrow PyCapsule interface (`__arrow_c_schema__`/`__arrow_c_array__`/`__arrow_c_stream__`) for lossless interchange. Structural `arro3.core.types` protocols are the polymorphic discriminator: every `from_arrow` and builder dispatches on the matching dunder, so `pyarrow`, `nanoarrow`, `polars`, and ADBC readers flow through one entrypoint with no producer-named branch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `arro3-core`
-- package: `arro3-core` (MIT OR Apache-2.0)
-- owner: `data`
-- module: `arro3.core`
-- asset: native extension (Rust/PyO3) over `arrow-rs`
-- rail: arrow-memory
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: container types
 
@@ -45,7 +36,7 @@
 |  [03]   | `ArrowStreamExportable` | structural proto | any object with `__arrow_c_stream__` (reader/ChunkedArray)   |
 |  [04]   | `ArrayInput`            | union alias      | `ArrowArrayExportable`/ndarray/Buffer for builders/`take`    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Array construction and operations
 
@@ -172,7 +163,7 @@
 |  [17]   | `list_offsets(input, *, logical=True)`                              | static   | list offset buffer; `logical` slice-adjust   |
 |  [18]   | `Buffer(buffer)` / `Buffer.to_bytes()` / `__buffer__`               | ctor     | wrap and re-export a buffer-protocol object  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `arro3.core` exports the container types, value types, and top-level builder/accessor functions; the four interchange `Protocol`s live in `arro3.core.types`
@@ -194,9 +185,3 @@
 - Ingest any PyCapsule producer via `from_arrow` typed on `ArrowArrayExportable`/`ArrowStreamExportable`/`ArrowSchemaExportable`; one call absorbs `pyarrow`, `nanoarrow`, `polars`, and ADBC readers with no producer-named branch.
 - Emit via `__arrow_c_array__`/`__arrow_c_stream__`; `to_pylist`/`to_numpy` is terminal extraction only.
 - Build composite arrays through `list_array`/`struct_array`/`fixed_size_list_array` with keyword `type=`/`mask=`; never assemble offset/value buffers by hand.
-
-[RAIL_LAW]:
-- Package: `arro3-core`
-- Owns: zero-copy Arrow memory model, PyCapsule interchange, and the structural export protocols that make ingest producer-agnostic
-- Accept: any PyCapsule producer (pyarrow/nanoarrow/polars/ADBC), NumPy, and Python dicts/lists as terminal sources
-- Reject: manual offset/buffer construction where a builder exists; re-importing already-Arrow data through Python lists; producer-named ingest branches where the export protocol already discriminates

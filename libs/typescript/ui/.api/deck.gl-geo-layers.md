@@ -2,15 +2,7 @@
 
 `@deck.gl/geo-layers` is the geospatial composite tier the `ui/viewer/geo/layers` plane drives over `@deck.gl/layers`: the `TileLayer` viewport-streaming engine, its vector/terrain/3D-tile payload specializations, the `_GeoCellLayer` discrete-global-grid family, and the `TripsLayer` motion path — every layer a `CompositeLayer` over the `@deck.gl/layers` marks, `TripsLayer` the one primitive. `scope:viewer` project-local.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@deck.gl/geo-layers`
-- package: `@deck.gl/geo-layers` (MIT)
-- abi: browser WebGL2/WebGPU via `@deck.gl/core`; worker-backed tile parsing via loaders.gl worker pools
-- runtime: `scope:viewer` project-local; tile fetch/parse async + worker-backed, layers declarative
-- modules: `TileLayer`, `MVTLayer`, `TerrainLayer`, `Tile3DLayer`, `TripsLayer`, `H3HexagonLayer`, `H3ClusterLayer`, `S2Layer`, `QuadkeyLayer`, `GeohashLayer`, `A5Layer`, `_GeoCellLayer`, `_WMSLayer`, `_Tileset2D`/`_Tile2DHeader`
-
-## [02]-[TILING_ENGINE]
+## [01]-[TILING_ENGINE]
 
 [TYPE_SCOPE]: `TileLayer` — the generic viewport-driven tile streamer, one engine parameterized by payload type `DataT`, the `getTileData` loader, and the `renderSubLayers` renderer, with `_Tileset2D` swappable via `TilesetClass` for a non-XYZ scheme.
 
@@ -33,7 +25,7 @@
 - [05]-[TILE2DHEADER]: `{index, boundingBox:[min,max], content:DataT, isVisible, isSelected, zoom, data, isLoaded, byteLength}`; `loadData`, `abort`, `setNeedsReload`.
 - [06]-[TILELOADPROPS]: `{index, id, bbox, signal, …}`; `GeoBoundingBox` `{west,south,east,north}`, `NonGeoBoundingBox` `{left,top,right,bottom}`.
 
-## [03]-[TILE_PAYLOAD_SPECIALIZATIONS]
+## [02]-[TILE_PAYLOAD_SPECIALIZATIONS]
 
 [TYPE_SCOPE]: `TileLayer` specialized by payload — `MVTLayer` decodes Mapbox Vector Tiles and renders through `GeoJsonLayer`, `TerrainLayer` reconstructs a Martini mesh from an RGB elevation raster, `Tile3DLayer` streams an OGC 3D-Tiles/I3S hierarchy on its own `Tileset3D`; each fixes `DataT`, `getTileData`, and `renderSubLayers`.
 
@@ -48,7 +40,7 @@
 - [02]-[TERRAINLAYER]: `elevationData: URLTemplate`, `texture?`, `elevationDecoder: {rScaler,gScaler,bScaler,offset}`, `meshMaxError` (Martini tolerance), `bounds`, `color`, `wireframe`, `material`.
 - [03]-[TILE3DLAYER]: `data: string` (tileset.json href, REQUIRED and narrowed to `string`), `getPointColor`, `pointSize`, `onTilesetLoad(Tileset3D)`, `onTileLoad(Tile3D)`, `onTileUnload`, `onTileError`, `_getMeshColor`, `loaders` (the singular `loader` prop ships `@deprecated`).
 
-## [04]-[CELL_FAMILY_AND_MOTION]
+## [03]-[CELL_FAMILY_AND_MOTION]
 
 [TYPE_SCOPE]: `_GeoCellLayer` fans the discrete-global-grid cell family into one `indexToBounds()` pattern discriminated by index scheme, rendered through `PolygonLayer`; `TripsLayer` adds the time-animated path and `_WMSLayer` the image binding, `H3HexagonLayer` the high-precision GPU path extending `PolygonLayer` directly.
 
@@ -75,7 +67,7 @@
 - [08]-[TRIPSLAYER]: `PathLayer` + `getTimestamps: (d) => NumericArray`, `currentTime`, `trailLength`, `fadeTrail`.
 - [09]-[_WMSLayer]: `data: string | ImageSource`, `serviceType:'wms'|'auto'`, `layers:string[]`, `srs`, `onMetadataLoad`, `onImageLoad*`.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one tiling engine: `TileLayer` is the single viewport-driven streamer; a new tiled format is a `getTileData`/`renderSubLayers` pair or a `TilesetClass`, never a new tile engine.
@@ -94,9 +86,3 @@
 - imported only inside `ui/viewer` (`scope:viewer`).
 - `_`-prefixed exports (`_GeoCellLayer`, `_WMSLayer`, `_Tileset2D`, `_Tile2DHeader`) are advanced overlays — instantiate the concrete cell layers and `TileLayer`, reaching for `_Tileset2D`/`_Tile2DHeader` only to author a custom indexer.
 - `Tile3DLayer` governs its cache and LOD through the `Tileset3D` hierarchy, not the 2D tile props, and renders glTF/b3dm through the `@deck.gl/mesh-layers` peer.
-
-[RAIL_LAW]:
-- Package: `@deck.gl/geo-layers`
-- Owns: the `TileLayer` streaming engine (`_Tileset2D`/`_Tile2DHeader`/refinement/cache), its `MVTLayer`/`TerrainLayer`/`Tile3DLayer` payload specializations, the `_GeoCellLayer` DGGS family (`S2`/`Quadkey`/`Geohash`/`A5`/`H3Cluster` + `H3HexagonLayer`), the `TripsLayer` motion path, and the `_WMSLayer` image binding
-- Accept: one `TileLayer` per source with a `getTileData`/`renderSubLayers` pair, cache and throttle as policy props, the cell family as one index-scheme-parameterized pattern, `MVTLayer.getRenderedFeatures`/pick → `GlobalId`, GeoArrow cell mirrors for Arrow input, an atom clock + `_animate` for `TripsLayer`
-- Reject: re-implementing a tiler instead of a `getTileData`/`TilesetClass`, five parallel cell layers where one `_GeoCellLayer` pattern owns the space, subclassing the tileset to change cache or LOD, the deprecated `GreatCircleLayer`, instantiating `_`-prefixed internals for ordinary rendering

@@ -2,16 +2,7 @@
 
 `NodaMoney` owns the first-class monetary value algebra backing the `Planning/cost#ESTIMATE` 5D cost rail: `decimal`-precision `Money` arithmetic over the embedded ISO 4217 `Currency` registry, lossless multi-share allocation, FX conversion through `ExchangeRate`, and the ambient `MoneyContext` rounding/precision policy. `Money` is a `readonly struct` implementing the full generic-math operator set, so a priced cost line is an expression over typed money, never a free `(double, string)` pair.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NodaMoney`
-- package: `NodaMoney` (Apache-2.0)
-- assembly: `NodaMoney.dll` — net10 build bound; IL-only AnyCPU managed, no native, ALC-safe in the in-Rhino plugin
-- namespace: `NodaMoney` (values), `NodaMoney.Exchange` (FX), `NodaMoney.Context` (rounding policy), `NodaMoney.Serialization` (serdes)
-- depends: none on net10 — the STJ facades resolve in-box, the nuspec deps bind only the netstandard groups
-- rail: `Planning/cost#ESTIMATE` (the 5D `CostItem`/`CostSchedule` cost algebra)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: money value family
 
@@ -52,7 +43,7 @@
 |  [05]   | `InvalidCurrencyException`      | currency failure | unknown ISO 4217 code; also the cross-currency op and the zero-match gate |
 |  [06]   | `MoneyContextMismatchException` | context failure  | two operands carrying DIFFERENT `MoneyContext`s — `Add`/`Subtract`/`%`    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: money construction and currency resolution
 
@@ -107,7 +98,7 @@
 |  [08]   | `MoneyContext` current reads             | property | `CurrentContext`/`DefaultThreadContext`/`ThreadContext` in force        |
 |  [09]   | `MoneyContext` policy reads              | property | `RoundingStrategy`/`Precision`/`MaxScale`/`DefaultCurrency`             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Money` is a `readonly struct` over `decimal Amount` + `Currency` carrying a `MoneyContextIndex` to its registered rounding/precision policy; the generic-math operators make `Money + Money`, `Money * decimal`, `Money / decimal`, `Money / Money -> decimal`, and the comparison/equality/parse/format surface native, never a hand-written arithmetic helper.
@@ -132,9 +123,3 @@
 - `MoneyContext` is seated ONCE at the composition root (`CreateAndSetDefault`/`DefaultThreadContext`) so every mint in a fold carries one context; a block-scoped `CreateScope` around part of an estimate forks that space and the first `+` across the fork throws, and `ExchangeRate.Convert` (no context argument) can only ever carry the ambient one.
 - `Money`/`Currency` cross the `Exchange/wire` boundary through `MoneyJsonConverter`/`CurrencyJsonConverter` or the integer `ToMinorUnits` form; internal code holds the typed value per the boundary-mapping law.
 - `FastMoney` is admitted only where a hot inner aggregation needs its `long` 4-decimal storage, never as a parallel money model.
-
-[RAIL_LAW]:
-- Package: `NodaMoney`
-- Owns: the `Money`/`Currency`/`ExchangeRate` monetary value algebra — `decimal`-precision arithmetic, the embedded ISO 4217 registry (mutable through public `CurrencyInfo.TryAdd`/`TryRemove`), lossless `MoneyExtensions.Split` allocation, FX conversion, the `MoneyContext` rounding/precision policy, and the `NodaMoney.Serialization.*` `System.Text.Json`/`TypeConverter` boundary serdes
-- Accept: a `CostItem` value carried as `Money`, the `CostSchedule.Rollup` as a railed `Money` fold, the unit rate as `Money / decimal`, the quantity x rate join as `Money * (decimal)Quantity.Si` over the seam `MeasureValue`, lossless multi-share allocation via `MoneyExtensions.Split`, and cross-currency reprice via `ExchangeRate.Convert` on a both-legs-matched rate
-- Reject: a hand-rolled `MonetaryAmount` `(double Amount, string Currency)` carrier beside `Money`; a `double` cost-arithmetic helper where the `Money` operators discriminate; a naive `total / n` allocation losing remainder pennies where `Split` is lossless; a stringly-typed currency field or throwing `Currency.FromCode`/`Money(decimal,string)` admission where `CurrencyInfo.TryFromCode` can refuse first; a `Transaction`-based rollup where the per-currency partition owns mixed-currency aggregation; a second rounding policy threaded as a `MidpointRounding` argument where one `MoneyContext` scope governs

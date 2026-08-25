@@ -17,7 +17,7 @@
 - Growth: a new engine is one `DetectEngine` member plus one `_railed` arm; a new facet one `MagicFacet` plus one `_FACET_FLAG` row; a new profile one `DetectProfile` plus one `_PROFILE_FACETS` row; a new libmagic flag one `DetectFlag`; a tuning param one `MagicParam`; a test-class narrowing one `CheckClass`; a routing branch one `MediaClass` plus one `_MEDIA_CLASS` row; a container kind one `Container` plus one `_CONTAINER` row; a source kind one `Source` case; an ingest verdict one `Trust` member plus one `_trust` arm; an identity fact one `DetectIdentity` field; a deployment knob one `DetectSettings` field plus one `detector()` projection; the singular/batch modality rides the existing `of(Source | Iterable[Source])`; zero new surface.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import mimetypes
 from collections.abc import Iterable
 from dataclasses import dataclass, field

@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.DependencyInjection` owns the AppHost composition rail: every registration mints one `ServiceDescriptor` onto an `IServiceCollection`, `BuildServiceProvider` freezes that graph into a validated `ServiceProvider`, and resolution runs through lifetime-scoped and keyed lookup. Its boundary is composition — descriptors land only at composition roots, and `ActivatorUtilities` constructs boundary objects the container never registered.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.DependencyInjection`
-- package: `Microsoft.Extensions.DependencyInjection`
-- assembly: `Microsoft.Extensions.DependencyInjection`
-- contract_assembly: `Microsoft.Extensions.DependencyInjection.Abstractions`
-- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`
-- rail: composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider implementation
 
@@ -44,7 +35,7 @@
 |  [16]   | `ActivatorUtilities`                     | class         | explicit construction     |
 |  [17]   | `ActivatorUtilitiesConstructorAttribute` | class         | activation selection      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
 
@@ -86,7 +77,7 @@
 |  [11]   | `GetServiceOrCreateInstance` | static   | optional service fallback |
 |  [12]   | `MakeReadOnly`               | instance | registration freeze       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each registration mints one `ServiceDescriptor` selecting a `ServiceLifetime` — singleton, scoped, or transient — on an axis orthogonal to the `object` service key; the root provider owns singleton state and every created scope owns its scoped disposal.
@@ -108,9 +99,3 @@
 - Keyed registrations model bounded policy variants whose key is AppHost policy.
 - Descriptor mutation stays in composition-assembly setup; runtime code never mutates the collection.
 - `ValidateOnBuild` and `ValidateScopes` are enabled for package proof, rejected as runtime probes.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.DependencyInjection`
-- Owns: the service graph, lifetime scopes, and keyed resolution
-- Accept: registrations mint descriptors at composition roots
-- Reject: runtime service-locator lookups and hand-rolled provider caches

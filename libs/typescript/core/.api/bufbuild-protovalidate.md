@@ -2,16 +2,7 @@
 
 `@bufbuild/protovalidate` evaluates the corpus's own `buf.validate` rules over `@bufbuild/protobuf` descriptors at runtime: one `Validator` minted over the one registry, one `validate(schema, message)` per admission, a three-kind result electing on shape. `interchange/format` runs it behind the `$typeName` guard on every decode and every encode, so no branch page carries a field rule the corpus already states.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@bufbuild/protovalidate`
-- package: `@bufbuild/protovalidate` (Apache-2.0)
-- peer: `@bufbuild/protobuf` (`DescMessage`/`MessageShape`/`MessageValidType`/`Registry`; `../../.api/bufbuild-protobuf.md`)
-- effect-peer: none direct — a verdict folds onto the `ParseError` rail inside `interchange/format`'s one `Schema.filter`
-- runtime: universal; CEL evaluated in-process, RE2 matched by the ECMAScript engine unless `regexMatch` supplies one
-- module: single `.` export, dual ESM+CJS
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the validator, its options, the verdict, and the violation — rail interchange/format
 
@@ -29,7 +20,7 @@
 - [VERDICT_SHAPE]: `valid` narrows the message to `MessageValidType<Desc>`. This branch generates with `valid_types=protovalidate_required`, so required message fields become nonoptional on admitted values. Generator v2.14.0 still includes the unset face of a required oneof. Total consumers close that impossible admitted arm explicitly instead of weakening every required field back to `MessageShape<Desc>`.
 - [ERROR_ARM]: `error` is a defect of the RULE SET (compile or evaluate), a different fact from `invalid`; `interchange/format` lands it as `ParseResult.Forbidden` so a census never counts a broken rule as a stream of bad documents.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: mint once, validate per message, render a violation — rail interchange/format
 
@@ -42,7 +33,7 @@
 |  [05]   | `pathFromViolationProto(schema, proto, registry?)` | path           | reverse of the wire form; unmined                                 |
 |  [06]   | `createStandardSchema(schema, validator?)`         | bridge         | Standard Schema adapter; unmined — `effect` owns admission        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one validator, one registry: `createValidator({ registry })` takes `interchange/format`'s `Registry`, so predefined rules and `Any`-typed CEL resolve against the same suite every decode does, and a second validator would re-compile every rule set.
@@ -56,9 +47,3 @@
 
 [LOCAL_ADMISSION]:
 - mint once at `interchange/format`; run behind the `$typeName` guard; keep `failFast` off; land `error` as `Forbidden` and `invalid` as issues; never call `validate` from a consumer page.
-
-[RAIL_LAW]:
-- Package: `@bufbuild/protovalidate`
-- Owns: rule compilation and evaluation over generated descriptors, the three-kind verdict, the `Violation` coordinate pair, and the `Violations` wire form
-- Accept: one `createValidator({ registry })` at the format owner, `validate` on every admission and egress, the verdict folded onto `ParseError`
-- Reject: a second validator, a hand field rule beside a generated message, `failFast`, a consumer-page `validate`, `createStandardSchema` where `effect` `Schema` owns admission

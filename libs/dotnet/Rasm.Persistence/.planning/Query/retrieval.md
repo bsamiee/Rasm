@@ -607,15 +607,15 @@ public static class Retrieval {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                  | [BINDING]                                                         |
-| :-----: | :----------------- | :--------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | entry              | `Run(StoreProfile, RetrievalOp)`         | fuse/train/scan are cases; no sibling entrypoint family           |
-|  [02]   | fusion             | n-ary RRF over `RetrievalBranch`         | typed branch lineage; `RrfConstant = 60` named once               |
-|  [03]   | cache key          | content-addressed `KeySelection.ContentKey` | cached under the subject key                                   |
-|  [04]   | cache invalidation | content-key tag → `RemoveByTagAsync`        | a changefeed op-log change to a contributing node cuts it       |
-|  [05]   | cache identity     | selection-result reuse                   | distinct from `Query/cache`'s compute-result index                |
-|  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical | DuckDB is the columnar aggregator, never the index                |
-|  [07]   | lane admission     | `Admits(Lane.Vector)` inside `Run`       | typed row, refused once; `Lane.Search` gates at #DOCUMENT_CORPUS  |
+| [INDEX] | [POLICY]           | [VALUE]                                     | [BINDING]                                                        |
+| :-----: | :----------------- | :------------------------------------------ | :--------------------------------------------------------------- |
+|  [01]   | entry              | `Run(StoreProfile, RetrievalOp)`            | fuse/train/scan are cases; no sibling entrypoint family          |
+|  [02]   | fusion             | n-ary RRF over `RetrievalBranch`            | typed branch lineage; `RrfConstant = 60` named once              |
+|  [03]   | cache key          | content-addressed `KeySelection.ContentKey` | cached under the subject key                                     |
+|  [04]   | cache invalidation | content-key tag → `RemoveByTagAsync`        | a changefeed op-log change to a contributing node cuts it        |
+|  [05]   | cache identity     | selection-result reuse                      | distinct from `Query/cache`'s compute-result index               |
+|  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical    | DuckDB is the columnar aggregator, never the index               |
+|  [07]   | lane admission     | `Admits(Lane.Vector)` inside `Run`          | typed row, refused once; `Lane.Search` gates at #DOCUMENT_CORPUS |
 
 ## [06]-[DOCUMENT_CORPUS]
 

@@ -20,7 +20,7 @@ This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit
 - Packages: Thinktecture.Runtime.Extensions, `Rasm.Domain` (`ICapability`, `CapabilitySet`, `Capability`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;

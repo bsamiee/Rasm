@@ -28,7 +28,7 @@ Every appearance is required by the captured spec, and every `OccurrenceBinding`
 - Boundary: `Veto` verdicts enter this fold's OWN rail per the folder ruling, so the gate consult sits after the merge and before the return, where an `Observe` point stays decorator-only and this page names none.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;

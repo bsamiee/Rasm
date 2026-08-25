@@ -2,16 +2,7 @@
 
 `Eto.Forms` owns the two-way data-binding rail both host boundaries compose: a control property fused to a `DataContext` model through the `IBindable` seam, one projection chain reshaping and guarding the value, and the data-store carriers backing grid, list, and tree views. One `DataContext` assignment walks the control tree, so every bound descendant resolves against it. Branch-tier owner under the dual-home law — `Rasm.Grasshopper` and `Rasm.Rhino` both register this catalogue and add no binding carrier of their own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto`
-- package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP) (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`)
-- namespace: `Eto.Forms`
-- asset: host-provided — RhinoWIP ships `Eto.dll` under `RhCore.framework/Versions/A/Resources`; no NuGet admission
-- rail: native UI
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: binding carriers and the bindable seam
 
@@ -61,7 +52,7 @@
 
 - The binding sink is shaped by the view: `GridView.DataStore` and `ListControl.DataStore` are `IEnumerable<object>`, so a plain enumerable or a `DataStoreCollection<T>` binds directly, while `TreeGridView.DataStore` is `ITreeGridStore<ITreeGridItem>` and takes a tree store. `DataStoreVirtualCollection<T>` is the one-direction adapter over a virtualized `IDataStore<T>` source — its constructor takes `IDataStore<T>` and it presents `IList<T>` — so it serves a random-access window and is never interposed on a source the view already accepts.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: binding construction
 
@@ -134,7 +125,7 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 |  [05]   | `ListControl.ItemTextBinding`                | property | item-text projection     |
 |  [06]   | `ListControl.ItemKeyBinding`                 | property | item-key projection      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - a binding is two halves — `IndirectBinding<T>` over the model value, `DirectBinding<T>` over the control value — that `Bind`/`BindDataContext` join into a live `DualBinding<T>`, and `DualBindingMode` fixes which edges relay
@@ -153,9 +144,3 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 - binding is host-provided and composed directly — a field binds through its `*Binding` and `BindDataContext`
 - a bound model value is a typed `[ValueObject<T>]` or `[SmartEnum<TKey>]` reached through `Convert`
 - a collection view fills through the sink its view declares — an enumerable, a virtualized `IDataStore<T>` behind its adapter, or an `ITreeGridStore<T>`
-
-[RAIL_LAW]:
-- Package: `Eto`
-- Owns: the two-way data-binding rail and data-store collection binding for host-embedded panels, at the branch tier both boundaries register
-- Accept: control-to-model property binding, `DataContext` propagation, two-way modes with conversion and exception guarding, grid/list/tree collection binding
-- Reject: a hand-rolled property-change observer beside the Eto binding, a stringly round-trip past a typed `Convert`, a per-row control rebuild where a virtualized `IDataStore<T>` window serves, and an adapter interposed on a source its view already accepts

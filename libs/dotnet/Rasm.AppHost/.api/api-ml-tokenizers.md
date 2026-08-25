@@ -2,16 +2,7 @@
 
 `Microsoft.ML.Tokenizers` owns deterministic offline token counting for the grant-broker cost preview: the abstract `Tokenizer` surface and its `sealed` `TiktokenTokenizer` BPE implementation price a prompt with no network round trip. `CountTokens` feeds `CostModel.Variable` a per-prompt `CostUnit.ModelTokens` count before a model draw charges the budget, and the `GetIndexByTokenCount` family trims a turn to its model context window in place. Only the offline counting and truncation surface binds; encode-for-inference and custom tokenization stages stay out of the cost rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.ML.Tokenizers`
-- package: `Microsoft.ML.Tokenizers` (MIT)
-- assembly: `Microsoft.ML.Tokenizers`
-- namespace: `Microsoft.ML.Tokenizers`
-- asset: runtime library, multi-target `net8.0` + `netstandard2.0`; the `net10.0` consumer binds `lib/net8.0` by TFM precedence
-- rail: capability-agent
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tokenizer abstraction and tiktoken implementation
 
@@ -30,7 +21,7 @@
 |  [02]   | `EncodeSettings`   | struct        | encode request knobs            |
 |  [03]   | `EncodedToken`     | struct        | readonly id/value/offset record |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: token counting and window truncation, the cost-broker surface
 
@@ -76,7 +67,7 @@ Every factory carries optional `extraSpecialTokens`, `cacheSize` (default `8192`
 
 - `CreateForModel`/`CreateForEncoding` load the referenced embedded `*.Data.*` vocabulary with no stream; an unknown model name throws.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Tokenizer` owns the polymorphic surface — `EncodeToIds`/`EncodeToTokens`/`CountTokens`/`GetIndexByTokenCount`/`Decode` each carry `string` and `ReadOnlySpan<char>` overloads; a derived impl overrides the protected `EncodeToTokens`/`CountTokens`/`Decode` core for an efficient path.
@@ -95,9 +86,3 @@ Every factory carries optional `extraSpecialTokens`, `cacheSize` (default `8192`
 - AppHost capability-agent constructs one `TiktokenTokenizer` per model encoding through `CreateForModel`/`CreateForEncoding`, resolving the embedded vocab from the referenced `*.Data.*` assembly.
 - one shared instance answers concurrent `CountTokens` thread-safe, built once at composition and injected, since vocab load and BPE rank build is the expensive step.
 - only the offline counting and truncation surface is admitted; encode-for-inference, custom `PreTokenizer`/`Normalizer` stages, the `Bpe`/`SentencePiece`/`WordPiece`/`Bert`/`Llama` model family, and the `TokenizerExtensions` helpers stay outside the cost-preview rail.
-
-[RAIL_LAW]:
-- Package: `Microsoft.ML.Tokenizers`
-- Owns: deterministic offline token counting and prompt-window truncation for the grant-broker model-draw cost preview
-- Accept: `CountTokens`/`GetIndexByTokenCount` over a `CreateForModel`/`CreateForEncoding` tokenizer bound to an embedded vocab
-- Reject: a hand-rolled BPE counter, a network token-count call, a per-request tokenizer construction, a heuristic `chars/4` estimate, and a vocab loaded outside the referenced `*.Data.*` assembly

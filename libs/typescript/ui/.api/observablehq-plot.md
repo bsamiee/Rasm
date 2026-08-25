@@ -2,23 +2,14 @@
 
 `plot(options)` is the whole authoring surface: an options value carrying `marks` rows renders a detached `SVGSVGElement | HTMLElement` extended with `scale`/`legend` readbacks and an interactive `value` property.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@observablehq/plot`
-- package: `@observablehq/plot` (ISC)
-- module: `type: module`, ESM source at `src/index.js` typed by `src/index.d.ts`; `sideEffects` pins the entry, so tree-shaking stops at the barrel.
-- runtime: builds a detached SVG/figure element headlessly from any DOM; no React coupling.
-- plane: `plane:runtime` (W4 `ui`), the statistical-charting lane.
-- rail: `ui` data-viz — the one-call exploratory/analytic chart owner.
-
-## [02]-[ENTRY]
+## [01]-[ENTRY]
 
 [SURFACES]: `plot(PlotOptions?) -> (SVGSVGElement|HTMLElement)&Plot` `marks(...Markish[]) -> CompoundMark` · readbacks `Plot.scale(ScaleName)` `Plot.legend(ScaleName,LegendOptions?)` `Plot.value`
 [PLOT_OPTIONS]: `marks`, per-scale objects `x` `y` `r` `color` `opacity` `symbol` `length` `fx` `fy`, `facet` `projection`, `width` `height` `aspectRatio` `margin*`, `style` `className` `clip`, `title` `subtitle` `caption`, `grid`.
 [PROJECTIONS]: `albers-usa` `albers` `azimuthal-equal-area` `azimuthal-equidistant` `conic-conformal` `conic-equal-area` `conic-equidistant` `equal-earth` `equirectangular` `gnomonic` `identity` `reflect-y` `mercator` `orthographic` `stereographic` `transverse-mercator`, or a d3 projection factory.
 [MARK_OPTIONS]: base `MarkOptions` — `filter` `reverse` `sort` `transform` `initializer` `render`, `fx` `fy` `facet` `facetAnchor`, `fill`/`stroke` families, `opacity` `mixBlendMode` `imageFilter` `paintOrder` `shapeRendering`, `dx` `dy` `clip` `margin*`, `title` `tip` `href` `target`, `ariaLabel` `ariaDescription` `ariaHidden` `pointerEvents` `className`, `channels`; positional `x` `y` `z` `symbol` are per-mark, never base.
 
-## [03]-[MARK_ROSTER]
+## [02]-[MARK_ROSTER]
 
 Directional twins fix the axis (`barY` = vertical bars); several families ship no bare form — `barX`/`barY`, `ruleX`/`ruleY`, `tickX`/`tickY`, `linearRegressionX`/`Y`, `differenceX`/`Y`, `waffleX`/`Y` only.
 
@@ -44,7 +35,7 @@ Directional twins fix the axis (`barY` = vertical bars); several families ship n
 
 `density`/`raster`/`contour` accept spatial interpolators `interpolateNone` `interpolateNearest` `interpolatorBarycentric` `interpolatorRandomWalk`.
 
-## [04]-[TRANSFORM_ROSTER]
+## [03]-[TRANSFORM_ROSTER]
 
 Transforms rewrite a mark's options — binning, grouping, and stacking happen in the options value, never in a pre-shaped data copy.
 
@@ -62,13 +53,13 @@ Transforms rewrite a mark's options — binning, grouping, and stacking happen i
 
 Helpers `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; formatters `formatNumber(locale?)` `formatMonth` `formatWeekday` `formatIsoDate`; intervals `timeInterval(period)` `utcInterval(period)` `numberInterval(period)` take plain periods (`"day"`, `"3 months"`), never d3's compound `"utcDay"`.
 
-## [05]-[INTERACTION]
+## [04]-[INTERACTION]
 
 - `tip: true` on any mark, or an explicit `tip` mark, renders channel values at the pointed instant; extra `channels` rows surface in the tip.
 - `pointer`/`pointerX`/`pointerY` filter a mark to the nearest datum, drive the root element's `value`, and emit `input` — the chart-as-input seam.
 - `crosshair`/`crosshairX`/`crosshairY` compose pointer, rules, and axis text as one row.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every mark is one channel-parameterized shape folding the shared `MarkOptions` vocabulary through a transform slot; scales, axes, legends, facets, and projections infer from channels, so the spec is data, never a render program.
@@ -81,9 +72,3 @@ Helpers `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; fo
 
 [LOCAL_ADMISSION]:
 - Plot owns the declared exploratory/statistical chart — distributions, facets, regressions, calendars, small multiples; bespoke interactive React-composed SVG routes to `@visx/*`, extreme-point streaming series to `uplot`(`.api/uplot.md`), pivot-grid analytics to `@perspective-dev/*`, geospatial GPU scale to deck.gl, and the `geo` mark serves statistical maps, never the live basemap.
-
-[RAIL_LAW]:
-- Package: `@observablehq/plot`
-- Owns: grammar-of-graphics charting — the `plot(options)` entry, the mark roster as channel-parameterized rows, the transform algebra, inferred scales/axes/legends/facets, named projections, pointer/tip/crosshair interaction, `scale`/`legend` readbacks, Arrow columnar input.
-- Accept: chart specs as atom-derived data mounted through the effect bracket; transforms in the options value over pre-shaped copies; `tip`/`pointer` inspection writing `value` back through the atom; Arrow tables with column-name shorthand; explicit `axisX`/`gridY` only where inference needs override; `marks(...)` composites for reusable layers.
-- Reject: hand-rolled d3 SVG beside a Plot spec; React reconciling Plot's output; streaming/high-frequency series here; the live basemap here; pre-aggregating in JS what `bin`/`group`/`window` declare; d3 compound interval strings; a second grammar layer wrapping this one.

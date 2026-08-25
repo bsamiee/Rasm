@@ -26,7 +26,7 @@ Provider presence is PROVED, never assumed: `pye57` and `open3d` both carry inte
 - Boundary: the inbound LAS/LAZ/COPC decode and the `PointRecordTable` mint are `data/spatial/mesh#POINTCLOUD`'s (`laspy` full decode and the COPC octree subset live there), so ingestion never re-reads LAS nor crosses a `pdal` `Pipeline` at the data seam; the E57 path is ingestion's in BOTH directions because `pye57` is absent from the data branch and no data owner holds an E57 codec, so declining the write leg to that seam would leave E57 egress unowned in the whole branch. The corpus owns `GaussianSplatScan`; this producer serializes that generated message once, passes the exact octets to `ArtifactTransfer.put`, and returns the transfer's generated `ArtifactRef` unchanged. The contracts SDK owns staging, SHA-256, extent, framing, reference equality, and cleanup; a parallel `ContentKey` for the same body is deleted. Registration is `scan/registration#REGISTRATION`'s; ingestion never registers, deviates, reconstructs, tessellates, mints storage paths, or mutates a Rhino/GH document.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import gzip
 import struct
 import zipfile

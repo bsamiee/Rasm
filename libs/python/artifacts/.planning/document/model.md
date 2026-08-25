@@ -20,7 +20,7 @@ One deterministic `msgspec` codec round-trips the tree, so a multi-PDF corpus is
 - Boundary: `to_json` is a real `msgspec.json` interchange serialization of the node tree a downstream consumer decodes — never a schema-shape blob no consumer reads; a Typst `label()`-anchored intra-compilation link is the rejected `Xref` form because the target sheet is a separate compilation the imposition assembly resolves; a `ClassCode` field on the interior tree is the rejected coupling that inverts the `specification`-to-`document` dependency; a page spelling its own `etree.XMLParser` over foreign bytes is the deleted form, because a second posture is a hardening regression nothing re-audits, while the in-page `etree.Element` builders over SELF-generated fragments never route here at all. Recursion depth splits by provenance: `walk`/`node_digest` run depth-safe frontiers because they consume lens-recovered, potentially adversarial trees, while the `to_*` lowerings recurse natively — an authored document's structural nesting is data-bounded, and a lowering of a lens-recovered tree crosses `walk` first.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections.abc import Iterator
 from enum import StrEnum
@@ -1388,7 +1388,7 @@ def _latex_cell(cell: DocumentNode, r: int, c: int, span_map: frozendict[tuple[i
 - Boundary: a per-consumer diff type (a document diff beside a geometry diff beside a wire diff) is the deleted form — `DocumentDelta` is the one edit algebra keyed by `ContentKey`. No positional list patching by index-shift heuristics outside the key algebra, and no second merge owner. Structural insertion/deletion/move targets the spine containers that own a `children` field through `_spine`/`_with_spine`; a `TableNode` cell grid, a `FigureNode` caption, a `SectionNode` heading, a `ListNode` item bag, and a `BlockNode` inline-run bag are bounded OWN-content sub-payloads re-keyed as a whole through `Reparametrized`, so `_spine` carries only the container `children` field and the sub-payload edits ride the own-field overlay. Root identity anchors the algebra: roots sharing `meta.key` and kind diff as edits, while a changed root identity or kind emits one `Replaced` case. One total fold spans the five-variant union; a missing arm is an `assert_never` static failure.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from functools import reduce

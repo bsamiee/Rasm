@@ -2,14 +2,7 @@
 
 `pytest-xdist` shards one pytest session across worker subprocesses, each a full interpreter running an assigned slice of the collected tests. It drives the estate's parallel lane deliberately out of the default run: `-n` never enters `addopts` because pytest-benchmark measurement and parallel execution stay in separate sessions, so a parallel run is an explicit opt-in that carries its own scheduling and worker-restart policy.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pytest-xdist` · license `MIT`
-- namespace: `import xdist` — public helpers on `xdist`; the plugin body is `xdist.plugin`.
-- asset: dist `pytest-xdist`; `pytest11` entry point `xdist = xdist.plugin` (disable with `-p no:xdist`).
-- rail: parallel / distributed spec execution — the opt-in multi-worker session.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 Worker-identity helpers a fixture or conftest reads to branch on execution role.
 
@@ -26,7 +19,7 @@ def is_xdist_worker(request_or_session: FixtureRequest | Session) -> bool: ...
 def is_xdist_controller(request_or_session: FixtureRequest | Session) -> bool: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 CLI surface controlling worker count, scheduling mode, and restart tolerance.
 
@@ -43,7 +36,7 @@ CLI surface controlling worker count, scheduling mode, and restart tolerance.
 ```python
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PYTEST_XDIST_TOPOLOGY]:
 - Each worker is a separate interpreter; `PYTEST_XDIST_WORKER` (`gw0`/`gw1`/…), `PYTEST_XDIST_WORKER_COUNT`, and `PYTEST_XDIST_TESTRUNUID` identify it in the environment, and `PYTEST_XDIST_AUTO_NUM_WORKERS` overrides the `-n auto` derivation.
@@ -58,9 +51,3 @@ CLI surface controlling worker count, scheduling mode, and restart tolerance.
 [LOCAL_ADMISSION]:
 - Admitted on the dev plane in `[dependency-groups] dev`; no runtime graph imports `xdist`.
 - Worker-role branching goes through `xdist.get_xdist_worker_id`, never a raw `PYTEST_XDIST_WORKER` read scattered across suites.
-
-[RAIL_LAW]:
-- Package: `pytest-xdist`
-- Owns: worker-subprocess orchestration, the `--dist` scheduling vocabulary, worker-restart tolerance, and worker-identity helpers.
-- Accept: `-n auto`/`-n <int>` as an explicit CLI opt-in; `--dist loadgroup` with `@pytest.mark.xdist_group` for resource affinity; `get_xdist_worker_id` for per-worker resource keying.
-- Reject: `-n` in default `addopts`; a benchmark session under any `-n`; a session-scoped fixture assumed once-per-run when it is once-per-worker; a bare `PYTEST_XDIST_WORKER` read where the helper exists.

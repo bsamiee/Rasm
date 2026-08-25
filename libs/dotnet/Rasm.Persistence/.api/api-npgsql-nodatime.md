@@ -2,16 +2,7 @@
 
 `Npgsql.NodaTime` admits the NodaTime temporal wire codecs onto an `INpgsqlTypeMapper`, so an Npgsql command reads and writes NodaTime values as native ADO parameters and result fields instead of degrading to BCL date types. Admission registers a `NodaTimeTypeInfoResolverFactory` covering the scalar, range, multirange, and array shapes of every mapped temporal store type; the codec owns the binary round-trip, the temporal model and the EF column mapping stay with their own owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.NodaTime`
-- package: `Npgsql.NodaTime` (`PostgreSQL`)
-- assembly: `Npgsql.NodaTime`
-- namespace: `Npgsql` public extensions; converters and resolvers under `Npgsql.NodaTime.Internal`
-- depends: `Npgsql` ADO provider, `NodaTime` temporal model
-- rail: temporal store codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: temporal wire-codec admission
 
@@ -21,7 +12,7 @@
 
 - Every converter and resolver ships `internal`, so the whole consumer surface is the one extension class.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: type-mapper codec admission
 
@@ -34,7 +25,7 @@ Both overloads take the receiver alone and carry no policy: each registers a `No
 
 - `UseNodaTime<TMapper>`: `TMapper : INpgsqlTypeMapper`, so `NpgsqlDataSourceBuilder` binds this generic and chains at provisioning.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Admission is provisioning-time: registering the resolver factory on the mapper is the only act, and thereafter every mapped temporal value round-trips as its NodaTime type with no query-path call.
@@ -49,9 +40,3 @@ Both overloads take the receiver alone and carry no policy: each registers a `No
 
 [LOCAL_ADMISSION]:
 - PostgreSQL store profile admits `UseNodaTime` on the data source beside `UseNetTopologySuite` before any command opens a connection; a raw lane without it is the temporal drift the mapped lane never produces.
-
-[RAIL_LAW]:
-- Package: `Npgsql.NodaTime`
-- Owns: NodaTime temporal ADO wire-codec admission for `Npgsql` across scalar, range, multirange, and array shapes
-- Accept: `UseNodaTime` on the store data source or type mapper
-- Reject: BCL `DateTime`/`DateTimeOffset` parameters on a mapped column, string-formatted timestamps, or EF-only plugin admission without the ADO codec

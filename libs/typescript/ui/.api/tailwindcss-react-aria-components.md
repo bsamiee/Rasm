@@ -2,15 +2,7 @@
 
 `tailwindcss-react-aria-components` registers one Tailwind variant per react-aria-components interaction state, so RAC render-prop `className`/`style` functions collapse into static utility strings that flow through the folder's `cn` merge rail. It runs build-time only as an `@plugin` carrying a single `prefix` knob — zero runtime, never imported by a component.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tailwindcss-react-aria-components`
-- package: `tailwindcss-react-aria-components` (Apache-2.0)
-- module: CommonJS Tailwind plugin (`module.exports = plugin.withOptions(...)`); `.d.ts` types it `plugin(options?: { prefix?: string }) => { handler }` with `__isOptionsFunction`
-- runtime: build-time PostCSS/Tailwind plugin run during CSS compilation; zero runtime, never imported by a component, entirely outside the Effect boundary; `tailwindcss` peer registered CSS-first through `@plugin`
-- rail: the `token`/`view` styling plane — turns RAC render-prop state into the class vocabulary that composes through `cn`/`twMerge`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the closed variant vocabulary — one variant per RAC render-prop boolean flag, one `name-value` variant per render-prop enum, each selecting the `data-*` attribute RAC emits; `selection-mode`/`resizable-direction`/`sort-direction` register under the short `selection`/`resizable`/`sort` names.
 
@@ -30,7 +22,7 @@
 |  [12]   | date segment      | enum    | `type-{literal,year,month,day}`                                                          |
 |  [13]   | collection layout | enum    | `layout-{grid,stack}`                                                                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and variant use — the whole surface is one `@plugin` directive in the `token` entry CSS, never a JS import.
 
@@ -39,7 +31,7 @@
 |  [01]   | `@plugin "tailwindcss-react-aria-components"`             | directive | registers every variant; `{ prefix: rac }` namespaces them |
 |  [02]   | `selected:` `pressed:` `placement-bottom:` in `className` | variant   | scopes trailing utilities; stacks with `hover:`/`md:`      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `addVariant` fold over a `(data-attribute → selector)` table mints every variant — `<name>:` → `&[data-<attr>]` for a boolean, `<name>-<value>:` → `&[data-<attr>="<value>"]` for an enum — so `className="selected:… pressed:…"` reads state declaratively where a render-prop `className={({isSelected}) => …}` function stood; a new RAC state is a new upstream row, never a hand-written selector.
@@ -56,9 +48,3 @@
 [LOCAL_ADMISSION]:
 - Register once via `@plugin` in the `token` entry CSS; a component never imports the plugin or lists it in a JS `plugins: []` array, and a `prefix` is chosen only when an unprefixed name genuinely collides.
 - Style RAC state with variants (`selected:`/`pressed:`/`invalid:`/`placement-bottom:`) and pair `entering:`/`exiting:` with `tw-animate-css` for overlay transitions, never a render-prop `className`/`style` function or a hand-written enter/exit keyframe machine where a variant exists.
-
-[RAIL_LAW]:
-- Package: `tailwindcss-react-aria-components`
-- Owns: the build-time mapping of react-aria-components render-prop state to Tailwind variants — boolean state variants, `name-value` enum variants, the `@plugin` registration with its `prefix` option, and the unprefixed native-collapse selector emission
-- Accept: CSS-first `@plugin` registration, declarative variant styling of RAC state, `entering:`/`exiting:` + tw-animate transitions, composition through the `cn`/`twMerge` rail and with `cva`/`group-*`/`peer-*`
-- Reject: importing the plugin from a component, a JS `plugins: []` registration, render-prop `className`/`style` functions where a variant exists, hand-written enter/exit keyframe machines, a needless `prefix` that breaks native-collapse

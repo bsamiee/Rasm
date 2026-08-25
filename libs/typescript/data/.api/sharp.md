@@ -4,29 +4,19 @@
 
 Native and server-bound, its Promise and stream terminals lift into the `Effect` rail at the `object/file` boundary, where `failOn` and `sharp.block` gate untrusted uploads before decode.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `sharp`
-- package: `sharp` (Apache-2.0)
-- module: `export = sharp` CJS default (`import sharp from "sharp"`), ESM `dist/index.mjs`, types `dist/index.d.mts`
-- runtime: server-only node/bun native libvips; no browser or wasm lane imports the binding
-- native: libvips through prebuilt N-API binaries `@img/sharp-<platform>`; `sharp.versions` reports the linked codec versions
-- depends: `@img/colour` runtime dependency — its `ColorLike` parses every `background`/`tint`/overlay colour value
-- rail: the `data` `object/file` codec fan-out, lifted into the `Effect` rail at the boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: input, result, and introspection shapes
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]    | [CAPABILITY]                          |
-| :-----: | :-------------------------------- | :--------------- | :------------------------------------ |
-|  [01]   | `SharpInput`                      | input union      | every decode source shape             |
-|  [02]   | `SharpOptions`                    | ingress config   | input gates and source select         |
-|  [03]   | `OutputInfo`                      | terminal info    | provenance every terminal returns     |
-|  [04]   | `Metadata`                        | pre-decode read  | drives the derivative and content-key |
-|  [05]   | `Stats` / `ChannelStats`          | pixel analysis   | dominant colour, entropy, sharpness   |
-|  [06]   | `TimeoutOptions` / `CacheOptions` | governance       | timeout deadline, libvips cache limit |
-|  [07]   | `CacheResult` / `SharpCounters`   | telemetry        | cache stats, in-flight task counters  |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]   | [CAPABILITY]                          |
+| :-----: | :-------------------------------- | :-------------- | :------------------------------------ |
+|  [01]   | `SharpInput`                      | input union     | every decode source shape             |
+|  [02]   | `SharpOptions`                    | ingress config  | input gates and source select         |
+|  [03]   | `OutputInfo`                      | terminal info   | provenance every terminal returns     |
+|  [04]   | `Metadata`                        | pre-decode read | drives the derivative and content-key |
+|  [05]   | `Stats` / `ChannelStats`          | pixel analysis  | dominant colour, entropy, sharpness   |
+|  [06]   | `TimeoutOptions` / `CacheOptions` | governance      | timeout deadline, libvips cache limit |
+|  [07]   | `CacheResult` / `SharpCounters`   | telemetry       | cache stats, in-flight task counters  |
 
 `[GENERATED_INPUT]: `Create` `CreateText` `CreateRaw` `Join` `Noise`` — a solid or noise canvas, Pango text, raw pixels, or a tiled join under `SharpOptions`.
 
@@ -59,7 +49,7 @@ Native and server-bound, its Promise and stream terminals lift into the `Effect`
 |  [06]   | `FailOnOptions`                              | safety level    | untrusted-input abort threshold      |
 |  [07]   | `ColourspaceEnum` / `DepthEnum` / `Channels` | pixel taxonomy  | colourspace, depth, channel count    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the factory and the chained transform fold
 
@@ -112,7 +102,7 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 
 `[ENUM_STATIC]: `sharp.gravity` `sharp.strategy` `sharp.kernel` `sharp.fit` `sharp.bool``
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `sharp(input, options)` is the single entry for every source, discriminated by `SharpOptions` (`raw`/`create`/`text`/`join`), never a per-source factory family; the returned `Sharp` is a `Duplex`, so it both pipes and terminates.
@@ -130,9 +120,3 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 - Every terminal wraps in `Effect.tryPromise` with a tagged fault at the `object` boundary, so no raw Promise or sharp throw reaches domain code.
 - `object/file` runs the fan-out as `toFormat(row.format, row.options)` over a derivative-spec roster on one `clone()`d decode, terminating each row at `toUint8Array()` so the store takes the encoder's own allocation; a new derivative is a roster row keyed through the core `ContentKey` mint over the ENCODED bytes.
 - `SharpOptions.failOn` + `sharp.block` + `SharpOptions.limitInputPixels` gate untrusted uploads before decode, and `unlimited: false` bounds decompression-bomb exposure.
-
-[RAIL_LAW]:
-- Package: `sharp`
-- Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, the `toBuffer`/`toUint8Array`/`toFile` terminal trio and their `OutputInfo`, `metadata`/`stats` introspection, metadata-keep controls, and process governance
-- Accept: server-plane use in `object/file`, `Effect`-lifted terminals with tagged faults, `toFormat`-over-spec-rows fan-out on one `clone()`d decode, untrusted-input gating (`failOn`/`block`/`limitInputPixels`), content keys minted by the core `ContentKey` owner
-- Reject: a browser or wasm-lane import, a raw Promise or throw crossing into domain code, a hardcoded per-format encoder ladder, unbounded or untrusted decode, sharp owning content addressing or upload idempotency

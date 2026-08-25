@@ -129,7 +129,7 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 - Law: an `IConstraint<T>` conformance lifts its fault through the implicit `Error → Validation<Error,T>` widening — `value` on success, the bare `Fault` case on failure — so the triple-cast that spells the lift by hand is the deleted ceremony; the floor is held by the owner and minted downstream, the closed family the owner switches and the open set it folds co-existing on one owner.
 - Law: the implicit widening fires only in a target-typed position — an expression-bodied return, a conditional against a typed operand — while generic type inference in a `Match` or `Bind` arm never applies a user-defined conversion to unify the arms, so a rail-valued lambda spells its fault arm as the concrete carrier explicitly.
 - Law: `MapFail` on `Fin` is `Error → Error` pinned; on `Validation` it changes the failure type and requires `Monoid<F1>` — the asymmetry decides which carrier survives accumulation.
-- Reject: building an independent-field product with `from`/`select` inside an accumulating carrier, which silently switches accumulation off; bridging a composite owner through `TryCreate` or a hand-built `out var` ternary where shapes.md's `Admitted` factory bridge plus the composite-refinement `guard` already admit leaf-then-composite; an interface over the closed family, which forfeits `Switch` totality; a `Switch` over the open set, which cannot admit a foreign conformance; a `Bind` fold over the open constraint set, which reports only the first violation where the applicative fold reports all.
+- Reject: building an independent-field product with `from`/`select` inside an accumulating carrier, which silently switches accumulation off; bridging a composite owner through `TryCreate` or a hand-built `out`-parameter ternary where shapes.md's `Admitted` factory bridge plus the composite-refinement `guard` already admit leaf-then-composite; an interface over the closed family, which forfeits `Switch` totality; a `Switch` over the open set, which cannot admit a foreign conformance; a `Bind` fold over the open constraint set, which reports only the first violation where the applicative fold reports all.
 
 ```csharp
 public interface IConstraint<T> {
@@ -148,7 +148,7 @@ public sealed class Ordered : IConstraint<RangeValue> {
 
 public static class Constrained {
     public static Validation<Error, RangeValue> Admit(string raw, int start, int end, params ReadOnlySpan<IConstraint<RangeValue>> over) {
-        var checks = Iterable.createRange(over);
+        Seq<IConstraint<RangeValue>> checks = [.. over];
         return RangeValue.Admitted((raw, start, end)).Bind(value =>
             checks.Traverse(constraint => constraint.Check(value)).As().Map(_ => value));
     }

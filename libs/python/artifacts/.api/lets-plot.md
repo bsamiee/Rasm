@@ -2,18 +2,7 @@
 
 `lets-plot` mints the host-free grammar-of-graphics chart surface for the artifacts visuals rail: `ggplot` + `aes` seed a `PlotSpec`, the `geom_*`/`stat_*`/`scale_*`/`position_*`/`coord_*`/`facet_*`/`theme*` grammar families `+`-compose onto it, and `PlotSpec.to_svg`/`to_png`/`to_pdf`/`to_html` + `lets_plot.export.ggsave` self-render to bytes or files in-process. It is a complete self-render engine — unlike `altair` (`.api/altair.md`), which builds a Vega-Lite spec for `vl-convert-python` (`.api/vl-convert-python.md`) to lower — rendering with no browser, Node, or Vega binary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lets-plot`
-- package: `lets-plot`
-- module: `lets_plot` (`lets_plot.export`, `lets_plot.bistro`)
-- owner: `artifacts`
-- rail: visuals
-- asset: cp-tagged native wheel bundling the Kotlin/JS grammar-and-render core; SVG and HTML serialize self-contained, PNG and PDF rasterize the rendered SVG through `pillow` (`.api/pillow.md`) in-process, and a `geom_livemap` map plot serializes to interactive HTML only.
-- abi: the cp-tagged wheels cap at cp314 with no abi3 tag, the project publishes no sdist, and nixpkgs carries no python distribution of it, so no wheel, source, or overlay lane reaches the 3.15 estate floor — admission stands through the manifest row and its `python_version` marker, reach does not, and `visualization/chart/spec#CHART` rails `<engine-unavailable>` until upstream publishes a floor wheel or the estate floor moves.
-- capability: declarative ggplot2-grammar charts over a polars/pandas or dict frame — the `geom_*`/`stat_*` layers, the `scale_*`/`scale_*_manual` scale algebra, `position_*` adjustments, `sampling_*` reduction, `coord_*`/`facet_*`/`theme*`/`flavor_*`/`element_*` modifiers, `guide_*`/`labs`/`lims` annotation, the `gggrid`/`ggbunch`/`ggdeck`/`ggmarginal` composition roots, the `lets_plot.bistro` recipes, and in-process `PlotSpec.to_*` + `ggsave` self-render export.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plot and composition roots
 
@@ -83,7 +72,7 @@
 |  [46]   | `lims` / `xlim` / `ylim` / `expand_limits`                                            | axis limits                                    |
 |  [47]   | `margin` / `arrow` / `as_discrete` / `layer_tooltips` / `layer_labels`                | margins/arrows/tooltips                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar construction
 
@@ -157,11 +146,11 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 |  [02]   | `to_png(path, scale=None, w=None, h=None, unit=None, dpi=None) -> str`      | render to PNG via `pillow` (file-like `path` -> bytes)   |
 |  [03]   | `to_pdf(path, scale=None, w=None, h=None, unit=None, dpi=None) -> str`      | render to PDF via `pillow` (file-like `path` -> bytes)   |
 |  [04]   | `to_html(path=None, iframe=None) -> str`                                    | render to HTML (file-like `path` -> bytes/`None`)        |
-|  [05]   | `as_dict() -> dict`                                                         | recursively resolved plot-spec dict                     |
+|  [05]   | `as_dict() -> dict`                                                         | recursively resolved plot-spec dict                      |
 |  [06]   | `props()` / `has_layers()` / `duplicate() -> PlotSpec`                      | spec-property map / layer probe / deep copy              |
 |  [07]   | `ggsave(plot, filename, *, path=None, iframe=True, scale=None, ...) -> str` | canonical multi-format file export (format by extension) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ggplot(data, aes(...))` admits a polars/pandas frame or a `{column: sequence}` dict; `aes(x, y, **kwargs)` binds columns to aesthetic channels, every channel beyond `x`/`y` arriving as a kwarg.
@@ -184,9 +173,3 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 
 [LOCAL_ADMISSION]:
 - lets-plot is admitted for host-free ggplot2-grammar self-render; the declarative-Vega path routes to `altair`→`vl-convert-python`→`vegafusion`, publication display tables to `great-tables` (`.api/great-tables.md`), standalone SVG-to-PNG rasterization to `resvg-py` (`.api/resvg-py.md`), and a `geom_livemap` interactive map UI or live web UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `lets-plot`
-- Owns: declarative ggplot2-grammar chart construction over polars/pandas frames — the `geom_*`/`stat_*` layer family, the `scale_*`/`scale_*_manual` scale algebra, `position_*` adjustments, `sampling_*` large-data reduction, `coord_*`/`facet_*`/`theme*`/`flavor_*`/`element_*` modifiers, `guide_*`/`labs`/`lims` annotation, the `gggrid`/`ggbunch`/`ggdeck`/`ggmarginal` composition roots, the `lets_plot.bistro` recipes, and the in-process `PlotSpec.to_*` + `ggsave` self-render export.
-- Accept: a `PlotSpec` built from the grammar families, `+`-composed, and self-rendered through `to_*`/`ggsave` on the worker lane, its `Palette` injected by `scale_*_manual`.
-- Reject: a wrapper-rename of `ggplot`/`geom_*`/`scale_*`; a per-geom parallel plot type where `+`-composition layers; a hand-rolled numpy fit where the bundled core and `stat_*` render; a producer-side pre-decimation where `sampling_*` caps the layer; an ad-hoc per-engine color pick where `scale_*_manual` injects the `Palette`; a Vega or `vl-convert` route where lets-plot self-renders (the JPEG resvg hop excepted); a headless-browser, Cairo, or ImageMagick raster path where `to_png`/`to_pdf` rasterize via `pillow`; constructing the `PlotSpec` on the runtime instead of the worker lane; identity minting the runtime owns.

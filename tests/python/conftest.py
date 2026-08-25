@@ -1,11 +1,11 @@
 """Root composition owner for tests/python: SUT registration derives from disk shape."""
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 
 from pathlib import Path
 
-from tests.python._testkit.laws import register_tree
-from tests.python._testkit.runtime import REPO_ROOT
+from tests.python.testkit.laws import register_tree
+from tests.python.testkit.runtime import REPO_ROOT
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

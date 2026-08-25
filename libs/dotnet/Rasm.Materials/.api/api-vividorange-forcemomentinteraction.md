@@ -2,16 +2,7 @@
 
 `VividOrange.ForceMomentInteraction` owns the N-M-M column capacity-hull concrete: `ForceMomentVertex` carries one `(Force N, Torque My, Torque Mz)` point, `ForceMomentMesh` welds those points into the closed capacity onion behind a topology kernel, and `ForceMomentTriFace` weights each facet. This package owns the mesh DATA and topology algebra; the engine produces the vertices, and consumers read the hull through the interface floor. Coordinates stay `UnitsNet` `Force`/`Torque` quantities, so the surface renders as a `VividOrange.Geometry` mesh and round-trips the taxonomy JSON rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.ForceMomentInteraction`
-- package: `VividOrange.ForceMomentInteraction` (MIT)
-- assembly: `VividOrange.ForceMomentInteraction`
-- namespace: `VividOrange.ForceMomentInteraction`
-- asset: pure-managed AnyCPU, no native RID; the `net10.0` consumer binds `lib/net8.0`.
-- rail: profiles (RC/steel column capacity surface — concrete implementation)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the N-M-M capacity-hull concrete; every class implements its matching interface floor.
 
@@ -21,7 +12,7 @@
 |  [02]   | `ForceMomentVertex`  | class         | capacity point with texture      |
 |  [03]   | `ForceMomentTriFace` | class         | lazy centroid and meshing weight |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ForceMomentVertex` construction — the unit-typed `(N, My, Mz)` capacity point.
 - `ForceMomentVertex.(Force, Torque, Torque)` ctors re-express `Z` into `Y.Unit` so My and Mz share one torque unit; the `(double, double, double, ForceUnit, TorqueUnit)` ctor is the engine's raw-scalar form.
@@ -69,7 +60,7 @@
 |  [05]   | `face.Center`                                                                    | property | memoized coordinate mean    |
 |  [06]   | `face.Area`                                                                      | property | memoized Heron `Ratio` area |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A `ForceMomentVertex` is one feasible `(Force N, Torque My, Torque Mz)` point on a column's capacity boundary; a `ForceMomentMesh` is the closed N-M-M onion welded from those points, and every coordinate stays a `UnitsNet` quantity end to end.
@@ -89,9 +80,3 @@
 [LOCAL_ADMISSION]:
 - A Materials capacity owner binds the hull through the `IForceMomentMesh` floor, never this concrete — the engine returns the floor type; this concrete surface is read only to mutate a held mesh for rendering or to build a hull from supplied vertices via `AddVertex`/`SetIndices`.
 - `Force`/`Torque` coordinates never reduce to `double` in an interior signature; the facet `Area` `Ratio` is a meshing weight, not a structural quantity.
-
-[RAIL_LAW]:
-- Package: `VividOrange.ForceMomentInteraction`
-- Owns: the N-M-M capacity-hull concrete — `ForceMomentMesh` (unique/outer/outline edge extraction and winding-reversal topology kernel), `ForceMomentVertex` (unit-typed `(N, My, Mz)` point with unit-normalizing ctors and polymorphic `AddVertex`), `ForceMomentTriFace` (lazy `Center`/`Area`) — all `Force`/`Torque`-typed and `ITaxonomySerializable`.
-- Accept: a capacity hull built by the engine and read through `IForceMomentMesh`, or a hull mutated for rendering through this concrete; `Force`/`Torque` coordinates carried as `UnitsNet` quantities at the boundary.
-- Reject: reducing a `Force`/`Torque` capacity coordinate to `double` in an interior signature; treating the facet `Area` `Ratio` as a physical area; a topology built from non-triangular index triples (`SetIndices` rejects it).

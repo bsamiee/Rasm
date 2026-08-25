@@ -2,39 +2,7 @@
 
 Resource detection folds host environment facts into semantic-convention attributes on the OpenTelemetry `Resource`: each package seats one `IResourceDetector` behind a single public `ResourceBuilder` extension contributing only the keys it resolves at provider build. Each new detection dimension lands as one package record with its extension row.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Resources.Container`
-- package: `OpenTelemetry.Resources.Container`
-- assembly: `OpenTelemetry.Resources.Container`
-- namespace: `OpenTelemetry.Resources`
-- rail: container identity detection
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Resources.Host`
-- package: `OpenTelemetry.Resources.Host`
-- assembly: `OpenTelemetry.Resources.Host`
-- namespace: `OpenTelemetry.Resources`
-- rail: host attribute detection
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Resources.OperatingSystem`
-- package: `OpenTelemetry.Resources.OperatingSystem`
-- assembly: `OpenTelemetry.Resources.OperatingSystem`
-- namespace: `OpenTelemetry.Resources`
-- rail: operating-system attribute detection
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Resources.Process`
-- package: `OpenTelemetry.Resources.Process`
-- assembly: `OpenTelemetry.Resources.Process`
-- namespace: `OpenTelemetry.Resources`
-- rail: process attribute detection
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Resources.ProcessRuntime`
-- package: `OpenTelemetry.Resources.ProcessRuntime`
-- assembly: `OpenTelemetry.Resources.ProcessRuntime`
-- namespace: `OpenTelemetry.Resources`
-- rail: .NET runtime attribute detection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: static extension classes on `ResourceBuilder`, each seating one `internal sealed` `IResourceDetector`
 
@@ -46,7 +14,7 @@ Resource detection folds host environment facts into semantic-convention attribu
 |  [04]   | `ProcessResourceBuilderExtensions`         | class         | `ProcessDetector`         |
 |  [05]   | `ProcessRuntimeResourceBuilderExtensions`  | class         | `ProcessRuntimeDetector`  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one overload each, `Add<X>Detector(ResourceBuilder) -> ResourceBuilder` returning the supplied builder so admission chains; a null builder throws
 
@@ -66,7 +34,7 @@ Resource detection folds host environment facts into semantic-convention attribu
 - `AddProcessDetector`: `process.creation.time` lands as a UTC ISO round-trip string, dropping where `Process.StartTime` faults.
 - Every detector here stamps `https://opentelemetry.io/schemas/1.43.0` on the `Resource` it returns, so the five agree with each other and with a branch pinning that same semconv coordinate.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ResourceBuilder.Build` folds every registered detector's `Resource` through `Resource.Merge` in registration order, so the last extension chained wins any key two contributors share.
@@ -83,9 +51,3 @@ Resource detection folds host environment facts into semantic-convention attribu
 - Detector chaining sits inside the one `ConfigureResource(identity)` delegate, each root selecting its detector rows by deployment profile.
 - Merge order IS precedence, so a root wanting the deployment override to win re-chains `AddEnvironmentVariableDetector` as the chain TAIL: `CreateDefault` seats it ahead of every `ConfigureResource` row, which otherwise lets a minted identity attribute outrank the `OTEL_RESOURCE_ATTRIBUTES` value a deploy plane set for the same key.
 - Branch-tier catalog: these packages compose at app roots and carry no substrate registry row.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Resources.Container` `OpenTelemetry.Resources.Host` `OpenTelemetry.Resources.OperatingSystem` `OpenTelemetry.Resources.Process` `OpenTelemetry.Resources.ProcessRuntime`
-- Owns: semconv resource-attribute detection for container, host, operating system, process, and .NET runtime
-- Accept: `Add<X>Detector` chained onto the identity `ResourceBuilder` at a composition root
-- Reject: hand-rolled attribute construction for these semconv keys; `SetResourceBuilder` discarding the minted identity

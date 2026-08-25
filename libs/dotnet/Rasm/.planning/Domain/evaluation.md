@@ -21,7 +21,7 @@ Rebuilds compose these seams unchanged: `ClosestHit` conforms to the `Domain/rai
 - Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core rails, and the Foundation `[BoundaryAdapter]` contract.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Runtime.InteropServices;
 using LanguageExt;
 using Rasm.Numerics;
@@ -102,7 +102,7 @@ public readonly record struct ClosestHit(
 - Growth: a new form is one row placed by its assignability against the rows above it; a form that subclasses an existing row's type places above it or is unreachable.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rhino.Geometry;
@@ -300,7 +300,7 @@ internal sealed partial class ClosestForm {
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;

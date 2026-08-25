@@ -2,17 +2,7 @@
 
 `rtree` supplies the libspatialindex R-tree bounding-box index for the geometry `mesh/spatial` Bounds worker-lane arm — a polymorphic `Index` over disk or memory storage, a `Property` tuning surface, and window queries with numpy-vectorized batch counterparts. `geometry` composes `Index(properties=Property(dimension=3))`, the stream-load constructor, and the `objects='raw'` payload query, never re-implementing the R-tree split heuristics, MBR packing, or k-nearest traversal. This GATED ENRICHMENT manifest row owns the persistent large-N index the `trimesh`+`numpy` in-triangulation spine cannot reach at repeated-query scale over a static element set; that spine's own AABB proximity stays for one-shot queries and never depends on it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rtree`
-- package: `rtree` (MIT)
-- import: `from rtree import index`
-- owner: `geometry`
-- rail: mesh/spatial / bounds-index-enrichment
-- entry points: none (library only)
-- capability: multi-dimensional R-tree/R*-tree/MVR-tree/TPR-tree index over disk or memory storage, generator-stream bulk load, intersection/nearest/count/containment window queries, numpy-vectorized batch intersection and nearest, and object-payload storage with pickle or live-object container variants
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: index, container, and result-item family
 - rail: mesh/spatial
@@ -40,7 +30,7 @@
 
 [Property slots]: `dimension` `type` `variant` `storage` `leaf_capacity` `index_capacity` `fill_factor` `near_minimum_overlap_factor` `tight_mbr` `pagesize` `buffering_capacity` `overwrite` `filename` `dat_extension` `idx_extension` `tpr_horizon`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction (`index.Index`)
 - rail: mesh/spatial
@@ -81,7 +71,7 @@
 |  [05]   | `flush()` / `close()`                                | persist        | commit dirty pages and release the disk index    |
 |  [06]   | `dumps(obj) -> bytes` / `loads(bytes) -> object`     | payload        | pickle codec for the stored object payload       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [MESH_SPATIAL_BOUNDS]:
 - import: `from rtree import index` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -92,9 +82,3 @@
 - batch axis: `intersection_v`/`nearest_v` fold a whole query batch into one native call over numpy `(n, d)` arrays, the vectorized path the Bounds arm uses for multi-element clearance candidate generation.
 - evidence: each index carries the entry count and overall `bounds` MBR; the query result carries the candidate count consumed by exact refinement and the R-tree pre-filter ratio.
 - boundary: rtree owns the persistent bounding-box index and candidate pre-filter; exact nearest-surface distance, ray, and containment stay `trimesh` proximity, narrow-phase collision and signed separation stay `python-fcl`, and fine point-cloud registration stays `small-gicp`/`open3d`.
-
-[RAIL_LAW]:
-- Package: `rtree`
-- Owns: multi-dimensional R-tree/R*-tree/TPR-tree bounding-box index, disk or memory storage, generator bulk load, intersection/nearest/count/containment queries, numpy-vectorized batch queries, and object-payload storage
-- Accept: the `mesh/spatial` Bounds arm's persistent large-N AABB index and candidate pre-filter feeding the exact `trimesh` refinement
-- Reject: wrapper-renames of `Index`/`intersection`/`nearest`; a hand-rolled AABB tree or R-tree split where rtree is admitted; a per-storage or per-query-kind function family over the polymorphic constructor and the `objects` discriminant; incremental `insert` where a packed stream-load fits a static set

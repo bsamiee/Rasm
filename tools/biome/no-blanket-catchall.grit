@@ -2,8 +2,12 @@ language js(typescript, jsx)
 
 or {
     `Effect.catchAll($self, $handler)` where { $self <: not arrow_function() },
-    `Effect.catchAllCause($self, $handler)` where { $self <: not arrow_function() },
-    `Effect.catchAllDefect($self, $handler)` where { $self <: not arrow_function() },
+    `Effect.catchAllCause($self, $handler)` where {
+        $self <: not arrow_function()
+    },
+    `Effect.catchAllDefect($self, $handler)` where {
+        $self <: not arrow_function()
+    },
     `Effect.catchAll($handler)`,
     `Effect.catchAllCause($handler)`,
     `Effect.catchAllDefect($handler)`

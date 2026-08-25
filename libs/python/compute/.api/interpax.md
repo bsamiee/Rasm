@@ -2,16 +2,7 @@
 
 `interpax` owns JAX-native differentiable interpolation and FFT resampling on regular grids for the compute interpolation rail. Every interpolant is an Equinox-style pytree module, so an interpolated field enters the JAX rail as a differentiable leaf inside an `equinox`/`optimistix` objective, a `quadax` integrand, or a `diffrax` ODE term with no boundary conversion.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `interpax`
-- package: `interpax`
-- import: `interpax`
-- owner: `compute`
-- rail: interpolation
-- capability: JAX-native differentiable interpolation on regular grids — 1D/2D/3D linear/cubic/PCHIP/monotonic kernels, reusable `vmap`/`grad`/`jit`-compatible interpolant objects, and FFT periodic resampling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reusable interpolant objects — JAX pytree modules, `jit`/`vmap`/`grad`-compatible and re-evaluable at arbitrary query points after one construction; built via `Interpolator{1,2,3}D(x[, y[, z]], f, method, extrap, period)`, called with query points, `derivative` accepted on evaluation
 - [INTERPOLANT]: `Interpolator1D` `Interpolator2D` `Interpolator3D`
@@ -28,7 +19,7 @@
 
 - [CALCULUS]: `<spline>.derivative(nu=1)` `<spline>.antiderivative(nu=1)` `<spline>.integrate(a, b)` `<spline>.roots()`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module-level evaluation functions — `interp{1,2,3}d` evaluate on a regular grid, `fft_interp{1,2}d` spectrally resample uniformly sampled periodic data through the trigonometric interpolant of the input samples
 - interp carry: `method`, `derivative`, `extrap`, `period`; `method` selects the kernel — `"nearest"` `"linear"` `"cubic"` `"cubic2"` `"catmull-rom"` `"monotonic"` (PCHIP) `"monotonic-0"`, `extrap` sets out-of-bound behavior, `period` marks periodic axes.
@@ -41,7 +32,7 @@
 |  [04]   | `fft_interp1d(f, n, sx, dx)`              | FFT-interpolate periodic `f` to length `n` |
 |  [05]   | `fft_interp2d(f, n1, n2, sx, sy, dx, dy)` | FFT-interpolate periodic 2D `f`            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `interpax` — every family imports from top level.
@@ -58,9 +49,3 @@
 
 [LOCAL_ADMISSION]:
 - regular-grid interpolation, periodic resampling, and spline calculus route to `interpax`; a re-queried grid fits once outside the trace as an `Interpolator{1,2,3}D`, a single evaluation uses `interp{1,2,3}d`.
-
-[RAIL_LAW]:
-- Package: `interpax`
-- Owns: JAX-native differentiable interpolation on regular grids (linear/cubic/PCHIP/monotonic/Catmull-Rom), reusable callable interpolant pytree objects, drop-in differentiable `scipy.interpolate` spline classes with analytic calculus methods, and FFT-based periodic resampling
-- Accept: regular-grid interpolation through `interp{1,2,3}d` (one-shot) or `Interpolator{1,2,3}D` (reusable), `method` selecting the kernel, the spline classes for analytic derivative/antiderivative/integrate/roots, and `fft_interp{1,2}d` for periodic resampling
-- Reject: a hand-rolled cubic-spline, PCHIP, or FFT-resample kernel `interpax` already owns; a manual FFT-pad-IFFT periodic loop; a `findiff` stencil where the analytic `.derivative()` exists; a per-call re-fit of the same grid inside the trace

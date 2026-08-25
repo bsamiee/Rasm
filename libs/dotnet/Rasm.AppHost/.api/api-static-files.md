@@ -2,16 +2,7 @@
 
 `Microsoft.AspNetCore.App` serves a static asset tree two ways, and provenance is the whole discriminant: `MapStaticAssets` resolves a manifest the .NET BUILD emitted, `UseStaticFiles` serves whatever an `IFileProvider` resolves at RUNTIME. AppHost's co-hosted bundle is a TypeScript build product the host selects per profile row, so provenance decides the owner rather than taste.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.AspNetCore.App` static-files capability
-- framework: `Microsoft.AspNetCore.App` shared framework — reached through the `<FrameworkReference>` `Grpc.AspNetCore.Server` already declares, so this catalog records a capability, never a package admission
-- assembly: `Microsoft.AspNetCore.StaticFiles`, `Microsoft.AspNetCore.StaticAssets`, `Microsoft.Extensions.FileProviders.Physical`
-- namespace: `Microsoft.AspNetCore.Builder`, `Microsoft.AspNetCore.StaticFiles`, `Microsoft.AspNetCore.StaticFiles.Infrastructure`, `Microsoft.AspNetCore.StaticAssets`, `Microsoft.Extensions.FileProviders`
-- asset: shared framework, no manifest row and no lock entry
-- rail: composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: middleware options family
 
@@ -36,7 +27,7 @@
 |  [04]   | `IFileProvider`                              | contract           | the runtime asset roster        |
 |  [05]   | `PhysicalFileProvider`                       | provider value     | a directory root on disk        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration — the two owners, by asset provenance
 
@@ -72,7 +63,7 @@
 |  [11]   | `FileExtensionContentTypeProvider.Mappings`                          | property | mutable extension map                |
 |  [12]   | `StaticAssetsEndpointConventionBuilder.Add(Action<EndpointBuilder>)` | instance | convention over mapped assets        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `UseStaticFiles` is MIDDLEWARE and serves from `IWebHostEnvironment.WebRootPath`/`WebRootFileProvider` — the `wwwroot` subfolder by default — or from whatever `FileProvider` the options carry. Its roster is resolved on every request from the provider, so a tree produced by any toolchain and selected at boot serves without the .NET build knowing it exists.
@@ -91,9 +82,3 @@
 - Any `CoHostedAssets` row whose selected root resolves no readable directory refuses at boot; per-request 404s are the deleted diagnosis.
 - `ServeUnknownFileTypes` stays off and `DefaultContentType` unset on a control-plane root: an unmapped extension is a bundle defect, not a byte stream to guess at.
 - Directory browsing and default-document rewriting stay unregistered — a control plane serves a declared roster, never a listing.
-
-[RAIL_LAW]:
-- Framework: `Microsoft.AspNetCore.App` shared framework
-- Owns: static asset serving at the web app root, under two registrations discriminated by asset provenance
-- Accept: `UseStaticFiles(StaticFileOptions)` over a runtime-resolved `IFileProvider`; `MapStaticAssets` over a build-emitted manifest
-- Reject: a hand-rolled file-serving endpoint, `UseFileServer`'s browsing and default-document arms on a control plane, and a manifest registration over a tree the .NET build never enumerated

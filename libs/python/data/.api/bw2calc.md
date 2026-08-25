@@ -2,16 +2,7 @@
 
 `bw2calc` is the Brightway LCA calculation engine: from a functional-unit demand dict and `bw_processing` datapackages it assembles the technosphere, biosphere, and characterization `scipy` sparse matrices, solves `A·supply = demand`, then folds `inventory = B·supply` and `characterized_inventory = C·inventory` to `score`. It owns the solver hierarchy and `stats_arrays` uncertainty propagation as the pure compute layer that never opens the graph `bw2data` owns, authors the datapackage format `bw_processing` owns, or re-implements the factorization `scipy` owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bw2calc`
-- package: `bw2calc` (BSD-3-Clause)
-- module: `bw2calc` (`import bw2calc as bc`)
-- rail: LCA linear-system solve engine for the EPD/LCA cluster
-- asset: pure-Python `py3-none-any` purelib, zero compiled extensions; numerics ride `scipy` sparse + `numpy`, matrix mapping `matrix_utils.MappedMatrix`, uncertainty `stats_arrays`, graph traversal `bw_graph_tools`
-- accel: import-time probe selects a fast factorizer arch-keyed — `pypardiso` (x64 MKL PARDISO) then `scikit-umfpack` (ARM UMFPACK) — else `scipy` SuperLU `factorized`/`spsolve`; `presamples.PackagesDataLoader` sources pre-sampled arrays
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver-engine hierarchy (`LCABase`/`Iterator` subclasses) and the `pydantic` LCIA config model
 
@@ -32,7 +23,7 @@
 
 [ERROR_ROOT]: `BW2CalcError` — the sole exported member and the root of the solver family; derives from `Exception` directly, so a solve fence names it beside the stdlib rows a demand key or method tuple raises through it (`KeyError`, `ValueError`).
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: staged LCA lifecycle, factorization-reuse rail, and result projection
 - `LCA` and `MultiLCA` carry: `data_objs`, `remapping_dicts`, `log_config`, `seed_override`, `use_arrays`, `use_distributions`, `selective_use`
@@ -54,7 +45,7 @@
 [PROPERTIES]: `score` `activity_dict` `product_dict` `biosphere_dict` `matrix_labels` `MultiLCA.scores` `MultiLCA.matrix_list_labels`
 - `LCA`/`MultiLCA` are iterators: `next(instance)` yields a Monte Carlo sample under `use_distributions`/`use_arrays`, `selective_use` scoping stochasticity per matrix.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `bw2calc` is stateless over storage — it consumes `bw_processing` datapackages and never opens a database; the staged `lci`->`lcia`->`normalize`/`weight` calls are cumulative, a parameter sweep running `lci`/`lcia` once then looping `redo_lci`/`redo_lcia` on the kept factorization rather than reconstructing `LCA`.
@@ -77,9 +68,3 @@
 
 [LOCAL_ADMISSION]:
 - `LCA`/`MultiLCA` own every in-repo LCA solve; inputs arrive as `bw_processing` datapackages through the `bw2data` bridges, the solver subclass chosen by matrix shape.
-
-[RAIL_LAW]:
-- Package: `bw2calc`
-- Owns: LCA linear-system solve (`supply = A⁻¹·demand`), inventory and characterized-inventory computation, the four-strategy solver hierarchy, Monte Carlo and array uncertainty propagation, multi-demand multi-method batch scoring, technosphere inversion, and top-contributor dataframes
-- Accept: `LCA`/`MultiLCA` owners; `data_objs` from `bw2data.prepare_lca_inputs` / `get_multilca_data_objs`; the staged `lci`->`lcia`->`normalize`/`weight` pipeline with `redo_lci`/`redo_lcia`/`switch_*` reuse; solver subclass by matrix shape; `use_distributions`/`use_arrays` iteration with `seed_override`; `MethodConfig` validation; `to_dataframe` contributions
-- Reject: re-implementing the sparse solve `scipy` owns; reading SQLite instead of the `bw2data` bridges; reconstructing `LCA` per alternative where `redo_lci`/`CachingLCA` reuse the factorization; per-iteration re-solve where `PartitionedMonteCarloLCA`/`keep_first_iteration` exist; hand-assembling matrices `bw_processing`/`matrix_utils` own; a parallel config object where `MethodConfig` is the typed owner

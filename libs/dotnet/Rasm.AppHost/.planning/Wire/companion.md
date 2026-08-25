@@ -24,7 +24,7 @@ Rasm.AppHost serves the inbound half of the outbound boundary. `ModalityRow` key
 - Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` and never re-declares spawn or connect mechanics. Each row keys on `DeploymentTopology`; pairing direction remains the admitted capability set rather than a second topology vocabulary or adjacent booleans. Attach and lease deadlines come from `DeadlineClass.HopAttempt` and `LeasePolicy.Maintenance.CrashStaleness`. `PeerRoster` owns host-side connections and contributes the existing Persistence-owned ephemeral presence row on join. Missing identifiers remain absent rather than becoming pid or uid zero. Foreign errors retain their owning identity through `CompanionFault.Of`. Cluster membership and local forwarding continue to read their existing owners.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Diagnostics;

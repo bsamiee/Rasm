@@ -2,15 +2,7 @@
 
 `lazrs` owns the Rust-backed LAZ/COPC point-record codec for the data point-cloud rail: PyO3 bindings over the `laz-rs` crate that decompress and compress LASzip chunked point data with no C++ `laszip` linkage. Sequential and Rayon-parallel decompressor, compressor, and appender families stream chunked codecs over VLR-keyed buffers and file-like sources, and block functions codec raw record-data buffers one-shot. `laspy` selects it as the `LazBackend.Lazrs`/`LazrsParallel` codec backend; it never re-implements the arithmetic range coding `laz-rs` owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lazrs`
-- package: `lazrs`
-- module: `lazrs`
-- owner: `data`
-- rail: point-cloud
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec roots — one `LazVlr` descriptor keys every reader, writer, and appender.
 
@@ -26,7 +18,7 @@
 |  [08]   | `DecompressionSelection` | selection mask   | selective-field decompression bitmask                     |
 |  [09]   | `LazrsError`             | error            | malformed-VLR / codec / I/O failure                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: codec constructors — `source` is a file-like read at the first compressed point, `dest` a writable stream, `vlr` the keying `LazVlr`; both appenders open an existing stream and continue at `point_count`, and `new_for_compression` accepts an optional `use_variable_size_chunks` flag.
 
@@ -82,7 +74,7 @@ Each reader, writer, and appender carries its chunked members; `decompress_many`
 |  [13]   | `WAVEPACKET`         | full-waveform wavepacket            |
 |  [14]   | `ALL_EXTRA_BYTES`    | every extra-byte channel            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `LazVlr` keys every reader, writer, and appender as the single codec descriptor, parsed once and threaded, never re-parsed per call; `LazVlr.new_for_compression` mints one for a write, `LazVlr(record_data)` parses one for a read.
@@ -97,9 +89,3 @@ Each reader, writer, and appender carries its chunked members; `decompress_many`
 
 [LOCAL_ADMISSION]:
 - Reach `lazrs` only through `laspy`'s `LazBackend` selector at boundary scope; block functions codec raw buffers, the streaming classes codec file-like sources, and a raised `LazrsError` maps to the data rail's typed failure at the boundary.
-
-[RAIL_LAW]:
-- Package: `lazrs`
-- Owns: chunked LASzip/COPC point-record decompression and compression — sequential and Rayon-parallel decompressor, compressor, and appender families, selective-field decompression, and chunk-table read/write over VLR-keyed buffers and file-like streams
-- Accept: LAZ/COPC compressed point-cloud ingestion and emission as the `laspy` `LazBackend.Lazrs`/`LazrsParallel` codec backend feeding the point-cloud owner
-- Reject: a hand-rolled LASzip range coder; the C++ `laszip` backend where `lazrs` is admitted; LAS header/container parsing pulled into this package; a parallel reader type minted per `parallel` flag; post-decode field dropping the selective mask owns

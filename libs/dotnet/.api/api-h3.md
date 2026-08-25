@@ -2,17 +2,7 @@
 
 `pocketken.H3` owns managed Uber-H3 hexagonal hierarchical indexing: one 64-bit `H3Index` computed in process, bit-identical to the cell `h3-pg` computes server-side, so ingest and database indexing share one cell vocabulary. That ulong is the resolution-tagged spatial key `Element/identity` stores and every spatial predicate keysets on. Geometry crosses at `NetTopologySuite`, the same currency the PostGIS binding already speaks, so a cell column and a geometry column project one coordinate. Two folders compose that one vocabulary — `Rasm.Persistence` drives the stored cell key and the in-database membership prefilter, `Rasm.Bim` the georeferenced site-context DGGS keyer arm — and a cell minted on either side must equal the other's bit-for-bit, so the whole surface homes here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pocketken.H3`
-- package: `pocketken.H3` (Apache-2.0)
-- assembly: `pocketken.H3`
-- namespace: `H3`, `H3.Model`, `H3.Extensions`, `H3.Algorithms`
-- asset: pure-managed AnyCPU IL — a C# port of the Uber-H3 algorithm carrying no native binary
-- depends: `NetTopologySuite` alone; every geometry overload crosses at that object model
-- rail: geospatial-index
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CELL_TYPE_SCOPE]: the cell index, its decoded bit layout, and the kernels the algorithms fold through
 
@@ -36,7 +26,7 @@
 
 [EXTENSION_HOSTS]: every `this H3Index` surface below is a static extension class — `H3.Extensions.H3HierarchyExtensions` (parent, child, neighbour), `H3GeometryExtensions` (coordinate bridge, boundary, cell metrics), `H3SetExtensions` (cover algebra), `H3DirectedEdgeExtensions`, `H3VertexExtensions`, `H3LocalIJExtensions`, and `H3.Algorithms.Rings`/`Lines`/`Polyfill` — so a resolution failure names the missing `using`, never a missing member.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [COORDINATE_ENTRY_SCOPE]: coordinate and stored-key admission with the inverse projections
 
@@ -138,7 +128,7 @@
 
 [GRID_STATISTIC]: static resolution grids on `H3Index` — `GetNumberOfCells(int)` `GetRes0Cells()` `GetPentagons(int)` `GetHexagonAreaAverageInKmSquared(int)` `GetHexagonAreaAverageInMSquared(int)` `GetHexagonEdgeLengthAverageInKm(int)` `GetHexagonEdgeLengthAverageInM(int)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `H3Index` is a mutable value `struct` — `RotateClockwise` and `SetDirectionForResolution` rewrite only the local copy, `null` is not a cell, and `default(H3Index)` equals `Invalid` — so `(ulong)index` or its hex `ToString()` is the durable form and every store, fold, and cross-thread hand-off carries that value.
@@ -162,9 +152,3 @@
 [LOCAL_ADMISSION]:
 - Cell computation enters at `Rasm.Persistence` `Ingest/geospatial` and `Element/identity`, and at the `Rasm.Bim` geospatial-seam DGGS keyer arm; a spatial predicate lowers to a cell set ahead of any geometry test, and the persisted column carries the `H3Cell` ulong the identity Key axis owns.
 - A site-context or stored cell enters the repo as the `(ulong)` durable id, never a live `H3Index` instance.
-
-[RAIL_LAW]:
-- Package: `pocketken.H3`
-- Owns: managed cell indexing over the NTS coordinate bridge — hierarchy, disk, path, region fill, cover algebra, directed-edge and vertex topology, the spherical area and length metrics, and the in-process DGGS site-context key
-- Accept: the cell ulong or its hex text as the durable key, NTS geometry at every boundary, `Utils.DefaultGeometryFactory` at SRID 4326 or the `GeoServices`-resolved factory where the project SRID differs, `GridDiskDistances` as the disk walk
-- Reject: a folder-tier re-tabling of this surface, storing a mutable `H3Index` value instead of its `ulong` id across a store or a fold, the `Invalid` sentinel crossing a boundary unwrapped, a second coordinate model beside NTS, hand-rolled great-circle distance, azimuth, or spherical area the `LatLng` and cell metrics own, a per-row `ST_DWithin` scan where a cell-set membership test serves

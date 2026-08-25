@@ -1,6 +1,5 @@
 # [PY_ARTIFACTS_SECTION]
 
-
 Owned families carry the three-part SectionFormat spine, canonical article roster, subordinate-title checklist, exact-one main-work alternatives, specifying methods, submittal classes, and paragraph roles. `NOTE` guidance strips at issue — the audit counts notes off the source spec and no lowering renders them; accumulating admission retains independent casualties; one audit fold derives ordering, cardinality, histogram, fill-in, checklist, and citation evidence. `NumberScheme.alphanumeric` and `decimal` carry only their own policy payloads, and lowering terminates with `END OF SECTION`.
 
 ## [01]-[INDEX]
@@ -18,7 +17,7 @@ Owned families carry the three-part SectionFormat spine, canonical article roste
 - Boundary: this owner authors presentation policy alone.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import IntEnum, StrEnum
 from math import isfinite
 from typing import Final, Literal, assert_never
@@ -180,7 +179,7 @@ __all__ = ["Alphabet", "CSI_PAGEFORMAT", "Decoration", "NumberLevel", "NumberSch
 - Boundary: this owner authors the specification, never the rendered page — `document/emit#DOCUMENT` folds the tree to PDF/Typst/HTML, `PageFormat` owns the numbering, `specification/classify#CODE` owns `ClassCode`, and `dotnet:Rasm.Bim` owns the QTO/IFC a specification cites through `visualization/table#TABLE`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from builtins import frozendict
 from collections import Counter

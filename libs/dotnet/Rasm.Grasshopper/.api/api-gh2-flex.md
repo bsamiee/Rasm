@@ -2,18 +2,7 @@
 
 `Grasshopper2.UI.Flex` and `Grasshopper2.UI.Animation` own the canvas motion substrate. `IFlexControl` is the typed host seam for coordinate mapping, viewport navigation, focus and redraw scheduling, event dispatch, and `Animated<T>` consumption; `MotionEquations.Blend` is the sole easing evaluator every animation routes through, and `Responses` folds each mouse, key, text, and rotation event to a `Response` verdict. Pacing rides `MotionEquations.Blend` and `Animated<T>`, repaint rides `IFlexControl.ScheduleRedraw`; no host pacer, spring, or subscription carrier exists.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: host assembly `Grasshopper2`
-- package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
-- assembly: `Grasshopper2`
-- namespace: `Grasshopper2.UI.Animation`
-- namespace: `Grasshopper2.UI.Flex`
-- namespace: `Grasshopper2.UI` (`ZoomThreshold`)
-- asset: host assembly; managed WIP plug-in loaded in the Rhino assembly-load context, animating over `Eto.Drawing`
-- rail: host-grasshopper
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: animation value vocabulary
 - namespace: `Grasshopper2.UI.Animation`
@@ -54,7 +43,7 @@
 |  [04]   | `ResponseRotationArgs` | args          | clockwise-degree rotation gesture delta        |
 |  [05]   | `Responses`            | abstract      | virtual handlers beside ignored-fallback hooks |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Animated<T> construction and evaluation
 - namespace: `Grasshopper2.UI.Animation`
@@ -148,7 +137,7 @@
 |  [09]   | `protected static Response InvokeMouseRelay(Func<…>, ResponseMouseArgs)`        | static  | first-non-`Ignored` invocation-list walk     |
 |  [10]   | `protected static Response Invoke{Key, TextInput, Rotation}Relay`               | static  | the same walk over the other three arg kinds |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - two namespaces meet at one seam: `Grasshopper2.UI.Animation` owns generic value interpolation, `Grasshopper2.UI.Flex` owns control projection and dispatch, joined where `IFlexControl.Animate` consumes an `Animated<T>`
@@ -170,9 +159,3 @@
 - animation enters through `Animated<T>` + `Animators`; pacing is `MotionEquations.Blend`, never a hand-rolled tween loop
 - redraw is `IFlexControl.ScheduleRedraw`; no host repaint-request or subscription object carries it
 - coordinate conversion is `IFlexControl.Map`; a parallel content/control transform is the deleted form
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (host assembly)
-- Owns: the `IFlexControl` coordinate/redraw/navigation seam, the animation value vocabulary, the easing evaluator, `Animated<T>`, `AnimatedPath` feedback factories, and both `Responses` families — the virtual mouse/key/text/rotation handlers and the ignored-fallback hook events beside them
-- Accept: value animation, viewport navigation, coordinate mapping, redraw scheduling, responsive registration, event dispatch
-- Reject: canvas paint composition (`api-gh2-canvas.md`), floating-button chrome (`api-gh2-editor.md`), a host pacer/spring/subscription carrier, the GH1 event idiom

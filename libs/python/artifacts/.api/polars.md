@@ -2,16 +2,7 @@
 
 `polars` inside `artifacts` is the publication-boundary overlay onto the `data`-owned columnar engine, owning only the members that cross into the visualization plane: the `DataFrame.style → great_tables.GT` construction edge, the `pl.Expr` summary/predicate language great-tables folds, the `pl.Series → vals.fmt_*` formatter edge, and the `pl.DataFrame` adjacency/attribute frame that lowers into a graph. Artifacts styles, aggregates, and lowers a settled frame; it never authors data, re-opens the lazy engine, or re-implements a `data`-owned transform.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `polars` (artifacts overlay)
-- package: `polars` (MIT)
-- module: `polars`
-- namespaces: `polars.selectors`, `polars.exceptions`
-- engine: full eager/lazy/`Expr`/plugin surface owned by `data/.api/polars.md`
-- rail: tabular boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: boundary types the artifacts pages carry
 
@@ -25,7 +16,7 @@
 
 - `Expr`: unevaluated until great-tables or polars runs it over the frame, never a Python lambda over rows.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the great-tables construction seam (`visualization/table`)
 - [GT_SEAM]: `DataFrame.style -> GT` `GT(frame, rowname_col=, groupname_col=, locale=, id=)` — in-process styled-table construction from the frame with no frame→table marshalling; `.style` folds the `TableOp` sequence, the explicit ctor is the fall-through when knobs diverge from default.
@@ -43,7 +34,7 @@
 - [INTERCHANGE]: `pl.from_dataframe(obj, allow_copy=)` `pl.from_arrow(tbl)` `pl.from_dicts(rows)` `DataFrame.__arrow_c_stream__()` `DataFrame.__dataframe__()` — the `data/tabular` wire; a frame from the C# `Rasm.Bim` graph crosses zero-copy as Arrow, never a Python row roundtrip.
 - [RENDER_CONTEXT]: `pl.Config(...)` `pl.StringCache()` — deterministic display/precision and a shared categorical string-cache scope.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DataFrame.style` is a real `great_tables.gt.GT`, so the publication-table plane never marshals a frame into a foreign table builder; every member this overlay touches is the thin set crossing that one boundary, and a lazy scan, streaming sink, plugin kernel, or deep-namespace transform is the `data` engine's concern past it.
@@ -58,9 +49,3 @@
 [LOCAL_ADMISSION]:
 - Accept a polars frame only as a settled input over the `data/tabular` wire (`from_dataframe`/`from_arrow` from a `data` producer or the C# `Rasm.Bim` QTO/schedule egress); an artifacts page never `read_*`/`scan_*`s a source.
 - Cross frame→rows (`to_dicts`) only at the `DiagramLayout` graph boundary and frame→array (`to_numpy`) only at the numeric egress; everything between stays columnar `pl.Expr` composition addressed by `polars.selectors`.
-
-[RAIL_LAW]:
-- Package: `polars` (artifacts overlay)
-- Owns: the `DataFrame.style → GT` construction seam, the `pl.Expr` summary/predicate language for great-tables, the standalone `pl.Series → vals.fmt_*` edge, the `pl.DataFrame` adjacency/attribute frame and its `to_dicts` graph lowering, and the Arrow-C-stream / interchange ingress that is the `data/tabular` wire
-- Accept: a settled `pl.DataFrame`/`pl.Series`/`pl.Expr` over the interchange wire from a `data` producer; `polars.selectors` column sets; a `pl.Config`/`pl.StringCache` render context
-- Reject: source IO inside artifacts (`read_*`/`scan_*`/`sink_*`), the lazy engine, optimizer flags, streaming/GPU collect, and `register_plugin_function` (all owned by `data/.api/polars.md`); a Python loop or per-cell callable where a `pl.Expr` expresses the logic; re-authoring a QTO/schedule frame the C# `Rasm.Bim` graph already owns

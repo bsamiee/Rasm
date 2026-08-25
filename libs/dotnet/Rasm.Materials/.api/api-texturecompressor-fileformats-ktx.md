@@ -2,17 +2,7 @@
 
 `TextureCompressor.FileFormats.Ktx` is the managed KTX container leg over the `TextureCompressor` coder engine: `KtxCodec` reads and writes both KTX1 and KTX2, and `KtxEncodingOptions` decides container version, supercompression scheme, and the GL or Vulkan format tokens the header carries. Zstandard supercompression rides `ZstdSharp.Port` in pure managed code, so a KTX2 payload writes with no native toolchain.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TextureCompressor.FileFormats.Ktx`
-- package: `TextureCompressor.FileFormats.Ktx` (MIT)
-- assembly: `TextureCompressor.FileFormats.Ktx`
-- namespace: `TextureCompressor.FileFormats.Ktx`
-- asset: `lib/net10.0` managed only
-- depends: `TextureCompressor`, `ZstdSharp.Port`
-- rail: gpu texture container
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: container codec, format row, and options
 
@@ -33,7 +23,7 @@
 |  [03]   | `KtxGlFormat`               | enum          | the GL type, format, and internal-format tokens |
 |  [04]   | `KtxVkFormat`               | enum          | the `VK_FORMAT_*` tokens, including `Undefined` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container read and typed decode — `KtxCodec`
 
@@ -80,7 +70,7 @@
 - `KtxEncodingOptions.Version` defaults to `KtxVersion.Version1`; an options object left unset writes a KTX1 file no `ktx-parse` or Basis-transcoder consumer can read.
 - `KtxEncodingOptions` properties are settable, not init-only, so one instance mutated between writes silently re-versions a later payload — mint one per encode profile.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two paths reach a file: the static `KtxCodec` for a caller holding a plane or a pyramid, and the `KtxFileFormat` row registered on a `TextureFileFormatManager` for a caller routing by extension. Both write the same bytes; the row exists so `TextureConverter` can reach the container by name.
@@ -104,9 +94,3 @@
 - `KtxCodec.Decode`/`DecodeVolume` without a pixel argument returns `Rgba8UNorm` and quantizes; a float or 16-bit container decodes through `Decode<TPixel>` naming its own texel type.
 - `KtxEncodingOptions` is minted per encode, never shared across profiles, because its properties are mutable and a carried instance re-versions a later payload silently.
 - This package rides the same pre-1.0 hold as its engine: it composes behind the one KTX gate, and the provisioned `ktx` CLI is the encode floor a bump re-verifies against.
-
-[RAIL_LAW]:
-- Package: `TextureCompressor.FileFormats.Ktx`
-- Owns: the managed KTX1 and KTX2 container — header parse and write with GL and Vulkan format tokens, whole-pyramid mip-chain encode, and `None`/`BasisLz`/`Zstandard`/`Zlib` supercompression over an already-block-encoded payload.
-- Accept: `KtxCodec.Read`/`Decode<TPixel>` at the container's own depth; `Encode<TPixel>`/`EncodeMipChain<TPixel>` over a `BitmapView`/`IBitmap` plane; a per-encode `KtxEncodingOptions` naming `Version2` and its supercompression scheme; `RegisterKtxFileFormat` on a bake-scoped manager; `KtxVkFormat.Undefined` read as a transcodable payload.
-- Reject: an unset `Version` on a wire-bound write; the `Rgba8UNorm` decode overload on a float or 16-bit container; a shared mutable `KtxEncodingOptions`; a per-mip file series where the container holds its own pyramid; a `VkFormat`-based malformed verdict on a supercompressed file; a hand-rolled KTX header writer.

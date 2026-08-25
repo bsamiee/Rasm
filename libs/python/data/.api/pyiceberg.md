@@ -2,16 +2,7 @@
 
 `pyiceberg` binds the Apache Iceberg table format from Python: catalog DDL, table read and write, schema and partition construction, expression-filtered scans, and multi-engine tabular egress. `Catalog` owns metastore lifecycle behind the single polymorphic `load_catalog` entry, `Transaction` owns every write, and `TableScan`/`DataScan` own lazy filtered egress across Arrow, Polars, DuckDB, and Ray.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyiceberg`
-- package: `pyiceberg` (Apache-2.0)
-- module: `pyiceberg`
-- namespaces: `pyiceberg.catalog`, `pyiceberg.table`, `pyiceberg.schema`, `pyiceberg.types`, `pyiceberg.transforms`, `pyiceberg.partitioning`, `pyiceberg.expressions`, `pyiceberg.exceptions`
-- owner: `data`
-- rail: iceberg
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: catalog, table, scan, and evolution owners
 
@@ -57,7 +48,7 @@
 |  [06]   | `RESTError`, `ServerError`, `ServiceUnavailableError`, `UnauthorizedError`, `ForbiddenError` | REST transport                |
 |  [07]   | `NotInstalledError`                                                                          | optional extra not installed  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: catalog construction and DDL
 - `create_table` carry: `location`, `partition_spec`, `sort_order`, `properties`
@@ -137,7 +128,7 @@
 |  [31]   | `MaintenanceTable.expire_snapshots() -> ExpireSnapshots`                       | instance | open the snapshot-expiry builder          |
 |  [32]   | `ExpireSnapshots.older_than(dt)` / `.by_id(id)` / `.by_ids(ids)` / `.commit()` | instance | expire clauses, apply on commit           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `load_catalog` is the single polymorphic entry; catalog type discriminates on the `uri` scheme or explicit `type` property, never a `load_rest`/`load_hive` call-site branch.
@@ -164,9 +155,3 @@
 - filter through `DataScan.filter`/`.select` chains built from `pyiceberg.expressions` or `parser.parse`; inspect through `InspectTable`, never raw manifest or metadata-file access.
 - egress through `to_arrow`/`to_arrow_batch_reader` for the Arrow bridge, `Table.to_polars()`/`pl.scan_iceberg` for lazy Polars, `to_duckdb` for DuckDB.
 - evolve schema through the `UpdateSchema` builder — `delete_column` the portable drop, `rename_column` the portable rename — and build column types via `IcebergType.model_validate` on the `(name, type-string)` path.
-
-[RAIL_LAW]:
-- Package: `pyiceberg`
-- Owns: Iceberg catalog DDL, table scan and write (append/overwrite/delete/upsert/dynamic-partition-overwrite/add-files), schema/type/partition/sort-order construction, expression building, property/location/statistics evolution, snapshot/branch/tag lifecycle, snapshot expiry, and multi-engine tabular egress
-- Accept: `load_catalog` polymorphic construction, `Transaction` batched writes, `DataScan` filter/select/egress chains, `Table.to_polars()`/`pl.scan_iceberg` lazy egress, `Schema.as_arrow()`/`pa.Schema` for the Arrow bridge, `pa.Table`/`pa.RecordBatchReader` on the write side
-- Reject: `load_rest`/`load_hive`/`load_sql` call sites, hand-rolled filter predicates, duplicate per-engine scan entrypoints, eager `to_polars` where lazy `Table.to_polars()`/`pl.scan_iceberg` composes into the graph, and raw manifest or metadata access outside `InspectTable`

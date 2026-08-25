@@ -2,16 +2,7 @@
 
 `Pidgin` is an allocation-light parser-combinator library: `Parser<TToken, T>` is the immutable parser value, `Parser` and `Parser<TToken>` are the primitive and combinator statics, `ParserExtensions` carries every input shape a parse runs against, and `Result<TToken, T>` is the success-or-`ParseError` verdict a caller folds without a `catch`. `Rasm.Persistence` binds it as the CESQL grammar behind the subscription `sql` filter dialect — the expression language a delivery filter compiles once at subscription admission and evaluates per event.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Pidgin`
-- package: `Pidgin` (MIT)
-- assembly: `Pidgin`
-- namespace: `Pidgin` (parsers, results, errors, source positions), `.Expression` (the operator-precedence builder), `.Configuration` (array-pool and source-position policy), `.TokenStreams` (input adapters), `.Comment`, `.Permutation`, `.Incremental`
-- asset: `lib/net7.0` ONLY — a `net10.0` consumer binds the net7.0 asset, which is pure-managed AnyCPU IL with no native dependency and no shipped analyzer
-- rail: expression grammar
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the parser value, its statics, and the verdict
 
@@ -50,7 +41,7 @@
 - [05]-[RESULT_FOLD]: `Success`, `Value`, `Error`, `GetValueOrDefault` in three arities, `Match(success, failure)`, and the `Select`/`SelectMany`/`Or`/`Cast` projections — so a verdict folds onto a caller's own rail without an exception.
 - [06]-[ERROR_DETAIL]: `EOF`, `Unexpected`, `Expected`, `ErrorOffset`/`ErrorOffsetLong`, `ErrorPos`/`ErrorPosDelta`, `Message`, and `RenderErrorMessage(SourcePos?)` — the whole diagnostic a refusing admission reports.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar construction and evaluation
 
@@ -71,7 +62,7 @@
 |  [13]   | `result.Match(success, failure)`                                   | instance | the fold onto a caller's own rail                   |
 |  [14]   | `error.RenderErrorMessage([initialSourcePos])`                     | instance | the diagnostic a refusing admission reports         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Parsers are immutable VALUES, so a grammar builds once as `static readonly` fields and every evaluation reuses them; constructing a parser per input rebuilds the whole expression graph on every call.
@@ -92,9 +83,3 @@
 - Untrusted expression text crosses `Parse` and folds through `Match`; `ParseOrThrow` never appears at an admission boundary.
 - Operator grammars ride the precedence table and `ExpressionParser.Build`; a hand-written recursive-descent ladder over mutable state beside it is the deleted form.
 - Every terminal carries a `Labelled` name, so the expectation set a refusal reports names the grammar's own vocabulary rather than raw character classes.
-
-[RAIL_LAW]:
-- Package: `Pidgin`
-- Owns: the parser-combinator algebra, the operator-precedence builder, the parse-verdict value, and the parse-error diagnostic
-- Accept: static grammar values, `Try` at a shared-prefix alternation, `Rec` at every self-reference, `Parse` beside a `Match` fold at every admission, the precedence table for operator grammars, and `Labelled` terminals
-- Reject: a per-evaluation parser construction, `ParseOrThrow` on untrusted text, an alternation relying on backtracking without `Try`, and a hand-written recursive-descent expression parser beside the table-driven builder

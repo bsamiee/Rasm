@@ -21,7 +21,7 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 - Growth: a new pressure class is one `DuctClass` row; a heavier or lighter sheet one `DuctGauge` row; a negative-pressure round schedule one roster beside `RoundRow` read by the same class delegates.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;
 using LanguageExt;

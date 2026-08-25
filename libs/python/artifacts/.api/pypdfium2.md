@@ -2,16 +2,7 @@
 
 `pypdfium2` binds Google's PDFium through ctypes helpers and owns the BSD, Pillow-free PDF render and inspection surface for the artifacts pdf rail: page rasterization to bitmap/PIL/NumPy, layout-faithful text extraction and search with per-char geometry, native outline harvest, page-object/image/font authoring, the `PdfMatrix` affine algebra, and interactive-form access. It never re-implements the PDFium render pipeline, the affine algebra, the headless font-substitution shim, or the `pypdfium2.raw` ctypes bindings the native core already binds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pypdfium2`
-- package: `pypdfium2` (BSD-3-Clause)
-- module: `pypdfium2` (prebuilt PDFium shared library and ctypes helpers; `pypdfium2.raw` binds the full `FPDF_*` C ABI)
-- namespaces: `pypdfium2`, `pypdfium2.raw`
-- rail: pdf — Pillow-free PDFium render, outline harvest, char-geometry extract, page-object/image/font edit
-- depends: zero hard Python runtime deps; Pillow and NumPy are optional bridges resolved only at `to_pil`/`to_numpy`/`from_pil`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, page, render, and matrix roots
 
@@ -58,7 +49,7 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 |  [02]   | `PdfiumWarning` | exception     | recoverable PDFium condition                  |
 |  [03]   | `raw`           | module        | full PDFium C API for helper gaps             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open, build, metadata, attachments, and save
 
@@ -125,7 +116,7 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 - `PdfBookmark.get_color()` returns the outline entry's `(r, g, b)` floats in `0..1` or `None` when unset; it binds a recent PDFium (`FPDFBookmark_GetColor`), so a lagging conda/system-search build falls back to the `raw` seam.
 - [06]-[MATRIX_BUILDERS]: `scale(x, y)` `rotate(angle, ccw=False, rad=False)` `translate(x, y)` `skew(x_angle, y_angle, rad=False)` `mirror(invert_x, invert_y)` `multiply(other)` compose the affine, each returning the composed `PdfMatrix`; `on_point(x, y)` `on_rect(left, bottom, right, top)` `get()` `to_raw()` apply it and bridge outbound.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PdfPage.render(...) -> PdfBitmap` then `to_numpy()` is the CORE-band raster fold, landing straight onto the runtime band with no Pillow dependency: `bitmap_maker` selects PDFium-owned (`new_native`) versus host-buffer (`new_foreign`) backing, `PdfColorScheme` overrides path/text fill/stroke, and `get_posconv(page)` maps bitmap-to-page coordinates for hit-testing rendered output. This is the distinct band-and-engine axis — the Pillow-free BSD PDFium rasterizer beside Rust `pdf_oxide` and AGPL `pymupdf`.
@@ -150,9 +141,3 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 
 [LOCAL_ADMISSION]:
 - `import pypdfium2` at boundary scope only; module-level import is banned by the manifest import policy. PDFium is a process-global library and the `PdfDocument`/`PdfPage`/`PdfTextPage` tree owns a strict parent-to-child close order, so the rail holds each handle inside one `async_boundary` capsule and closes leaf-first for deterministic buffer lifetime.
-
-[RAIL_LAW]:
-- Package: `pypdfium2`
-- Owns: PDFium document open/build/save, CORE-band page rasterization to bitmap/PIL/NumPy with scale/rotation/crop/color-scheme/form-aware/fill-to-stroke and native and foreign allocators, native outline harvest (`get_toc` to `PdfBookmark`/`PdfDest`), layout-faithful text extraction and search with per-char geometry, page-object and image inspection/authoring, the `PdfMatrix` affine algebra, embedded and standard fonts, the full media/crop/bleed/trim/art box family, attachment read/write with parameter dict, AcroForm/XFA forms, page-as-XObject reuse, headless font-substitution and unsupported-feature handlers, and the `pypdfium2.raw` ctypes escape hatch
-- Accept: the BSD CORE-band raster and outline harvest feeding `document/emit` `PDF_RASTER`; char-geometry extraction feeding `document/lens` `RunNode`; render-to-numpy feeding `graphic/raster/io`; object-and-matrix edit and page-as-XObject stamp feeding `document/egress`; the optional `to_pil` bridge on the WORKER band only
-- Reject: wrapper-renames of `render`/`get_textpage`/`get_toc`; a second raster type where `PdfBitmap` bridges PIL/NumPy; a `save` callback parameter it does not carry; a `mark.level` outline read; a hand-rolled 2x3 affine where `PdfMatrix` owns the algebra; commercial-safe separations/PDF-X/PAdES where `pdf_oxide` owns them; native structural scrub where `pymupdf` owns it; pure-Python assembly where `pypdf` owns it; a `raw.FPDF_*` call where a helper wraps it; forwarding a live `PdfTextPage`/`PdfBookmark` handle past the document lifetime; eager `to_pil` on the CORE band; identity minting the runtime owns

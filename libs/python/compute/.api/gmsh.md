@@ -2,17 +2,7 @@
 
 `gmsh` mints unstructured 1/2/3-D finite-element meshes for the compute `[MESH_GENERATION_ROUTE]`: a built-in `geo` or OpenCASCADE `occ` geometry enters, `addPhysicalGroup` tags boundary and material regions, size fields drive element density, and `generate` meshes the model. Node/element/physical-group extraction and the `.msh` write feed the `meshio` read and `scikit-fem` assembly; this owner drives the process-global kernel through `initialize`/`finalize` and hand-rolls no Delaunay/frontal meshing, CAD boolean geometry, or `.msh` codec the kernel owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `gmsh`
-- package: `gmsh`
-- module: `gmsh`; module-level functions under namespace objects, never instantiable classes
-- owner: `compute`
-- rail: mesh generation
-- state: one process-global kernel bracketed by `initialize()`/`finalize()`, with `model.add`/`setCurrent` switching named models in a live session
-- alias: every function carries a snake_case alias beside its camelCase canonical (`add_physical_group` == `addPhysicalGroup`); this catalog documents the camelCase form
-
-## [02]-[NAMESPACE_SURFACE]
+## [01]-[NAMESPACE_SURFACE]
 
 [NAMESPACE_SCOPE]: kernel namespaces
 
@@ -29,7 +19,7 @@
 |  [09]   | `gmsh.logger`            | telemetry        | `get`/`start`/`stop`, CPU/wall time, memory, last-error retrieval        |
 |  [10]   | `gmsh.onelab` / `parser` | parameter/script | ONELAB parameter exchange and `.geo` script parse/evaluate               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session lifecycle and model selection
 
@@ -104,7 +94,7 @@
 |  [06]   | `model.mesh.getJacobians(...)` \| `getBasisFunctions(...)`   | metadata       | element Jacobians / reference basis at quad points |
 |  [07]   | `write(fileName)` \| `merge(fileName)` \| `open(fileName)`   | codec IO       | extension-dispatched mesh write / merge / open     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - lifecycle: the kernel and current-model selector are process-global — one `initialize()`/`finalize()` pair brackets the generation arm, run on the compute worker off the event loop. Concurrent callers isolate by process; callers sharing a process serialize through one session-owner lock, because `model.setCurrent(name)` races across named models.
@@ -120,9 +110,3 @@
 [LOCAL_ADMISSION]:
 - import: top-level `gmsh` module; namespaced functions carry no return-object identity, so extraction tuples cross as data into the `MeshField`/`MeshExchange` owner, and no geometry-branch kernel is imported — boundary input arrives as data per the compute charter.
 - boundary: the generated `MeshField` crosses the `HandoffAxis` as wire data, and a consumer selects its own mesh substrate off that crossing.
-
-[RAIL_LAW]:
-- Package: `gmsh`
-- Owns: 1/2/3-D unstructured mesh generation, built-in and OpenCASCADE constructive geometry with boolean/fillet/STEP-import operations, named physical groups, background/boundary-layer size fields, transfinite/recombine structured meshing, high-order promotion, mesh optimization, node/element/Jacobian extraction, and `.msh`/VTK/STL/MED codec IO
-- Accept: a synchronized `geo`/`occ` geometry with `addPhysicalGroup` regions, meshed via `generate` under composed size sources, extracted through the `.msh`/`meshio` round-trip into a content-keyed `MeshField`
-- Reject: hand-rolled Delaunay/frontal meshing, CAD boolean geometry, `.msh` codec logic, or physical-group bookkeeping the kernel owns; concurrent access without process isolation or the session-owner lock; a geometry-branch kernel import when boundary input crosses as data; `optimize` after a high-order promotion, which raises `Surface mesh smoothing only valid for first order mesh`

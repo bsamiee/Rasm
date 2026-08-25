@@ -2,16 +2,7 @@
 
 `nanoarrow` binds the Apache Arrow C Data Interface into Python: high-level `Array`/`ArrayStream`/`Schema` wrappers, a schema-factory vocabulary, and raw-buffer `CArray` construction, every object crossing the Arrow PyCapsule interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) so any compatible producer or consumer interoperates without buffer copies. It is the data rail's zero-copy capsule spine — the cheapest producer and consumer of the interchange the dataframe and IPC owners compose.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nanoarrow`
-- package: `nanoarrow` (Apache-2.0)
-- owner: `data`
-- module: `nanoarrow`
-- asset: native extension (C core + Cython `_array`/`_schema`/`_buffer`/`_device` modules) under a pure-Python high-level layer
-- rail: arrow-memory
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: high-level wrapper types
 
@@ -45,7 +36,7 @@
 
 - A non-exporting object handed to `ArrayStream`/`array_stream` raises a bare `TypeError`, and a malformed schema or capsule raises `ValueError`, so a fence over a carrier hop names those two beside `NanoarrowException`. `nanoarrow.Error` is a struct holder, never a raisable class — catching it captures nothing.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema factories — module-level static functions minting a `Schema`; nullable types carry `(nullable)`, temporal types carry `(unit, timezone)`, decimals carry `(precision, scale)`.
 
@@ -159,7 +150,7 @@ Every surface in the first table is a `Schema` accessor.
 |  [05]   | `iterator.iter_py` / `iter_tuples` / `iter_array_views`         | functional iterators over any stream source          |
 |  [06]   | `visitor.ArrayViewVisitor` / `ArrayViewVisitable`               | subclassable visitor base for custom column reducers |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Array` wraps one or more `CArray` chunks (`n_chunks`/`chunk(i)`) and exposes the PyCapsule interface; `iter_chunk_views()` yields a zero-copy `CArrayView` per chunk for buffer-level reads.
@@ -178,9 +169,3 @@ Every surface in the first table is a `Schema` accessor.
 - Consume streams through `ArrayStream.read_all()`, `read_next()`, or `iter_chunks()`, and `close()` before discarding — the stream owns a C resource.
 - Null handling is caller-controlled at every `to_*`/`iter_*` call site via `handle_nulls=` fed by `nulls_as_sentinel`/`nulls_forbid`/`nulls_separate`.
 - `c_array_from_buffers` admits a raw numeric buffer source; a protocol-compatible source enters through `array()`.
-
-[RAIL_LAW]:
-- Package: `nanoarrow`
-- Owns: Arrow C Data Interface Python binding, schema factory vocabulary, zero-copy buffer construction, IPC stream IO, and the extension-type registry
-- Accept: any `__arrow_c_array__` / `__arrow_c_stream__` / `__arrow_c_schema__` compatible input plus raw numeric buffers
-- Reject: manual ArrowSchema format-string construction; a Python-list hop where a capsule passes straight to a dataframe backend; `CArray`/`CSchema`/`CBuffer` treated as top-level names rather than factory return values

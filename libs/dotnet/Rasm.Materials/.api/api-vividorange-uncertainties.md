@@ -2,33 +2,7 @@
 
 `VividOrange.Uncertainties` owns uncertainty arithmetic for Materials `Properties/`: four models — absolute, relative, interval, normal — over four numeric carriers (`double`, `INumber<T>`, `decimal`, a `UnitsNet` `IQuantity`) collapse to one `IUncertainty<T>` propagation contract. A value admits its uncertainty fluently and crosses Properties and Profiles as value+unit+uncertainty, never a bare scalar beside a tolerance field. `VividOrange.IUncertainties` is the interface floor; the quantity carrier composes the shared `UnitsNet` owner (`libs/dotnet/.api/api-unitsnet.md`).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Uncertainties`
-- package: `VividOrange.Uncertainties` (MIT)
-- assembly: `VividOrange.Uncertainties`
-- namespace: `VividOrange.Uncertainties`, `double` family + `UncertaintyModel`, `.Scalar` (`INumber<T>` family), `.Decimal` (`decimal` family), `.Utility`
-- dependency: `VividOrange.IUncertainties`
-- asset: pure-managed AnyCPU runtime, no native RID; `net10.0` binds `lib/net8.0`
-- rail: properties
-
-[PACKAGE_SURFACE]: `VividOrange.Uncertainties.Quantities`
-- package: `VividOrange.Uncertainties.Quantities` (MIT)
-- assembly: `VividOrange.Uncertainties.Quantities`
-- namespace: `VividOrange.Uncertainties` (`UncertaintyQuantity<T>`), `.Quantities`, `*UncertaintyQuantity<TQuantity>`, and `.Quantities.Utility`
-- dependencies: `VividOrange.IUncertainties`, `UnitsNet` (shared quantity floor, `libs/dotnet/.api/api-unitsnet.md`)
-- asset: pure-managed AnyCPU runtime; `net10.0` binds `lib/net8.0`
-- rail: properties (UnitsNet quantities)
-
-[PACKAGE_SURFACE]: `VividOrange.IUncertainties`
-- package: `VividOrange.IUncertainties` (MIT)
-- assembly: `VividOrange.IUncertainties`
-- namespace: `VividOrange.Uncertainties` (the interface set — the package id carries `I…`, the namespace does not)
-- dependency: `VividOrange.Taxonomy.ISerialization` (the `ITaxonomySerializable` floor; transitive-only)
-- asset: pure-managed AnyCPU runtime; `net10.0` binds `lib/net8.0`
-- rail: properties (contract floor)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interface floor — `VividOrange.IUncertainties`, namespace `VividOrange.Uncertainties`, one propagation contract and four model-specific carriers.
 
@@ -81,7 +55,7 @@
 |  [06]   | `Quantities.Utility.UncertaintyQuantityFactory`   | class         | `(TQuantity).WithXUncertainty<TQuantity>` admission       |
 |  [07]   | `Quantities.Utility.UncertaintyQuantityOperators` | class         | unit-checked `Add`/`Subtract`, scalar `Multiply`/`Divide` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fluent admission — `.WithXUncertainty` attaches uncertainty to a value and returns the typed model the operators and `IUncertainty<T>` bounds read; a `UnitsNet` quantity admits through `UncertaintyQuantityFactory`, a raw `double`/`decimal`/`INumber<T>` through the matching `.Utility` class.
 
@@ -120,7 +94,7 @@
 |  [07]   | `IUncertainty<T>.PropagateUnary(Func<double,double>)`           | instance | custom unary op scaling uncertainty by `\|f(1)\|`    |
 |  [08]   | `IUncertainty<T>.CentralValue` / `.LowerBound` / `.UpperBound`  | property | the `T` value and propagated bounds                  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PropagateBinary` is model-homogeneous: it casts `other` to the same kind interface and throws `InvalidOperationException "Incompatible uncertainty model."` on a mismatch, so an absolute never combines with a normal without lowering one first.
@@ -137,9 +111,3 @@
 [LOCAL_ADMISSION]:
 - A property owner admits a measured or declared value through `.WithXUncertainty`, reads it as typed `UnitsNet` quantity bounds, and propagates it through the assembly-property folds.
 - Uncertainty types carry the taxonomy-serialization marker, so `VividOrange.Serialization.ToJson<T>`/`FromJson<T>` reject them at compile time; the property owner reads the typed `CentralValue`/`LowerBound`/`UpperBound` off the wrapper and serializes through the canonical Rasm snapshot codec (`Thinktecture.Runtime.Extensions.Json`/`MessagePack`), never through a VividOrange serializer.
-
-[RAIL_LAW]:
-- Package: `VividOrange.Uncertainties`, `VividOrange.Uncertainties.Quantities`, `VividOrange.IUncertainties` (MIT)
-- Owns: the four uncertainty models over four numeric carriers, the fluent `.WithXUncertainty` admission, the bound-corner and quadrature propagation algebra, the unit-checked quantity arithmetic, and the `IUncertainty<T>` floor, all carried with the value through the Materials `Properties/` and `Profiles/` surfaces.
-- Accept: a material property attached to its uncertainty via `.WithXUncertainty`, read as typed quantity bounds, propagated through the assembly-property folds, and serialized via the canonical Rasm codec at the boundary.
-- Reject: a bare scalar beside a parallel tolerance field where `UncertaintyQuantity<T>` carries both; a per-property uncertainty type where the model×carrier axis collapses to one contract; mixing uncertainty models in arithmetic without lowering; routing an uncertainty value through a VividOrange serializer.

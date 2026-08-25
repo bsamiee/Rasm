@@ -2,18 +2,7 @@
 
 `FlowtideDotNet.Substrait` owns the portable Substrait query-plan IR: `Plan` over a relational-algebra DAG, its typed expression tree, the value lattice, and the standard function-extension catalogs. `SqlPlanBuilder` lowers SQL text into it and `SubstraitDeserializer` lifts a foreign wire or JSON plan into it, so every producer meets one vendor-neutral model. Visitor double-dispatch folds that model onto a concrete backend and `SubstraitToDifferentialCompute` re-uses it for the streaming engine — a query-plan owner, never a store or transport.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FlowtideDotNet.Substrait`
-- package: `FlowtideDotNet.Substrait` (Apache-2.0)
-- assembly: `FlowtideDotNet.Substrait`
-- namespace: `FlowtideDotNet.Substrait`, `.Relations`, `.Expressions`, `.Expressions.Literals`, `.Expressions.IfThen`, `.Type`, `.FunctionExtensions`, `.Sql`, `.Conversion`, `.Hints`, `.Exceptions`; generated wire messages under `Substrait.Protobuf`
-- target: multi-target `net10.0`/`net8.0`; a `net10.0` consumer binds `lib/net10.0`
-- asset: pure-managed runtime library, no native payload
-- depends: `SqlParserCS` SQL AST, `Google.Protobuf` wire runtime, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.ObjectPool`
-- rail: query-plan
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PLAN_TYPES]: `Plan` roots the IR; every peer composes it, decodes it from the wire, annotates it, or reports its parse fault.
 
@@ -155,7 +144,7 @@
 |  [13]   | `FunctionsStruct`           | static class  | `/struct.yaml`                      |
 |  [14]   | `FunctionsCheck`            | static class  | `/check.yaml`                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SQL_ENTRYPOINTS]: `SqlPlanBuilder` accumulates table declarations, providers, and statements, then folds them into one composed `Plan`; construction preloads the built-in function set.
 
@@ -225,7 +214,7 @@
 
 - `RelationVisitor<TReturn, TState>`: unoverridden `Visit*` arms throw `NotImplementedException`; `ExpressionVisitor<TOutput, TState>` returns `default(TOutput)`, so expression pushdown reads that null as the inexpressible signal.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SubstraitBaseType` over its `SubstraitType` discriminant types every value, and `NamedStruct` is the row type `ReadRelation.BaseSchema` and `WriteRelation.TableSchema` carry.
@@ -251,9 +240,3 @@
 - SQL text lowers through `SqlPlanBuilder` against tables `AddTableDefinition` registers or an `ITableProvider` resolves; that provider is the schema catalog.
 - Custom federation operators register through `ISqlFunctionRegister` and `ITableProvider`, keeping one plan vocabulary for every operator.
 - `SubstraitParseException` lifts at the `SqlPlanBuilder.Sql` edge onto the query failure rail, discriminated from a downstream backend execution fault.
-
-[RAIL_LAW]:
-- Package: `FlowtideDotNet.Substrait`
-- Owns: the portable query-plan IR — plan, relations, expressions, value lattice, function-extension catalogs — with the SQL front-end, inbound wire decode, the visitor fold, plan composition, and the differential-compute bridge.
-- Accept: SQL lowered through `SqlPlanBuilder` against registered tables, a foreign plan lifted by `SubstraitDeserializer`, backend dispatch and pushdown through `RelationVisitor`/`ExpressionVisitor`, function references through the `Functions*` catalogs, custom operators through `ISqlFunctionRegister`/`ITableProvider`, and streaming materialization through `SubstraitToDifferentialCompute.Convert`.
-- Reject: a hand-rolled SQL parser or second plan model beside this IR, a spelled function-name literal where a `Functions*` const exists, and a partial `RelationVisitor` whose unhandled arms drop relations instead of failing.

@@ -2,16 +2,7 @@
 
 `Microsoft.EntityFrameworkCore.Sqlite` admits the EF Core SQLite provider into the store-profile algebra: one `UseSqlite` call binds the provider, and every SQLite-scoped knob, model annotation, and LINQ→SQL translation attaches to the one options builder it hands back. This catalog also carries the base EF Core and relational runtime — pooled context, execution strategy, interception, transaction savepoints, raw-SQL reads, and the migration API — the folder's store rails compose through that binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Sqlite`
-- package: `Microsoft.EntityFrameworkCore.Sqlite` (MIT)
-- assembly: `Microsoft.EntityFrameworkCore.Sqlite` — types ship in the `Microsoft.EntityFrameworkCore.Sqlite.Core` package; this meta-package's own `lib/net10.0/_._` asset holds no managed type
-- namespace: `Microsoft.EntityFrameworkCore` and its `.Infrastructure`, `.Metadata`, `.Metadata.Conventions`, `.Migrations`, `.Diagnostics` children; `Microsoft.Extensions.DependencyInjection`
-- depends: `Microsoft.EntityFrameworkCore.Relational`, `Microsoft.Data.Sqlite.Core` (`api-sqlite` owns the ADO surface), `SQLitePCLRaw.bundle_e_sqlite3` (`api-sqlitepcl` owns the native provider)
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [ADMISSION_TYPES]: provider admission, options, and diagnostics
 
@@ -82,7 +73,7 @@
 |  [13]   | `MigrationsSqlGenerationOptions`   | `…Migrations`            | `[Flags]`: `Default=0`, `Script=1`, `Idempotent=2`, `NoTransactions=4` |
 |  [14]   | `TableBuilder`                     | `…Metadata.Builders`     | table-scoped mapping; check constraints, triggers, comments            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission — every surface is a static extension; `UseSqlite` mirrors its four argument shapes across `DbContextOptionsBuilder` and `DbContextOptionsBuilder<TContext>`.
 
@@ -170,7 +161,7 @@
 |  [31]   | `TableBuilder.HasCheckConstraint(string, string?)`                   | instance | table-scoped `CHECK`                                 |
 |  [32]   | `TableBuilder.ExcludeFromMigrations(bool)`                           | instance | holds a mapped table out of migrations               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every SQLite store op folds through one `UseSqlite` binding: the provider, its relational knobs, the SQLite model annotations, and the LINQ→SQL translation all attach to the single `SqliteDbContextOptionsBuilder` the callback receives, so a second provider entry point is unrepresentable.
@@ -191,9 +182,3 @@
 - `SqliteEventId` is the provider diagnostic surface the EF logging path raises; the interceptor families register once on `DbContextOptionsBuilder` and span every provider, so the interception seam owns them.
 - `UseSeeding`/`UseAsyncSeeding` admit the seed delegate at pooled-factory build.
 - SQLite is one engine row whose capability columns (`vector:false`, `fullText:true`, `migrations:true`) gate which lanes a profile admits.
-
-[RAIL_LAW]:
-- Package: `Microsoft.EntityFrameworkCore.Sqlite`
-- Owns: EF SQLite provider admission, the SQLite model and query-function surface, and the base EF runtime the embedded store rails compose
-- Accept: the `UseSqlite` admission family, the relational option knobs, the model and metadata extensions, `EF.Functions` SQLite scalars, `SqliteEventId` diagnostics, and the composed base EF execution, interception, transaction, read, and migration surface
-- Reject: referencing `…Sqlite.*.Internal` services by type; treating the meta-package as the assembly home; a SQLite-branded public service family; the raw-`SqliteConnection` open ceremony `api-sqlite` owns; hand DDL where a builder extension owns the declaration

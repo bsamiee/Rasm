@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Logging.Abstractions` mints the vendor-neutral emission contract every instrumented library binds: `ILogger.Log<TState>` is the one primitive every extension, generated method, and provider folds through, and `ILoggingBuilder` is the seat every activation extension extends. Its in-package Roslyn generator turns a `[LoggerMessage]` partial into allocation-free strongly-typed emission, and the external-scope seam carries ambient state from the emitting call to the provider that formats it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Logging.Abstractions`
-- package: `Microsoft.Extensions.Logging.Abstractions` (MIT)
-- assembly: `Microsoft.Extensions.Logging.Abstractions.dll`
-- asset: runtime library; `Microsoft.Extensions.Logging.Generators.dll` is the shipped `[LoggerMessage]` Roslyn generator
-- namespace: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.Logging.Abstractions`
-- rail: library-tier log emission behind every structured-log egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: emission contracts, the generated-method grammar, scope propagation, and the provider-side read models
 
@@ -40,7 +31,7 @@
 
 `NullLogger`, `NullLogger<T>`, `NullLoggerFactory`, `NullLoggerProvider`, and `NullExternalScopeProvider` each expose a static `Instance` — the zero-provider default at every seam a host has not bound.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the emission primitive, the typed and cached-delegate declarations, and the scope and replay seams
 
@@ -64,7 +55,7 @@
 
 - `LoggerMessageAttribute`: `EventId`, `EventName`, `Level`, `Message`, and `SkipEnabledCheck` are the settable rows the generator reads.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ILogger.Log<TState>` is the single fold every extension, generated partial, and cached delegate lowers to.
@@ -84,9 +75,3 @@
 [LOCAL_ADMISSION]:
 - Libraries reference this contract assembly alone and take `ILogger`/`ILoggerFactory` by injection; `NullLogger.Instance` is the default at every seam a host has not bound.
 - Every `ILoggingBuilder` extension is composition-root surface, so provider, sampler, and buffer activation lands at the app root.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Logging.Abstractions`
-- Owns: the library-tier emission contract, the generated typed-method grammar, and the scope-propagation seam
-- Accept: `[LoggerMessage]` partials with banded `EventId` values; `LoggerMessage.Define`/`DefineScope` cached delegates where no partial hosts
-- Reject: a static log facade or a second logging facade beside `ILogger`; provider, sink, and exporter types below a composition root; `LoggerExtensions.Log*` message-template calls where a generated method exists

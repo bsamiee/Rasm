@@ -2,17 +2,7 @@
 
 `compas_tna` owns thrust-network analysis for masonry-vault form-finding on the COMPAS spine: reciprocal form/force equilibrium and masonry envelope bounds over `compas` datastructures. `FormDiagram` extends `compas.datastructures.Mesh`, and diagrams and envelopes serialize through `compas.json_dumps`; the algebra owner offloads `_numpy` solvers through `compas.rpc.Proxy`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `compas_tna`
-- package: `compas_tna` (MIT)
-- import: `import compas_tna`
-- owner: `geometry`
-- rail: structural-form-finding
-- entry points: none (library only; `compas_tna.notebook.scene` is the COMPAS plugin hook, not a console script)
-- capability: reciprocal form/force diagram construction, numpy horizontal/vertical equilibrium, sparse parallelisation, tributary-area selfweight, masonry envelope bounds, and Rhino/notebook scene rendering
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: diagram family — `compas_tna.diagrams`
 
@@ -44,7 +34,7 @@
 |  [03]   | `FormDiagramObject`  | scene node             | Rhino/notebook scene object for a `FormDiagram`                                   |
 |  [04]   | `ForceDiagramObject` | scene node             | Rhino/notebook scene object for a `ForceDiagram`                                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: FormDiagram construction — `compas_tna.diagrams`
 
@@ -120,7 +110,7 @@ Horizontal solvers carry `alpha, kmax=100` and return `tuple[FormDiagram, ForceD
 |  [11]   | `Envelope.compute_volume() -> float`                         | total volume (cached `volume` property)         |
 |  [12]   | `Envelope.compute_selfweight() -> float`                     | total selfweight (cached `selfweight` property) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `FormDiagram` extends the COMPAS `Mesh`; per-vertex `px`/`py`/`pz` loads, `_rx`/`_ry`/`_rz` reactions, support flags, and per-edge `q` force-density with `_is_edge`/`lmin`/`lmax`/`hmin`/`hmax` bounds drive every solver.
@@ -136,9 +126,3 @@ Horizontal solvers carry `alpha, kmax=100` and return `tuple[FormDiagram, ForceD
 [LOCAL_ADMISSION]:
 - TNA pipeline: `FormDiagram.create_*` or `from_mesh` -> `relax_boundary_openings(form, fixed)` -> `Envelope.apply_selfweight_to_formdiagram(form)` or `LoadUpdater` -> `ForceDiagram.from_formdiagram(form)` -> `horizontal_numpy(form, force)` -> `vertical_from_zmax(form, zmax)`.
 - `LoadUpdater` binds a `Mesh` and a numpy `(n,3)` fixed-load array `p0`, mutating the passed `p` in place; diagrams and envelopes serialize through `compas.json_dumps` for graduation.
-
-[RAIL_LAW]:
-- Package: `compas_tna`
-- Owns: TNA form-finding, reciprocal form/force diagram construction, horizontal/vertical equilibrium, sparse parallelisation, masonry envelope bounds
-- Accept: `compas` `Mesh`/`FormDiagram`/`ForceDiagram` inputs and numpy arrays for the numeric rails
-- Reject: a hand-rolled TNA or equilibrium solver, reciprocal-diagram construction bypassing `ForceDiagram.from_formdiagram`, direct sparse assembly outside `parallelisation_numpy`

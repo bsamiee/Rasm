@@ -2,17 +2,7 @@
 
 `Google.Cloud.Kms.V1` binds the Cloud KMS remote-key surface behind the `Element/identity` `KmsProvider.Gcp` arm: encrypt-as-wrap custody of a data-encryption key, and asymmetric signing of the seam `OpDigest` whose verification runs client-side against the downloaded public key. One abstract `KeyManagementServiceClient` serves both arms over a pure-managed HTTP/2 transport, and every payload rides as `Google.Protobuf.ByteString` beside a CRC32C companion the caller sets and checks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Google.Cloud.Kms.V1`
-- package: `Google.Cloud.Kms.V1` (Apache-2.0)
-- assembly: `Google.Cloud.Kms.V1` (`lib/netstandard2.0` binds the `net10.0` consumer, `lib/net462` the framework fallback)
-- namespace: `Google.Cloud.Kms.V1`, `Microsoft.Extensions.DependencyInjection`
-- depends: `Google.Api.Gax.Grpc` over `Grpc.Net.Client`; pure-managed, no native gRPC asset
-- abi: payloads and key blobs are `Google.Protobuf.ByteString`, messages are protobuf `IMessage`, and each `uint32` CRC32C rides a `long?` carrier
-- rail: DEK wrap/unwrap and asymmetric `OpDigest` sign — the GCP arm of the `Element/identity` `KmsProvider` axis
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, configuration, and injection family
 
@@ -60,7 +50,7 @@
 [CRYPTO_KEY_PURPOSE]: the one operation family a `CryptoKey` admits, nested under `CryptoKey.Types` — `EncryptDecrypt` `RawEncryptDecrypt` `AsymmetricSign` `AsymmetricDecrypt` `Mac` `KeyEncapsulation`
 [CRYPTO_KEY_VERSION_STATE]: the lifecycle posture `EnvelopeKeyring.Probe` maps onto `KeyState`, nested under `CryptoKeyVersion.Types` — `PendingGeneration` `Enabled` `Disabled` `Destroyed` `DestroyScheduled` `PendingImport` `ImportFailed` `GenerationFailed` `PendingExternalDestruction` `ExternalDestructionFailed`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and the transport escape hatch
 
@@ -118,7 +108,7 @@
 |  [04]   | `CryptoKeyVersionName.FromProjectLocationKeyRingCryptoKeyCryptoKeyVersion(…)` | factory | compose a `cryptoKeyVersions/*` path |
 |  [05]   | `KeyRingName.FromProjectLocationKeyRing(…)`                                   | factory | compose a `keyRings/*` path          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `KeyManagementServiceClient` is abstract, so `Create`, `CreateAsync`, a builder, or the container registration yields the concrete instance and `GrpcClient` reaches the generated client beneath it; of the assembly's client roots the Persistence rails bind this one.
@@ -148,9 +138,3 @@
 - `EnvelopeAad` rides `AdditionalAuthenticatedData` on every wrap and unwrap, so a DEK wrapped for one partition and tenant recovers under that pair alone.
 - Every request sets its `*Crc32C` and every response checksum is checked before the payload crosses the boundary; a mismatch rails the typed `IdentityFault` band under a bounded retry.
 - Signing binds an `AsymmetricSign` key version distinct from the `EncryptDecrypt` wrapping key, both leased through the one per-open `SecretLease` handle.
-
-[RAIL_LAW]:
-- Package: `Google.Cloud.Kms.V1`
-- Owns: wrap and unwrap of the data-encryption key and asymmetric signing of the seam `OpDigest` through Cloud KMS — two disjoint surfaces behind the one `KmsProvider.Gcp` arm
-- Accept: a container-resolved client singleton, typed resource names, `ByteString` payloads, CRC32C set on request and checked on response, `AsymmetricSign` over a `Digest`-wrapped `OpDigest`, and `GetPublicKey` feeding the in-process verify
-- Reject: per-operation client construction, hand-built resource path strings, an unchecked CRC32C payload crossing the boundary, signing under the symmetric wrapping key, or a rewrap that rewrites stored ciphertext

@@ -19,7 +19,7 @@ ISO 128-2 annotation lowering lives in `Annotate`, one owner over `AnnotateOp.le
 - Boundary: no dimension, symbol, or sheet-set logic — `drawing/dimension#DIMENSION`, `drawing/symbol#SYMBOL`, `composition/sheet#SHEET`. `drawsvg` owns the SVG container and leader/scallop builders, `ziafont` the text outline and `typography/math#MATH` the math typeset, `ezdxf` the DXF model, `graphic/vector/region#REGION` the boolean/offset, `kiwisolver` the solve, `typography/layout#LAYOUT`/`typography/shape#SHAPE` the line-break and shaping, `export/layered#LAYERED` the layer binding, and `dotnet:Rasm.Bim` the IFC; identity minting is the runtime's.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 import math
 from builtins import frozendict

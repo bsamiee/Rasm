@@ -1,8 +1,5 @@
 # [COMPUTE_WIRE]
 
-
-
-
 ## [01]-[INDEX]
 
 - [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, progress, stage, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, seats the bounded `ParseGuard` beside `WireServices`, and holds the one enum-to-key lowering every interior roster reads.

@@ -119,14 +119,14 @@ public static class TopicFabric {
 
 Every row orders on the HLC `(Physical, Logical)` pair, counts deliveries on its own dense `Offset`, and bounds on the one fan row's `BoundedCapacity`, so those three coordinates carry no per-row signal and stay out of the table; guarantee and give-up clause are where these rows genuinely diverge.
 
-| [INDEX] | [TOPIC]     | [DELIVER]                              | [DEGRADE]                                              |
-| :-----: | :---------- | :------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `Command`   | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process     |
-|  [02]   | `Lifecycle` | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process     |
-|  [03]   | `Health`    | in-process best-effort alone           | a declined offer counts `Missed`, final for the fact   |
-|  [04]   | `Delivery`  | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process     |
-|  [05]   | `Collab`    | in-process best-effort; fact committed | opaque payload; a miss counts `Missed`, final here     |
-|  [06]   | `Presence`  | best-effort, sheds on reduced          | `Shed` at reduced, `Missed` at the fan; both final     |
+| [INDEX] | [TOPIC]     | [DELIVER]                              | [DEGRADE]                                            |
+| :-----: | :---------- | :------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `Command`   | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process   |
+|  [02]   | `Lifecycle` | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process   |
+|  [03]   | `Health`    | in-process best-effort alone           | a declined offer counts `Missed`, final for the fact |
+|  [04]   | `Delivery`  | in-process best-effort; fact committed | a declined offer counts `Missed`, final in-process   |
+|  [05]   | `Collab`    | in-process best-effort; fact committed | opaque payload; a miss counts `Missed`, final here   |
+|  [06]   | `Presence`  | best-effort, sheds on reduced          | `Shed` at reduced, `Missed` at the fan; both final   |
 
 ## [03]-[SUBSCRIPTION_FABRIC]
 

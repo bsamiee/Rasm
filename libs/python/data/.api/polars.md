@@ -2,16 +2,7 @@
 
 `polars` owns the columnar dataframe rail: a Rust-backed engine whose eager `DataFrame`/`Series` and lazy `LazyFrame` share one `Expr`-composed transformation API over a typed dtype vocabulary. `LazyFrame` defers a query graph until `collect` — engine-selectable across in-memory, streaming out-of-core, and GPU backends under per-call optimizer flags — or a streaming `sink_*`, admitting predicate/projection pushdown and out-of-core execution. `polars.plugins.register_plugin_function` admits native Rust kernels as first-class `Expr` nodes, the seam `polars-st` grafts geometry onto.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `polars`
-- package: `polars` (MIT)
-- owner: `data`
-- module: `polars`
-- namespaces: `polars.selectors` (column-set algebra), `polars.plugins` (native Rust expression plugins), `polars.io.plugins` (lazy IO-source plugins), `polars.exceptions` (typed error rail), `polars.testing`, `polars.api` (custom-namespace registration), `polars.sql`
-- rail: columnar dataframe
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frame, series, and expression types
 
@@ -59,7 +50,7 @@
 |  [14]   | `Decimal(precision, scale)`    | decimal dtype  | fixed-precision decimal dtype       |
 |  [15]   | `Object` / `Null` / `Unknown`  | special dtype  | opaque, all-null, and inferred      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and IO
 
@@ -159,7 +150,7 @@
 - `Expr.over`: `(partition_by, *, order_by=, mapping_strategy=)`; `Expr.rolling(index_column, period=, offset=, closed=)` anchors time windows.
 - `list(exprs, *more_exprs)`: packs each expression's value as one element into a new `List` column (`List(T)` input yields `List(List(T))`), unlike `concat_list` which extends list-typed inputs.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DataFrame` and `LazyFrame` share one `Expr` transformation API; `LazyFrame` records a graph and `collect` runs the optimizer, whose passes toggle per call through `QueryOptFlags` or boolean kwargs.
@@ -180,9 +171,3 @@
 - `scan_*` into a `LazyFrame` pipeline closed by `collect(engine='streaming')` or a `sink_*` wins over eager `read_*`, gaining pushdown and out-of-core execution.
 - Express transforms as `Expr` composition inside `select`/`with_columns`/`filter`/`group_by(...).agg`; address columns with `selectors`, reduce with namespace accessors (`.str`/`.dt`/`.list`/`.arr`/`.struct`/`.cat`/`.bin`) and `fold`/`reduce`.
 - Reach for `register_plugin_function` (native) before `map_batches`/`map_elements` (Python); wrap categorical-heavy joins in `StringCache`.
-
-[RAIL_LAW]:
-- Package: `polars`
-- Owns: typed columnar storage, lazy query optimization, `Expr`-based transformation, and the native expression-plugin host.
-- Accept: dicts, rows, NumPy/torch, Arrow tables/C-stream, pandas frames, Iceberg/Delta/pyarrow datasets, and file/database sources via `read_*`/`scan_*`.
-- Reject: per-row Python loops, eager reads where a lazy scan admits pushdown, hand-rolled join/window/fold logic, `map_elements` where a native plugin or expr combinator exists, hardcoded column-name lists where `selectors` apply.

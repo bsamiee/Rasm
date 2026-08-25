@@ -2,31 +2,7 @@
 
 `SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views. Two folders compose the Core, Toolkit, and Runtime carriers — `Rasm.Bim` the exchange authoring and decode legs, `Rasm.Compute` the tile-partition composition root — and `ExtensionsFactory` is process-global mutable registration state both cross, so the whole distribution homes here beside its Tiles3D emitter surface at `api-sharpgltf-3dtiles.md`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SharpGLTF.Core`
-- package: `SharpGLTF.Core` (MIT)
-- assembly: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`, `SharpGLTF.Memory`, `SharpGLTF.Validation`, `SharpGLTF.Animations`, `SharpGLTF.IO`
-- namespace: `SharpGLTF.Transforms` (owns `SparseWeight8`, `IGeometryTransform`)
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
-- rail: geometry
-
-[PACKAGE_SURFACE]: `SharpGLTF.Toolkit`
-- package: `SharpGLTF.Toolkit` (MIT)
-- assembly: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Scenes`, `SharpGLTF.Geometry`, `SharpGLTF.Geometry.VertexTypes`, `SharpGLTF.Materials`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
-- rail: geometry
-
-[PACKAGE_SURFACE]: `SharpGLTF.Runtime`
-- package: `SharpGLTF.Runtime` (MIT)
-- assembly: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`, `SharpGLTF`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Schema2 model root and I/O contexts
 
@@ -251,7 +227,7 @@ Every fragment interface derives `IVertexReflection`, so its own members are alw
 |  [03]   | `IMeshPrimitiveDecoder<TMat>` | interface     | typed variant carrying a material reference                                         |
 |  [04]   | `MeshDecoder`                 | class         | static utility; `Decode()` extension on `Mesh` and `IReadOnlyList<Mesh>`            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ModelRoot and ReadContext — read
 
@@ -453,7 +429,7 @@ Every fragment interface derives `IVertexReflection`, so its own members are alw
 - `MeshDecoder.EvaluateBoundingSphere(this SceneTemplate, IMeshDecoder<Material>[], float)` (static) → `(Vector3 Center, float Radius)`, animation-aware.
 - `MeshDecoder.EvaluateBoundingBox(this SceneInstance, IReadOnlyList<IMeshDecoder<TMat>>)` (static) → `(Vector3 Min, Vector3 Max)`, per-instance AABB after pose.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - I/O folds through `ModelRoot`: read enters `Load` (file), `ParseGLB` (bytes), or `ReadGLB` (stream); write enters `Save` (format by extension) or `WriteGLB` (bytes); `ReadSettings.Validation` and `WriteSettings.Validation` thread `ValidationMode` at both ends, and a custom URI resolver rides a `ReadContext` file-reader delegate set before `ReadSchema2`.
@@ -473,9 +449,3 @@ Every fragment interface derives `IVertexReflection`, so its own members are alw
 [LOCAL_ADMISSION]:
 - Export enters `SceneBuilder.ToGltf2()` → `ModelRoot.Save*`/`WriteGLB`; import enters `ModelRoot.Load*` or `ReadContext.ReadSchema2`; runtime evaluation enters `SceneTemplate.Create` → `CreateInstance` → animation frame drive.
 - Extension admission registers at `ExtensionsFactory` before any read or write that uses that extension, ONCE at a composition root — a per-tile or per-call registration is the deleted form.
-
-[RAIL_LAW]:
-- Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime`
-- Owns: glTF read/write, typed mesh building, runtime scene instancing, and the process-global `ExtensionsFactory` admission both consuming folders cross
-- Accept: geometry exchange, asset authoring, runtime mesh evaluation, one composition-root extension registration per process
-- Reject: a folder-tier re-tabling of this surface, a leaf-tile glTF body emitted from the tile-partition lane, a hand-authored `JsonSerializable` extension over the raw registration, rendering pipeline, GPU resource management, image decode, geometry codec

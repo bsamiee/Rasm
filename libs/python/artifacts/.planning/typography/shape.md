@@ -1,7 +1,6 @@
 # [PY_ARTIFACTS_SHAPE]
 
-`Shaping` owns text shaping, itemization, fallback, and color-glyph rasterization through one closed `ShapeRequest` family. `NORMALIZE`, `BIDI`, and `ITEMIZE` carry text policy alone; `FALLBACK` shapes each extended grapheme cluster against each candidate face and rejects any `.notdef` result; `SHAPE` emits glyph, cluster, advance, offset, safety, extent, baseline, style, and outline evidence; `RASTERIZE` composes COLRv1, CBDT/sbix, OT-SVG, and CPU paint into a positioned PNG run; `QA` carries a golden serialization, lookup mutation trace, and SVG proof.
-
+`Shaping` owns text shaping, itemization, fallback, and color-glyph rasterization through one closed `ShapeRequest` family. `NORMALIZE`, `BIDI`, and `ITEMIZE` carry text policy alone; `FALLBACK` shapes each extended grapheme cluster against each candidate face and rejects any `.notdef` result; `SHAPE` emits glyph, cluster, advance, offset, safety, extent, baseline, style, and outline evidence; `RASTERIZE` composes COLRv1, CBDT/sbix, OT-SVG, and CPU paint into a positioned PNG run; `QA` carries the `hb-shape` serialization, lookup mutation trace, and SVG proof.
 
 ## [01]-[INDEX]
 
@@ -19,7 +18,7 @@
 - Boundary: no font subsetting/instancing (`typography/font#FONT`), no line-break/hyphenation/paragraph layout (`typography/layout#LAYOUT`, which reads the break-safety column), no PDF authoring (`document/emit#DOCUMENT`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner shapes, itemizes, reorders, normalizes, resolves fallback, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path is the landed `graphic/vector/region#REGION` `text_path` entrypoint's `skia-pathops`/`svgelements` algebra: `SHAPE` draws each glyph to its own origin pen and a curved-baseline consumer hands `run.on_path()` to `vector.text_path`, never a `pathops` import here. A uharfbuzz subsetter, a hand-rolled COLRv1 dispatch, the `renderText` one-shot (it hides the palette/glyph-bounds/backend evidence), a hand-rolled UAX#9 reorder, a hand-rolled break-class table, and a hand-coded script→OT-tag map are each rejected against blackrenderer, `bidi.get_display`, `uniseg`, `fontTools.unicodedata.script`, or the `typography/font#FONT` op that owns them; a parallel raster-backend enum, a second buffer construction, an omnibus parameter bag spanning every arm, and a smuggled lane branch collapse into the per-case payload, the `_SHAPE_TABLE` row, and the one `Buffer` pipeline.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import importlib.metadata
 import io
 import tempfile
@@ -733,7 +732,7 @@ def _shape_qa(request: ShapeRequest) -> ShapedPayload:
         parameters = {name: value for name, value in offered if value is not None}
         buffer = vhb.shape(run.text, parameters or None, onchange=traced)
         return ShapedPayload(
-            encoded=_RUN_ENCODER.encode({"golden": vhb.serialize_buf(buffer), "trace": tuple(mutations), "proof": vhb.buf_to_svg(buffer)})
+            encoded=_RUN_ENCODER.encode({"serialized": vhb.serialize_buf(buffer), "trace": tuple(mutations), "proof": vhb.buf_to_svg(buffer)})
         )
     finally:
         sink.unlink(missing_ok=True)

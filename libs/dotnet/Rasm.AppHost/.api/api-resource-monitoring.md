@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Diagnostics.ResourceMonitoring` sources process, container, disk, and network utilization as observable instruments on one meter: one registration mints the platform snapshot source behind them, an options policy shapes range, calculation, roster, and cadence, and `ResourceQuotaProvider` reads the container ceilings those ratios grade against. Windows and Linux carry the provider set, so the roster a host publishes — and whether it publishes at all — is a platform fact.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring` (MIT)
-- assembly: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registration owner, shaping policy, and container-ceiling read
 
@@ -47,7 +38,7 @@
 - `EnableSystemDiskIoMetrics` admits rows [01]-[03]; the disk owner registers on both platforms and publishes nothing while the flag is off.
 - `system.network.connections` stamps `network.transport` = `tcp` at the instrument and the remaining two keys per measurement, and the Windows roster publishes twelve TCP states to Linux's eleven, adding `delete`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration, shaping, and quota read
 
@@ -78,7 +69,7 @@
 - Rows [06]-[08] govern the live observable read path while carrying `EXTOBS0001`, so a project tuning cadence admits that id beside the `EXTEXP0008` rows [01]-[04] need.
 - Validation bounds rows [06]-[07] to `[100 ms, 900 s]` and row [08] to `[1 ms, 900 s]`, holds `SourceIpAddresses` non-null, and faults a breach at start through the validate-on-start seat the registration installs.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - registration root: `AddResourceMonitoring()` adds the metrics services, then RETURNS on any host that is neither Windows nor Linux — no snapshot source, no instruments, no `ResourceQuotaProvider`, and no fault — so a darwin host reads a permanently-empty meter and a consumer needing utilization everywhere carries its own BCL-counter arm.
@@ -99,9 +90,3 @@
 - Each consumed instrument name lands as a declared const at the reading owner because the package's name holder is internal; a call-site literal is the deleted form.
 - Limit utilization and request utilization stay distinct grades — throttling-imminent against under-provisioned — so both container series ride and the range flips pin explicitly at the root.
 - Diagnostic-gated option rows compile only where the consuming project admits their ids, so admission is a project-manifest fact rather than a per-call suppression.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- Owns: process and container utilization sourcing on one meter, platform snapshot source and container ceiling read included
-- Accept: one root registration carrying explicit range, calculation, and roster policy, read back through a listener on the package meter
-- Reject: hand-rolled `/proc`, cgroup, or job-object sampling beside the governed meter; treating the meter as the utilization owner on a host where the registration mints nothing

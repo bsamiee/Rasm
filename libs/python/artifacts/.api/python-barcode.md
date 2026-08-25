@@ -2,16 +2,7 @@
 
 `python-barcode` (import `barcode`) owns pure-Python linear (1D) barcode generation: a name-keyed symbology registry resolving a `PROVIDED_BARCODES` key to a `barcode.base.Barcode` subclass that serializes through a dependency-free `SVGWriter` or a Pillow-gated `ImageWriter`, and a `barcode.errors.BarcodeError` fault family the per-symbology encode validators raise. It is the `linear` arm of the one `Mark` owner spanning segno's `qr` arm and zxing-cpp's `matrix` arm; the core `graphic/marks/encode#MARK` path admits `SVGWriter` alone, keeping the Pillow raster path off-core.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-barcode`
-- package: `python-barcode` (MIT)
-- import: `barcode`
-- owner: `artifacts`
-- rail: imaging — the `graphic/marks/encode#MARK` `linear` `EncodeArm` arm
-- entry points: console script `python-barcode`; the codec owner is import-only
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: barcode base and writer roots
 
@@ -34,7 +25,7 @@
 |  [04]   | `errors.NumberOfDigitsError`   | arity fault      | wrong digit count for a fixed-length symbology (EAN/UPC/…) |
 |  [05]   | `errors.WrongCountryCodeError` | EAN fault        | invalid country/prefix code for an EAN symbology           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: symbology registry and factory
 
@@ -63,7 +54,7 @@
 - `Barcode.__init__(code, writer, **options)`: `writer` is positional with no default; the registry factories supply `None`, resolved to `default_writer()`.
 - `render` stamps the human-readable line whenever `default_writer_options["write_text"]` (default `True`) holds or a `text` argument is passed, `text` overriding the `get_fullcode()` string.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - registry: the `linear` `EncodeArm` resolves `barcode.get_barcode_class(symbology.value)` against a `PROVIDED_BARCODES` key and constructs the class directly; an unknown key raises `errors.BarcodeNotFoundError` mapped onto `MarkFault.unknown`.
@@ -78,9 +69,3 @@
 [LOCAL_ADMISSION]:
 - lazy `import barcode` (and `from barcode.errors import …`) at the `graphic/marks/encode#MARK` boundary; module-level import violates the manifest import policy.
 - python-barcode is strictly 1D — QR/Micro-QR route to the segno `qr` arm and DataMatrix/PDF417/Aztec/MaxiCode/rMQR to the zxing-cpp `matrix` arm; the SVG bytes feed the `svgelements`/document figure owners with no rasterization, and the `ImageWriter` raster path stays off-core so the Pillow dependency stays unengaged.
-
-[RAIL_LAW]:
-- Package: `python-barcode`
-- Owns: linear (1D) barcode generation for the Code39/Code128/EAN-8/EAN-13/EAN-14/JAN/UPC-A/ITF/Codabar/ISBN-10/ISBN-13/ISSN/PZN/GS1-128 symbologies, name-keyed symbology resolution over `PROVIDED_BARCODES`, the 1s/0s `build`/`to_ascii` module model, the `get_fullcode` check-digit projection, the `errors.*` fault rail, and dependency-free `xml.dom.minidom` SVG with Pillow-gated raster serialization
-- Accept: `get_barcode_class(symbology.value)` resolution over a `PROVIDED_BARCODES` key, `SVGWriter` as the sole core-path writer, `write(BytesIO(), options, text)` SVG bytes folding to `RasterFact`, a nested closed `WriterOptions` band on `MarkPayload`, the `errors.*` faults mapped onto distinct `MarkFault` cases, SVG bytes feeding the `svgelements`/document figure owners and the `stream-zip` bundle sink
-- Reject: importing and branching over individual symbology classes where the registry resolves by name; the all-in-one `generate` (its `output` sink defaults `None` and raises `TypeError`, and it forces a `default_writer` the arm overrides); `ImageWriter` on the core path (it re-introduces the Pillow leak the segno arm removes); an erased `writer_options` `dict` re-validated in the arm; a parallel barcode type per output format; a bare `except Exception` flattening the `errors.*` causes; a claimed 2D/matrix symbology this package does not provide

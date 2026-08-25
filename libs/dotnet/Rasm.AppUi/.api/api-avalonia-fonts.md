@@ -2,16 +2,7 @@
 
 `Avalonia.Fonts.Inter` embeds the six Inter TTF faces as `avares://` resources and mints one `AppBuilder.WithInterFont()` that registers `InterFontCollection` — a sealed `EmbeddedFontCollection` — under the `fonts:Inter` family key. Every font-collection type it composes against lives in `Avalonia.Base`; this catalog marks that seam so the Theme typography owner stacks onto the Avalonia font registry rather than re-deriving an asset loader.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
-- package: `Avalonia.Fonts.Inter` (MIT)
-- assembly: `Avalonia.Fonts.Inter` (AnyCPU IL, managed-only)
-- namespace: `Avalonia.Fonts.Inter`, `Avalonia`
-- asset: runtime library and the `!AvaloniaResources` container holding `avares://Avalonia.Fonts.Inter/Assets/*.ttf`
-- rail: typography
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [FONT_TYPES]: the two types this assembly defines
 
@@ -40,7 +31,7 @@
 |  [05]   | `Inter-SemiBold.ttf` | `FontWeight.SemiBold` (600) |
 |  [06]   | `Inter-Bold.ttf`     | `FontWeight.Bold` (700)     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [FONT_ENTRYPOINTS]: `WithInterFont` and the constructor are owned; `ConfigureFonts` and `AddFontCollection` forward to `Avalonia.Base`
 
@@ -51,7 +42,7 @@
 |  [03]   | `AddFontCollection(IFontCollection)`              | instance | collection load onto registry |
 |  [04]   | `InterFontCollection()`                           | ctor     | family owner                  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `InterFontCollection()` hard-codes `base(new Uri("fonts:Inter"), new Uri("avares://Avalonia.Fonts.Inter/Assets"))`, so the family resolves as `fonts:Inter#Inter` and the base scans the asset root.
@@ -59,7 +50,7 @@
 - `FontManager.Current.DefaultFontFamily` stays Avalonia's built-in default until the theme elevates `fonts:Inter`, so admitting this package never silently re-keys the default.
 
 [STACKING]:
-- `api-headless`(`.api/api-headless.md`): `WithInterFont()` chains into `BuildAvaloniaApp().UseHeadless(...).UseSkia().WithInterFont()`, binding the embedded `fonts:Inter` family so headless text metrics stay host-independent for golden-image capture.
+- `api-headless`(`.api/api-headless.md`): `WithInterFont()` chains into `BuildAvaloniaApp().UseHeadless(...).UseSkia().WithInterFont()`, binding the embedded `fonts:Inter` family so headless text metrics stay host-independent across raster backends.
 - within-lib: the Theme typography owner composes `WithInterFont` alongside `ConfigureFonts`-registered icon and monospace collections in one builder pass, then keys `Application.Resources` and control `FontFamily` to `fonts:Inter#Inter`.
 
 [LOCAL_ADMISSION]:
@@ -67,9 +58,3 @@
 - A second family (icon, monospace) registers through `ConfigureFonts` and `AddFontCollection` in the same builder pass, never package-specific chaining sugar.
 - The six shipped faces are STATIC, so optical sizing, true italics, and interpolated weights exist only through an owned variable asset registered as a second `EmbeddedFontCollection(Uri key, Uri source)` beside this one; the shipped ladder plus a declared synthetic embolden or skew is the stated fallback where the variable asset is absent, never a silent per-host difference.
 - `FontManagerOptions.DefaultFamilyName` pins the family every unstyled surface resolves and `FontFallbacks` carries the ranked host tail, so a resolved style row names one family and the fallback chain lives on the registry rather than inside every style string.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Fonts.Inter`
-- Owns: the embedded `fonts:Inter` family and its `WithInterFont` builder admission
-- Accept: typography roles bound to `fonts:Inter#Inter`, elevated deliberately by the theme owner
-- Reject: system-font assumptions, per-host fallback families as public behavior, or a hand-rolled `EmbeddedFontCollection` subclass duplicating `InterFontCollection`

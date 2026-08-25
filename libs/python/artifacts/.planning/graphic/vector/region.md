@@ -19,7 +19,7 @@
 - Boundary: the fault rail carries a composed `graphic/vector/path#PATH` `PathFault` whole (`geometry`) rather than re-classifying it, mints `render`/`empty`/`contract`/`open_path`/`degenerate` for its own raises, and never trusts a boundary capsule to swallow an unclassified provider raise. No parse/measure/sample/affine re-derivation (path's, one hop); no repeating fill geometry (`graphic/vector/pattern#PATTERN` composes THIS page's `applied`); no chart-origin SVG rasterization (`vl-convert`'s bundled resvg owns it); no text shaping (`typography/shape#SHAPE` shapes; this page places outlines); no identity minting; no folder-minted limiter — the native seam is the runtime lane's `offload`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from functools import wraps

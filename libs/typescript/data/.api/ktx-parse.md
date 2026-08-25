@@ -4,16 +4,7 @@
 
 Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch serves, and this package gates what that CLI produced — classifying and validating it before the object store admits it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ktx-parse`
-- package: `ktx-parse` (MIT)
-- module: `exports` condition-selects `dist/ktx-parse.cjs` for `require` against the `dist/ktx-parse.modern.js` default; types at `dist/index.d.ts`
-- runtime: both lanes — pure TypeScript over `Uint8Array`, no native binding and no wasm, so the browser lane parses the same bytes the server admits
-- rail: `object` byte-plane classification, lifted into the `Effect` rail at the boundary that admits a delivered texture container
-- boundary: read and write ONLY; `KHR_SUPERCOMPRESSION_ZSTD` payloads stay compressed in `levels[].levelData`, and no supercompression codec ships here
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the container and its nested records
 
@@ -52,7 +43,7 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 
 `[VK_FORMAT_SPELLED]: `VK_FORMAT_UNDEFINED` `VK_FORMAT_R8_UNORM` `VK_FORMAT_R8_SRGB` `VK_FORMAT_R8G8_UNORM` `VK_FORMAT_R8G8_SRGB` `VK_FORMAT_R8G8B8A8_UNORM` `VK_FORMAT_R8G8B8A8_SRGB` `VK_FORMAT_R16_UNORM` `VK_FORMAT_R16_SFLOAT` `VK_FORMAT_R32_SFLOAT` `VK_FORMAT_R16G16_UNORM` `VK_FORMAT_R16G16B16A16_UNORM` `VK_FORMAT_R16G16B16A16_SFLOAT` `VK_FORMAT_R32G32B32A32_SFLOAT`` — the ten-store roster's exact enum spellings plus the transcoding sentinel; a transcription table imports these verbatim, never a re-derived numeral.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the whole surface — three functions
 
@@ -67,7 +58,7 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 - `createDefaultContainer()` returns `levels: []`, and `write` divides by the level-0 block count — a container written before a level lands throws on `levels[0].levelData`.
 - `dist/util.js` declares block-geometry and text helpers, and `dist/index.d.ts` re-exports NONE of them: an import of `getBlockDimensionsByVKFormat`, `getBlockCount`, `getBlockByteLength`, `encodeText`, `decodeText`, `concat`, `leastCommonMultiple`, or `getPadding` fails the ESM link with "does not provide an export named". Block geometry derives from `texelBlockDimension` on the DFD instead.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One container value, one read, one write — there is no reader class, no stream, and no partial parse, so a whole `.ktx2` is a bounded buffer by construction and an unbounded object never reaches this package.
@@ -86,9 +77,3 @@ Encoding stays outside: the provisioned `ktx` CLI mints every KTX2 the branch se
 - `write` never spells on the object plane — default `write` rewrites `KTXwriter` and shortens the file, so `write(read(bytes))` answers a DIFFERENT digest than the CLI produced and silently re-keys an immutable object, and `keepWriter: true` buys back only the repack the CLI `deflate` subcommand already owns; the package composes READ-ONLY per `RULINGS.md`.
 - Wire legality is a payload-class read, not a suffix read: `colorModel` UASTC or ETC1S admits to a web consumer, and a container reporting a BC block `vkFormat` is a desktop-native payload the branch's own transcoder path cannot consume.
 - Mip depth is `levelCount`, and `levelCount === 0` declares a base-level-only file whose pyramid the loader generates — distinct from `levelCount === 1`, which declares that no other level is meant to exist.
-
-[RAIL_LAW]:
-- Package: `ktx-parse`
-- Owns: KTX 2.0 container read and write as plain data — the `KTX2Container` record, its Data Format Descriptor, BasisLZ global data, key/value metadata, and the Khronos constant vocabularies that classify payload, transfer, primaries, and alpha
-- Accept: header classification of a delivered container before admission, DFD validation against the plane's declared transfer and alpha, `Effect.try`-lifted `read` with a tagged fault, browser and server parsing of one byte plane
-- Reject: a `vkFormat` branch standing in for the payload class, ANY `write` over object-plane bytes — the CLI `deflate` subcommand owns the repack — `dist/util.js` members imported as public surface, level bytes decoded or transcoded here, a KTX2 encoded here instead of by the provisioned CLI, `layerCount` or `pixelDepth` read as a ≥1 count

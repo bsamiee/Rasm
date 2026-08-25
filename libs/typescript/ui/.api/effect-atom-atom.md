@@ -2,15 +2,7 @@
 
 `@effect-atom/atom` folds an `Effect`/`Stream`/`Layer` graph into memoized, dependency-tracked `Atom` cells — the one `ONE_FOLD_ONE_BINDING` store the `ui` folder binds for all client state. Async is a value: an effect-backed atom holds `Result<A, E>` whose `waiting`/`previous` arms keep the last-good value through a refresh, `Registry` owns every node's lifecycle, and `AtomHttpApi.Tag`/`AtomRpc.Tag` bind a `@effect/platform`/`@effect/rpc` contract into reactive atoms with no fetching glue.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect-atom/atom`
-- package: `@effect-atom/atom` (MIT)
-- module: ESM + CJS dual (`.d.ts` under `dist/dts`), `sideEffects: []` fully tree-shakeable; per-namespace deep-import subpaths `@effect-atom/atom/{Atom,Result,Registry,AtomRef,AtomHttpApi,AtomRpc,Hydration}`
-- runtime: framework-neutral, any JS runtime; peers `effect`, `@effect/platform`, `@effect/rpc`, `@effect/experimental`; the reactive graph is pure with only the `Registry` stateful, so React is not a peer — `atom-react` adds the hooks
-- rail: state binding — the one `ONE_FOLD_ONE_BINDING` store; `atom/binding` + `atom/derive` own it, every `view` row reads it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: atom algebra core — the reactive cell and its read/write contexts
 [CONTEXT]: `get` `result` `once` `mount` `subscribe` `stream` `self` `setSelf` `addFinalizer` `registry`
@@ -56,7 +48,7 @@
 |  [07]   | `AtomRpcClient<Self, Id, Rpcs, E>`                | rpc-client Tag       | a bound `RpcGroup`; streaming `.query` → `PullResult` atom   |
 |  [08]   | `DehydratedAtom` / `DehydratedAtomValue`          | SSR snapshot         | the serialized registry state emitted and rehydrated         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing atoms — one polymorphic `make` and its explicit rows
 
@@ -138,7 +130,7 @@
 |  [07]   | `Hydration.toValues(state)`                             | SSR handoff      | the dehydrated values array                           |
 |  [08]   | `Hydration.hydrate(registry, state)`                    | SSR handoff      | rehydrate into a fresh registry                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Atom<A>` is pure and lazy: it computes only when a `Registry` mounts it and recomputes only when a tracked dependency (another atom read through the `Context`) changes. `Registry` owns all state — mount/subscribe/refresh/dispose, idle-TTL GC, write scheduling — so an atom graph tests against an isolated `Registry.make()`.
@@ -161,9 +153,3 @@
 - Render async state by folding `Result` (`match`/`matchWithWaiting`/`builder`), keeping the `waiting`/`previous` arms visible so refresh never blanks the view — a `.value` read without a guard or a render-path `getOrThrow` is the foreclosed form.
 - Build one `AtomRuntime` from the app `Layer` and create effectful atoms through it; provide the `Registry` once at the app root (`Registry.layer`), a per-subtree registry being a test-only isolation — a per-atom `Layer` provision is the foreclosed form.
 - Persist through `Atom.kvs`/`Atom.searchParam` with a `Schema`; a `view` row reaching into `localStorage`/`URLSearchParams` is the foreclosed form.
-
-[RAIL_LAW]:
-- Package: `@effect-atom/atom`
-- Owns: the reactive `Atom`/`Writable` algebra, the `Result<A,E>` async ADT, the `Registry` store and `AtomRuntime` DI seam, the combinator surface (map/optimistic/debounce/kvs/searchParam/refresh-triggers), the `AtomHttpApi`/`AtomRpc` service-binding rows, `AtomRef` fine-grained cursors, and SSR `Hydration`
-- Accept: `Effect`/`Stream`/`Layer`/`Schema` values lifted through `make`/`pull`/`runtime`/`serializable`, `@effect/platform` `HttpApi` and `@effect/rpc` `RpcGroup` declarations bound through the `Tag` generators, one app-root `Registry`, `Result` folds in every consumer
-- Reject: hand-rolled fetch/query-cache atoms where a platform/rpc declaration binds directly, string cache keys where `withReactivity`/`refresh` invalidate typed atoms, per-atom `Layer` provision, untyped `localStorage`/URL access, blanking a view on refresh instead of folding `waiting`/`previous`, parallel per-arity constructors

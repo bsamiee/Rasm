@@ -2,15 +2,7 @@
 
 `@tanstack/react-virtual` owns viewport windowing: from an item `count` and a size estimate it computes the intersecting items and their absolute offsets, so a hundred-thousand-row list mounts only the visible span and a small overscan. Headless and measurement-driven, it adapts the framework-agnostic `@tanstack/virtual-core` as the windowing half of the `view/table` rows beside the headless table.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tanstack/react-virtual`
-- package: `@tanstack/react-virtual` (MIT)
-- module: ESM (`type: module`), `sideEffects: false`; first-party bundled `.d.ts` re-exporting the whole `@tanstack/virtual-core` surface
-- runtime: React render tree over a DOM scroll element or the window; the core is DOM-free and framework-agnostic; peer `react`/`react-dom` via the folder React spine
-- rail: view table plane — the windowing half of the `view/table` rows
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the virtualizer instance and the virtual item
 
@@ -44,7 +36,7 @@
 - [05]-[STREAM_RESTORE]: `anchorTo: 'end'` and `followOnAppend` pin a growing chat/log stream to its tail; `initialMeasurementsCache` seeds measured items to restore scroll across remount; `laneAssignmentMode` assigns lanes by estimate or measurement.
 - [06]-[PERF_OPTIONS]: `directDomUpdates` is the scroll-only direct-DOM fast path; `directDomUpdatesMode` picks its positioning, the advanced surface for long lists.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing a virtualizer and rendering the window
 
@@ -90,7 +82,7 @@
 - [03]-[DEFAULT_HOOK]: `defaultRangeExtractor`/`defaultKeyExtractor` are the baselines a custom `rangeExtractor`/`getItemKey` extends — union a pinned index for a sticky header.
 - [04]-[CORE_UTIL]: `measureElement` is the DPR-aware element measurer; `notUndefined`/`approxEqual`/`debounce`/`memo` are the exposed fold/compare utilities.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Virtualizer` computes offsets from `count` + `estimateSize`, then corrects with real measurements as each item element passes to `measureElement` as its `ref`; the `ResizeObserver` settles variable-height content, so `ui` renders a `getTotalSize()` scroll container and absolutely positions each `getVirtualItems()` entry at its `start`.
@@ -114,9 +106,3 @@
 - Window a table over `table.getRowModel().rows` and keep derivation in `@tanstack/react-table`, never sort/filter re-implemented beside the virtualizer.
 - Run a virtualized combobox/listbox through `@floating-ui/react` `useListNavigation` with `virtual: true` and drive `scrollToIndex` from its `onNavigate`; floating-ui's `scrollItemIntoView` scrolls only a mounted row, so this engine's imperative scroll owns off-screen reveal.
 - Reach for `directDomUpdates` on a profiled long list and honor its item-styling contract (absolute items, `containerRef`, no author-set main-axis size); set it once at mount, never toggled at runtime.
-
-[RAIL_LAW]:
-- Package: `@tanstack/react-virtual` (over `@tanstack/virtual-core`)
-- Owns: the `Virtualizer` windowing engine, the `VirtualItem` offset model, dynamic `ResizeObserver` measurement, `lanes` multi-column layout, the `rangeExtractor` overscan/pin control, imperative `scrollToIndex`/`scrollToOffset`/`scrollToEnd`, tail probes (`isAtEnd`/`getDistanceFromEnd`) with `anchorTo`/`followOnAppend`, `takeSnapshot`/`initialMeasurementsCache` restore, and the `directDomUpdates` scroll-perf path
-- Accept: headless measurement-driven windowing with `ui`-owned markup, `lanes` for grids/masonry, one `rangeExtractor` for sticky/overscan, react-table row windowing, `@effect-atom`-driven scroll/selection sync and snapshot restore, `Effect` paged data feeding `count` with tail-probe paging and `anchorTo: 'end'` streams, a `virtual: true` combobox binding `useListNavigation`'s `activeIndex`/`onNavigate` to `scrollToIndex`, the direct-DOM path under its styling contract
-- Reject: fixed row heights or hand-rolled observer windowing, nested/forked grid virtualizers, per-render pinned-index special cases, sort/filter re-implemented beside windowing, runtime toggling of `directDomUpdates` or violating its item-styling contract, real-DOM-focus (non-`virtual`) `useListNavigation` or floating-ui `scrollItemIntoView` over a windowed combobox

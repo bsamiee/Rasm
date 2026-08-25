@@ -1,16 +1,6 @@
 # [PY_ARTIFACTS_API_PYVIPS]
 
-
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyvips`
-- package: `pyvips` (MIT)
-- import: `pyvips` (native `libvips` `cffi` binding; ABI-independent pure-Python wheel)
-- owner: `artifacts`
-- rail: image (the `RasterEngine.LIBVIPS` fused decode/downscale/ICC/smartcrop streaming pipeline; the `_icc_apply` managed device→device ICC egress; the `Probe` header-read ICC/page introspection)
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image, connection, region, interpolator roots
 
@@ -80,7 +70,7 @@
 - [15]-[COMPASSDIRECTION]: `CENTRE`/`NORTH`/`EAST`/`SOUTH`/`WEST`/`NORTH_EAST`/`SOUTH_EAST`/`SOUTH_WEST`/`NORTH_WEST`.
 - [23]-[MATH_ALGEBRA]: `OperationMath`/`OperationMath2`/`OperationRound`/`OperationComplex`/`OperationComplex2`/`OperationComplexget` select `math`/`math2`/`round`/`complex`/`complex2`/`complexget` (`SIN`/`COS`/`LOG`/`EXP`/`POW`/`ATAN2`/`CEIL`/`FLOOR`/`RINT`/`POLAR`/`RECT`/`CONJ`/`REAL`/`IMAG`).
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: image construction (one factory family, source-discriminated)
 
@@ -186,7 +176,7 @@ Most operations are methods generated on `Image` via `Image.__getattr__` → `Op
 - [04]-[PROBE]: `version(part) -> int`; `at_least_libvips(x, y) -> bool`; `get_suffixes() -> list[str]`; `type_find`; `nickname_find`; `enum_dict("VipsIntent") -> dict[str, int]`.
 - [05]-[LIFECYCLE]: `leak_set(True)`; `base.shutdown()`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `lazy import pyvips` inside the `_worker_raster`/`_icc_apply` worker-arm body only — `cffi.dlopen` runs at import time, so a broken or absent `pyvips-binary` wheel (the bundled dylib set the `pyvips[binary]` extra ships) raises a dlopen `OSError`/`ImportError` the worker's outer `try` converts to `RasterFault.provision` (host-readiness, distinct from a content fault, the gate `python-magic`/libmagic + `skimage` share); a core-page module import crashes the page load on a libvips-less host.
@@ -209,8 +199,3 @@ Most operations are methods generated on `Image` via `Image.__getattr__` → `Op
 
 [LOCAL_ADMISSION]:
 - pyvips owns the libvips fused streaming decode/transform/encode, the device→device managed-ICC egress, smartcrop, DeepZoom, and the large-image pipeline; `pillow` (`.api/pillow.md`) owns the in-process pure-Python working surface (drawing, FreeType text, per-pixel Python LUTs, ICC soft-proof, profile-header read); scientific filtering/morphology/registration routes to `scikit-image` (the `graphic/raster/process#PROCESS`+`graphic/raster/measure#MEASURE` acceptors), CMYK/spectral math to `colour-science`, layered PSD/PSB authoring to `psd-tools`; the rendered raster bytes feed the `document/emit#DOCUMENT`/figure/export-bundle owners directly, and live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `pyvips`
-- Owns: streaming demand-driven raster decode/transform/encode over native libvips — shrink-on-load thumbnailing, `Kernel` resampling, `Interesting` smartcrop, `extract_area`/`crop`/`embed`/`gravity`, the `icc_transform` device→device managed-ICC egress under `Intent`/`PCS`/black-point/`depth`, `colourspace`/`cast` conversion, `flatten`/premultiply alpha algebra, `composite2` over a `BlendMode` + `arrayjoin` montage, `autorot`/`rot`/`flip` orientation, the full arithmetic/relational/boolean/complex/morphology/convolution algebra + band arithmetic + `ifthenelse`, multi-page/animated `get_n_pages`/`pagesplit` + HDR `get_gainmap`, the embedded and libjxl-SYNTHESIZED `icc-profile-data` blob under its `get_typeof` presence gate, DeepZoom `dzsave` pyramid tiling, tile/line caching + `copy_memory`, `Source`/`Target` custom-callback stream IO, `Region` random-access fetch, the process-wide cache and untrusted-loader-block runtime controls, and `numpy`/`new_from_array` zero-copy interchange
-- Accept: the `RasterEngine.LIBVIPS` fused `new_from_buffer(payload, "", access=Access.SEQUENTIAL)` → `autorot`/`thumbnail_image`/`extract_area`/`composite2` → `write_to_buffer` pipeline (`Thumbnail`/`Convert`/`Crop`/`Probe`/`Composite` arms on the `WORKER_BAND` `to_process` seam under `_WORKER_RETRY`); the `_icc_apply` managed device-egress (`new_from_array(toned).icc_transform(...).write_to_buffer(...)` on `_ICC_LANE`); the `python-magic` `Detect` MIME image branch; `colour-science`-toned `numpy` arrays via `new_from_array`; PNG bytes from the SVG raster siblings via `new_from_buffer(..., access=Access.SEQUENTIAL).thumbnail_image(width)`; large-image / DeepZoom / streaming raster work feeding the `document/emit#DOCUMENT`/figure/export-bundle owners

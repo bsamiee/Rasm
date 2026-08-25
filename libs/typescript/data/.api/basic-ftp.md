@@ -4,29 +4,21 @@
 
 One transfer rides the control connection at a time, so concurrency is a client pool; a protocol refusal keeps the connection usable while a transport loss re-dials on the next `access`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `basic-ftp`
-- package: `basic-ftp` (MIT)
-- module: CJS + ESM dual
-- runtime: node only (`net`/`tls` sockets), zero dependencies
-- rail: remote-origin row on `object/file`; the FTP/FTPS protocol lane
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client, dial options, and census facts
 
 - `new Client(timeout?, { allowSeparateTransferHost?, maxListingBytes? })` mints one control connection; field rosters ride the token lines below.
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------ | :------------ | :--------------------------------------- |
-|  [01]   | `Client`                                                | client        | one control connection per instance      |
-|  [02]   | `AccessOptions`                                         | dial row      | the whole dial in one options row        |
-|  [03]   | `FileInfo` / `FileType`                                 | census fact   | per-entry type, size, mtime, permissions |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `Client`                                                | client         | one control connection per instance      |
+|  [02]   | `AccessOptions`                                         | dial row       | the whole dial in one options row        |
+|  [03]   | `FileInfo` / `FileType`                                 | census fact    | per-entry type, size, mtime, permissions |
 |  [04]   | `FTPResponse` (`code`, `message`) / `FTPError` (`code`) | response/fault | server disposition; refusal stays usable |
-|  [05]   | `ProgressInfo`                                          | progress fact | the `trackProgress` stream unit          |
-|  [06]   | `client.ftp` (`FTPContext`)                             | context       | log capture and wire tuning              |
-|  [07]   | `client.parseList` (`RawListParser` override)           | parser slot   | exotic listing formats as policy         |
+|  [05]   | `ProgressInfo`                                          | progress fact  | the `trackProgress` stream unit          |
+|  [06]   | `client.ftp` (`FTPContext`)                             | context        | log capture and wire tuning              |
+|  [07]   | `client.parseList` (`RawListParser` override)           | parser slot    | exotic listing formats as policy         |
 
 [FILE_TYPE]: `FileType = Unknown | File | Directory | SymbolicLink`
 [ACCESS_OPTIONS]: `host` `port` `user` `password` `secure: boolean|"implicit"` `secureOptions` (`tls.connect` options)
@@ -34,7 +26,7 @@ One transfer rides the control connection at a time, so concurrency is a client 
 [PROGRESS_INFO]: `name` `type: "upload"|"download"|"list"` `bytes` `bytesOverall`
 [FTPCONTEXT]: `verbose` `encoding` `tlsOptions` `ipFamily` `hasTLS` `log(message)`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dial, transfer, resume, and census
 
@@ -54,7 +46,7 @@ One transfer rides the control connection at a time, so concurrency is a client 
 |  [10]   | `send(command)` / `features()`                                          | capability probe and escape-hatch verbs        |
 |  [11]   | `close()` / `closed`                                                    | scoped release arm                             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Client` charges its timeout against time spent waiting for the SERVER alone, so a slow local half never trips it: a download piped into a decompressor and an upload fed by a stream computing its data both hold the data connection idle without refusal, and the bound stays tight enough to convict a genuinely stalled origin.
@@ -72,9 +64,3 @@ One transfer rides the control connection at a time, so concurrency is a client 
 - `ClientOptions.allowSeparateTransferHost` stays `false` — a data connection to a non-control host is refused unless ruled.
 - Resume by arithmetic: `size` the remote, then `downloadTo(..., startAt)` or `appendFrom` with `localStart`.
 - Stage an upload to a temp name and `rename` into place.
-
-[RAIL_LAW]:
-- Package: `basic-ftp`
-- Owns: the FTP/FTPS protocol lane — the composed dial with explicit and implicit TLS, streamed and path transfer, byte-offset resume, directory mirroring, listing census with parser override, progress tracking, the usable-after-refusal error split
-- Accept: scoped pooled clients dialed through `access`, `NodeStream`/`NodeSink` body seams, offset-resume arithmetic, rename-into-place staging, poll-diff watching, one server-waiting timeout bounding every transfer regardless of local pipeline speed
-- Reject: interleaved transfers on one client, credential literals, full re-transfers where resume applies, `secure: false` against TLS-capable origins, a timeout widened or disarmed to survive a slow local source or sink, a second FTP wrapper over this surface

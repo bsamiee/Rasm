@@ -27,7 +27,7 @@ Every capability word rides the kernel `CapabilitySet<T>`: the host's `LicenseCa
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ValueObject<Guid>]`, `[SmartEnum<THostEnum>]`, `[SmartEnum<bool>]` with `ConversionToKeyMemberType = Implicit`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`); kernel `Domain/validation` (`ICapability`, `CapabilitySet.OfMask`/`.Mask`, `Op.AcceptValidated`), `Domain/rails` (`Op`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:54` — `LicenseCapabilities` ordinal order and the `0x1FF` union, `LicenseBuildType`, `LicenseType`; `:115` — `GetLicenseCapabilities(int)` and its throw).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -556,7 +556,7 @@ public static class LicensePulse {
 | [INDEX] | [OWNER]           | [INGRESS]                       | [STATE]                             | [EGRESS]                              |
 | :-----: | :---------------- | :------------------------------ | :---------------------------------- | :------------------------------------ |
 |  [01]   | `Licenses`        | `Ask(LicenseAsk)`               | none — the Zoo owns the entitlement | `LicenseVerdict` per request row      |
-|  [02]   | `RasmPlugIn`      | `Entitlement(Entitle)`          | the adapter's refusal ring          | `EntitleOutcome` naming its ask   |
+|  [02]   | `RasmPlugIn`      | `Entitlement(Entitle)`          | the adapter's refusal ring          | `EntitleOutcome` naming its ask       |
 |  [03]   | `ILicenseProgram` | foreign plug-in implementation  | program-owned                       | `LicenseReply` · badge `AssetRaster`  |
 |  [04]   | `LicenseEvidence` | `Detach(LicenseData)` · `Mint`  | generated admission                 | both directions of one correspondence |
 |  [05]   | `LeaseMap`        | `LicenseLease` callback wrapper | none — a generated projection       | `LeaseEvidence`                       |

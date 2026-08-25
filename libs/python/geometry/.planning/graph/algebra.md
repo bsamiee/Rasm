@@ -19,7 +19,7 @@ Each case returns its canonical `ComputationalResult`, with solver residuals ret
 - Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and span, never a second hand-rolled rail.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import contextlib
 import sys
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence

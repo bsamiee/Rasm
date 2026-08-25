@@ -2,20 +2,7 @@
 
 `Rhino.UI` owns Rhino host integration for native chrome: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, status-bar and toolbar/RUI state, SVG and preview resources, locale-aware formatting, and UI-thread marshaling. The `EtoExtensions` styling and window-binding bridge and the single-value prompts are the registered branch surface; the Eto framework composes through them and is never re-implemented here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon host-UI-bridge surface (`Rhino.UI` companion)
-- host: Rhino host runtime, in-process (proprietary McNeel SDK); `Rhino.UI` is the companion assembly
-- assembly: `Rhino.UI.dll` (`RhinoEtoApp`, dialog and control hosts)
-- assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
-- namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)
-- namespace: `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballFrame`)
-- namespace: `Rhino.UI.Controls` (`EtoCollapsibleSection`(+`Holder`) section hosts; the full `Rhino.UI.dll` control library is `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md`)
-- namespace: `Rhino.UI.Controls.DataSource` (`ProviderIds` provider-identity roster, `EventArgs`/`EventInfoArgs` payloads — `RhinoCommon.dll`)
-- asset: host-resolved managed reference; the boundary composes it, the manifest never pins it
-- rail: host-boundary native-ui
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: panels, pages, and the Eto host bridge
 
@@ -90,7 +77,7 @@
 |  [02]   | `DataSource.EventArgs`     | event payload | read-only `DataType` on a provider event                                |
 |  [03]   | `DataSource.EventInfoArgs` | event payload | read-only `DataType` and native `EventInfoPtr`                          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Panels`, pages, and the Eto host bridge
 
@@ -325,7 +312,7 @@
 - `DataSource.ProviderIds` rendering-pipeline ids: `RdkRendering`, `RdkRenderingProgress`, `RdkRenderingGamma`, `RdkRenderingToneMapping`, `RdkRenderingPostEffects`, `RdkRenderingPostEffectDOF`, `RdkRenderingPostEffectGlare`.
 - `DataSource.EventArgs.DataType -> Guid` / `DataSource.EventInfoArgs.EventInfoPtr -> nint` — event-payload changed-data-type and native info pointer.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
@@ -347,9 +334,3 @@
 - `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` id, a `Dialogs` result, or a `MouseState` never enters a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - One panel type, one page host, one gumball conduit, and one mouse hook own their concern; a parallel registration or a second hook drawing the same overlay is the collapsed form.
 - `Rhino.UI.Controls.DataSource.EventInfoArgs.EventInfoPtr` is a raw native pointer trapped at the boundary, never a domain field; the dead `Rhino.UI.Controls.ThumbnailUI` surface is never admitted.
-
-[RAIL_LAW]:
-- Partition: `RhinoCommon` + `Rhino.UI` Rhino host-boundary subsystem over the registered host bridge
-- Owns: panel and page registration and lifecycle, `RhinoEtoApp` window ownership, the multi-value and document-scoped native dialogs, the gumball manipulator, mouse callbacks, status, toolbar, and RUI state, SVG and preview resources, locale-aware formatting, the RDK data-source provider identities, and UI-thread marshaling
-- Accept: a panel or page registered once and resolved through the host, an Eto surface parented through `RhinoEtoApp` and presented by the registered bridge, a gumball conduit drawing through the display pipeline, a mouse hook armed once and vetoing through `Cancel`, host crossings captured through `Op.Catch` onto `Fin`, and UI work marshaled onto the main thread
-- Reject: a re-tabling of the registered host bridge, its single-value prompts, or the registered in-viewport widget family, a duplicate registration of one panel or page type, a hand-rolled control where an Eto surface fits, a hand-rolled grip cluster where the gumball or a `UserInterfaceObject` fits, a claim that the mouse seam cannot veto, a cross-thread UI mutation without `InvokeOnUiThread`, and a `Panels`/`Dialogs`/`MouseCallback`/`StackedDialogPage` handle escaping into a domain signature

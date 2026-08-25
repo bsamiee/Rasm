@@ -21,7 +21,7 @@
 - Boundary: producer values, byte metrics, durable domain facts, and transport delivery stay at their owning seams.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from datetime import datetime
 from enum import StrEnum
 from threading import RLock

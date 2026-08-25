@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Instrumentation.Http` owns the outbound client leg: SDK context propagation onto every `HttpClient` call, and the filter, enrichment, and exception-recording seat no runtime-native attribute exposes. Runtime-native span and metric attributes stand as emitted — this surface layers over them and overwrites nothing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Http`
-- package: `OpenTelemetry.Instrumentation.Http` (Apache-2.0)
-- assembly: `OpenTelemetry.Instrumentation.Http`
-- namespace: `OpenTelemetry.Instrumentation.Http`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
-- rail: transport instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one options seat and the two builder-extension owners
 
@@ -34,7 +26,7 @@
 |  [05]   | `http.client.request.time_in_queue` | `s`            | wait for a free pool connection    |
 |  [06]   | `dns.lookup.duration`               | `s`            | name-resolution histogram          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [TRACE_ADMISSION]: every `TracerProviderBuilder` overload admits the `System.Net.Http` `ActivitySource`; the options slot alone varies
 
@@ -58,7 +50,7 @@
 |  [04]   | `EnrichWithHttpResponseMessage` | property | `Action<Activity, HttpResponseMessage>?` at span end  |
 |  [05]   | `RecordException`               | property | `bool` projecting the exception as an `ActivityEvent` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `FilterHttpRequestMessage` runs after the sampler verdict, and a `false` return or a thrown exception both drop collection.
@@ -77,9 +69,3 @@
 [LOCAL_ADMISSION]:
 - `url.full` query values redact to `Redacted` behind no public property; the `OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION` environment row is the whole disable seam.
 - Metric admission takes both meters whole behind no per-instrument selector, so an unwanted stream drops through an `AddView` row after registration.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.Http`
-- Owns: outbound client-span propagation and shaping at the composition root
-- Accept: one trace registration per root with its options pass; the built-in meters admitted by name or by the metric verb
-- Reject: a hand-written `DelegatingHandler` minting client spans or duration tags

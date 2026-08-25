@@ -2,16 +2,7 @@
 
 `pyroscope` is the profiles backend, the LGTM plane's fourth signal. Its whole surface NESTS under a `pyroscope` key — the override that pins the rendered name is `pyroscope.fullnameOverride` and the flat top-level spelling reaches nothing — and the chart bundles an Alloy collector that ships DEFAULT-ON beside the server.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyroscope`
-- chart: `pyroscope` from `https://grafana.github.io/helm-charts` (AGPL-3.0)
-- asset: the server StatefulSet with its Service, headless Service, memberlist Service, ServiceAccount, RBAC cell, and PVC — beside the bundled Alloy DaemonSet with its own Service and cluster Service, an off-by-default legacy agent, an off-by-default MinIO, and optional Ingress, HTTPRoute, ServiceMonitor, and `extraObjects`
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / profiles backend
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                           | [CAPABILITY]                                                                    |
 | :-----: | :------------------------------ | :------------------------------------------------------------------------------ |
@@ -34,7 +25,7 @@
 [FULLNAME]: NESTED. `pyroscope.fullnameOverride` renders the server StatefulSet, its Service, `<pin>-headless`, and `<pin>-memberlist` under the pin; a flat top-level `fullnameOverride` renames NOTHING — verified by render, where the flat form leaves `<release>-pyroscope` standing. The bundled Alloy workload keeps `<release>-alloy` regardless, because the pin reaches the `pyroscope` scaffold alone.
 [SERVICE_NAME]: `<pin>` on HTTP 4040 is the ingest and query door, `<pin>-headless` serves the peers, and `<pin>-memberlist` carries the gossip ring.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Profiles ride the PUSH path: the runtime SDKs push directly and the collector's profiles pipeline relays, so this backend has no scrape posture to state and no receiver to declare.
@@ -54,9 +45,3 @@
 - Read `multitenancy_enabled` off the store row's tenancy column so profiles are org-isolated exactly when metrics are.
 - Disarm the bundled Alloy where the estate's own collector already owns ingest; leaving it on installs a second agent nothing declared.
 - Leave `minio` off; the estate's object plane is the one store.
-
-[RAIL_LAW]:
-- Contract: `pyroscope` chart values + the server document `pyroscope.structuredConfig` carries
-- Owns: the profiles backend — its doors, local store and disk-pressure retention, tenancy posture, query lookback, component architecture, and the bundled collector
-- Accept: the NESTED `pyroscope.fullnameOverride` pin; an armed persistence claim; the disk-free retention flag; `multitenancy_enabled` from the store row's tenancy column; the push ingest path; the bundled Alloy and MinIO both disarmed
-- Reject: a flat top-level `fullnameOverride`; a time-window retention key, which does not exist here; a locally stated tenancy answer; the default Alloy collector beside the estate's own gateway; a profiles signal routed to a wide-event residence

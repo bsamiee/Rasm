@@ -2,7 +2,6 @@
 
 `QualityProfile` folds `ProbeStep` rows into one `pointblank.Validate` plan, interrogates it once, grades every step, fires bound severity actions, and emits a `great_tables.GT` frame. The contract gate proves schema conformance; this owner grades live data above that gate without raising.
 
-
 ## [01]-[INDEX]
 
 - [02]-[PROFILE]: the graded data-quality observability owner over `pointblank` — the `ProbeStep` plan axis, the `Thresholds`/`Actions`-graded single interrogation carried out as `Interrogation`, the `ProfileReport` `GT`/wire axis through one `report` entrypoint, and the plan-content-keyed `Interrogation`.

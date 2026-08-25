@@ -2,14 +2,7 @@
 
 `Grasshopper2.Components.Standard` owns three sealed composite document objects: `Cluster` nests a `Document` and binds outer inputs to inner `Listen` and outer outputs to inner `Shout`, `Chain` duplicates a preordered linear run and migrates its external connections, and `GH1InteropComponent` hosts an unupgraded Grasshopper 1 component from serialized identity, XML, name, and a converted icon. Loop execution stays assembly-internal behind `Cluster.LoopSolution`; the composite surface exposes only the `Accumulation`, `ClusterBoundary`, and `LoopContinuation` enums.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grasshopper2` standard components
-- host: `Grasshopper2.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
-- namespace: `Grasshopper2.Components.Standard`, `Grasshopper2.Interop`
-- rail: composite document objects and GH1 hosting
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sealed `Component` composites and control enums; `Cluster` and `Chain` also implement `IDocumentParent` and `IPinCushion`.
 
@@ -22,7 +15,7 @@
 |  [05]   | `ClusterBoundary`     | enum          | `None=0`, `Input=1`, `Output=2`, `Index=3`                                |
 |  [06]   | `LoopContinuation`    | enum          | `Continue=1`, `BreakAfter=2`, `BreakBefore=3`                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cluster construction and boundary maps
 
@@ -69,7 +62,7 @@
 - `Grasshopper1Icon`: converts the GH1 `System.Drawing.Bitmap` into a new `Eto.Drawing.Bitmap` at this boundary and retains it without disposal transfer, so property consumers borrow it for the component lifetime.
 - `GH1InteropComponent` processing: invokes the loaded GH1 runtime with `Grasshopper1Xml`, never a runtime-free conversion.
 
-## [04]-[INTERNAL_LOOP_BOUNDARY]
+## [03]-[INTERNAL_LOOP_BOUNDARY]
 
 [INTERNAL_TYPE_SCOPE]: assembly-internal loop implementation; public-looking members on an internal declaring type stay inaccessible to `Rasm.Grasshopper`.
 
@@ -87,7 +80,7 @@
 
 - No external surface accepts or returns `Loop`, `LoopingIteration`, `LoopingResults`, `LoopingAction`, or `LoopRepeats`; loop composition enters only through public `Cluster` state and document execution.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Cluster` and `Chain` each duplicate their selected objects into an owned inner `Document`; the outer graph binds the inner boundary only through explicit map admission, never an automatic parameter rebuild.
@@ -105,9 +98,3 @@
 - `EnsureMaps` lifts as a void host call followed by explicit array and element admission, never a boolean confirmation.
 - `OrderChainLinks` and `ValidateChain` remain signature facts; public composition calls neither.
 - `IGH_Component` is admitted as a wrapper around a validated live GH1 object, its nullable parameter and icon reads stay explicit, and transfer index pairs are range-admitted before invocation.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2.dll` (`Grasshopper2.Components.Standard`, in-process)
-- Owns: public cluster nesting and boundary maps, chain construction and connection migration, the composite control enums, GH1 wrapper-backed hosting, and the internal loop implementation behind clusters
-- Accept: duplicated composite ownership, explicit map admission, caller-preordered chain construction with explicit endpoint ids, borrowed hosted objects and icons, and GH1 execution through the serialized host
-- Reject: reaching private or internal loop, map, expiry, endpoint, reverse-migration, or repetition members; boolean treatment of `EnsureMaps`; functional use of `OrderChainLinks` or `ValidateChain`; interface treatment of `Grasshopper2.Interop.IGH_Component`; runtime-free treatment of `GH1InteropComponent`

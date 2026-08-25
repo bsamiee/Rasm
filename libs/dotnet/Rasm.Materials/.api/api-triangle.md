@@ -2,16 +2,7 @@
 
 `Triangle` owns constrained and conforming 2D Delaunay triangulation with Ruppert/Chew quality refinement over a Planar Straight-Line Graph of vertices, forced segments, carved holes, and per-region sizing, computed in the `double` domain over `RobustPredicates` adaptive-precision orientation and incircle tests. `Rasm.Materials` reaches it only transitively through `VividOrange.InteractionDiagram`, whose N-M-M capacity engine meshes the concrete-plus-rebar section into the `AnalyticalFace` fibre grid the strain-plane sweep integrates over.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Triangle`
-- package: `Triangle` (MIT)
-- assembly: `Triangle`
-- namespaces: `TriangleNet`, `.Geometry`, `.Meshing` (`.Algorithm`, `.Iterators`, `.Data`), `.Voronoi`, `.Topology` (`.DCEL`), `.Smoothing`, `.Tools`, `.IO`, `.Logging`
-- asset: pure-managed AnyCPU IL, no native RID asset, ALC-safe and osx-arm64-safe; the consumer binds the netstandard asset by TFM precedence
-- rail: materials, transitive through `VividOrange.InteractionDiagram`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: PSLG input geometry — `TriangleNet.Geometry`
 
@@ -102,7 +93,7 @@
 
 - `TriangleReader`/`TriangleWriter`: read and write native `.poly`, `.node`, and `.ele` Triangle files through the `FileProcessor` format registry.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the mesh pipeline — build a `Polygon` (`AddContour` outer, holes, regions), drive `GenericMesher.Triangulate`, read the `IMesh` collections; the constraint and quality overloads layer the optional policies onto the same call.
 
@@ -123,7 +114,7 @@
 
 - `Contour.FindInteriorPoint(int, double) -> Point`: seeds a point inside the loop for a hole or region marker.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Coordinates are `double`; `RobustPredicates` gives adaptive-precision orientation and incircle robust to rounding, never exact-rational — the mesher owns the well-conditioned 2D quality path, never exact-arithmetic robustness or 3D.
@@ -138,9 +129,3 @@
 [LOCAL_ADMISSION]:
 - `Rasm.Materials` reaches `Triangle` only transitively through `VividOrange.InteractionDiagram`, minting no direct call and carrying no central admission row.
 - A constrained-mesh dual routes to `Triangle`; unconstrained point-set hull-Delaunay and ND Voronoi route to `MIConvexHull`, and a standalone clipped point-site diagram routes to the kernel `Tessellation.VoronoiDual` bounded-cell overload.
-
-[RAIL_LAW]:
-- Package: `Triangle` (assembly `Triangle`, namespace root `TriangleNet`)
-- Owns: constrained and conforming 2D Delaunay with Ruppert/Chew quality refinement over a PSLG in the `double` domain — pluggable initial triangulation, adaptive-precision predicates, Laplacian smoothing, the Voronoi dual, quality metrics, Cuthill-McKee renumbering, and native `.poly`/`.node`/`.ele` I/O.
-- Accept: the transitive `VividOrange.InteractionDiagram` section fibre-grid mesh.
-- Reject: a direct `Triangle` call minted in `Rasm.Materials`; exact-rational robustness on degenerate input or 3D tetrahedralization, which route to the kernel `Adaptive.Resolve` Bowyer-Watson; unconstrained point-set Delaunay or ND Voronoi, which `MIConvexHull` owns; a standalone clipped point-site Voronoi, which the kernel `Tessellation.VoronoiDual` bounded-cell overload owns.

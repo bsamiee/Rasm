@@ -4,17 +4,7 @@ This catalog owns the quarantined host-subclass authoring boundary: `ClassIdAttr
 
 Object read/mutate and history route to the objects catalog, placement and events to the document catalog, pick projection to the commands catalog, and geometry custody to the geometry catalog.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon custom-object and grip authoring
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll`
-- namespaces: `Rhino.DocObjects`, `Rhino.DocObjects.Custom`, `Rhino.UI`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: custom-authoring-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: custom object derivations
 
@@ -59,7 +49,7 @@ This catalog is the sole member-depth home for the whole `Rhino.UI` in-viewport 
 [ENUM_ROSTERS]:
 - `public enum Rhino.UI.GripUserInterfaceObjectShape` — `Circle = 0`, `Square = 1`, `Triangle = 2`, `X = 3`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CUSTOM_OBJECT_REGISTRATION]:
 - `Rhino.DocObjects.Custom.CustomBrepObject.CustomBrepObject()` / `CustomBrepObject(Brep brep)` — parameterless and geometry-seeded protected constructors; the host constructs the subclass, so the derivation carries no state.
@@ -136,7 +126,7 @@ This catalog is the sole member-depth home for the whole `Rhino.UI` in-viewport 
 - `Rhino.DocObjects.Tables.ViewUserInterfaceTable` (`RhinoDoc.ViewUserInterface`) — `Add(UserInterfaceObjectBase) -> bool` / `Add(UserInterfaceObjectBase, Guid userInterfaceGroupId) -> bool` / `Remove(UserInterfaceObjectBase) -> int` / `Remove(IEnumerable<UserInterfaceObjectBase>) -> int` / `RemoveByGroupId(Guid) -> int` / `Find<T>() -> T[] where T : UserInterfaceObjectBase` / `Document -> RhinoDoc` — the per-document widget registration table.
 - The two registration paths are exclusive per widget: `RegisterForAllDocuments`/`Unregister` seats it across every document, `ViewUserInterfaceTable.Add`/`Remove` seats it in one — a widget registered both ways draws twice and retires once.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [AUTHORING_TOPOLOGY]:
 - Rhino owns construction: it instantiates a `ClassIdAttribute`-stamped subclass and invokes its virtuals — protected callback hooks and public capability members alike — so each custom kind is one thin sealed adapter forwarding every host callback to a value-typed override program of `Func<..., Fin<...>>` hooks over union-typed draw-mark and transform-policy payloads.
@@ -156,9 +146,3 @@ This catalog is the sole member-depth home for the whole `Rhino.UI` in-viewport 
 - subclassing enters only at the registration boundary: one thin adapter per custom kind stamped with `ClassIdAttribute`, one enabler per custom-grips type through `RegisterGripsEnabler`; no derivation owns state or a dispatch table.
 - an immutable override program is admitted as the value the adapter forwards to; a custom object crosses back to the objects catalog for read/mutate and to the document catalog for placement, and pick output crosses to the commands catalog for projection.
 - grip editing and grip widgets are admitted as value owners; a live `GripObject` resolves from the owning object inside its document grant and never leases outward.
-
-[RAIL_LAW]:
-- Surface: `Rhino.DocObjects.Custom` authoring, `Rhino.DocObjects.GripObject` editing, and the whole `Rhino.UI` in-viewport widget family
-- Owns: custom-object registration and the virtual override program, grip-set authoring and rebuild, the grip edit surface, and every in-viewport widget — grip, direction, rotation, text-dot, control, and slider — with `MouseState` and the `ViewUserInterfaceTable` registration path.
-- Accept: registration shims over immutable override programs, value-shaped grip edits, constrained grip widgets and placed controls projected onto `Fin`/`Option` rails, and exactly one registration path per widget.
-- Reject: a second host-derived base owning state or dispatch, domain logic inside a subclass, a widget registered on both the all-documents and per-document paths, a boundary default restating a host slider default, and live custom objects, grips, or `MouseState` crossing the session boundary.

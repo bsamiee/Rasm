@@ -2,16 +2,7 @@
 
 `pg_search` mints the `bm25` index access method and the `pdb` query schema over a PostgreSQL table: a Tantivy-backed BM25 engine whose builders, bare operators, and cast modifiers lower to server SQL, and whose score, snippet, and aggregate projections anchor on the index `key_field`. Every surface is server-side SQL carrying no managed assembly. It is the branch's lexical-relevance owner — the search-provisioning rail emits its index DDL and the hybrid-fusion CTE ranks its BM25 branch beside the pgvector dense branch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pg_search`
-- package: `pg_search` (AGPL-3.0)
-- asset: server SQL only — the `bm25` access method with the `pdb` schema of builders, cast types, and projections
-- abi: in-process `pgrx`/Tantivy extension, `shared_preload_libraries`-gated at the server tier
-- namespace: `pdb`
-- rail: search-provisioning, search-lanes, hybrid-fusion
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PDB_TYPES]: the access method and the cast types a predicate or an indexed column composes through, stacking in cast order.
 
@@ -29,7 +20,7 @@
 
 - `pdb.fuzzy`: second and third arguments default `f`, so `pdb.fuzzy(1)` is `pdb.fuzzy(1, f, f)`; highlighting does not apply to a fuzzy match.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 `CREATE INDEX <name> ON <table> USING bm25 (<key_field>, <col>, …) WITH (key_field = '<col>')` mints the one BM25 index a table carries: `key_field` leads the column list, carries a `UNIQUE` constraint, and stays untokenized when it is a text field. Index every column reached by search, sort, group, filter, or aggregation, and select a per-column tokenizer as a cast on the indexed expression — `(description::pdb.icu)`.
 
@@ -72,7 +63,7 @@
 - `pdb.agg`: reads the index's columnar side and composes with `GROUP BY`; several aggregates ride one target list as sibling projections.
 - Highlighting costs a per-row extraction, so a snippet query carries a `LIMIT` that bounds the fragment count.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every match lowers to one expression whose left side is an admitted column or the declared `key_field` and whose right side is a builder, a literal, or a cast chain; each cast wraps its inner predicate and appends its own cast, so composition is structural rather than string concatenation at the call site.
@@ -88,9 +79,3 @@
 [LOCAL_ADMISSION]:
 - `pg_search` runs in-process inside the PostgreSQL server tier, so the AGPL boundary stops at the database deployment and the folder composes the extension as server SQL alone.
 - Lexical relevance selects the BM25 arm wherever the server profile preloads the extension; a profile without it selects the native `ts_rank` arm inside the same fusion CTE, so the fused result stays correct at reduced lexical power and the arm taken is branch-lineage evidence.
-
-[RAIL_LAW]:
-- Package: `pg_search`
-- Owns: BM25 lexical relevance over a PostgreSQL table — the `bm25` index, the `pdb` builder, operator, and cast predicate algebra, and the score, snippet, and facet projections anchored on `key_field`.
-- Accept: index DDL emitted on the migration rail; predicates composed as builder-plus-cast chains lowered by one switch; `pdb.score` ordering inside the fusion CTE; bounded `pdb.snippet`/`pdb.snippets` highlighting; `pdb.agg` facets over the matched set.
-- Reject: a hand-rolled BM25 or trigram ranker beside the index; a second BM25 index on one table; call-site string concatenation of predicate SQL; a parallel aggregation engine where `pdb.agg` projects over the matched set.

@@ -1,6 +1,5 @@
 # [MATERIALS_INTERCHANGE]
 
-
 ## [01]-[INDEX]
 
 - [03]-[MATERIALX_DOCUMENT]: `MtlxDocument`/`MtlxNode` shape the MaterialX 1.39 node graph, `NodeCategory` carries the per-category typed port, and `Mtlx` projects `AppearanceNode` over per-op category rows, source-typed edge polarities, probed constants, the texture-source binding, and the BAKED-FILENAME binding filling each image node's `file` slot from the set's own egress leaf, its `.mtlx` serialize/admit fold railing every unprojectable node.
@@ -9,7 +8,6 @@
 
 - Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the SEAM `AppearanceSummary` through the seam-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` rail, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance. It is the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes and the SAME factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; the channel triple crosses as the landed Element `[ComplexValueObject]` `AppearanceVector.Create(...)`, whose accumulated slot gate names every offending channel at once.
 - Entry: `AppearanceEgress.Project` mints the full OpenPBR material; `Set` projects an admitted baked surface into the generated `Set.baked` arm; `AppearanceEgress.Ibl` projects the resolved dome into `Set.environment.ibl`. Each completed document crosses `WireAdmission.Admit` once after its product is final.
-- Growth: a new appearance document is one message plus one `AppearanceEgress` fold; a new OpenPBR parameter lands beside its `OpenPbrSurface` column and breaks the Mapperly completeness gate until mapped. A new capture result shape is one `CaptureAssessment` and protobuf assessment case. Generated peers move through `assay contracts generate`, never a hand-maintained mirror.
 - Law: every closed vocabulary crosses as its GENERATED ENUM through ONE `WireVocabulary` bridge per roster (`LicenceVocabulary` for the one frontier roster a Raster page cannot name) — derived by parsing each row's own key against the enum's `OriginalName` spelling, so no hand row table exists to drift — and the derivation is PROVED at type init: a `[SmartEnum]` row with no enum member, or an enum value of zero, throws before the first egress. `RasterFormat`→`Container` is the one PARTIAL bridge (a non-wire container such as `jpeg` has no enum row) and answers on the `Fin` rail at the egress that asks, never a total map with a fabricated arm.
 - Law: `AppearanceWireMap` is the completeness gate for total reader-free mappings. Presence-sensitive assessment, chromaticity, card, ingest, and proto3 optional scalars lower explicitly in `AppearanceEgress`; no generated mapper is asked to construct evidence whose presence depends on a domain case or `Option`.
 - Law: `[MapDerivedType]` is REFUSED here and the reason is structural: its unregistered-case arm throws at RUNTIME where the generated Thinktecture `Switch` breaks the BUILD, and a protobuf `oneof` envelope is not a class hierarchy (RMG036). Union-case dispatch stays the generated total `Switch`.
@@ -24,7 +22,7 @@
 - Boundary: `Ibl` is the ONE environment document and it mirrors the resolved `EnvironmentLight` row — the frozen band-major `sh9`, the six product planes by `PlaneRef`, the roughness ladder, and the READ-TIME `intensity`/`rotation` pair a consumer applies and a producer never bakes. The model key rides `Set.source` (the generator of a synthesized dome, absent for an ingested HDRI); NAMED LOSS: the two Hosek-Wilkie asset digests and the authored intensity unit pair, which stay on the domain row and reach the analytics plane off that row rather than off the wire.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -152,7 +150,7 @@ public static class AppearanceEgress {
             inference: static (target, inference) => {
                 target.Inference = new Wire.Provenance.Types.Inference {
                     Tiles = checked((ulong)inference.Tiles),
-                    GoldenDeltaMax = inference.GoldenDeltaMax,
+                    ReferenceDeltaMax = inference.ReferenceDeltaMax,
                 };
                 return target;
             });
@@ -915,7 +913,7 @@ public static class StageWire {
         from admitted in StageResult.Admit(
             new StageResult(stage, echoed, artefact, outputs, scores, provider,
                 checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
-                message.GoldenDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
+                message.ReferenceDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
             card, request, key)
         select admitted;
 

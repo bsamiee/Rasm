@@ -2,15 +2,7 @@
 
 `structlog` owns the structured-logging pipeline: a left-to-right processor chain folds a mutable event dict from bind-time context through injectors and an exception transformer to a terminal renderer. `FilteringBoundLogger` compiles sub-threshold levels to no-ops at method resolution, `contextvars` carry ambient context across async boundaries, and `stdlib.ProcessorFormatter` routes structlog and foreign `logging` records through one chain. It owns the observability rail's log output — `ConsoleRenderer` for dev, `JSONRenderer`/`KeyValueRenderer`/`LogfmtRenderer` for production.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `structlog`
-- package: `structlog` (MIT OR Apache-2.0)
-- module: `structlog`
-- namespaces: `structlog`, `structlog.processors`, `structlog.stdlib`, `structlog.dev`, `structlog.contextvars`, `structlog.testing`, `structlog.tracebacks`, `structlog.typing`, `structlog.threadlocal`, `structlog.twisted`
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger and factory types
 
@@ -111,7 +103,7 @@
 |  [05]   | `testing.CapturingLogger`             | test logger   | wrapped logger storing `CapturedCall` records           |
 |  [06]   | `testing.CapturedCall`                | event record  | one captured `(method_name, args, kwargs)` record       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration and logger creation
 - `configure`/`configure_once` carry: `processors, wrapper_class, context_class, logger_factory, cache_logger_on_first_use`; `wrap_logger` carries `logger, processors, wrapper_class, context_class, cache_logger_on_first_use, **initial_values`
@@ -150,7 +142,7 @@
 |  [03]   | `await log.a{name}(...)`                                                          | instance | async mirror, chained on a thread      |
 |  [04]   | `testing.capture_logs()`                                                          | static   | capture block events as dicts          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `get_logger()` returns a lazy proxy resolving configuration on the first log call, so module-level `get_logger(__name__)` is safe before `configure()` runs. Each call seeds an event dict, folds it left-to-right through the processor list, and the last processor must be a renderer returning `str`/`bytes`/a `(args, kwargs)` tuple.
@@ -178,9 +170,3 @@
 - request-scoped fields (request id, trace id, tenant) bind through `bind_contextvars`/`bound_contextvars` and reset via the returned tokens, never repeated per-logger `.bind()`.
 - production renders through `JSONRenderer` (fast serializer + `BytesLoggerFactory`), dev through `dev.ConsoleRenderer`, selected by environment rather than a branch inside a processor.
 - tests capture through `testing.capture_logs()`/`LogCapture`, never a real sink.
-
-[RAIL_LAW]:
-- Package: `structlog`
-- Owns: the structured log pipeline, processor-chain ordering, contextvars ambient context, the stdlib `logging` bridge, level filtering, dev/JSON/keyvalue/logfmt renderers, structured exception/traceback transformation
-- Accept: `get_logger`, `configure`/`configure_once`, `make_filtering_bound_logger`, `contextvars.merge_contextvars`/`bind_contextvars`, `processors.TimeStamper`/`JSONRenderer`/`dict_tracebacks`, `stdlib.ProcessorFormatter`
-- Reject: bare `logging.getLogger` in a structlog-configured codebase without the `ProcessorFormatter` bridge, `str(exc)` where `format_exc_info`/`dict_tracebacks` carries the structured traceback, a renderer before mutating processors, per-call `.bind()` where ambient `bind_contextvars` is correct

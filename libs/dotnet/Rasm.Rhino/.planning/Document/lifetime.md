@@ -25,7 +25,7 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 - Boundary: the gate holds no resource of its own — `stop` and `settle` are the owner's, so the capsule is reusable across pointer leases, content streams, and watch custody without knowing any of them.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Threading;
 using System.Threading.Tasks;
 using Rasm.Domain;
@@ -169,7 +169,7 @@ internal sealed class LifecycleGate {
 - Exemption: `Subscription` and its closure records ride a `Lock` — close claims its detacher roster, runs callbacks after release, and publishes retry custody with one settled result atomically, a sequence whose steps must each run after an earlier one refused; the platform-forced lifetime seam is contained here and no composer writes one.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Threading.Tasks;
 using Rasm.Domain;
 
@@ -383,7 +383,7 @@ internal sealed class Reentrancy {
 - Boundary: the pump owns the ONE idle hook per instance and nothing else — the work closures carry their own custody, and the pump never reads what a unit of work does.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rhino;

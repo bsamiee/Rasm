@@ -28,7 +28,7 @@ Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 - Boundary: raw level equations never claim signed-distance semantics — the distance law divides the residual by the world gradient norm floored at the policy's own gradient floor, so a level set whose gradient vanishes reports a bounded distance rather than an infinity.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Numerics;

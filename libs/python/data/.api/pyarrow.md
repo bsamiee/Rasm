@@ -2,16 +2,7 @@
 
 `pyarrow` owns Arrow columnar memory in Python: typed `Array`/`ChunkedArray` columns, `RecordBatch`/`Table` tables, `Field`/`Schema` metadata, and the PyCapsule C-data/C-stream interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) that carries every frame zero-copy across the data plane. Constructor and dtype-factory families build these values; the `compute` vectorized kernels with their Python-UDF registry, the `acero` streaming execution engine, `substrait`/`flight` transport, and the columnar-file submodules fold over them as one interchange rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyarrow`
-- package: `pyarrow` (Apache-2.0)
-- module: `pyarrow`
-- namespaces: `compute`, `acero`, `substrait`, `dataset`, `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `flight`, `fs`, `cuda`, `interchange`, `types`, `util`
-- owner: `data`, `geometry`
-- rail: Arrow columnar memory
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tabular and array values
 
@@ -74,7 +65,7 @@
 |  [20]   | `dataset.ParquetEncryptionConfig` / `ParquetDecryptionConfig` | encryption        | modular Parquet encryption configs    |
 |  [21]   | `RecordBatchReader`                                           | stream            | C-stream-importable batch iterator    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and dtype factories
 - call: `FixedSizeListArray.from_arrays(values, list_size=None, type=None, mask=None)` and `ListArray.from_arrays(offsets, values, type=None, pool=None, mask=None)` build a fixed-length/variable list column from a flat value buffer
@@ -197,7 +188,7 @@
 
 [CONSUMER]: `tabular/query#QUERY` `_flight_plan` reads `FlightInfo.endpoints` beside `.schema`, mints one `_flight_leg` per endpoint, then closes the planning client. Each leg dials its `_located` peer — the endpoint's first `Location.uri`, else the caller's DSN — on a `FlightClient` of its own and redeems `do_get(ticket, options)`; the fan concatenates in producer order and answers `schema.empty_table()` on an empty endpoint set. `Transport.client_kwargs` supplies the PEM octets the ADBC option enums carry as text, and `Transport.call_options` builds the header and timeout row.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Table` holds a list of `ChunkedArray` columns sharing one `Schema`; `RecordBatch` holds a single contiguous chunk
@@ -223,9 +214,3 @@
 - Compose dtypes from the factory functions and assemble `Schema` explicitly where a schema contract is fixed.
 - Run vectorized reductions and selection through `compute` kernels, grouped reductions through `group_by(...).aggregate(...)`, and multi-stage pipelines through `acero.Declaration`.
 - Read and write columnar files through `parquet`/`feather`/`csv`/`orc`, scan multi-file partitioned data through `dataset`/`Scanner` with `compute.field` filter expressions for pushdown, and write partitioned output with `dataset.write_dataset`.
-
-[RAIL_LAW]:
-- Package: `pyarrow`
-- Owns: Arrow columnar memory, schema metadata, vectorized compute kernels with the Python-UDF registry, the Acero streaming execution engine, Substrait/Flight transport, and Parquet/IPC/CSV/JSON/ORC/dataset IO
-- Accept: Python sequences, NumPy arrays, pandas frames, Arrow C-interface/C-stream objects, columnar files, and registered Python kernels
-- Reject: row-wise Python iteration over columns, hand-rolled Parquet/IPC parsing or Parquet encryption, schema inference where a fixed schema contract exists, bespoke plan/batch serialization where Substrait/Flight/C-stream apply

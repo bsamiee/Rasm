@@ -2,17 +2,7 @@
 
 `Aardvark.Data.E57` owns the managed ASTM E57 (E2807-11) read decode: the 48-byte binary file header, the XML `E57Root` metadata tree with one `E57Data3D` record per scan setup, and the CRC-paged CompressedVector point section unpacked chunk-by-chunk out of its bit-packed per-property byte streams. `Ingest/pointcloud#SCAN_SOURCE` composes it as the E57 leg of the reality-capture codec pair — header and `Data3D` metadata rows for the durable header, streamed point chunks for the chunked-blob residence and the per-region cell fold. Decode only: the assembly carries no writer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Aardvark.Data.E57`
-- package: `Aardvark.Data.E57` (AGPL-3.0)
-- assembly: `Aardvark.Data.E57` → the `net10.0` consumer binds `lib/netstandard2.0/Aardvark.Data.E57.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
-- namespaces: `Aardvark.Data.E57` (the `ASTM_E57` spec surface and `PointPropertySemantics`), `Aardvark.Data.Points.Import` (the `E57` importer facade)
-- depends: `Aardvark.Base` (the `V3d`/`V3f`/`C3b`/`Box3d`/`Range1d`/`Range1i`/`Rot3d`/`Trafo3d` value types), `Aardvark.Data.Points.Base` (the `Chunk`/`ParseConfig`/`PointCloudFileFormat`/`PointFileInfo` importer carriers), `Crc32.NET`, `FSharp.Core`, `System.Collections.Immutable`
-- scope: ASTM E57 read — file header, `e57Root` XML tree, `Data3D` scan-setup metadata (pose, bounds, intensity/colour limits, acquisition stamps, sensor identity, environment), the `Image2D` camera-representation family, the CompressedVector point stream over the 26-member property vocabulary, and optional page CRC verification
-- rail: `Ingest/pointcloud#SCAN_SOURCE` (the E57 decode leg)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: importer facade and the point-property vocabulary
 
@@ -49,7 +39,7 @@
 - [04]-[PROTOTYPE_ELEMENTS]: `IE57Element` (`E57ElementType E57Type`) roots the tree and `IBitPack` (`NumberOfBitsForBitPack`, `Semantic`) marks a prototype child; the concrete family is `E57Integer` `E57ScaledInteger` `E57Float` `E57String` `E57Blob` `E57Structure` `E57Vector` `E57CompressedVector` `E57Codec`, with `E57PointRecord` `E57PointGroupingSchemes` `GroupingByLine` `E57LineGroupRecord` carrying the grouping schemes.
 - [05]-[OFFSETS_AND_PACKETS]: `E57PhysicalOffset`/`E57LogicalOffset` are the two addressing spaces the CRC paging separates, `+` crossing between them; `E57CompressedVectorHeader` `E57IndexPacketHeader` `E57IndexPacketAddressEntry` `E57DataPacketHeader` are the section's on-disk packet structs.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the spec surface — header parse and page-CRC verification
 - note: `E57FileHeader.Parse` seeks to `0`, reads the 48-byte binary header, gates the `ASTM-E57` signature, version `1.0`, and the `1024` page size, refuses a header file length disagreeing with the caller's actual byte count, then reads the XML at `XmlOffset` through the CRC-skipping logical reader and parses `E57Root`. It needs the WHOLE seekable source, never a prefix.
@@ -109,7 +99,7 @@
 |  [08]   | `E57Chunk.IsTimeStampInvalid` / `IsIntensityInvalid` / `IsColorInvalid`   | property | `bool[]` per-channel validity flags     |
 |  [09]   | `E57Chunk.NormalsTransformInPlace(Rot3d)`                                 | instance | rotates the held normal lane in place   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - E57 addresses in TWO spaces: `E57PhysicalOffset` counts raw bytes and `E57LogicalOffset` counts payload bytes, because every 1024-byte page ends in a 4-byte CRC the logical reader skips — 1020 payload bytes per page — so a hand-rolled seek over raw offsets reads CRC bytes as payload, which is exactly what the internal logical reader exists to prevent
@@ -136,9 +126,3 @@
 - raw `ASTM_E57.*` and `E57Chunk` types never leave the decode leg: internal code holds the canonical `ScanHeader`/`ScanRegion`/`ScanBatch` rows
 - every thrown parse refusal traps at the fold boundary onto `ScanFault.CodecReject`; a setup whose `CoordinateMetadata` names a CRS the spec cannot admit rails `ScanFault.CrsUnsupported`
 - AGPL-3.0 custody rides a SEPARATE assembly reference (`PackageReference`), never an ILMerge into a Rasm assembly; the pure-managed ns2.0 IL binds forward and the plugin ALC firebreak holds
-
-[RAIL_LAW]:
-- Package: `Aardvark.Data.E57` (AGPL-3.0)
-- Owns: managed ASTM E57 READ decode — binary file header, the `e57Root` XML metadata tree, per-`Data3D` scan-setup pose/bounds/limits/stamp/sensor rows, the CRC-paged CompressedVector point stream over the 26-member property vocabulary, and page-CRC verification
-- Accept: `E57FileHeader.Parse` over a seekable source with its true length, the `E57Root`/`E57Data3D` metadata rows filling `ScanHeader`, `E57Data3D.StreamPointsFull` as the point-stream depth with the setup pose already applied, `E57CompressedVector.ReadDataFull` where a consumer interleaves its own positions, and every thrown refusal trapped onto the `ScanFault` band
-- Reject: a point-cloud scan/segmentation/registration engine (the kernel owns it); an E57 WRITE leg (the assembly ships no writer); a second point model beside the `Ingest/pointcloud#SCAN_SOURCE` `ScanBatch` currency; a hand-rolled E57 XML-plus-binary parser or a hand-rolled logical-offset seek over the CRC pages; the `E57.Chunks`/`ChunksFull`/`E57Info` facade with its defaulted colour, normal, intensity, and classification lanes; re-applying `Data3D.Pose` to positions `StreamPointsFull` already transformed; `E57Chunk.Timestamps` as a durable capture stamp where the setup declares no acquisition start

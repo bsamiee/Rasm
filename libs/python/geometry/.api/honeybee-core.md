@@ -2,19 +2,7 @@
 
 `honeybee-core` owns the HBJSON building-energy object model: the parented `Model` -> `Room` -> `Face` -> `Aperture`/`Door` graph and its `Shade`/`ShadeMesh`, each wrapping a `ladybug-geometry` primitive, with the `.properties` extension spine, adjacency and aperture/shading generation, the closed face-type/boundary-condition/auto-number vocabularies, `dict_to_object`, and the `check_all` validation family. It is the `dragonfly-core` urban-explode target and the host every energy/radiance extension attaches to, while geometry primitives, weather, and simulation stay in siblings.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `honeybee-core`
-- package: `honeybee-core` (AGPL-3.0)
-- module: `honeybee` (distribution `honeybee-core`; import `honeybee`, not `honeybee_core`)
-- namespaces: `honeybee.{model,room,face,aperture,door,shade,shademesh,properties,facetype,boundarycondition,altnumber,dictutil,extensionutil,units,orientation,search,checkdup}`
-- rail: energy-modeling
-- consumer: `.planning/energy/model.md` (the `check_all`-gated admission, aperture mint, adjacency, HBJSON wire)
-- asset: pure-Python `py3-none-any` wheel; no compiled payload
-- depends: `ladybug-core` (units/location/EPW), `ladybug-geometry-polyskel` (the `ladybug-geometry` primitive tier honeybee objects wrap), `honeybee-schema` (HBJSON pydantic-v2 wire validation)
-- entry: `honeybee` console script (`validate`/`edit`/`create`/`lib` over HBJSON)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry object model (`honeybee.{model,room,face,aperture,door,shade,shademesh}`)
 
@@ -52,7 +40,7 @@ Closed singleton-backed vocabularies read through the module singletons (`face_t
 |  [05]   | `Adiabatic` / `OtherSideTemperature`                 | boundary condition  | no-heat-flow / fixed other-side-temperature                 |
 |  [06]   | `Autocalculate` / `NoLimit` / `Autosize`             | alt-number sentinel | singleton sentinels (`autocalculate`/`no_limit`/`autosize`) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: HBJSON serialization round-trip
 
@@ -122,7 +110,7 @@ Window-to-wall ratio, gridded glazing, louvers, and overhangs are owned operatio
 
 - `Model.check_all`: `detailed=False` returns one concatenated string and raises `ValueError` on the first defect; `detailed=True` returns a `list[dict]` of error rows (`type`/`code`/`error_type`/`element_id`/`message`/nested `parents`) and does NOT raise — the shape that folds directly into `Result`. It already invokes every registered extension's `check_all`, so full-stack validation is one call with no extra flag.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every honeybee object wraps a `ladybug_geometry` primitive (`Face`/`Aperture`/`Door`/`Shade` a `Face3D`, `Room` a `Polyface3D`, `ShadeMesh` a `Mesh3D`); the owner composes vertex/normal/area/planarity/solid algebra from `ladybug-geometry` and folds transforms (`move`/`rotate`/`rotate_xy`/`reflect`/`scale`) and aperture/louver/overhang generation into owned face operations, never a per-transform branch.
@@ -141,9 +129,3 @@ Window-to-wall ratio, gridded glazing, louvers, and overhangs are owned operatio
 [LOCAL_ADMISSION]:
 - Building-energy model assembly feeds the energy-modeling owner and admits this `Model` as the `dragonfly.Model.to_honeybee` translation target.
 - Consume the AGPL-3.0 stack as a process-boundary companion exchanging HBJSON across the wire, never statically linked into a distributed proprietary artifact.
-
-[RAIL_LAW]:
-- Package: `honeybee-core`
-- Owns: the HBJSON building object model (`Model`/`Room`/`Face`/`Aperture`/`Door`/`Shade`/`ShadeMesh`), the `.properties` extension spine, topology and adjacency solving, aperture and shading generation, unit conversion, the bounded face-type/boundary-condition/auto-number vocabularies, `dict_to_object`, and the `check_all` validation family
-- Accept: building-energy model assembly feeding the energy-modeling owner; this `Model` as the `dragonfly.Model.to_honeybee` target; the `honeybee-energy`/`honeybee-openstudio` extensions composing through `.properties` and `_extend_honeybee`; HBJSON validated through `honeybee-schema` and decoded through `msgspec`; `check_all(detailed=True)` rows folded into the `expression` `Result` rail
-- Reject: a hand-rolled building object model or HBJSON parser; a second DTO family for the HBJSON concept; a per-extension object model parallel to `.properties`; raw-string face-type/boundary-condition branching over the singletons; re-implemented adjacency/solidity/aperture generation; catching the validation exception where `check_all(detailed=True)` returns foldable rows; re-deriving vertex/area/solid algebra that `ladybug-geometry` owns

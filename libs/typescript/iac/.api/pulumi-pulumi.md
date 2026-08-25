@@ -2,16 +2,7 @@
 
 `@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` dependency algebra, the `Resource`/`ComponentResource` model every stack tier extends, `Config`/`StackReference` state access, and the Automation API's operation-specific lifecycle results. `iac` lifts inline `LocalWorkspace` programs onto one Effect rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/pulumi`
-- package: `@pulumi/pulumi` (Apache-2.0)
-- module: `@pulumi/pulumi` core (the `InvokeOptions`/`InvokeOutputOptions` data-source-invoke seam) + `@pulumi/pulumi/automation` lifecycle + `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable,queryable}` submodules
-- asset: the resource-registration runtime and Automation-API surface every provider SDK and the engine bind against
-- runtime: `node` — the `pulumi` CLI binary is a deploy-host fact wrapped through `PulumiCommand`/`LocalWorkspaceOptions.pulumiCommand`, and provider plugins auto-download on first resource registration
-- rail: deployment
-
-## [02]-[OUTPUT_ALGEBRA]
+## [01]-[OUTPUT_ALGEBRA]
 
 Every resource arg and output flows through `Output<T>`, the async-dependency monad: `OutputInstance<T> & Lifted<T>`, so property access on a struct output lifts to `Output<field>` without `.apply`. Lifting, joining, string shaping, and JSON transit each own one combinator.
 
@@ -46,7 +37,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [13]   | `isUnknown(v)` / `containsUnknowns(v)`               | preview guard    | detect preview-time unresolved values         |
 |  [14]   | `Output.create` / `Output.isInstance` / `Output.all` | static           | factory / type guard / static join            |
 
-## [03]-[RESOURCE_MODEL]
+## [02]-[RESOURCE_MODEL]
 
 `stack` ComponentResource tiers subclass this hierarchy and the `kube`/`secret`/`observe` rows instantiate it. `ComponentResource` is the grouping owner (`registerOutputs` runs last), the resource-option interfaces build the ownership DAG, and `mergeOptions` folds one inherited `opts` bag down a tier's children.
 
@@ -85,7 +76,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [06]   | `InputPropertyError` / `InputPropertiesError`            | error class   | single / multi input-property validation failure             |
 |  [07]   | `log.{debug,info,warn,error,hasErrors}`                  | function set  | structured deployment-engine log (per-resource)              |
 
-## [04]-[AUTOMATION_API]
+## [03]-[AUTOMATION_API]
 
 `@pulumi/pulumi/automation` is the programmatic lifecycle. `LocalWorkspace.createOrSelectStack` is idempotent, `program: PulumiFn` returns the record that becomes stack outputs, and `LocalWorkspaceOptions` carries the deploy-host facts. Each lifecycle method returns its own native result type.
 
@@ -113,28 +104,28 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 
 [ENTRYPOINT_SCOPE]: stack lifecycle
 
-| [INDEX] | [SURFACE]                                                             | [FAMILY] | [NOTE]                                          |
-| :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------------- |
-|  [01]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>`     | factory  | idempotent; `create`/`select` variants          |
-|  [02]   | `Stack.up(opts?): Promise<UpResult>`                                  | lifecycle | deploy/update; `outputs` + `summary`           |
-|  [03]   | `Stack.preview(opts?): Promise<PreviewResult>`                        | lifecycle | dry-run; `changeSummary: OpMap`                |
-|  [04]   | `Stack.refresh(opts?): Promise<RefreshResult>`                        | lifecycle | reconcile state with provider (mutating)       |
-|  [05]   | `Stack.destroy(opts?): Promise<DestroyResult>`                        | lifecycle | delete all resources                           |
-|  [06]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>`                 | drift    | read-only refresh-preview; no mutation          |
-|  [07]   | `Stack.outputs(): Promise<OutputMap>`                                 | query    | `{[k]: {value, secret}}`                        |
-|  [08]   | `Stack.{getConfig,setConfig,getAllConfig,setAllConfig,refreshConfig}` | config   | per-key + bulk config                           |
-|  [09]   | `Stack.addEnvironments(...envs): Promise<void>`                       | ESC      | attach Pulumi ESC environments to the stack     |
-|  [10]   | `Stack.{getTag,setTag,listTags}`                                      | tag      | stack tag CRUD                                  |
-|  [11]   | `Stack.history(pageSize?,page?,secrets?): Promise<UpdateSummary[]>`   | audit    | update history; `info()` = latest               |
-|  [12]   | `Stack.cancel(): Promise<void>`                                       | control  | cancel an in-flight update                      |
-|  [13]   | `Stack.exportStack()` / `importStack(state)`                          | state    | `Deployment` snapshot export/import (backup/DR) |
-|  [14]   | `Stack.rename(opts): Promise<RenameResult>`                           | mutate   | rename stack in state                           |
-|  [15]   | `Stack.import(opts): Promise<ImportResult>`                           | adopt    | batch-adopt existing cloud resources into state |
-|  [16]   | `fullyQualifiedStackName(org, project, stack): string`                | helper   | canonical stack name                            |
+| [INDEX] | [SURFACE]                                                             | [FAMILY]  | [NOTE]                                          |
+| :-----: | :-------------------------------------------------------------------- | :-------- | :---------------------------------------------- |
+|  [01]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>`     | factory   | idempotent; `create`/`select` variants          |
+|  [02]   | `Stack.up(opts?): Promise<UpResult>`                                  | lifecycle | deploy/update; `outputs` + `summary`            |
+|  [03]   | `Stack.preview(opts?): Promise<PreviewResult>`                        | lifecycle | dry-run; `changeSummary: OpMap`                 |
+|  [04]   | `Stack.refresh(opts?): Promise<RefreshResult>`                        | lifecycle | reconcile state with provider (mutating)        |
+|  [05]   | `Stack.destroy(opts?): Promise<DestroyResult>`                        | lifecycle | delete all resources                            |
+|  [06]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>`                 | drift     | read-only refresh-preview; no mutation          |
+|  [07]   | `Stack.outputs(): Promise<OutputMap>`                                 | query     | `{[k]: {value, secret}}`                        |
+|  [08]   | `Stack.{getConfig,setConfig,getAllConfig,setAllConfig,refreshConfig}` | config    | per-key + bulk config                           |
+|  [09]   | `Stack.addEnvironments(...envs): Promise<void>`                       | ESC       | attach Pulumi ESC environments to the stack     |
+|  [10]   | `Stack.{getTag,setTag,listTags}`                                      | tag       | stack tag CRUD                                  |
+|  [11]   | `Stack.history(pageSize?,page?,secrets?): Promise<UpdateSummary[]>`   | audit     | update history; `info()` = latest               |
+|  [12]   | `Stack.cancel(): Promise<void>`                                       | control   | cancel an in-flight update                      |
+|  [13]   | `Stack.exportStack()` / `importStack(state)`                          | state     | `Deployment` snapshot export/import (backup/DR) |
+|  [14]   | `Stack.rename(opts): Promise<RenameResult>`                           | mutate    | rename stack in state                           |
+|  [15]   | `Stack.import(opts): Promise<ImportResult>`                           | adopt     | batch-adopt existing cloud resources into state |
+|  [16]   | `fullyQualifiedStackName(org, project, stack): string`                | helper    | canonical stack name                            |
 
 [PREPARED_ROW]: `RemoteWorkspace.{create,select,createOrSelect}Stack(RemoteGitProgramArgs, RemoteWorkspaceOptions) -> Promise<RemoteStack>` runs Pulumi-Deployments Git-sourced stacks; `iac` drives inline `LocalWorkspace` against a self-managed backend, so this is a prepared row, not the entry.
 
-## [05]-[ENGINE_EVENT_STREAM]
+## [04]-[ENGINE_EVENT_STREAM]
 
 Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly to the caller. `previewRefresh` re-reads provider state without mutation and returns `PreviewResult`, whose `changeSummary` is the native drift fact.
 
@@ -166,7 +157,7 @@ Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly t
 [GLOBAL_OPTS]: `color: "always"|"never"|"raw"|"auto"` `tracing: string` `debug: boolean` `suppressOutputs: boolean` `suppressProgress: boolean`
 [UP_OPTIONS]: `parallel: number` `message: string` `expectNoChanges: boolean` `refresh: boolean` `diff: boolean` `target: string[]` `replace: string[]` `exclude: string[]` `excludeDependents: boolean` `targetDependents: boolean` `policyPacks: string[]` `policyPackConfigs: string[]` `plan: string` `continueOnError: boolean` `attachDebugger: boolean` `onOutput: (out:string)=>void` `onEvent: (event:EngineEvent)=>void` `onError: (err:string)=>void` `signal: AbortSignal`
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Output<T>` property access is direct through `Lifted`; `.apply` transforms, `all` joins, `interpolate` templates, never raw promise chaining across a resource boundary.
@@ -178,15 +169,15 @@ Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly t
 [STACKING]:
 - `effect`(`libs/typescript/.api/effect.md`): every `Stack` operation lifts through `Effect.tryPromise`, which threads fiber interruption through its `AbortSignal`; retry, timeout, and tracing compose on that rail while `onEvent` remains the caller's direct observation callback.
 
-| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                      |
-| :-----: | :------------------------------------ | :--------------------------------------------------- |
+| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                           |
+| :-----: | :------------------------------------ | :-------------------------------------------------------- |
 |  [01]   | `Stack.up/preview/refresh/destroy` op | `_operations` mapped record with correlated native result |
-|  [02]   | lifecycle `signal: AbortSignal`        | `Effect.tryPromise` fiber interruption                |
-|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | caller-supplied callback                              |
-|  [04]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                   |
-|  [05]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate          |
-|  [06]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`        |
-|  [07]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                               |
+|  [02]   | lifecycle `signal: AbortSignal`       | `Effect.tryPromise` fiber interruption                    |
+|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | caller-supplied callback                                  |
+|  [04]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                       |
+|  [05]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate              |
+|  [06]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`            |
+|  [07]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                                   |
 
 [_OPERATIONS]: `_operations.up` `_operations.preview` `_operations.refresh` `_operations.destroy` `_operations.reconcile`
 [SURFACES]: `Automation.run` `Automation.reconcile`
@@ -195,9 +186,3 @@ Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly t
 - `Effect.tryPromise` supplies the interrupt-bound signal to each lifecycle method; an ephemeral stack still brackets acquisition and destroy with `Effect.acquireRelease`.
 - `Automation.reconcile` returns `PreviewResult` directly, and `Drift.sweep` publishes its `changeSummary` without a second result model.
 - Secret-flagged outputs refuse at the decode gate and typed StackOutputs decode into `ShardingConfig`; the `CommandError` family and `RunError` triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
-
-[RAIL_LAW]:
-- Package: `@pulumi/pulumi`
-- Owns: output algebra, resource model, config, stack references, Automation API, engine-event stream, error rails
-- Accept: `Output<T>` for inter-resource value flow; the acquire/release `AbortController` for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
-- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; parallel op drivers where the one `_operations` mapped record owns them

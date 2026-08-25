@@ -2,16 +2,7 @@
 
 `FFmpeg.AutoGen` owns the in-process video-encode rail: CppSharp-generated unsafe bindings expose the full libavcodec/libavformat/libavutil/libswscale C surface as one static `ffmpeg` facade over runtime-resolved function pointers, with the generated `AV*` struct and enum model. It turns the compositor/path-trace RGBA frame stream into an MP4/H.264 flythrough through the swscale RGBA→YUV420P convert, the encoder send/receive loop, and the muxer write — the encode counterpart to the `libmpv` decode/playback owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FFmpeg.AutoGen`
-- package: `FFmpeg.AutoGen` (MIT)
-- assembly: `FFmpeg.AutoGen`
-- target: `lib/netstandard2.1` (bound by the `net10.0` consumer) + `lib/netstandard2.0`; `AllowUnsafeBlocks`
-- native: P/Invoke over external FFmpeg shared libraries; `ffmpeg.LibraryVersionMap` pins the SONAME majors avcodec 62 / avformat 62 / avutil 60 / swscale 9 / swresample 6 / avfilter 11 / avdevice 62
-- rail: encode
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [BINDING_HUB]: the static entrypoint, delegate-vector loader, and platform resolver.
 
@@ -68,7 +59,7 @@
 - `AVMediaType`: `AVMEDIA_TYPE_VIDEO`; `AVPictureType`: I/P/B-frame hints
 - `AVColorSpace`: `AVCOL_SPC_BT709`; `AVColorRange`: `AVCOL_RANGE_MPEG` `AVCOL_RANGE_JPEG`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENCODE_PIPELINE]: the ordered libav\* encode fold on `ffmpeg`, `public static` facade methods in flythrough order — open, configure, allocate, convert, send, receive, mux, finalize, release.
 
@@ -118,7 +109,7 @@
 |  [06]   | `FunctionResolverFactory.Create() -> IFunctionResolver`  | static method | build the platform resolver         |
 |  [07]   | `FunctionResolverFactory.GetPlatformId() -> PlatformID`  | static method | detect Mac, Linux, or Windows       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every encode folds one ordered pass — muxer-context open, codec configure, buffer allocate, `SwsContext` RGBA→YUV420P convert, `avcodec_send_frame`/`avcodec_receive_packet` drain on `AVERROR(EAGAIN)`/`AVERROR_EOF`, `av_rescale_q` timestamp rescale to stream time-base, `av_interleaved_write_frame` mux, `av_write_trailer` finalize, then `av_*_free`/`avformat_free_context` release; the unsafe surface carries no finalizer, so every handle frees explicitly.
@@ -136,9 +127,3 @@
 - External FFmpeg shared libraries (`libavcodec` `libavformat` `libavutil` `libswscale`) provision at the app-host distribution layer, located through `ffmpeg.RootPath`; this MIT binding ships no native binary.
 - Native-build licensing follows the FFmpeg build, never this binding: a dynamically-linked LGPL build (`--enable-shared`, no `--enable-gpl`/`--enable-nonfree`) keeps the deliverable LGPL-compliant, while a `--enable-gpl` build (x264/x265) imposes copyleft on the distributed product — a distribution-policy decision.
 - A missing native runtime faults through `DynamicallyLoadedBindings.ThrowErrorIfFunctionNotFound`, never a silent no-op.
-
-[RAIL_LAW]:
-- Package: `FFmpeg.AutoGen`
-- Owns: the in-process video-encode deliverable — the libavformat muxer, the libavcodec H.264 encoder, the libswscale RGBA→YUV420P convert, and the `AVFrame`/`AVPacket`/`AVCodecContext` model with the `av_dict_set` x264 option bag.
-- Accept: the `Render/capture.md` RGBA stream folded into one encode owner — fill `AVFrame`, convert through the persistent `SwsContext`, stamp `pts` on the encoder time-base, run send/receive, rescale, and mux MP4; x264 `preset`/`crf`/`profile` are `av_dict_set` rows on `avcodec_open2`.
-- Reject: shelling out to an `ffmpeg` CLI process; hand-rolling an MP4 muxer or an H.264 bitstream; a second RGBA→YUV path beside `SwsContext`; leaking any native context where the `av_*_free`/`avformat_free_context` teardown is mandatory; conflating this encode owner with the `libmpv` decode owner.

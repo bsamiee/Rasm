@@ -76,3 +76,7 @@
 - Wire messages spell `<Verb>Request`/`<Verb>Result` and the domain shape keeps its name — a rename moves a wire name and forks the roster.
 - TypeScript consumes the generated `@rasm\/contracts` schemas — no Compute page mints a TS interface, alias, or method-shape roster.
 - `ContractGuard`/`ContractSurface`/`ContractDrift` do NOT re-enter — `Discovery`'s generation compare owns agreement, peers regenerating one shape.
+
+## [05]-[PROCESS]
+
+- (none)

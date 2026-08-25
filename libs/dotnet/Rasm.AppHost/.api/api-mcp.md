@@ -2,27 +2,7 @@
 
 `ModelContextProtocol.Core` owns the MCP session, client, server, transport, and primitive surfaces; `ModelContextProtocol` binds DI composition, builder extensions, and hosted-service plumbing; `ModelContextProtocol.AspNetCore` binds HTTP transport and ASP.NET Core authentication-handler registration. The served protocol revision is `2026-07-28`: a client discovers through `server/discover`, HTTP serving is stateless, and a handler needing client input suspends through the multi-round-trip `InputRequiredException` rather than opening a server-to-client request. No public constant spells a revision literal — `McpProtocolVersions` is `internal` — so a host pins a revision through `McpServerOptions.ProtocolVersion` or its own literal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ModelContextProtocol.Core`
-- package: `ModelContextProtocol.Core`
-- assembly: `ModelContextProtocol.Core`
-- namespace: `ModelContextProtocol`, `ModelContextProtocol.Client`, `ModelContextProtocol.Server`, `ModelContextProtocol.Protocol`, `ModelContextProtocol.Authentication`
-- rail: mcp-protocol
-
-[PACKAGE_SURFACE]: `ModelContextProtocol`
-- package: `ModelContextProtocol`
-- assembly: `ModelContextProtocol`
-- namespace: `ModelContextProtocol`, `ModelContextProtocol.Server`, `Microsoft.Extensions.DependencyInjection`
-- rail: mcp-host
-
-[PACKAGE_SURFACE]: `ModelContextProtocol.AspNetCore`
-- package: `ModelContextProtocol.AspNetCore`
-- assembly: `ModelContextProtocol.AspNetCore`
-- namespace: `ModelContextProtocol.AspNetCore`, `ModelContextProtocol.AspNetCore.Authentication`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
-- rail: mcp-host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and protocol primitives — `ModelContextProtocol.Core`
 
@@ -182,7 +162,7 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 [MESSAGE_CONTEXT]: declares `.Server`, `.Services`, `.User`, `.Items`.
 [REQUEST_CONTEXT]: `RequestContext<T> : MessageContext` adds `.Params`, `.MatchedPrimitive`, `.JsonRpcRequest`, `EnablePollingAsync(TimeSpan, CancellationToken)`, and constructs from `(McpServer, JsonRpcRequest, T)`; `.Server` is inherited from `MessageContext`, never a direct `RequestContext<T>` member, and the `(McpServer, JsonRpcRequest)` ctor is `[Obsolete(DiagnosticId = "MCP9003")]`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: server registration extensions on `IMcpServerBuilder`; `AddMcpServer` seeds the builder, `WithStdioServerTransport` ships in the host `ModelContextProtocol` package beside `WithTools`/`WithPrompts`/`WithResources`.
 
@@ -276,7 +256,7 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 - `McpServer.ElicitAsync<T>` builds its request schema by REFLECTION over the type's `JsonTypeInfo.Properties` (memoized per options-and-type; a non-object `JsonTypeInfoKind` throws `McpProtocolException`) and always shapes an `elicitation/create` request; that request diverts onto MRTR only inside an active MRTR context — a STATEFUL session whose client speaks `2026-07-28` — while a down-level stateful session rides the SDK's own resolve-and-retry bridge (real `elicitation/create`, handler re-run, capped at 10 rounds on each side), and on the stateless transport the member THROWS (`ClientCapabilities` is null), leaving a hand-built `InputRequest.ForElicitation` inside a thrown `InputRequiredException` as the only stateless ask.
 - `WithOutgoingRequestInterceptor` returns a non-mutating facade whose redirected methods SKIP the client-capability check, because the alternate channel — not the negotiated session — owns delivery.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `McpSession : IAsyncDisposable`; `McpServer` and `McpClient` both extend it.
@@ -297,9 +277,3 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 - A handler needing client input throws `InputRequiredException` after checking `McpServer.IsMrtrSupported`, and a long-running call opts into polling through `RequestContext<T>.EnablePollingAsync(interval, ct)`; durable out-of-band task state ships in the separate `ModelContextProtocol.Extensions.Tasks` package this catalogue does not admit.
 - `AddAuthorizationFilters()` runs tool authorization in the alternate-result pipeline ahead of any background dispatch and is deliberately re-callable — a call-tool filter that swaps the matched tool or the acting user re-arms it.
 - A method the primitive families do not cover mounts as one `McpServerRequestHandler` row on `McpServerOptions.RequestHandlers`, never a transport fork.
-
-[RAIL_LAW]:
-- Package: `ModelContextProtocol.Core`, `ModelContextProtocol`, `ModelContextProtocol.AspNetCore`
-- Owns: MCP session, discovery-first negotiation, server primitives, client tools, transport selection, DI registration, stateless HTTP hosting, the multi-round-trip input protocol, result cache hints, and subscription listening.
-- Accept: request-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`; a client round trip through `InputRequiredException` and its `RequestState` echo; a raw method through one `McpServerRequestHandler` row; long-running calls through `RequestContext<T>.EnablePollingAsync`.
-- Reject: hand-rolled JSON-RPC framing; out-of-session protocol message construction; a server-initiated request opened from a handler where MRTR is the route; a host-held session cell, frame buffer, replay cursor, or resume token under stateless serving; a handler whose side effects repeat across an MRTR retry; expecting a domain CLR instance to survive `McpServerTool.Create`'s marshalling ladder; reading `.Server`/`.Services`/`.User`/`.Items` as direct `RequestContext<T>` members; reading server identity off a result property where `Meta[MetaKeys.ServerInfo]` carries it.

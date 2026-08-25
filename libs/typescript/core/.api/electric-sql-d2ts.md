@@ -1,14 +1,5 @@
 # [TS_CORE_API_ELECTRIC_SQL_D2TS]
 
-[PACKAGE_SURFACE]:
-- package: `@electric-sql/d2ts` (Apache-2.0)
-- module: ESM only (`type: module`); `.` barrel + two peer-gated subpaths — `./sqlite` (durable operator state), `./electric` (live-replication binding).
-- asset: `dist/index.d.ts`; the `.` core bundles `fractional-indexing` + `murmurhash-js`, peer-free.
-- runtime: pure-TS in-process dataflow under node, bun, browser, worker; `.` core browser-safe, `./sqlite` needs the `better-sqlite3` peer (node), `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses `state`'s transport-free import surface.
-- abi: synchronous fixpoint scheduler — `run()`/`step()` drain the operator queue on the calling thread; every barrel-reachable operator is sync.
-- plane: `plane:runtime` (W1); folder-local to `state`.
-- rail: incremental-dataflow / fold-maintenance.
-
 `@electric-sql/d2ts` maintains an in-process incremental graph over signed `MultiSet` deltas at partial-order `Version`s. The root adds versions and frontiers. Optional peer-gated subpaths expose SQLite state and Electric replication outside core ownership.
 
 ## [01]-[GRAPH_AND_TIME]
@@ -88,11 +79,3 @@
 [STACK: `reduce`/`groupBy` + `@effect/typeclass` (`.api/effect-typeclass.md`)] — a keyed fold applies a Semigroup incrementally: the `reduce` reducer `(vals) => [R, number][]` is `Semigroup.combineMany` over signed multiplicities, and `groupByOperators.{sum,min,max}` specialize `Number.Monoid{Sum,Min,Max}` to signed pairs. `state/merge` declares the merge Semigroup; `state/fold` applies it through `reduce`, so reducer law and merge law are one.
 
 [STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini omits time; d2ts adds `Version`/`Antichain`. Both root graphs are in-memory, and output sinks own any public `Index` mirror.
-
-
-## [05]-[RAIL_LAW]
-
-- Owns: versioned in-process dataflow, partial-order frontiers, public `Index` reconstruction/compaction, and optional peer-gated bindings.
-- Accept: versioned signed deltas, operator composition, incremental Semigroup folds, sink-owned `Index` mirrors, and transitive iteration.
-- Reject: whole-collection re-folds, parallel fold engines, internal-trace claims for public `Index`, core selection of `./sqlite` or `./electric`, and treating `Version` as a total order.
-- Boundary: root is browser-safe and peer-free. Downstream host owners may admit peer-gated subpaths. `v()` preserves map-key identity; signed extrema route through lawful reducers.

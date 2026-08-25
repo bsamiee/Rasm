@@ -2,15 +2,7 @@
 
 DuckDB loadable extensions install in-engine into a live `DuckDBPyConnection` through `install_extension`/`load_extension` or SQL `INSTALL`/`LOAD`, never as a pip row, Python module, or dependency entry. Loaded extensions expose their capability on the DuckDB SQL and bound-connection surface, and downstream owners compose that session rather than a per-extension Python package.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: DuckDB in-engine extensions
-- package: none
-- module: `duckdb`
-- owner: `data`
-- rail: query extensions
-
-## [02]-[LOAD_ROWS]
+## [01]-[LOAD_ROWS]
 
 [LOAD_ENTRY_SCOPE]: extension install and load
 
@@ -75,7 +67,7 @@ Provider rows carry DIFFERENT halves. `httpfs` registers the `s3`, `gcs`, and `r
 
 [CONSUMER]: `tabular/columnar#SCAN` seats `delta_scan` beside this extension for `DatasetKind.DELTA`, so `ScanPlan.DuckDb` reads Delta tables through the extension-owned scan.
 
-## [03]-[SUBSTRAIT]
+## [02]-[SUBSTRAIT]
 
 [SUBSTRAIT_ENTRY_SCOPE]: Substrait plan serialization and execution
 
@@ -92,7 +84,7 @@ Every argument binds as a prepared parameter — the SQL text, the `enable_optim
 
 [CONSUMER]: `tabular/query#QUERY` `_ir_plan` reads the `(serialize, execute)` pair off its `_SUBSTRAIT` row per `PlanWire` half and threads both `CALL`s through `con.execute`; `IrEmit.optimize` is the `enable_optimizer` value and `IrEmit.streaming` selects the reader over the table.
 
-## [04]-[DUCKLAKE]
+## [03]-[DUCKLAKE]
 
 [DUCKLAKE_ENTRY_SCOPE]: DuckLake attach, snapshots, change feed, and maintenance
 
@@ -137,7 +129,7 @@ DuckLake is a DuckDB core extension attaching a table-format catalog backed by P
 
 [OPTION_SURFACE]: `set_option` `ducklake_options` `ducklake_settings` `ducklake_table_info` inspect and mutate catalog policy.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Extensions load in-engine on the owning connection; the `core`/`community` repository is a row property, never a call-site branch.
@@ -153,9 +145,3 @@ DuckLake is a DuckDB core extension attaching a table-format catalog backed by P
 
 [LOCAL_ADMISSION]:
 - Extensions enter as load rows on the DuckDB session, never a pip dependency, module import, or their own `.api` catalog.
-
-[RAIL_LAW]:
-- Package: DuckDB loadable extensions
-- Owns: connection-scoped load evidence and the SQL surface each loaded extension attaches
-- Accept: in-engine `INSTALL`/`LOAD`, `install_extension`/`load_extension`, Substrait plan SQL table functions, DuckLake `ATTACH`, snapshot/change-feed/maintenance functions, and extension rows on `DuckDbSession`
-- Reject: a per-extension pip or module row, a hand-rolled Substrait protobuf codec, a manual DuckLake snapshot ledger, and bespoke Parquet metadata mutation outside DuckLake

@@ -28,7 +28,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `AcceptValidated`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -993,7 +993,7 @@ internal static class ObjectSpine {
 |  [09]   | native release     | `ObjectPiece`    | host-array and product-roster disposal               | `Release`                     |
 |  [10]   | read dispatch      | `StateAsk`       | typed answer union                                   | `Objects.Ask`                 |
 |  [11]   | object resolution  | `Objects`        | target-to-handle lift                                | `Resolve(document, target)`   |
-|  [12]   | commit kernel      | `ObjectSpine`    | result-generic sealed document commit                 | `Commit<TResult>`             |
+|  [12]   | commit kernel      | `ObjectSpine`    | result-generic sealed document commit                | `Commit<TResult>`             |
 |  [13]   | analytics census   | `DocumentCensus` | detached multi-owner document census                 | `Objects.Census`              |
 
 ## [08]-[RESEARCH]

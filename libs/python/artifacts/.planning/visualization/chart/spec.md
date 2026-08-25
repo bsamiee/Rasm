@@ -17,7 +17,7 @@ Color arrives from `graphic/color/derive#DERIVE` as the `Derivation.coords` arra
 - Boundary: no live dashboard, UI event state, or browser runtime; no Chrome-gated engine, so plotly `graph_objects` and the kaleido headless-Chromium path are rejected; 3D scientific scenes ride `scene/render#SCENE`, not this axis; palettes arrive as `Derivation.coords`, never picked per engine and never overwriting a consumer's own `Color` encoding, since `config.range` sets scale ranges globally rather than per view; a forced `Chart.interactive()` or a forced `Color("category:N")` encode are rejected lower-capability forms, the first suppressing the consumer's named selections the HTML row renders, the second clobbering its color field. `alt.theme.register` is rejected on this axis: theming is per-spec data threaded through `ChartTheme.apply`, and the process-global theme registry would leak one caller's styling into every concurrent producer — only the registry's typed `*Kwds` vocabulary crosses in. The lets-plot/matplotlib arms carry the palette alone by design: each engine themes annotation styling through its own export egress, so the `*Kwds` blocks are Vega-only and that asymmetry is the modeled contract, not a gap. Emitted bytes hand to `composition/compose#COMPOSE`, re-rendered nowhere.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from functools import cache
 from importlib import import_module
 from typing import Final, Literal

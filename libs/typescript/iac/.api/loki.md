@@ -2,16 +2,7 @@
 
 `loki` is the log backend. Its chart is a topology SELECTOR over four deployment modes plus a values tree that stands up five auxiliary workloads by default, and its own validator refuses to render when two topologies both carry replicas. It also ships an EMPTY schema block its server will not start without, so a minimal values body is not a working install — it is a crash loop.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `loki`
-- chart: `loki` from `https://grafana.github.io/helm-charts` (AGPL-3.0), chart and `appVersion` versioned independently
-- asset: the selected topology's workloads with their Services, ConfigMap or Secret, ServiceAccount, RBAC cell, and memberlist Service — beside five DEFAULT-ON auxiliaries (an nginx gateway Deployment, the log canary DaemonSet, a test pod, and two memcached tiers) and two subtiers that ship OFF (a zone-aware rollout operator and a bundled MinIO)
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / log backend
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                            | [CAPABILITY]                                                                         |
 | :-----: | :----------------------------------------------- | :----------------------------------------------------------------------------------- |
@@ -38,7 +29,7 @@
 [FULLNAME]: the standard collapse scaffold with flat overrides; the pin renders the workload, its Service, and the memberlist Service under the pinned name. The chart's headless Service is named `loki-headless` from the CHART name and ignores the pin — nothing in this estate addresses it.
 [SERVICE_NAME]: with the pin, the single-binary Service is `<fullname>` serving `http-metrics` on 3100 and `grpc` on 9095, beside `<fullname>-memberlist` for the gossip ring. The log door is therefore `<fullname>:3100`, dialed directly — the nginx gateway fronts exactly that door and is deleted.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - No row installs on chart defaults. FIVE auxiliary workloads ship on — a reverse proxy in front of a door the collector already dials, a synthetic-log DaemonSet, a test pod, and two caches — and each is a workload the estate never declared, so every one is disarmed explicitly.
@@ -58,9 +49,3 @@
 - State retention as a pair — `limits_config.retention_period` with `compactor.retention_enabled` and a `delete_request_store`.
 - Disarm `gateway`, `lokiCanary`, `test`, `chunksCache`, and `resultsCache` explicitly — that is the whole default-on set — and leave `minio` and `rollout_operator` where they ship, since both are already off and the estate's own object plane is the one store.
 - Arm `allow_structured_metadata` wherever OTLP attributes must survive, and read `auth_enabled` off the store row's tenancy column rather than stating it locally.
-
-[RAIL_LAW]:
-- Contract: `loki` chart values + the Loki server configuration the `loki` block renders
-- Owns: the log backend — its topology selection, schema and storage destination, retention and compaction, tenancy posture, and the auxiliary workload set
-- Accept: `deploymentMode: SingleBinary` with all three simple-scalable replica counts at zero; exactly one schema entry; the retention pair; `auth_enabled` from the store row's tenancy column; every DEFAULT-ON auxiliary explicitly disarmed; the log door dialed directly at 3100
-- Reject: a mode selection without zeroing the other targets; an empty schema block; a retention period with no compactor leg; the nginx gateway, canary, test pod, or memcached tiers on defaults; a disarm written against `minio` or `rollout_operator`, which ship off and whose tombstone reads as a census a row never ran; a tenancy answer stated here rather than read from the store row

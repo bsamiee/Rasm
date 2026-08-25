@@ -17,7 +17,7 @@ The bracket's custody is a closed union, never a bool triple: a program either o
 - Law: the flush fires only after the prior redraw state is restored, so a suppressing policy still lands its terminal repaint; restore settles beside the primary through the one aggregation fold — a cleanup refusal never rides a discard.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Thinktecture;

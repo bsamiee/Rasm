@@ -22,7 +22,7 @@ A settled assessment addresses under `EgressKind.QualityRecord` over the REQUEST
 - Growth: a concern is one `DfmConcern` seed; a feature is one `DfmFeature` seed; a derivation route is one `DfmProvenance` row declaring its exactness; a routing dimension is one `RouteObjective` row beside its reference column.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;

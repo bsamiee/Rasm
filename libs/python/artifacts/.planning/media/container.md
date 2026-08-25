@@ -2,7 +2,6 @@
 
 Container/codec spine of the media plane: the one `Media` owner over the closed-payload `MediaOp` family and the shared `Media`/`MediaProfile`/`MediaEvidence`/`MediaFault`/`ContainerFormat`/`ColorProfile` family every media page composes. `Media` muxes a frame sequence into a single-blob container (MP4/WebM/MKV/GIF/MPEG-TS, plus the audio-only FLAC/OGG/WAV/MP3 rows) or a segmented sink (HLS/DASH/fMP4 or MPEG-TS segments) over the `av` (PyAV) FFmpeg floor, and reads back on the `Transcode`/`Remux` arms. This page owns the mux/demux capsule, the read-side `seek`+`flush_buffers` random-access primitive, the lazy `_decode_video` stream and the bounded `_decode_window`, the `HwAccel` decode probe, the segmented `io_open` sink, the `MEZZANINE` archival profile rows, and the video workers; it produces no frames — `scene/render#SCENE` rasterizes the sequence, `Media` only muxes it.
 
-
 ## [01]-[INDEX]
 
 - [02]-[CONTAINER]: the `Media` owner over the closed-payload `MediaOp` family — `EncodeVideo`/`EncodeAudio`/`Mux`/`Transcode`/`Remux` folding into the `emit`/`_emit` node contract keyed over the muxed container (or read-back manifest) bytes.
@@ -15,7 +14,7 @@ Container/codec spine of the media plane: the one `Media` owner over the closed-
 - Growth: a new container is one `ContainerFormat` row (muxer name + `segmented` bit); a new codec one `MediaProfile.codec` string (a hardware encoder is a codec row, not a knob); a new HDR band one `ColorProfile` member plus one `_COLOR_CODES` row; a new encode or muxer knob one `options`/`container_options`/`SegmentSpec.options` entry; a new container tag one `metadata` entry; a new archival grade one `MEZZANINE` row; a new hardware device one `HwAccel.device_type` name; a new av fault leaf one `MediaFault` case plus one `_media_fault` arm; a new evidence fact one `_deployment` band key — every addition a row, field, case, or arm on one owner.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
@@ -297,7 +296,7 @@ class Media(Struct, frozen=True):
 ```
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterable, Iterator
 from fractions import Fraction

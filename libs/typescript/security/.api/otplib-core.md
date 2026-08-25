@@ -4,15 +4,7 @@
 
 Every capability is bytes-in/bytes-out — this package binds no crypto implementation, so the ports carry the algorithm and the entropy.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@otplib/core`
-- package: `@otplib/core` (MIT)
-- module: dual ESM + CJS; subpaths `.` · `./errors` · `./utils` · `./types`
-- runtime: `runtime:neutral` — no host API touched, every primitive pure
-- rail: authn/otp substrate, pinned directly beneath the `otplib` metapackage
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hook seam, plugin ports, and the option vocabulary a strategy call types against
 
@@ -60,7 +52,7 @@ Constant caps are the guardrail vocabulary; a policy value overrides a cap throu
 
 [CONSTANT_CAPS]: `MIN_SECRET_BYTES` `MAX_SECRET_BYTES` `RECOMMENDED_SECRET_BYTES` `MIN_PERIOD` `MAX_PERIOD` `DEFAULT_PERIOD` `MAX_COUNTER` `MAX_WINDOW`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: port and guardrail construction — the named alternative to a bare object literal
 
@@ -105,7 +97,7 @@ Validators throw a typed family error; asserters narrow an optional field to pre
 [VALIDATORS]: `validateSecret` `validateCounter` `validateTime` `validatePeriod` `validateToken` `validateCounterTolerance` `validateEpochTolerance`
 [ASSERTERS]: `requireCryptoPlugin` `requireBase32Plugin` `requireSecret` `requireLabel` `requireIssuer` `requireBase32String`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Ports carry every environment fact: `CryptoPlugin` supplies HMAC, entropy, and constant-time compare while `Base32Plugin` supplies the secret codec, so one plugin object re-targets the whole rail.
@@ -124,9 +116,3 @@ Validators throw a typed family error; asserters narrow an optional field to pre
 [LOCAL_ADMISSION]:
 - `authn/` subpaths import it alone: type-only for hook and port shapes, value imports for the factories, guardrail constants, and error classes.
 - Kernel primitives serve an `OTPHooks` implementation; a strategy call routes through the `otplib` root.
-
-[RAIL_LAW]:
-- Package: `@otplib/core`
-- Owns: the hook seam, the plugin port types with their factories and context wrappers, the guardrail cap algebra, the RFC-4226 primitive kernel, and the `OTPError` class tree
-- Accept: type-only hook and port imports, `createCryptoPlugin`/`createBase32Plugin` for named construction, `createGuardrails` for policy caps, error classes as `Effect.try` catch discriminants
-- Reject: a truncation, digit render, or secret normalization re-implemented beside the kernel row; a second guardrail constant set; a byte-domain compare bound bare to the port's `constantTimeEqual` slot; a direct `@otplib/totp`/`@otplib/hotp` sub-import

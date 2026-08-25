@@ -2,16 +2,7 @@
 
 `Sigstore` owns the offline supply-chain admit-gate verifier: it verifies a cosign/Sigstore bundle (`*.sigstore.json`, media-type `v0.3`) against a trust root, proving the signature leg (Fulcio certificate identity, transparency-log inclusion, RFC 3161 timestamp, signed-certificate-timestamp) and the DSSE/in-toto SLSA provenance-attestation leg in one pass. Every member is async over `Task`, returning a typed `VerificationResult` with non-throwing `TryVerify*` mirrors, and pins the expected signer with the transparency, timestamp, and SCT thresholds in `VerificationPolicy`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Sigstore`
-- package: `Sigstore` (MIT)
-- assembly: `Sigstore`
-- namespace: `Sigstore`
-- asset: net10.0 single-TFM runtime library binding `lib/net10.0`
-- rail: supply-chain
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: verifier entrypoint and digest input
 
@@ -81,7 +72,7 @@
 - `ITrustRootProvider`: owns `GetTrustRootAsync(ct) -> Task<TrustedRoot>`, bound by every verifier ctor; `TrustedRoot` carries the Fulcio CA chains, Rekor and CT log keys, and timestamp-authority chains.
 - `TufTrustRootProvider`: sealed, `IDisposable`; static `ProductionUrl`/`StagingUrl` `Uri` values, ctor `(Uri, TufTrustRootProviderOptions?)`; `TufTrustRootProviderOptions.CustomTrustedRoot` (`byte[]?`) with `Cache` (`ITufCache?`) forms the air-gapped root.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: verify — throwing and try mirrors
 
@@ -115,7 +106,7 @@ Every verify member is `async Task`, trailing `(…, SigstoreBundle bundle, Veri
 - `CertificateIdentity.ForGitHubActions`: `issuer` defaults to `https://token.actions.githubusercontent.com`, `workflowRef` to `null`.
 - `InTotoStatement.Parse`: also overloads on `ReadOnlySpan<byte>` and `string`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `await verifier.TryVerify*Async(input, bundle, policy, ct)` is the admit gate, returning `(Success, VerificationResult?)`; `Success=false` or a non-null `FailureReason` maps to the supply-chain reject arm lowered onto `Fin<T>`, and `VerificationException` never escapes the domain.
@@ -136,9 +127,3 @@ Every verify member is `async Task`, trailing `(…, SigstoreBundle bundle, Veri
 [LOCAL_ADMISSION]:
 - Supply-chain verification enters through `SigstoreVerifier.TryVerify*Async`; the injected `ITrustRootProvider` (file, TUF, or in-memory) selects the trust anchor once at composition, bundle loading through `SigstoreBundle.LoadAsync`/`Deserialize`, and identity expectation through `CertificateIdentity.ForGitHubActions` or a literal `CertificateIdentity`.
 - `IFulcioClient`, `IRekorClient`, and `ITimestampAuthority` stay out of scope; the admit gate is verify-only.
-
-[RAIL_LAW]:
-- Package: `Sigstore`
-- Owns: offline cosign/Sigstore bundle verification (keyless cert identity, transparency-log inclusion, RFC 3161 timestamp, SCT) and DSSE/in-toto SLSA attestation decode
-- Accept: supply-chain admit gating, publisher-identity assertion, provenance extraction
-- Reject: signing/issuance orchestration (the `IFulcioClient`/`IRekorClient` sign seams are present, the admit gate verify-only), version-range comparison (`NuGet.Versioning`), JWT request authentication (`IdentityModel`)

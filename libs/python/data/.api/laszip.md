@@ -2,15 +2,7 @@
 
 `laszip` owns the native LASzip codec for the data point-cloud rail: a pybind11 binding (`laszip_core`, re-exported flat under `laszip.*`) that streams LAZ chunks through `LasUnZipper` decode and `LasZipper` encode over a Python file object, drives a `LasZipDll` per-point read/write path over `LasZipHeader`/`LasZipPoint` records, and masks decode fields through the `DECOMPRESS_SELECTIVE_*` constants. It decodes and encodes the LAZ arithmetic stream; `laspy` selects it as `LazBackend.Laszip` and holds all LAS/LAZ container framing, CRS, and array assembly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `laszip`
-- package: `laszip` (MIT)
-- module: `laszip` (flat re-export of the compiled `laszip_core` extension via `from .laszip_core import *`)
-- owner: `data`
-- rail: point-cloud
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stream codecs, the per-point DLL, and header/point records
 
@@ -25,7 +17,7 @@
 |  [05]   | `LasZipPoint`  | record        | mutable LAS point record over standard and extended point fields                       |
 |  [06]   | `LaszipError`  | error         | LASzip codec failure raised across stream open, chunk overflow, malformed header       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `LasUnZipper` decode
 
@@ -93,7 +85,7 @@
 |  [14]   | `DECOMPRESS_SELECTIVE_BYTE0`..`BYTE7`     | individual extra-byte slots 0..7    |
 |  [15]   | `DECOMPRESS_SELECTIVE_EXTRA_BYTES`        | all extra-byte fields               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `LasUnZipper`/`LasZipper` pair owns LAZ stream decode/encode over a Python file object; `decompress_into(buffer)`/`compress(points_bytes)` are the streaming calls, `seek(index)` and `header` carry random access and metadata.
@@ -109,9 +101,3 @@
 
 [LOCAL_ADMISSION]:
 - import `laszip` at boundary scope; every symbol resolves flat under `laszip.*` through the `laszip_core` re-export, with no submodule reach.
-
-[RAIL_LAW]:
-- Package: `laszip`
-- Owns: the native LASzip LAZ stream codec over a Python file object, `DECOMPRESS_SELECTIVE_*` field-selection masks, the `LasZipDll` per-point read/write over `LasZipHeader`/`LasZipPoint`, and `LaszipError` signaling
-- Accept: LAZ decode/encode feeding the `laspy` point-cloud owner through the `LazBackend.Laszip` selection
-- Reject: a hand-rolled LASzip arithmetic codec or LAZ chunk reader; a per-chunk or per-field codec type; duplicated header/point structs per IO direction; LAS container/CRS framing the `laspy` owner holds; selective decompression outside the `DECOMPRESS_SELECTIVE_*` mask; a LAZ append path through this codec; a direct `laszip.*` call from domain code bypassing `LazBackend.Laszip`

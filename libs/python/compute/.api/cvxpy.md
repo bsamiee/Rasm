@@ -2,17 +2,7 @@
 
 `cvxpy` mints the disciplined-convex-programming modeling algebra for the compute convex rail: `Variable`/`Parameter`/`Expression` terms compose under `Minimize`/`Maximize` and relational/cone constraints into a `Problem`, which `solve` compiles to conic form and dispatches to a pluggable backend (Clarabel by default), recovering the optimal value, primal values, and dual certificates. It owns the geometric (`gp`) and quasiconvex (`qcp`) modes, mixed-integer solves, and DPP warm re-solve; the backend owns the interior-point solve, never re-derived here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cvxpy`
-- package: `cvxpy` (Apache-2.0)
-- import: `import cvxpy as cp`
-- owner: `compute`
-- rail: convex optimization
-- entry points: none (library only)
-- capability: disciplined convex/geometric/quasiconvex modeling with mixed-integer support, multi-backend conic solve with primal/dual recovery, and DPP warm re-solve
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: leaf, expression, objective, and problem roots
 - rail: convex optimization
@@ -43,7 +33,7 @@
 |  [09]   | `FiniteSet`         | combinatorial     | `FiniteSet(expr, vec)` — membership in a finite value set (MI)       |
 |  [10]   | `OpRelEntrConeQuad` | spectral cone     | operator-relative-entropy cone (quantum/spectral)                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: problem construction and solve
 - rail: convex optimization
@@ -94,7 +84,7 @@ Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint`
 - [07]-[DGP]: `geo_mean`, `harmonic_mean`, `inv_prod`, `prod`, `gmatmul`, `one_minus_pos`, `diff_pos`, `perspective`
 - [08]-[TRANSFORM]: `suppfunc`, `scalene`, `partial_optimize`, `mean`, `std`, `var`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Variable`/`Parameter`/`Expression` algebra owns the model; the DCP ruleset tracks curvature and sign, so a non-DCP model raises at construction (`Problem.is_dcp()` false) rather than mis-solving — model with atoms, never a hand-rolled numeric objective.
@@ -113,9 +103,3 @@ Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint`
 [LOCAL_ADMISSION]:
 - `import cvxpy as cp` at boundary scope; the compute manifest owns the module-level-import ban.
 - `Variable`/`Parameter` modeling under `Minimize`/`Maximize` with relational/cone constraints, `Problem.solve` over Clarabel, `gp`/`qcp`/mixed-integer as solve/leaf rows, DPP parameter sweeps, `get_problem_data` direct-backend drive, and `requires_grad` differentiation.
-
-[RAIL_LAW]:
-- Package: `cvxpy`
-- Owns: disciplined convex/geometric/quasiconvex problem modeling, the convex and log-log atom libraries, cone constraints, mixed-integer support, multi-backend conic solve with primal/dual recovery, DPP warm re-solves, and parameter-gradient differentiation
-- Accept: `Variable`/`Parameter` modeling with leaf-attribute domains under `Minimize`/`Maximize` and relational/cone constraints, `Problem.solve` with Clarabel as the conic backend, `gp`/`qcp`/mixed-integer modes as solve/leaf rows, dual-value certificates, DPP parameter sweeps, `get_problem_data` direct-backend drive, `requires_grad` differentiation
-- Reject: wrapper-renames of `Variable`/`Problem`/`solve`; a hand-rolled interior-point or cone reduction where cvxpy with a backend is admitted; a DCP-violating manual objective; a parallel problem type per objective sign, solver, or `gp`/`qcp`/integer mode; a parallel variable subtype where a leaf attribute expresses the domain; rebuilding the `Problem` per parameter value where DPP warm re-solve applies

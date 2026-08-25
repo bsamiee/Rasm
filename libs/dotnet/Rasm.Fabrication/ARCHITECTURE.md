@@ -1,6 +1,5 @@
 # [FABRICATION_ARCHITECTURE]
 
-
 ## [01]-[DOMAIN_MAP]
 
 ```text

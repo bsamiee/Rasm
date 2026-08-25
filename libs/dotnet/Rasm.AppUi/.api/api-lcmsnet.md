@@ -2,16 +2,7 @@
 
 `lcmsNET` owns ICC-managed device color for the print and export deliverable: the `Profile` handle, the compiled `Transform` pipeline, the `Intent` and `CmsFlags` policy vocabularies, and the `Cms` pixel-format hub, all under one root namespace binding Little CMS 2 through P/Invoke. It owns profiled device-color egress where `Wacton.Unicolour` owns screen-perceptual UI color — the screen-versus-ICC-device seam the two never cross. Native `lcms2` provisioning stays at the app-host distribution layer, never bundled with this assembly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lcmsNET`
-- package: `lcmsNET` (MIT)
-- assembly: `lcmsNET`
-- namespace: `lcmsNET` (handles, enums, colorimetric structs, the `Cms` static hub)
-- native: P/Invoke over the `lcms2` (`liblcms2`) shared library; the managed layer marshals, the native binary is external
-- rail: color
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [HANDLE_AND_PRIMITIVE_TYPES]: disposable ICC handles, context scope, and colorimetric primitives
 
@@ -81,7 +72,7 @@
 |  [14]   | `IOHandler`                 | class         | in-memory/stream I/O     |
 |  [15]   | `LcmsNETException`          | class         | typed lcms2 failure      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [PROFILE_LIFECYCLE]: create, open, save, and introspect on `Profile` — the transform operands (input device, output print, proofing target)
 
@@ -164,7 +155,7 @@
 - `AlarmCodes` reads back a fresh 16-entry vector on every get; the setter throws `ArgumentException` on null or on any length but 16, so alarm width reads off the vector rather than asserted at the call site.
 - `AdaptationState` governs absolute-colorimetric adaptation for the scope, and the extended `Transform.Create` overload ignores it — that build carries a per-link `double[] adaptationStates` instead.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Profiles are the transform operands; a `Transform` compiles a fixed pipeline from an input, output, and optional proofing `Profile`, and `DoTransform` runs pixel buffers through it. Soft-proofing, K-preservation, and gamut warning are `Intent`/`CmsFlags` selections on that one build, never separate factories.
@@ -178,9 +169,3 @@
 
 [LOCAL_ADMISSION]:
 - Native `lcms2` (`liblcms2`) provisions at the app-host distribution layer as the `FFmpeg`/`libmpv` natives do; this assembly binds it through P/Invoke and ships no native binary. `Cms.SetErrorHandler` and the `LcmsNETException` rail surface a missing runtime, never a silent null transform.
-
-[RAIL_LAW]:
-- Package: `lcmsNET`
-- Owns: ICC-managed device color for the print/export deliverable — profile lifecycle, the compiled `Transform`, the `Intent` vocabulary including K-preservation, `CmsFlags` policy, device-link generation, and the `Cms` pixel-format hub with colorimetric helpers.
-- Accept: a rendered `TYPE_RGBA_8` raster converted to device `TYPE_CMYK_8`/`_16` through a `Transform.Create` keyed to the output profile; K-only/K-plane black generation via a `PreserveK*` `Intent`; print preview as a three-profile soft-proofing `Transform` (`SoftProofing`|`GamutCheck`, alarm on `Context`); fixed device pairings baked to `Profile.CreateDeviceLink`; ink limits via `CreateInkLimitingDeviceLink`; sheet TAC via `Profile.TotalAreaCoverage`.
-- Reject: hand-rolled ICC matrix/CLUT math or bespoke CMYK separation where `Transform` compiles the managed pipeline; a `Get`/`GetProofing`/`GetMultiprofile` factory family where one `Transform.Create` discriminates by argument shape; `Wacton.Unicolour` OKLCH as an ICC device-color substitute; an undisposed `Profile`/`Transform`/`Context` handle past the `CmsHandle<T>` teardown.

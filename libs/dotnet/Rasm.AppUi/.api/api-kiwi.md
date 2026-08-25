@@ -2,17 +2,7 @@
 
 `Kiwi` is the managed C# port of the Cassowary incremental linear-arithmetic constraint solver: `Variable` values feed `Term`/`Expression` linear forms, a `Constraint` binds an expression to a `RelationalOperator` at a `Strength`, and `Solver` keeps the constraint system satisfied incrementally — `AddConstraint`/`RemoveConstraint` edit the system, `AddEditVariable`/`SuggestValue` drive runtime values through the dual-simplex, and `UpdateVariables` writes solved values into each variable's `IVariableStore`. Its pure-managed Apache-2.0 surface serves the AppUi Shell/Layout rail with no native dependency.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Kiwi`
-- package: `Kiwi` (Apache-2.0)
-- assembly: `Kiwi`
-- namespace: `Nanoray.Kiwi`
-- asset: runtime library (pure managed, zero native dependency)
-- build-floor: ships `lib/net5.0` + `lib/net6.0`; the `net10.0` consumer binds `lib/net6.0` (highest TFM ≤ consumer), which is the surface documented here
-- rail: layout
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver and constraint owners
 - rail: layout
@@ -57,7 +47,7 @@
 |  [06]   | `NonLinearExpressionException`     | exception     | nonlinear constraint expression   |
 |  [07]   | `InternalSolverException`          | exception     | internal simplex invariant breach |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver constraint and edit-variable operations
 - rail: layout
@@ -131,7 +121,7 @@
 |  [24]   | `Strength.Create(a, b, c, w = 1.0)`                                | static method       | lexicographic assembly     |
 |  [25]   | `Strength.Clip(value)`                                             | static method       | priority-range clamp       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [KIWI_TOPOLOGY]:
 - Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so layout expressions compose without builder calls.
@@ -154,9 +144,3 @@
 - One `Connect().Bind(...)` observable drives both the visual collection and `Solve()` pass, so each edit re-flows both and constraint solving remains the live-data rail's sole mutation sink.
 - Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
 - Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
-
-[RAIL_LAW]:
-- Package: `Kiwi`
-- Owns: incremental linear-arithmetic constraint solving — `Variable`/`Term`/`Expression` linear-form algebra, `Constraint` binding at named `Strength` priorities, and the `Solver` dual-simplex with edit-variable `SuggestValue` runtime drive.
-- Accept: operator-composed `Expression` constraints bound through `Equal`/`LessEqual`/`GreaterEqual`/`Make`; guarded `Try*` edits at the boundary; solved values read from `IVariableStore`.
-- Reject: hand-rolled layout arithmetic outside the constraint system; structural value-equality on `Constraint` (identity is handle-based); a second managed solver wrapper renaming the `Solver`/`Constraint`/`Strength` surface.

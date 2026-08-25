@@ -2,16 +2,7 @@
 
 `@effect/sql-libsql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `@libsql/client` SDK — the edge-replica profile of the one sqlite lane, a local replica serving reads while writes forward to the remote primary. This driver owns the interactive-transaction machinery — write-mode `transaction` with `SAVEPOINT` nesting — the D1 profile refuses; tenancy is database-per-tenant.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/sql-libsql`
-- package: `@effect/sql-libsql` (MIT)
-- effect-peer: `effect`, `@effect/sql` (the extended `SqlClient` core; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
-- backing: `@libsql/client` (embedded-replica + remote-sync protocol)
-- runtime: node/bun server and edge hosts; the browser lane is `@effect/sql-sqlite-wasm`
-- modules: `LibsqlClient`, `LibsqlMigrator` (banned)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `LibsqlClient` service and its config
 - rail: data/lane
@@ -29,7 +20,7 @@
 |  [08]   | `LibsqlClientConfig.Live.liveClient` (`Libsql.Client`)                 | client adopt        | app-owned client shared across Layers   |
 |  [09]   | `LibsqlClientConfig.Base`                                              | telemetry/transform | shared with every dialect driver        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer on the `./server` subpath
 - rail: data/lane
@@ -41,7 +32,7 @@
 |  [02]   | `LibsqlClient.layerConfig(Config.Wrap<LibsqlClientConfig>)` | driver layer   | env/secret-mount resolution — the standing row |
 |  [03]   | `LibsqlClient.make(config)`                                 | scoped make    | construction inside a larger acquire graph     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [INTEGRATION_LAW]:
 - Stack on `@effect/sql` (`.api/effect-sql.md`): libsql rides the `sqlite` arm of `sql.onDialect` and supplies only the `SqlClient.MakeOptions` (sqlite `Compiler`, connection acquirer, interactive-transaction machinery) the neutral `make` folds; the fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`, and the overlay-storage Layers compose unchanged.
@@ -53,9 +44,3 @@
 - libsql is contract-compatible with sqlite, not byte-compatible with the C `sqlite3` engine; the lane degradation table records every divergence.
 - `SqlError.cause` is `LibsqlError { code: string; rawCode?: number }`, and its `code` carries two vocabularies: the local path re-wraps the driver's own `SQLITE_*` code while the hrana path carries the server's response code verbatim, so a classifier reading one field answers whichever transport served the statement; on the local path `rawCode` is the extended numeric code and `message` prefixes the engine sentence with the code name, so containment matching still reaches the column roster.
 - Local-replica DDL rides `withTransaction` atomically as on the C engine — a minted shadow and its `sqlite_sequence` row roll back together, `ALTER TABLE … RENAME` carries the counter row under the new name, and `CREATE TABLE … AS SELECT` drops every key, constraint, default, and `NOT NULL` — so `journal/evolve`'s own-DDL mint and its `INSERT INTO sqlite_sequence … SELECT` seed run unchanged on this profile.
-
-[RAIL_LAW]:
-- Package: `@effect/sql-libsql`
-- Owns: the libSQL binding of `SqlClient` — `layer`/`layerConfig`/`make`, the `Full`/`Live`/`Base` config family, the embedded-replica sync knobs, the interactive-transaction machinery, and the banned `LibsqlMigrator`
-- Accept: the edge-replica profile row under the one sqlite lane, `Config`-sourced credentials, database-per-tenant isolation
-- Reject: a driver import in a neutral row, a second relational contract for the edge, byte-level sqlite assumptions, a hardcoded sync cadence or credential, `LibsqlMigrator` or any runtime schema mutation

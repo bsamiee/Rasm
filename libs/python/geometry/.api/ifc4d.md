@@ -2,14 +2,7 @@
 
 `ifc4d` owns the IFC 4D construction-scheduling round-trip for the geometry ifc-analysis rail: one `<Format>2Ifc` parser class per external scheduling format populates an `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence` task tree over the `ifcopenshell` model, and the symmetric `Ifc2<Format>` writer exports a schedule back out. `IfcLifecycle` consumes it at its `SCHEDULE` phase, keyed by the `ScheduleFormat` parser vocabulary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifc4d`
-- package: `ifc4d` (LGPL-3.0-or-later)
-- module: `ifc4d.<name>2ifc`, one parser module per format (`lazy import ifc4d.msp2ifc`)
-- rail: ifc-analysis / 4d-scheduling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: schedule parser and writer classes — each imports from `ifc4d.<lowercased-class>` (`MSP2Ifc` from `ifc4d.msp2ifc`); the format is the named class, never a parse-per-format function on one entry.
 
@@ -22,7 +15,7 @@
 |  [05]   | `Ifc2P6`    | class         | IFC schedule out to P6 XML     |
 |  [06]   | `Ifc2Msp`   | class         | IFC schedule out to MS Project |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: every class shares one call shape — construct, assign slots, `execute()`; no positional argument carries input, and `.file`/`.xml` reverse meaning between parser and writer.
 
@@ -36,7 +29,7 @@
 - source: `.xml` (`MSP2Ifc`, `P62Ifc`, writers), `.xer` (`P6XER2Ifc`), `.pp` (`PP2Ifc`).
 - `.work_plan`: `IfcWorkPlan | None` parent; `.output`: P6/XER/PP and writer export path; `Ifc2Msp` also sets `.work_schedule`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each parser module binds as one module-scope `lazy import ifc4d.<name>2ifc`, one declaration per format the consumer reaches; the `ifcopenshell` native build gates module load, and that floor gate runs ahead of the first dereference, so it composes with the deferral rather than forcing the import into a body.
@@ -49,9 +42,3 @@
 
 [LOCAL_ADMISSION]:
 - Each scheduling format is admitted as its `<Format>2Ifc` parser row; the class owns the XML/XER/Powerproject decode into the task tree.
-
-[RAIL_LAW]:
-- Package: `ifc4d`
-- Owns: 4D construction-schedule round-trip between IFC `IfcWorkSchedule`/`IfcTask` and MS Project / Primavera P6 (XML, XER) / Asta Powerproject, and task-tree authoring.
-- Accept: a source schedule file with a target `ifcopenshell.file`, feeding the `IfcLifecycle` `SCHEDULE` phase.
-- Reject: a hand-rolled P6/MS Project XML parser; a parse-per-format function family where the `<Format>2Ifc` class owns the conversion.

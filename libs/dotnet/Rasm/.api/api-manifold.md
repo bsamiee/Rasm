@@ -2,17 +2,7 @@
 
 `manifoldc` binds the Manifold C++ engine as the arrangement's tier-3 scale companion behind the exact boolean owner: `ArrangementPolicy.ScaleCeiling` routes over-ceiling operands to guaranteed-manifold throughput while the managed exact arrangement holds the correctness rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `manifoldc`
-- package: `manifoldc` (Apache-2.0)
-- role: in-repo P/Invoke binding over the C FFI, no NuGet package
-- abi: C headers `manifoldc.h` and `types.h`; `ManifoldVec3` carries `double` components
-- handles: `ManifoldManifold` `ManifoldManifoldVec` `ManifoldMeshGL` `ManifoldMeshGL64` `ManifoldBox` `ManifoldSimplePolygon` `ManifoldPolygons` `ManifoldExecutionContext`
-- asset: per-RID native library, `osx-arm64` the primary RID
-- rail: guaranteed-manifold boolean throughput above the arrangement scale ceiling
-
-## [02]-[MEMORY_LAW]
+## [01]-[MEMORY_LAW]
 
 Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` twin; `manifold_alloc_*()` mints a malloc-backed object. `manifold_destruct_*()` runs the destructor over caller-owned storage, `manifold_delete_*()` also frees allocated storage, and array accessors write caller-owned buffers sized from the paired `*_length` read.
 
@@ -23,7 +13,7 @@ Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` t
 |  [03]   | `manifold_destruct_*()`     | teardown   | destructor only      |
 |  [04]   | `manifold_delete_*()`       | teardown   | destructor plus free |
 
-## [03]-[CORE_SURFACE]
+## [02]-[CORE_SURFACE]
 
 [CONSTRUCTION_INGEST]:
 
@@ -180,7 +170,7 @@ Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second c
 |  [09]   | `manifold_volume(manifold)`            | volume evidence       |
 |  [10]   | `manifold_bounding_box(mem, manifold)` | bounds evidence       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
@@ -194,11 +184,5 @@ Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second c
 - Native auxiliary: `manifold_slice`, `manifold_project`, and `manifold_hull` stay native-scale surfaces outside kernel routing — the kernel slice stack owns slicing, the drawing view projection, and the hull tiers hull operations.
 
 [LOCAL_ADMISSION]:
-- Arrangement tier-3 routing owns every `manifoldc` call site, activating when combined operands exceed `ArrangementPolicy.ScaleCeiling`, the per-RID native asset resolves, and the golden-boolean fixture matches the managed exact rail.
+- Arrangement tier-3 routing owns every `manifoldc` call site, activating when combined operands exceed `ArrangementPolicy.ScaleCeiling`, the per-RID native asset resolves, and the native engine's genus/area/volume/bounds guarantee reads agree with the managed exact rail.
 - Kind mismatch and nonzero `manifold_status` fold to a typed `Fin` failure; a missing per-RID asset over the ceiling folds to `NativeAssetMissing`; the `Fin` boundary rail contains both without exceptions.
-
-[RAIL_LAW]:
-- Package: `manifoldc`
-- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the `ManifoldManifoldVec` N-ary operand and shell carrier, the run-and-face-id source-attribution channel with its `manifold_reserve_ids`/`manifold_as_original` seating, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation, progress, and its consumed-by-the-next-eager-op attachment law.
-- Accept: high-scale booleans routed above `ArrangementPolicy.ScaleCeiling`, the kernel SoA `double` lane lowered through `meshgl64`, `ManifoldError` folded into `GeometryFault`, cancellation through the execution-context rail, and every entry point spelled at the lane its handle carries.
-- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; an unsuffixed accessor over a `meshgl64` handle, or the two lanes' entry points mixed in one binding; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a context attached to boolean operands, whose deferred fold discards it and leaves the terminal force ungoverned; a `manifold_alloc_*` handle released through `manifold_destruct_*`, which runs the destructor and leaks the allocation; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.

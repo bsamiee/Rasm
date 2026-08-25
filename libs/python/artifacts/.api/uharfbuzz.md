@@ -2,16 +2,7 @@
 
 `uharfbuzz` owns OpenType text shaping and live font-table introspection for the artifacts text-shaping rail: it loads font data through `Blob`/`Face`/`Font`, shapes a `Buffer` into positioned glyphs, extracts outlines through `DrawFuncs` or a fontTools pen, walks the COLRv1 paint graph through `PaintFuncs`/`RasterPaint`, and drives the HarfBuzz subsetter and GSUB/GPOS repacker. Unicode itemisation, OpenType layout, COLRv1 paint composition, and subtable-overflow repacking stay in-package; full COLRv1 SVG composition routes to `blackrenderer` over this same paint surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `uharfbuzz`
-- package: `uharfbuzz` (Apache-2.0)
-- module: `uharfbuzz` — Cython binding exposing the `hb_*` API as classes and top-level functions over the bundled libharfbuzz (subsetter and GSUB/GPOS repacker included)
-- owner: `artifacts`
-- rail: text-shaping
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: font data, metric, and shaping-record objects
 
@@ -81,7 +72,7 @@
 |  [02]   | `SubsetInputSets` / `SubsetFlags` | enum          | set selector + retention flags (values above)                          |
 |  [03]   | `SubsetPlan`                      | class         | `execute() -> Face`; new/old GID + codepoint remap maps                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: font loading
 
@@ -198,7 +189,7 @@ Each `ot_*(face|font, ...)` free function mirrors a bound method on the object i
 |  [16]   | `SubsetPlan.unicode_to_old_glyph_mapping`                            | property | codepoint -> old-GID map                        |
 |  [17]   | `repack(subtables, graphnodes)` / `serialize(subtables, graphnodes)` | static   | resolve GSUB/GPOS overflows; serialize bytes    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - shaping pipeline: `Blob.from_file_path` -> `Face.create` -> `Font.create` -> `Buffer.create` -> `Buffer.add_str`/`add_codepoints` -> `Buffer.guess_segment_properties` -> `shape(font, buffer, features)` -> read `buffer.glyph_infos` / `buffer.glyph_positions`.
@@ -220,9 +211,3 @@ Each `ot_*(face|font, ...)` free function mirrors a bound method on the object i
 - COLRv1 extraction routes through `Font.paint_glyph` + `PaintFuncs`; the in-process `RasterPaint`/`RasterImage` rasterizer serves only a CPU bitmap inside the shaping owner, and full colour-glyph SVG composition belongs to `blackrenderer` over this same paint surface.
 - subsetting runs through `uharfbuzz.subset` (set `flags`/`glyph_set`/`unicode_set`, pin/range axes, then `subset`); `SubsetPlan` is taken when the GID remapping must be read.
 - `repack`/`serialize` resolves overflows for GSUB/GPOS subtable graphs synthesized by a higher tier; it is boundary use only.
-
-[RAIL_LAW]:
-- Package: `uharfbuzz`
-- Owns: OpenType text shaping; glyph advance/extents/origin/name queries in both axes; outline extraction; COLRv1 paint extraction and CPU rasterization; bitmap/SVG colour-glyph extraction; OpenType layout/math/variation/name-table introspection; font subsetting with closure/instancing; GSUB/GPOS table repacking with overflow resolution
-- Accept: the five-step shaping pipeline; `Font.draw_glyph_with_pen` for pen-protocol outline export; `Font.paint_glyph` for COLRv1; `subset`/`SubsetInput` for document font subsetting; `ot_*` introspection over a live face
-- Reject: hand-rolled Unicode itemisation or OpenType feature application; re-implementing the pipeline where `shape()` applies; a hand-rolled COLRv1 paint walker or subtable-overflow repacker where `paint_glyph`/`repack` own it; re-parsing layout/variation/name tables the `ot_*`/`Face` introspection answers

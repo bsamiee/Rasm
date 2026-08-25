@@ -2,16 +2,7 @@
 
 `vcluster` is the hard-isolation tenancy arm: one chart install stands up a whole virtual control plane inside a host namespace, and every tenant workload lands against that plane rather than against the host API. The chart names nothing after itself — it has no fullname helper at all — so the RELEASE NAME IS THE VCLUSTER NAME and every rendered object reads it verbatim. Its `values.schema.json` refuses excess members on the verified definitions, which turns a stale values file into a render failure rather than an ignored key.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `vcluster`
-- chart: `vcluster` from `https://charts.loft.sh` (Apache-2.0 by repository LICENSE; `Chart.yaml` declares no license field), source `chart/` in `loft-sh/vcluster`, maintainer vCluster Labs
-- asset: one StatefulSet or Deployment with its Services, ServiceAccount, Secret, and RBAC cell, beside the optional Ingress, TLSRoute, NetworkPolicy, PodDisruptionBudget, ResourceQuota, LimitRange, and ServiceMonitor
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / virtual-cluster tenancy
-- subcharts: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                          | [CAPABILITY]                                                                      |
 | :-----: | :--------------------------------------------- | :-------------------------------------------------------------------------------- |
@@ -37,7 +28,7 @@
 [SERVICE_NAME]: `<release>` serves 443 onto container 8443 named `https` under `controlPlane.service.enabled`, selector `app: vcluster, release: <release>`; `<release>-headless` serves the same pair with `clusterIP: None` and `publishNotReadyAddresses: true`, gated on the workload rendering as a StatefulSet. Optional ports arm per row: 9090 `wake-http` with the Istio integration, and 10250 onto 8443 with hostname kubelet proxying off a LoadBalancer.
 [WORKLOAD_KIND]: the kind is COMPUTED, never declared — `StatefulSet` iff `controlPlane.statefulSet.persistence.volumeClaim` is enabled OR `controlPlane.backingStore.etcd.embedded.enabled`, else `Deployment`. Stock values render a StatefulSet with a 5Gi claim, and the kind flips silently on a values change, so a read-back that hardcodes it reads the wrong object after an unrelated edit.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One release per tenant, in that tenant's own namespace: the tier mints the namespace and installs the chart under `<tenant>-plane`, so the virtual control plane's name and the tenant's name are one derivation and the host namespace is the isolation boundary.
@@ -54,9 +45,3 @@
 - Never carry a values file forward across a minor without re-reading the removals: five keys removed at 0.36.0 (`sync.toHost.volumeSnapshots`, `sync.toHost.volumeSnapshotContents`, `sync.fromHost.volumeSnapshotClasses`, `deploy.volumeSnapshotController`, `rbac.enableVolumeSnapshotRules`) fail the render on MERE PRESENCE.
 - Enable at most one backing store; two arms is a render failure, as is `exportKubeConfig.secret` beside `additionalSecrets`.
 - Read the workload kind back from the cluster, never from a values assumption, and treat the default 5Gi `Retain` claim as state that outlives the release.
-
-[RAIL_LAW]:
-- Contract: `vcluster` chart values under a strict `values.schema.json`
-- Owns: the virtual control plane — its distro, backing store, persistence claim, Service and ingress reach, and the two-directional host sync rosters that decide which objects cross the boundary
-- Accept: one release per tenant named for the tenant; `.Release.Name` as the only naming authority; `sync.toHost.ingresses.enabled` for host-materialized tenant ingress; a single backing store arm; the computed workload kind read back rather than assumed
-- Reject: `nameOverride`/`fullnameOverride`, which do not exist; the legacy `sync.ingresses` spelling; a values file carrying any 0.36.0-removed key; two backing stores; `--skip-crds` reasoning on a chart shipping no CRDs; a hardcoded workload kind in any read-back

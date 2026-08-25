@@ -2,17 +2,7 @@
 
 `Ply.Net` owns pure-managed PLY decode: the static `PlyParser` container nests an immutable record graph — `Header` describes the file, `Dataset` carries the lazily-streamed decoded payload — and every property value materializes once as a typed `System.Array` reachable by name, grounding the `ply-net` interchange codec's import leg. `ParseHeader` classifies a candidate by element roster without touching the body; `Parse` decodes header-plus-body in bounded chunks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Ply.Net`
-- package: `Ply.Net` (Apache-2.0)
-- assembly: `Ply.Net`
-- namespace: `Ply.Net`
-- asset: netstandard2.0 single TFM; the net10 consumer binds `lib/netstandard2.0` — IL-only AnyCPU, no `runtimes/` folder, ALC-safe
-- depends: single BCL transitive `System.Collections.Immutable`; zero third-party managed deps
-- rail: interchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 `PlyParser` nests the record graph and codec enums as a static container; every symbol below qualifies as `PlyParser.<Symbol>`.
 
@@ -48,7 +38,7 @@
 [DATA_TYPE]: `Undefined` `Int8` `UInt8` `Int16` `UInt16` `Int32` `UInt32` `Int64` `UInt64` `Float32` `Float64`
 [ELEMENT_TYPE]: `Vertex` `Face` `Edge` `Material` `Cell` `UserDefined`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 `PlyParser` is the sole static entrypoint; every overload also takes an optional `Action<string>? log` sink, elided below.
 
@@ -59,7 +49,7 @@
 |  [03]   | `PlyParser.Parse(Stream, int) -> Dataset` | static  | one-shot header+body decode; `int` bounds peak memory per chunk |
 |  [04]   | `PlyParser.Parse(string, int) -> Dataset` | static  | one-shot decode by path                                         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Header` roots the file descriptor and `Dataset` roots the decoded payload; every column lands once as a typed `System.Array` at `PropertyData.Data`, reachable by name.
@@ -75,9 +65,3 @@
 - `Ply.Net` decodes and inspects PLY bytes only — no mesh algebra, no normal/tangent generation, no write-side encoder.
 - Frame normalization, unit coercion, and the canonical `BimElement` projection are downstream import concerns.
 - `Format`, per-`Element` `Count`, and per-`Property` `DataType` are the facts the import fold carries on its result.
-
-[RAIL_LAW]:
-- Package: `Ply.Net`
-- Owns: managed PLY ascii/binary read decode over the immutable `Header`/`Dataset` record graph
-- Accept: the `InterchangeCodec.Ply` (`ply-net`) import-only `.ply` leg
-- Reject: sibling mesh/scene formats on their own codec rows, mesh-processing algebra, PLY write, a hand-rolled PLY endian/tokenizer parse

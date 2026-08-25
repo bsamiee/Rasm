@@ -2,16 +2,7 @@
 
 `@aws-sdk/lib-storage` ships one class, `Upload`, moving a streaming or unknown-length body against the object plane's `S3Client`: one `PutObject` below the part threshold, an auto-engaged multipart above it fanning `UploadPart` across a `queueSize`-wide queue at `partSize` bytes. `params` spreads into all four legs — put, create, part, complete — so `IfNoneMatch: "*"` and `ChecksumAlgorithm` state once and hold everywhere, and the content-addressed 412-noop holds for a body the hand-composed part fold cannot serve without buffering.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@aws-sdk/lib-storage`
-- package: `@aws-sdk/lib-storage` (Apache-2.0)
-- peer: `@aws-sdk/client-s3` (the client and command inputs it composes; `.api/aws-sdk-client-s3.md`)
-- module: ESM/CJS dual, `sideEffects: false`
-- runtime: node and browser configs ship; the data plane composes it server-side
-- rail: the streaming-put arm of `object/store`, the finalize re-home of `object/stream`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Upload` class (extends `EventEmitter`), its options, its body union, and its progress payload
 
@@ -27,7 +18,7 @@
 |  [08]   | `Progress`                                          | event payload | `{ loaded?, total?, part?, Key?, Bucket? }`                     |
 |  [09]   | `Upload.uploadId?`                                  | evidence      | the multipart `UploadId` when the multipart path engaged        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the streaming conditional put under Effect
 
@@ -38,7 +29,7 @@
 |  [03]   | `Options.abortController` / `upload.abort(): Promise<void>`    | ctor     | interrupt trips the signal; `done()` sends the abort |
 |  [04]   | `upload.on("httpUploadProgress", (progress) => ...)`           | instance | transfer evidence onto telemetry, never domain state |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one size-adaptive entry: `done()` issues a single `PutObject` below the part threshold and engages multipart above it, so the caller selects nothing and the streaming put has no small/large twin.
@@ -58,9 +49,3 @@
 - interruption bridges through `Options.abortController` at `object/store`'s `_putStreaming`, so no fiber dies with parts in flight.
 - `Effect.promise` over any `Upload` promise is refused: a rejection it converts becomes a defect carrying no `class`, which `Fault.Class.of` grades `defect` and `Fault.Budget.schedule`'s default `retryable` gate then reads as non-retryable.
 - `partSize`/`queueSize` source from `Config`, never call-site literals.
-
-[RAIL_LAW]:
-- Package: `@aws-sdk/lib-storage`
-- Owns: the managed streaming upload — single-shot/multipart auto-selection, params spread across every leg, bounded part queueing, abort teardown, progress events
-- Accept: streaming conditional puts stating `IfNoneMatch: "*"` + checksum on `params`, an injected `abortController`, `Config`-sourced part policy, progress as telemetry
-- Reject: `Upload` for bounded bytes the plain put serves, a content-band write without the conditional, `Effect.promise` over `abort()`/`done()`, part-policy literals, a second client

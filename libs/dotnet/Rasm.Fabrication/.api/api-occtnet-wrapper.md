@@ -2,18 +2,7 @@
 
 `OcctNet.Wrapper` is the managed 3D solid-CAD / B-rep ingress owner in `Rasm.Fabrication` — a thin .NET wrapper over Open CASCADE Technology (OCCT) through a stable native C ABI. It admits STEP (AP203/AP214/AP242), IGES, and STL into a disposable `OcctShape` B-rep, tessellates the solid to an indexed `OcctMesh`, and models through boolean, sweep, and transform ops on native handles. At the boundary the `OcctMesh` triangle soup crosses to the mesh owner, and a kernel `Rasm` geometry type never enters the OCCT ABI.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OcctNet.Wrapper`
-- package: `OcctNet.Wrapper` (MIT)
-- assembly: `OcctNet.Wrapper`
-- namespaces: `OcctNet.Wrapper` (public surface), `OcctNet.Wrapper.Native` (internal P/Invoke plumbing)
-- managed asset: `lib/net10.0/OcctNet.Wrapper.dll` — pure managed, zero transitive NuGet deps (empty `net10.0` dependency group)
-- native asset: `runtimes/{osx-arm64,linux-x64,win-x64}/native/` — the osx-arm64 OCCT toolkit set (`libOcctNetNative.dylib` + the `libTK*` OCCT toolkits) ships and resolves on the osx-arm64 consumer; `OcctRuntime.NativeVersion` P/Invokes `GetVersion` to confirm the loaded build
-- ABI boundary: `OcctShape` and `OcctPoint3d` own native `SafeHandle`s and are `IDisposable`; `OcctNet.Wrapper.Native` and its `OcctStatus` codes are internal plumbing, never a consumer surface
-- rail: fabrication solid-ingress — the 3D B-rep peer of the 2D `ACadSharp` reader, loaded once per process (the native OCCT toolkits are process-global)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: B-rep shape and topology
 `OcctShape` is the disposable B-rep root every primitive and topology type derives from; `OcctException` carries the native `StatusCode` into managed code.
@@ -43,7 +32,7 @@ Value types are `readonly record struct`s with canonical anchors `OcctVector3d.Z
 |  [07]   | `OcctPoint3d`          | handle point  | native distance point   |
 |  [08]   | `OcctRuntime`          | runtime probe | native-load status      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: import / export — `OcctShape`
 Import is the manufacturing-geometry ingress (STEP/IGES B-rep, STL mesh-as-shape); export round-trips the shape to a neutral CAD file. `ImportStep` reads a single shape.
@@ -118,7 +107,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 |  [01]   | `OcctRuntime.NativeVersion`                                        | property | loaded version    |
 |  [02]   | `OcctRuntime.TryGetNativeVersion(out string, out string?) -> bool` | static   | native-load check |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `OcctShape` and `OcctPoint3d` own native `SafeHandle`s and are `IDisposable` — wrap every shape (imported, constructed, operation-result) in `using`, and treat a boolean/sweep/translate result as a fresh disposable distinct from its operands; a leaked shape leaks native OCCT memory.
@@ -138,9 +127,3 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 - solid ingress enters at `ImportStep`/`ImportIges` under a `using`, tessellated through `Triangulate` at a tolerance-driven deflection (finer linear deflection for a small precision part); the `OcctMesh` triangle soup is the cross-seam payload, never the live `OcctShape` handle.
 - boolean stock-removal (rough-stock minus the part, a fixture-clearance cut) is `Fuse`/`Cut`/`Common` returning fresh disposable shapes; extrude/revolve build a solid from a profile face.
 - stock sizing and keep-out clearance both read one bounding envelope — `shape.BoundingBox` on an IMPORTED shape, the primitive's own dimension properties on a CONSTRUCTED one — never folded from the mesh vertices and never carried alongside the handle as a caller-side duplicate.
-
-[RAIL_LAW]:
-- Package: `OcctNet.Wrapper` (MIT)
-- Owns: STEP/IGES/STL read into an `OcctShape` B-rep, B-rep into `OcctMesh` tessellation, STEP/IGES/STL write, primitive construction (box/cylinder/sphere/edge/wire/face) with its dimension and topology read-backs, boolean fuse/cut/common, extrude/revolve/translate, bounding-box query, point distance, and native-version probe.
-- Accept: a single imported `OcctShape` under `using`, tessellated to `OcctMesh` at a tolerance-driven deflection and crossed at the boundary; boolean and sweep modeling returning fresh disposable shapes; value-type `OcctVector3d`/`OcctAxis1d`/`OcctPointCoordinates` inputs; the rail gated on `OcctRuntime.TryGetNativeVersion`.
-- Reject: a leaked `OcctShape`/`OcctPoint3d`; a kernel `Rasm` geometry type entering the OCCT ABI; reading the raw `OcctStatus` enum instead of catching `OcctException`; loading this wrapper into an in-Rhino net48 plugin ALC; seeking an OCCT capability the managed wrapper leaves unbound though the native toolkit ships — assembly/XCAF/color/PMI reading, hidden-line removal (the kernel `DrawingProjection` owns HLR), or fillet/chamfer/loft/general B-rep editing.

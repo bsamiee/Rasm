@@ -2,18 +2,7 @@
 
 `odfpy` owns the pure-Python OpenDocument read+write DOM on the artifacts office rail: the `OpenDocument*` factories mint typed OASIS trees, the camelCase `Element` write API authors the namespaced graph against a per-module `allowed_attributes` grammar, and `load` parses any `.ods`/`.odt`/`.odp` container back into the same tree the traversal API walks. `odfpy` keeps the whole OASIS parse-and-serialize in-package with no LibreOffice/UNO bridge, feeding the `document/emit#DOCUMENT` `DocumentMode.ODT`/`ODS` authoring arm and the `document/lens#LENS` `ODS_READ`/`ODT_READ` recovery arm.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `odfpy`
-- package: `odfpy` (Apache-2.0 OR GPL-2.0-or-later WITH LGPL-option)
-- import: `odf`
-- owner: `artifacts`
-- rail: office
-- build: pure-Python, abi-agnostic, no compiled extension
-- runtime dep: `defusedxml` — `load` builds its SAX parser through `defusedxml.sax.make_parser`, entity-expansion + billion-laughs safe on the read path
-- entry points: library import-only; the shipped console scripts stay unused on the in-process `OpenDocument`/`load` surface
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document factory roots
 
@@ -58,7 +47,7 @@ Every node is one `odf.element.Element`; the element factories (`Table`, `P`, `S
 |  [05]   | `userfield.UserFieldDecl` | field declaration  | `text:user-field-decl` node declaring a named typed field the body references           |
 |  [06]   | `manifest.Manifest`       | package manifest   | `META-INF/manifest.xml` DOM; `FileEntry` + `EncryptionData`/`Algorithm`/`KeyDerivation` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document author, embed, and serialize
 
@@ -144,7 +133,7 @@ Each ODF module exposes the element factories for one namespace; the factory is 
 |  [03]   | `odf.userfield.UserFields`         | template-merge: `UserFields(src, dest).loaddoc()` then `list_fields`/`get`/`update`/`savedoc` |
 |  [04]   | `odf.opendocument.load`            | `load(odffile) -> OpenDocument` — parse `.ods`/`.odt`/`.odp` from path or `BytesIO`           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `OpenDocument` owns author and serialize; the ODF flavor is the factory choice, never a parallel writer per flavor, and `load` reconstructs the same tree from a path or open binary stream so read and write share one contract.
@@ -161,8 +150,3 @@ Each ODF module exposes the element factories for one namespace; the factory is 
 - universal tier (`libs/python/.api`): `anyio.to_thread.run_sync(limiter=_OFFLOAD)` carries the sync author/`write`/`load` off-loop; `expression` `Result`/`RuntimeRail` owns the typed-error fold and `tagged_union` discriminant; `msgspec` `Struct`/`convert` materializes the `EmitSpec`/`LensSpec` payload; `rasm.runtime.faults.async_boundary` wraps each op, inheriting the `structlog`/OpenTelemetry span and converting an `IllegalChild`/`IllegalText`/`zipfile`/`defusedxml` raise to `BoundaryFault`.
 
 [LOCAL_ADMISSION]:
-
-[RAIL_LAW]:
-- Package: `odfpy`
-- Owns: OpenDocument authoring via the `OpenDocument*` factories, the `Element` DOM write+read API, namespaced element factories per ODF module, the `odf.number` data-style family, `odf.dc`/`odf.meta` descriptive-metadata authoring, `odf.userfield.UserFields` field-merge, `odf.easyliststyle` list-style building, grammar-checked attribute validation, embedded picture/object attachment, the `odf.manifest` package + encryption-data DOM, container serialization, and OASIS parse (path or stream, `defusedxml`-hardened) with whitespace-correct text inject/extract
-- Accept: the ODF write and read arms feeding the office/download/export owners, the whole OASIS container round-trip in-package, the in-memory `xml()`/`contentxml()` bytes handed to the download and export owners directly

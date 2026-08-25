@@ -2,16 +2,7 @@
 
 `FluentValidation` owns boundary input and options validation: one rule graph folds over a policy or request record and accumulates every field failure into a `ValidationResult` before any runtime state changes. Consumers compose the `IValidator<T>` contract, so the authoring base is a registration detail; the boundary is the composition edge — a policy record validates once at bootstrap, a request record at ingress — and the accumulated result folds onto the typed rail, never an exception on the domain path.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FluentValidation`
-- package: `FluentValidation` (Apache-2.0)
-- assembly: `FluentValidation`
-- namespace: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`
-- asset: runtime library
-- rail: validation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validator and rule family
 
@@ -64,7 +55,7 @@
 |  [08]   | `IChildValidatorAdaptor`               | child adapter         | nested validation         |
 |  [09]   | `EmailValidationMode`                  | validator option      | email rule policy         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: rule graph operations
 
@@ -136,7 +127,7 @@
 |  [07]   | `WithSeverity`         | static  | failure severity        |
 |  [08]   | `Configure`            | static  | low-level rule mutation |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each validator folds one rule graph per type; every property chain short-circuits or continues on its `CascadeMode`.
@@ -153,9 +144,3 @@
 - Async validators stay off hot runtime paths unless the boundary owns I/O.
 - Rule sets stay explicit boundary variants, never hidden conditional branches.
 - Custom state and severity map onto typed rail `Error` codes.
-
-[RAIL_LAW]:
-- Package: `FluentValidation`
-- Owns: input and options validation at the composition boundary
-- Accept: accumulated failures fold onto the typed rail
-- Reject: inline imperative guard branches

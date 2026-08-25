@@ -22,7 +22,7 @@ This owner seats the observation primitives every producing site composes — th
 - Boundary: this page opens spans and binds policy; it configures nothing — the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge every line renders through, no private `LogRecordProcessor`/`OTLPLogExporter` stands beside the composition-root egress, and no second drain vocabulary or upward `lanes` import stands beside the taxonomy this page mints. No semconv or scope-version literal re-spells beside the faults-owned pair, and the stamp stays a coordinate rather than a provider seam: `scoped` passes `None` for the provider slot so the global the `observability/telemetry#TELEMETRY` install published stays the one resolution, and no page beside that install ever names a provider instance.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress

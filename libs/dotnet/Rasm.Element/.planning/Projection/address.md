@@ -21,7 +21,7 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 - Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers render and admit through the `[ObjectFactory<string>]` factory. Admission is upper-case-strict: exactly the 32 characters `ToValue` emits. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.IO.Hashing;
 using LanguageExt;

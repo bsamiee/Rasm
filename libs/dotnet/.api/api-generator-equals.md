@@ -2,15 +2,7 @@
 
 `Generator.Equals` derives structural equality and member-level differences for attributed `partial` C# types at compile time, reaching neither reflection nor IL injection. Member attributes bind each admitted member to one comparison and hashing policy, and the generated nested `EqualityComparer` projects every difference as a path-anchored `Inequality` a structural merge reconciles.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Generator.Equals`
-- package: `Generator.Equals` (MIT)
-- assembly: `Generator.Equals.Runtime` carries the attributes, comparers, and diff family; `Generator.Equals` ships the Roslyn incremental generator under `analyzers/dotnet/cs` and never binds at runtime
-- namespace: `Generator.Equals`
-- rail: equality
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: attributes selecting each member's comparison policy, the runtime comparer family implementing `IEqualityComparer<TInput>` under a static `Default`, and the difference family `Inequalities` yields.
 
@@ -37,7 +29,7 @@
 |  [19]   | `MemberPathSegment`                        | struct        | kinded path step                   |
 |  [20]   | `MemberPathSegmentKind`                    | enum          | path-step vocabulary               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: declaring an equatable type, calling its generated comparer, and composing the runtime comparers directly.
 
@@ -81,7 +73,7 @@
 - `DictionaryEqualityComparer<TKey, TValue>`: takes independent key and value comparers readable back through `KeyEqualityComparer` and `ValueEqualityComparer`; `Equals` matches keys through the dictionary's own lookup while `KeyEqualityComparer` drives entry hashing.
 - `UnorderedEqualityComparer<T>.Default`: types as `IEqualityComparer<IEnumerable<T>>` where every sibling `Default` types as its own comparer.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `EqualsGenerator` matches `Generator.Equals.EquatableAttribute` through `ForAttributeWithMetadataName`, transforms class, record, struct, and record-struct declarations, and emits one `<FullName>.Generator.Equals.g.cs` partial per type.
@@ -107,9 +99,3 @@
 - Graph nodes and records needing structural equality declare `partial` and carry `[Equatable]`; equality reads through `T.EqualityComparer.Default`.
 - Every value-bearing collection member declares `[OrderedEquality]`, `[UnorderedEquality]`, or `[SetEquality]`; an unattributed collection compares by reference.
 - Member-granular change detection flows through `Inequalities`, whose `MemberPath` anchors the exact member a structural merge or version diff reconciles and whose terminal `MemberPathSegmentKind` carries the change shape.
-
-[RAIL_LAW]:
-- Package: `Generator.Equals`
-- Owns: compile-time structural value equality, the collection-aware comparer family, and the member-level structured diff.
-- Accept: multi-member class-root and record owners whose equality is structural over collection members; direct comparer reuse for LINQ and BCL keying; member-granular change detection feeding a three-way merge.
-- Reject: a hand-written `Equals`/`GetHashCode` pair on an equatable owner, and content addressing routed through `GetHashCode` or `Inequalities`.

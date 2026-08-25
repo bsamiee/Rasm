@@ -20,7 +20,7 @@ Host absorption owns every solver: the `SnappingAction` factory family owns alig
 - Growth: a new candidate is one row through the one factory; the fold and the evidence never fork.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -108,7 +108,7 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
 - Growth: a new snap source is one `SnapScope` case; a rounding policy is one row; the verdict shapes never fork.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -231,7 +231,7 @@ public static class StretchPlan {
 - Growth: a new arrangement is one case whose delta fold breaks the gate loudly — `DocumentMethods.MakeRoom` is the next such case (`RoomCase`, folding the host's own displacement into the same sealed gate); a new undo posture is `Document/history.md`'s row, never a fork here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Grasshopper.Shell;

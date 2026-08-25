@@ -2,17 +2,7 @@
 
 `py7zr` owns 7z container read/write/test/list for the artifacts compression rail: one `SevenZipFile` root drives a `FILTER_*` codec-chain table with DELTA/BCJ pre-filters, AES256 header+content encryption, and a `WriterFactory`/`Py7zIO` streamed-sink protocol that decodes each entry into a capped, hashing, or discarding sink under a `max_extract_size` bomb bound. One compression owner composes the root, codec table, sink factories, and shutil hooks over the 7z container format `py7zr` already owns and never re-implements.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `py7zr`
-- package: `py7zr` (LGPL-2.1-or-later)
-- import: `py7zr`
-- owner: `artifacts`
-- rail: compression
-- entry points: console script `py7zr` (list/extract/create/test/append); library use is import-only
-- capability: 7z archive read/write/test/list, multi-codec filter chains with DELTA/BCJ pre-filters, AES256 header+content encryption, password protection, streamed per-entry extraction sinks (`WriterFactory`/`Py7zIO`), `max_extract_size` decompression-bomb defense, `ExtractCallback`/`ArchiveCallback` progress mirrors, multiprocessing decode (`mp=True`), shutil archive-format registration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: archive root, info records, and io protocol
 - rail: compression
@@ -66,7 +56,7 @@ Each row is a `FILTER_*` constant (prefix dropped below) placed in a `filters=[{
 |  [08]   | `UnsupportedCompressionMethodError` | codec fault     | an unimplemented filter was encountered                                |
 |  [09]   | `InternalError`                     | invariant fault | a py7zr internal-state invariant broke                                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: archive open, read, and write
 - rail: compression
@@ -95,7 +85,7 @@ Each row is a `FILTER_*` constant (prefix dropped below) placed in a `filters=[{
 |  [02]   | `pack_7zarchive(base_name, base_dir, …)` | shutil pack hook: `register_archive_format('7zip', pack_7zarchive)`             |
 |  [03]   | `unpack_7zarchive(archive, path, …)`     | shutil unpack hook: `register_unpack_format('7zip', ['.7z'], unpack_7zarchive)` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [COMPRESSION_7Z]:
 - import: `import py7zr` at boundary scope only; module-level import banned by the manifest import policy.
@@ -112,9 +102,3 @@ Each row is a `FILTER_*` constant (prefix dropped below) placed in a `filters=[{
 - `zstandard`(`.api/zstandard.md`)/`brotli`(`.api/brotli.md`)/`lz4`: the raw single-stream codec split under the same `CompressionAlgo` discriminant — a lone payload routes to a raw codec, a multi-entry container to `py7zr`; `py7zr`'s own `FILTER_ZSTD`/`FILTER_BROTLI` chain entries compress inside the 7z container, distinct from the sibling raw-frame owners.
 - within-lib rail: the extract/write body offloads off the event loop through `anyio.to_thread.run_sync` (`mp=True` spanning subprocess decode) onto the shared `expression.Result[…, ArchiveError]` rail, so an `ArchiveError` subtype becomes an `Error` case at the seam.
 - within-lib identity: the `HashIOFactory` sink feeds the shared `xxhash.xxh3_128` `ContentIdentity.key` fold — the same 16-byte digest the `stream-unzip` member arm yields, so a 7z entry's content key stays uniform across every codec path.
-
-[RAIL_LAW]:
-- Package: `py7zr`
-- Owns: 7z archive read/write/test/list, multi-codec filter chains with DELTA/BCJ pre-filters, AES256 header+content encryption, streamed per-entry extraction sinks, the `exceptions.ArchiveError` fault tree, `max_extract_size` + `AbsolutePathError` bomb/traversal defense, multiprocessing decode, shutil registration
-- Accept: the 7z container arm of the archive rail feeding the compression and export-bundle owners; `HashIOFactory` entry digests feeding the content-identity rail; a `max_extract_size`-bounded extract of an untrusted upload mapping `DecompressionBombError`/`AbsolutePathError`/`CrcError` at the boundary
-- Reject: wrapper-renames of `extractall`/`writeall`; a codec-per-archive type where a `FILTER_*` row suffices; a temp-file extract round-trip where a `WriterFactory` sink streams; an unbounded extract of untrusted bytes where `max_extract_size` guards; an `ArchiveError` subtype swallowed into a bare `Exception`; identity minting the runtime owns

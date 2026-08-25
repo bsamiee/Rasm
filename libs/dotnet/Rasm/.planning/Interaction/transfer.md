@@ -20,7 +20,7 @@ Custody is symmetric across the seam: a slot carrying a stream, an image, or a n
 - Boundary: the host's own format constants (`Eto` clipboard type strings, platform UTIs) enter through admission and never as raw strings past this page.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Interaction;
@@ -57,7 +57,7 @@ public readonly partial struct Mime {
 - Boundary: a native handle never rides `Bytes` — it rides `Resourced` with its lease, so the seam that acquired it is the seam that closes it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;
 using Thinktecture;
@@ -155,7 +155,7 @@ public abstract partial record PayloadSlot : IDisposable {
 - Boundary: NAMED LOSS — both boundaries carried their own `Transfer`, `TransferQuery`, `TransferOp`, `TransferOutcome`, `TransferWriteFact`, `TransferTarget`, `PayloadSlot`, `PayloadPresence`, `DragPlan`, and `Drop`, and every one of them deletes. What is genuinely lost is each side's bespoke naming at its own call sites; what survives is stronger, because the two implementations disagreed on whether a write reported per slot and only one of them did.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Thinktecture;
@@ -234,7 +234,7 @@ public static class Transfer {
 - Boundary: the drag SOURCE control is the host's and rides the `Drag` case; the plan carries no control, so a plan is stageable before a source exists.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
 using EtoPointF = Eto.Drawing.PointF;

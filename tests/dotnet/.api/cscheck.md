@@ -2,15 +2,7 @@
 
 `CsCheck` is the random-testing engine the TestKit composes: PCG-seeded generation with size-ordered shrinking, property sampling, model-based and metamorphic state testing, linearizability checking, and chi-squared distribution gates. It is zero-dependency pure BCL; `Directory.Build.props` injects it into test and kit projects with `PrivateAssets="all"` and a global `Using Include="CsCheck"`, and the kit's `Gens` bands build on the `Gen` factories while the `Spec` owner routes every sample family, so specs compose kit gates instead of calling `Check` raw.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `CsCheck`
-- license: `Apache-2.0`
-- namespace: `CsCheck`
-- asset: `lib/net8.0/CsCheck.dll` (net10 consumers bind via compat); zero dependencies
-- rail: evidence — generation, shrinking, and stateful/parallel sampling behind the kit `Spec`/`Gens`/`Laws` owners
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                                | [KIND]          | [CAPABILITY]                                                               |
 | :-----: | :-------------------------------------- | :-------------- | :------------------------------------------------------------------------- |
@@ -24,7 +16,7 @@
 |  [08]   | `Dbg` / `Causal` / `Hash : IRegression` | diagnostics     | debug regions, causal profiling, regression hashing                        |
 |  [09]   | `CsCheckException`                      | exception       | the property-failure carrier xunit surfaces                                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every `Sample*` method takes the shared run tail `string? seed = null, long iter = -1, int time = -1, int threads = -1`; rows carry only the distinguishing arguments, and the fence gives the full `Sample`/`SampleParallel`/`ChiSquared` signatures.
 
@@ -55,7 +47,7 @@ public static void SampleParallel<T>(this Gen<T> initial, GenOperation<T>[] oper
 public static void ChiSquared(int[] expected, int[] actual, double sigma = 6.0);
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [ENGINE]: generation and shrinking both ride PCG + `Size` — every draw carries an ordered size, and shrinking re-draws smaller-size candidates below the failing size. Shrinks are seed-reproducible, continuable across runs, and parallelized with sampling; there are no `Arb` classes — composition is `Select`/`SelectMany`/`Where` over `Gen<T>`. Concurrency testing IS `SampleParallel`; no other concurrent sampler exists.
 
@@ -69,9 +61,3 @@ public static void ChiSquared(int[] expected, int[] actual, double sigma = 6.0);
 [LOCAL_ADMISSION]:
 - Specs reach the engine through kit gates; a spec calling `Check.Sample` directly instead of `Spec.ForAll`/`Hold` re-derives seed, print, and rail policy the kit owns.
 - `seed`/`iter`/`time`/`threads` pass as named arguments with the `-1` sentinel deferring to environment policy.
-
-[RAIL_LAW]:
-- Package: `CsCheck`
-- Owns: random generation, shrinking, stateful/metamorphic/parallel sampling, and distribution gates for every C# property spec.
-- Accept: kit-routed sampling; env-var run scaling in CI; seed replay from failure output.
-- Reject: a second property-testing engine, hand-rolled RNG loops in specs, or per-spec shrink logic.

@@ -2,17 +2,7 @@
 
 `Rhino.Render` owns the RDK content object model: `RenderContent` is the abstract root every material, texture, and environment derives, carrying identity, a child-slot tree, a typed `FieldDictionary`, render-hash caching, XML/file IO, and UI/preview generation. `RenderMaterial`/`RenderTexture`/`RenderEnvironment` specialize that root, factory registration mints content by id, three document tables hold it over `IRenderContentTable<T>`, and `TextureMapping` carries the mapping geometry a content graph reads. Content authoring and configuration draw the seam here; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render.md` owns the disjoint evaluation slice — `RenderTexture.CreateEvaluator`/`SimulateTexture` and `PostEffectExecutionControl` — so live evaluation never enters this catalog.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon RDK content surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Render`, `Rhino.Render.Fields`
-- kernel: `Rasm` (host-agnostic color, vector, and unit owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: render-content boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: content graph
 
@@ -81,7 +71,7 @@
 - `SimulatedTexture.ProjectionModes` / `SimulatedTexture.EnvironmentMappingModes` — baked-texture projection and environment-mapping vocabularies.
 - `RenderMaterial.PreviewGeometryType` / `RenderMaterial.PreviewBackgroundType` — default preview-pane geometry and background vocabularies.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CONTENT_IDENTITY_TREE]:
 - `RenderContent.TypeId -> Guid` / `Id -> Guid` / `GroupId -> Guid` — factory type id shared across instances, unique instance id, group id.
@@ -213,7 +203,7 @@
 - `MappingTag.Id -> Guid` / `MappingType -> TextureMappingType` / `MappingCRC -> uint` / `MeshTransform -> Transform` (get/set) / `CompareTo(MappingTag) -> int` — per-channel mapping tag.
 - `CachedTextureCoordinates : CommonObject, IList<Point3d>` — read-only (`IsReadOnly` true, mutators throw): `Dim -> int` (2 = UV, 3 = UVW) / `MappingId -> Guid` / `Count -> int` / `this[int] -> Point3d` / `TryGetAt(int, out double, out double, out double) -> bool` / `IndexOf(Point3d) -> int` / `Contains(Point3d) -> bool` / `CopyTo(Point3d[], int)`; retrieval rides the mesh seam the geometry catalog owns.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RenderContent` is the single abstract root; `RenderMaterial`, `RenderTexture`, and `RenderEnvironment` never carry a parallel identity, tree, or field surface — every specialization reads its base graph, and a further content kind is a `RenderContentType` factory row, never a new base.
@@ -234,9 +224,3 @@
 - Content enters through `Create`, `FromId`, `FromXml`, `LoadFromFile`, or `<kind>.From*`; a live `RenderContent` stays inside the document grant, and downstream code receives a content reference, a detached field value, a detached fact, or an owned bitmap/`Material` lease.
 - `FieldDictionary` is the sole parameter owner; the render-hash rail is `RenderHashExclude` over bounded flags; a re-derived hash or a stringly parameter map beside the field dictionary is rejected.
 - `RenderMaterialTable`/`RenderEnvironmentTable`/`RenderTextureTable` are the three document content owners over `IRenderContentTable<T>`; a per-kind bespoke table method family beside the shared contract is the collapsed form.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: the `RenderContent` object model (identity, child-slot tree, typed fields, render-hash, XML/file IO, UI/preview), the `RenderMaterial`/`RenderTexture`/`RenderEnvironment` specializations and material/PBR bridge, content registration and factory minting, the three content tables, the content events, and `TextureMapping` geometry.
-- Accept: content authoring and configuration through `Create`/`From*`/field mutation inside `BeginChange`/`EndChange`; polymorphic field access over `FieldDictionary`; host crossings captured through `Op.Catch` onto `Fin` with kind/style/context enums mapped to bounded owners; table and collection outcomes projected onto `Fin`/`Option`/`Seq` rails.
-- Reject: a parallel identity/tree/field surface on a subclass, a per-payload field-accessor family beside `FieldDictionary`, a field write outside a change scope, a re-derived render hash, a live `RenderContent`/`TextureMapping` escaping into a domain signature, and the live-evaluation surface `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render.md` owns re-catalogued here.

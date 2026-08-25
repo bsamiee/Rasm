@@ -1,14 +1,6 @@
 # [TS_TESTS_API_VITEST]
 
-[PACKAGE_SURFACE]:
-- package: `vitest` · license `MIT`
-- module: ESM (`type: module`); one barrel per concern — `.` (test API), `./config` (config builders), `./node` (programmatic runner + every config-option type), `./reporters`, `./runners`, `./snapshot`, `./browser`, `./environments`, `./worker`, `./globals` (ambient `types`). No deep-`dist` reach; the config-option interfaces re-export from `./node`.
-- asset: `dist/index.d.ts` (test API) · `dist/config.d.ts` (`defineConfig`/`defineProject`) · `dist/node.d.ts` (programmatic `Vitest` + `CoverageOptions`/`BrowserConfigOptions`/reporters); bin `vitest`.
-- runtime: Node `^20 || ^22 || >=24`; executes on Vite — `vite ^6 || ^7 || ^8` is the one REQUIRED peer (the runner IS a Vite plugin graph). Every other peer is optional and admitted à la carte: `@vitest/{browser-playwright,coverage-v8,ui}`, `happy-dom`, `jsdom`, `@opentelemetry/api ^1.9`, `@edge-runtime/vm`.
-- plane: `plane:dev` — the SPEC_RUNNER core; the `tests/typescript/_architecture` suite asserts no `plane:runtime` graph imports it.
-- rail: spec execution — the runner every folder's specs and every gauge terminate in.
-
-`vitest` is the substrate the whole TS spec estate stands on: `@effect/vitest` is a thin binding that re-exports this entire surface (`expect`/`describe`/`vi`/lifecycle) and adds `it.effect`/`it.layer`/`it.prop`, so an effect spec never imports raw `test`/`expect` — yet the config, coverage, browser, reporter, and programmatic surfaces ARE vitest's, and this catalog owns them because the gauges compose on them; the v4 surface below is authoritative: the `workspace` config is GONE (replaced by `projects` + `defineProject`); per-provider coverage option types collapsed into one `provider`-discriminated `CoverageOptions` (see `vitest-coverage-v8.md`); the browser provider is an imported `playwright()` function, not a string (see `vitest-browser-playwright.md`); and v4 adds `aroundAll`/`aroundEach` hooks, `recordArtifact` test annotations, `TestTags`, `vi.mockObject`, tinybench `bench`, the Reported-Tasks API (`TestModule`/`TestCase`/`TestSuite`), and the `AgentReporter`.
+`vitest` is the substrate the whole TS spec estate stands on: `@effect/vitest` is a thin binding that re-exports this entire surface (`expect`/`describe`/`vi`/lifecycle) and adds `it.effect`/`it.layer`/`it.prop`, so an effect spec never imports raw `test`/`expect` — yet the config, coverage, reporter, and programmatic surfaces ARE vitest's, and this catalog owns them because the kit composes on them; the v4 surface below is authoritative: the `workspace` config is GONE (replaced by `projects` + `defineProject`); per-provider coverage option types collapsed into one `provider`-discriminated `CoverageOptions` (see `vitest-coverage-v8.md`); and v4 adds `aroundAll`/`aroundEach` hooks, `recordArtifact` test annotations, `TestTags`, `vi.mockObject`, tinybench `bench`, the Reported-Tasks API (`TestModule`/`TestCase`/`TestSuite`), and the `AgentReporter`.
 
 ## [01]-[TEST_API]
 
@@ -93,7 +85,7 @@ declare module "vite" { interface UserConfig { test?: InlineConfig }; interface 
 
 ## [04]-[PROGRAMMATIC_AND_REPORT]
 
-[ENTRYPOINT_SCOPE]: `vitest/node` — the programmatic runner, the Reported-Tasks tree, the reporters, and every config-option TYPE the design's `defineConfig` binds. A CI gauge boots the runner here, reads the typed task tree, and folds a reporter — never scrapes stdout.
+[ENTRYPOINT_SCOPE]: `vitest/node` — the programmatic runner, the Reported-Tasks tree, the reporters, and every config-option TYPE the design's `defineConfig` binds. CI boots the runner here, reads the typed task tree, and folds a reporter — never scrapes stdout.
 
 | [INDEX] | [SYMBOL]                                                            | [FAMILY]          | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------------------------------ | :---------------- | :--------------------------------------------- |
@@ -123,15 +115,6 @@ interface TestRunResult { testModules: TestModule[]; unhandledErrors: unknown[] 
 
 [STACK: `vitest` + `@vitest/coverage-v8` + `@stryker-mutator/vitest-runner`] — the gauge stack. `test.coverage.provider: 'v8'` resolves the `@vitest/coverage-v8` `CoverageProviderModule` (see `vitest-coverage-v8.md`); `test.coverage.thresholds` express the pass gate as data. `@stryker-mutator/vitest-runner` reuses THIS runner in-process so mutation testing runs the identical spec set — the root `vitest.config.ts` owns the coverage thresholds, `stryker.config.json` the mutation thresholds.
 
-[STACK: `vitest` + `@vitest/browser-playwright` + `happy-dom`/`jsdom`] — the DOM-lane axis. `test.environment` selects a simulated DOM (`happy-dom` fast / `jsdom` fidelity — `BuiltinEnvironment`) for a Node-hosted DOM spec, while `test.browser.provider: playwright()` runs the SAME spec in a real browser (see `vitest-browser-playwright.md`). One `environment` axis, three modalities; the design picks per folder.
+[STACK: `vitest` html reporter] — inspection. `reporters: ['html']` (its `HtmlReporter`) writes the durable static report, reading the Reported-Tasks tree above.
 
-[STACK: `vitest` + `@vitest/ui`] — inspection. `test.ui: true` / `--ui` mounts the `@vitest/ui` dashboard plugin; `reporters: ['html']` (its `HtmlReporter`) writes the durable static report — both read the Reported-Tasks tree above (see `vitest-ui.md`).
-
-[STACK: `vitest` + `fast-check`] — property law. `it.prop`/`it.effect.prop` (`@effect/vitest`) accept `fast-check` `Arbitrary`s beside `Schema`s; the `_testkit` law/arbitrary source folds them into the three reusable law combinators (see `fast-check.md`); the `fastCheck` option forwards `FC.Parameters` (seed, `numRuns`) into the vitest test.
-
-## [06]-[RAIL_LAW]
-
-- Owns: the spec-run engine — the collector/hook/assertion API, `vi` timers/mocks/stubs, the `defineConfig`/`defineProject` config vocabulary, the programmatic `Vitest` + Reported-Tasks tree, the builtin reporters and pool workers, and every config-option TYPE (`CoverageOptions`/`BrowserConfigOptions`/`EnvironmentOptions`/`PoolOptions`) the provider packages key into.
-- Accept: `@effect/vitest`'s `it.effect`/`it.layer`/`it.prop` as the spec entry (never raw `test`); `defineProject` for the projects matrix; `test.coverage`/`test.browser`/`test.environment`/`test.pool` as data; the programmatic `startVitest`/Reported-Tasks for a CI gauge; `vi` for module/global mocking that `TestServices` cannot express.
-- Reject: raw `test(async () => await Effect.runPromise(...))` (loses `TestServices`/typed `Exit` — use `it.effect`); the retired `workspace` config (use `test.projects` + `defineProject`); a per-provider coverage-options type (deprecated — one `CoverageOptions`, `provider`-discriminated); `vi.useFakeTimers` where `TestClock.adjust` is deterministic; any import from a `plane:runtime` folder — dev subpath only.
-- Boundary: the required Vite peer means the run graph is a Vite build — Vite plugins/resolve/aliases apply, and the `configLoader` (`bundle`/`runner`) governs config evaluation. `pool` workers and `TypecheckPoolWorker` are `@experimental`; the `AgentReporter`/`recordArtifact`/`configureVitest`/`instrumenter` surfaces are v4-current and may still shift. `expect.poll`/`waitFor` are wall-clock, not virtual — a deterministic effect assertion uses `TestClock`, not a real poll.
+[STACK: `vitest` + `fast-check`] — property law. `it.prop`/`it.effect.prop` (`@effect/vitest`) accept `fast-check` `Arbitrary`s beside `Schema`s; the `testkit` law/arbitrary source folds them into the three reusable law combinators (see `fast-check.md`); the `fastCheck` option forwards `FC.Parameters` (seed, `numRuns`) into the vitest test.

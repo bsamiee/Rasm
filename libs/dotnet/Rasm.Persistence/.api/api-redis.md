@@ -2,25 +2,7 @@
 
 `StackExchange.Redis` mints the multiplexer, database, subscriber, server, and configuration surface for the cache and message-passing store profiles; `Microsoft.Extensions.Caching.StackExchangeRedis` binds the `IDistributedCache`/`IBufferDistributedCache` `RedisCache` over that same multiplexer for DI-wired distributed caching.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `StackExchange.Redis`
-- package: `StackExchange.Redis`
-- assembly: `StackExchange.Redis`
-- namespace: `StackExchange.Redis`, `StackExchange.Redis.Profiling`
-- target: `net10.0`
-- asset: runtime library
-- rail: cache
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.StackExchangeRedis`
-- package: `Microsoft.Extensions.Caching.StackExchangeRedis`
-- assembly: `Microsoft.Extensions.Caching.StackExchangeRedis`
-- namespace: `Microsoft.Extensions.Caching.StackExchangeRedis`, `Microsoft.Extensions.DependencyInjection`
-- target: `net10.0`
-- asset: runtime library
-- rail: cache
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: multiplexer and connection family
 
@@ -66,7 +48,7 @@
 
 - `RedisCache` implements `IBufferDistributedCache` (`ReadOnlySequence<byte>` zero-copy `Set`/`TryGet`, `Microsoft.Extensions.Caching.Distributed`), not only `IDistributedCache`; `RedisCacheOptions.ProfilingSession` (`Func<ProfilingSession>?`) binds cache traffic to the multiplexer profiling span.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: multiplexer lifecycle
 
@@ -181,7 +163,7 @@ Raw-command rows carry no typed member and ride `Execute`.
 |  [09]   | `IDatabase.Execute("FCALL_RO", name, …)`       | instance | read-only function call routed to a replica                 |
 |  [10]   | `LuaScript.Evaluate(…)` / `EvaluateAsync(…)`   | instance | `EVAL`/`EVALSHA` off the script; `@name` anon-object params |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ConnectionMultiplexer` is the long-lived shared singleton root, `IDisposable`/`IAsyncDisposable`; `IDatabase` is per-call, lightweight, non-disposable, obtained via `GetDatabase` at the op boundary, never the composition root.
@@ -202,9 +184,3 @@ Raw-command rows carry no typed member and ride `Execute`.
 - `RedisCacheOptions.ConfigurationOptions` outranks the `Configuration` string.
 - `InstanceName` prefixes every cache key; omitting it shares the keyspace across consumers.
 - Live-fabric state — Lua scripts, keyspace subscription, Stream consumer group, RESP3 tracking — is connection-instance on the multiplexer; absent Redis the TTL-bounded baseline is bit-identical, so the live path is additive capability, never a new dependency.
-
-[RAIL_LAW]:
-- Package: `StackExchange.Redis`, `Microsoft.Extensions.Caching.StackExchangeRedis`
-- Owns: Redis multiplexed transport and the distributed cache layer
-- Accept: `ConnectionMultiplexer` singleton, `IDatabase` per-operation, `RedisCacheOptions` on the DI path
-- Reject: per-operation multiplexer construction, raw TCP Redis protocol without the multiplexer

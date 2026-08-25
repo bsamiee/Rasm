@@ -2,17 +2,7 @@
 
 `xvec` mints vector data cubes over `xarray`: a `shapely`-geometry array becomes a first-class cube dimension backed by `GeometryIndex`, so a labelled field cube carries a geometry coordinate with its `pyproj.CRS` and a cached `shapely.STRtree`. One `.xvec` accessor on `xr.DataArray` and `xr.Dataset` owns geometry-predicate selection, per-variable CRS reprojection, raster-to-vector extraction and zonal aggregation, CF/WKB encoding, and `geopandas` egress, while `shapely`, `pyproj`, and `geopandas` keep the kernels `xvec` composes rather than re-implements.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `xvec`
-- package: `xvec` (MIT)
-- module: `xvec`
-- owner: `data`
-- rail: geospatial-cube
-- asset: pure Python; geometry kernel `shapely` 2 GEOS, CRS `pyproj`, index extends `xarray.Index` through `xproj.ProjIndexMixin`
-- depends: `xarray`, `shapely`, `pyproj`, `cf_xarray`, `xproj`; `geopandas` and `matplotlib` back egress and plot
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry-dimension index
 
@@ -25,7 +15,7 @@
 
 [ERROR_ABSENCE]: `xvec` declares no exception type (verified against the installed distribution). The accessor raises `ValueError` for a coordinate carrying no `GeometryIndex` and `ImportError` for an unmet optional provider; every other fault crosses from the layer it reaches — `shapely.errors.ShapelyError` on a geometry operand, `pyproj.exceptions.ProjError` on a CRS hop, `xarray`'s `AlignmentError`/`MergeError` on a cube arm — so an accessor fence names those providers rather than a package root that does not exist.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: index and accessor introspection
 
@@ -78,7 +68,7 @@
 |  [06]   | `to_geopandas()`                                             | instance | shorthand `GeoDataFrame` egress           |
 |  [07]   | `plot(*, row=None, col=None, hue=None, geometry=None, …)`    | instance | faceted geometry map through `matplotlib` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `.xvec` accessor on `xr.DataArray` and `xr.Dataset` is the sole entry; `XvecAccessor` and `GeometryIndex` are the only names a consumer references.
@@ -96,9 +86,3 @@
 
 [LOCAL_ADMISSION]:
 - `xvec` is admitted where a labelled field cube is queried, reprojected, or reduced by vector geometry; a `shapely`-plus-`xarray` hand-join carrying no `GeometryIndex` is the rejected form.
-
-[RAIL_LAW]:
-- Package: `xvec`
-- Owns: the geometry-indexed `xarray` dimension — cube selection, per-variable CRS assignment and reprojection, raster-to-vector aggregation, CF/WKB encoding, and `geopandas` egress through one `.xvec` accessor.
-- Accept: a coordinate promoted through `set_geom_indexes`; `query`/`mask` selection; `set_crs`-versus-`to_crs` discipline; `extract_points`/`zonal_stats` bridging; `to_geodataframe` hand-off.
-- Reject: a hand-rolled geometry loop where `GeometryIndex` owns dispatch; `set_crs` where reprojection is required; a parallel container wrapping `xarray`.

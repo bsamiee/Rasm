@@ -2,16 +2,7 @@
 
 `lz4` owns the branch LZ4 compression rail: `lz4.frame` mints self-describing framed compression for artifact packages, and `lz4.block` mints raw-block compression/decompression and the blocked runtime `CRDT_OPLOG_LZ4_DECODE` `Envelope` seam over the C# `MessagePackCompression.Lz4BlockArray` envelope.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lz4`
-- package: `lz4` (BSD-3-Clause)
-- module: `lz4.frame` / `lz4.block`
-- namespaces: `lz4`, `lz4.frame`, `lz4.block`
-- asset: native wheel; `lz4/frame/_frame` and `lz4/block/_block` C extensions
-- rail: compression and wire
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frame codec types
 
@@ -28,7 +19,7 @@
 - [NATIVE_ID]: `lz4.library_version_number` `lz4.library_version_string`
 - [BINDING_ID]: `lz4.VERSION` `lz4.__version__`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame one-shot, streaming context, and file IO
 
@@ -51,7 +42,7 @@
 |  [01]   | `lz4.block.compress(source, mode, acceleration, compression, store_size, return_bytearray, dict)` | static  | raw block compression   |
 |  [02]   | `lz4.block.decompress(source, uncompressed_size, return_bytearray, dict)`                         | static  | raw block decompression |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `lz4.frame` is the self-describing, interoperable, streaming-capable default for artifact package compression; `lz4.block` is the raw-block fast path, `mode` selecting `default`, `fast`, or `high_compression`.
@@ -66,9 +57,3 @@
 - artifacts `LZ4` defaults to `lz4.frame` for self-describing bundles; raw `lz4.block` admits only where a codec row selects raw-block payloads.
 - runtime `CRDT_OPLOG_LZ4_DECODE` binds one injected `Envelope` carrying `lz4.block.decompress` beside the `LZ4BlockError` its `raises` column declares, so the wire lift catches a plane it never imports; the seam admits raw-block decode alone, the C# `MessagePackCompression.Lz4BlockArray` frame being a raw LZ4 block rather than a self-describing `lz4.frame` payload.
 - corrupt-block `LZ4BlockError` is terminal, reaches the decode boundary fault through the injected `Envelope.raises` column the wire lift catches on, and is never retried by the `stamina` owner.
-
-[RAIL_LAW]:
-- Package: `lz4`
-- Owns: branch LZ4 frame compression, raw block compression/decompression, version probes, raw block faults, and the blocked runtime `CRDT_OPLOG_LZ4_DECODE` `Envelope` seam over `Lz4BlockArray`
-- Accept: artifacts frame codec rows, raw-block codec rows, injected runtime decode port, terminal `LZ4BlockError`
-- Reject: wrapper-renames of `compress`/`decompress`, a second codec owner, `frame.*` on the `Lz4BlockArray` channel, runtime hardwiring instead of an injected `Envelope`, folder-level package-surface duplication

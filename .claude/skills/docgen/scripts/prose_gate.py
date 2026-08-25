@@ -5,7 +5,7 @@
 # ///
 # ruff:file-ignore[print, undocumented-public-module, undocumented-public-class, undocumented-public-function]
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 
 from collections.abc import Callable, Iterable
 import copy
@@ -29,6 +29,7 @@ type Align = Literal["center", "left", "right", "none"]
 class Check(StrEnum):
     AI_LEXICON = "ai-lexicon"
     ARTICLE_OPENER = "article-opener"
+    BLANK_RUN = "blank-run"
     BOLD_EMPHASIS = "bold-emphasis"
     COLLECT = "collect"
     COMMENT_RUNT = "comment-runt"
@@ -417,6 +418,7 @@ class Repair(StrEnum):
     CONFIG = "fence-config"
     STYLE = "fence-style"
     WHITESPACE = "trailing-whitespace"
+    BLANK = "blank-run"
     SKIP = "unfixable"
 
 
@@ -784,6 +786,8 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                 fence = None
             n += 1
             continue
+        if not line.strip() and n > skip_until and not raw[n - 1].strip():
+            rows.append(row(path, number, Check.BLANK_RUN, "fail", "consecutive blank lines; keep one"))
         if path.name == "README.md" and CARD_ROW.match(line) and len(line) > cap:
             rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"card row {len(line)} > cap {cap}; demote the tail to the owning page"))
         if not template and ROUTER_CARD.match(line) and len(line) > cap:
@@ -1726,6 +1730,26 @@ def repaired_lines(lines: list[str], skip_until: int) -> tuple[list[str], tuple[
     return out, tuple(changes)
 
 
+def collapsed_blanks(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
+    out: list[str] = []
+    changes: list[Change] = []
+    fence: tuple[str, int, int] | None = None
+    for index, line in enumerate(lines):
+        matched = FENCE.match(line)
+        if fence is None and matched:
+            fence = (matched.group("marker")[0], len(matched.group("marker")), len(matched.group("indent")))
+        elif fence is not None and fence_closes(matched, *fence):
+            fence = None
+        elif fence is None and not line.strip() and out and not out[-1].strip():
+            changes.append(Change(index + 1, Repair.BLANK, "<blank run>", "<one blank>"))
+            continue
+        out.append(line)
+    while out and not out[-1].strip():
+        changes.append(Change(len(out), Repair.BLANK, "<trailing blank>", "<none>"))
+        out.pop()
+    return out, tuple(changes)
+
+
 def hugged_labels(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
     out: list[str] = []
     changes: list[Change] = []
@@ -1908,6 +1932,8 @@ def repaired_text(path: Path, text: str, cap: int) -> tuple[str, tuple[Change, .
         changes.extend(payload_changes)
     lines, hug_changes = hugged_labels(lines)
     changes.extend(hug_changes)
+    lines, blank_changes = collapsed_blanks(lines)
+    changes.extend(blank_changes)
     doc, _ = lex(path, "\n".join(lines), cap)
     for table in reversed(doc.tables):
         target = table

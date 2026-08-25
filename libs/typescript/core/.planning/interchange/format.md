@@ -54,7 +54,7 @@ const _lifted = (
 - Law: every decoded message passes the corpus's own `buf.validate` rules through one `Validator` before it lands, and every encoded message passes them before it leaves; a violation refuses on the `ParseError` rail and a rule that fails to compile refuses as `Forbidden`, never as a silent admission.
 - Law: binary and JSON decode share one admission posture — unknown fields survive under both `_READ` and `_JSON_READ`, recursion bounds at one depth under both, and `_JSON_READ` is passed at every `fromJson` site because the package's own default REFUSES an unknown field.
 - Law: `framing` is a row of the descriptor family — `binary` for every proto-binary crossing, `json` for every ProtoJSON document a host emits — and the landed value is one shape under both, so a consumer never reads which framing carried it.
-- Law: protobuf parity is semantic; only frozen map and unknown-field posture fixtures may claim exact bytes.
+- Law: protobuf parity is semantic — a re-encode reorders map entries and relocates unknown fields, so equality is proved by decoding both sides and comparing the landed values, never by comparing octets.
 - Law: registry-visible generated descriptors enter through `_suite`; a direct owner composes its generated descriptor without registering a second name.
 - Law: `interchange/codec#LANDING_EVIDENCE` is such a direct owner for generated `CrdtOpWire`: `message(CrdtOpWireSchema)` validates the required oneof after the op-log owner extracts slot-seven bytes, while this engine learns no CRDT arm roster.
 - Law: `_suite` keys transcribe declared message names verbatim; a family owning no descriptor source rides a `codec` arm.

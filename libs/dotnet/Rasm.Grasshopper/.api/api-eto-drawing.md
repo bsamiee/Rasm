@@ -2,16 +2,7 @@
 
 `Eto.Drawing` paints every Grasshopper2 canvas painter, wire renderer, icon projector, and tooltip painter. Immediate `Graphics` stream, `GraphicsPath` geometry, the brush/pen family, measured text, and `Bitmap` staging are the branch algebra this boundary composes unchanged; the rows below are the indexed-raster, hex-egress, and font-enumeration carriers the GH2 chrome adds beyond it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` — Grasshopper2 canvas partition
-- package: `Eto` (host-provided cross-platform Eto.Forms UI framework) (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`)
-- namespace: `Eto.Drawing`
-- asset: host-provided — RhinoWIP ships `Eto.dll` under `RhCore.framework/Versions/A/Resources`; no NuGet admission
-- rail: drawing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 - Registers the `Eto.Drawing` paint algebra (`libs/dotnet/.api/api-eto-drawing.md`): `Graphics` with its transform and clip stacks, `GraphicsPath`/`IGraphicsPath`, the brush, pen, and dash family, `Color` and its space projections, `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap`/`BitmapData`/`Image`, and the `Drawable` paint seam carry their algebra there and this boundary draws through that spelling; the rows below are the carriers this partition adds beyond it.
 
@@ -35,7 +26,7 @@
 - `ColorStyles` is `[Flags]` over `None=0`, `ExcludeAlpha=1`, `AlphaLast=4`, `ShortHex=8`, `All=0xD` — it shapes colour-to-hex-string rendering and supplies no colour value, so it is a text-egress policy row and never a chrome-palette source.
 - `FontFamily` enumerates its `FontTypeface` set, so a weight or slant the canvas requests resolves against the installed family rather than a hand-spelled face name.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Region` is the one composite clip: a canvas clipping to a union or difference of areas builds the region and hands it to the branch clip stack, never nesting `SetClip` calls to emulate the composition.
@@ -52,9 +43,3 @@
 [LOCAL_ADMISSION]:
 - Composite clipping enters through `Region`, icon projection through `Icon`/`IconFrame`, and palette staging through `IndexedBitmap`/`Palette`; a hand-rolled clip union, a per-scale icon field, or a manual palette walk is the deleted form.
 - Every paint operation past these carriers runs on the registered branch algebra — a painter never re-derives a `Graphics` command, a path figure, or a colour projection here.
-
-[RAIL_LAW]:
-- Partition: `Eto.Drawing` Grasshopper2 canvas boundary — composite clip, icon projection, indexed raster, hex egress, font enumeration
-- Owns: the carriers the GH2 chrome adds over the registered branch algebra
-- Accept: a composite clip region, a scale-resolved component icon, a palette-indexed sprite, a hex egress policy, an installed-family face lookup
-- Reject: a re-tabling of the branch paint algebra, a hand-rolled clip union or icon scale ladder, a hex round trip standing in for a colour value, widget construction (`api-eto-forms`), and platform-handler selection (`api-eto-platform`)

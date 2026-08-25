@@ -2,16 +2,7 @@
 
 `@electric-sql/pglite` runs single-user PostgreSQL in WebAssembly behind one promise-native connection. `lane/sqlite` owns its embedded profile and neutral `SqlClient` adapter.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@electric-sql/pglite`
-- package: `@electric-sql/pglite` (Apache-2.0)
-- module: ESM + CJS dual; root and `./template`, `./live`, `./worker`, `./nodefs`, `./opfs-ahp`, `./basefs`, `./contrib/*`
-- runtime: browser, Node.js, Bun, and Deno over WebAssembly; IndexedDB in browsers and filesystem persistence in server runtimes
-- plane: one embedded PostgreSQL single-user connection over memory or one supplied filesystem
-- rail: `lane/sqlite` embedded PostgreSQL profile behind the neutral SQL contract
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine, neutral connection contract, execution values, extensions, workers, and filesystems
 
@@ -30,7 +21,7 @@
 |  [11]   | `NodeFS`                               | filesystem    | server-runtime filesystem binding                               |
 |  [12]   | `OpfsAhpFS` / `OpfsAhpOptions`         | filesystem    | browser OPFS access-handle-pool binding                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: acquire, execute, transact, observe, export, and release
 
@@ -53,7 +44,7 @@ Every surface is promise-native; `query` and `sql` return `Results<T>`, `exec` r
 |  [13]   | `new NodeFS(string)`                          | ctor     | server storage through `options.fs`    |
 |  [14]   | `new OpfsAhpFS(string, OpfsAhpOptions?)`      | ctor     | browser OPFS through `options.fs`      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - PGLite exposes one single-user PostgreSQL connection.
@@ -89,9 +80,3 @@ Every surface is promise-native; `query` and `sql` return `Results<T>`, `exec` r
 - Treat memory, IndexedDB, OPFS, and server filesystem as explicit profile rows. No persistence mode silently falls back to memory.
 - Capability evidence refuses pooling, server processes, replication, background workers, PITR, and superuser control.
 - Capability evidence refuses multi-process writes and source streaming.
-
-[RAIL_LAW]:
-- Package: `@electric-sql/pglite`
-- Owns: embedded PostgreSQL, one connection and transaction, extensions, notifications, worker proxy, filesystems, and PGDATA export
-- Accept: generation-qualified ownership, one writer, scoped lifecycle, parameterized SQL, explicit storage, and neutral `SqlClient`
-- Reject: parallel writers, memory fallback, unbounded streams, caller-owned generation, string-built values, and server assumptions

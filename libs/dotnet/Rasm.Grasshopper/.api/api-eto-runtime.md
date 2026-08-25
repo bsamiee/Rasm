@@ -2,16 +2,7 @@
 
 `Eto.Forms` ambient runtime is a process-wide singleton set, so this boundary registers it whole and adds no carrier: one Rhino process holds one application instance and one clipboard, and a GH2-hosted panel composes them alongside the Rhino boundary rather than partitioning them. This partition states how the canvas and panel reach that runtime — the tick that paces canvas animation, the live input read during a drag, the keyed payload a canvas drop carries, and the density a panel places logical geometry against.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` — Grasshopper2 runtime reach
-- package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP) (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`)
-- namespace: `Eto.Forms`
-- asset: host-provided — RhinoWIP ships `Eto.dll` under `RhCore.framework/Versions/A/Resources`; no NuGet admission
-- rail: native UI
-
-## [02]-[BOUNDARY_REACH]
+## [01]-[BOUNDARY_REACH]
 
 - Registers the `Eto.Forms` ambient runtime (`libs/dotnet/.api/api-eto-runtime.md`): `Application` dispatch and lifecycle, `UITimer`, `Keyboard`/`Mouse`/`Cursors` live input, `Clipboard`/`DataObject`/`DataFormats` typed transfer, `Notification`/`TrayIndicator`, and `Screen` density carry their algebra there. Process singleton admits no per-folder partition, so this boundary adds no carrier and states its reach and composition law over the registered surface.
 
@@ -26,7 +17,7 @@
 |  [07]   | logical-to-device placement | `Screen.LogicalPixelSize`, `Screen.Scale`, `Screen.DPI`, `Screen.PrimaryScreen`    |
 |  [08]   | long-run completion notice  | `Notification.Show(TrayIndicator)`, `Application.NotificationActivated`            |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Canvas paces on the registered `UITimer` tick and reads input live inside it: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` answer the ambient state a drag interpolates against, distinct from the per-event snapshots a control raises, so a drag never reconstructs modifier state from a stale event payload.
@@ -45,9 +36,3 @@
 - Cross-thread marshal calls the registered application singleton and a cadence uses the registered tick; a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them is the deleted form.
 - Transfer payloads ride the typed accessors keyed by a `DataFormats` identifier; a stringly-parsed blob past them is the deleted form.
 - Display density reads from `Screen`; a hardcoded scale constant is the deleted form.
-
-[RAIL_LAW]:
-- Partition: `Eto.Forms` ambient runtime, Grasshopper2 boundary reach
-- Owns: the composition law placing canvas cadence, live input reads, keyed drop payloads, and density resolution on the registered singletons
-- Accept: cross-thread marshalling, canvas ticks, input and modifier reads, typed transfer, density resolution
-- Reject: a re-tabling of the registered singleton algebra, a hand-rolled dispatch or timer, a parsed transfer blob past the typed accessors, a hardcoded scale constant, and control construction (`api-eto-forms`) or painting (`api-eto-drawing`)

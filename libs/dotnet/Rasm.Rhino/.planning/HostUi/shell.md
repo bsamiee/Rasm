@@ -39,7 +39,7 @@ Composition is downward: `Op`, `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`
 - Boundary: `HostThread` owns Rhino command-thread affinity while the kernel `UiThread` owns Eto control-tree affinity — two marshals, two seams, one lane roster and one pace band between them.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Globalization;

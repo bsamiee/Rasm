@@ -2,17 +2,7 @@
 
 `Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination rail dials cluster membership by service name through the resolving named `HttpClient` this surface decorates.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.ServiceDiscovery`
-- package: `Microsoft.Extensions.ServiceDiscovery`
-- assembly: `Microsoft.Extensions.ServiceDiscovery`
-- assembly: `Microsoft.Extensions.ServiceDiscovery.Abstractions`
-- namespace: `Microsoft.Extensions.ServiceDiscovery`, `Microsoft.Extensions.ServiceDiscovery.Configuration`, `Microsoft.Extensions.ServiceDiscovery.Http`, `Microsoft.Extensions.ServiceDiscovery.LoadBalancing`, `Microsoft.Extensions.ServiceDiscovery.PassThrough`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
-- rail: discovery
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: abstractions and endpoint family
 
@@ -36,7 +26,7 @@
 |  [03]   | `ConfigurationServiceEndpointProviderOptions` | options             | configuration section binding    |
 |  [04]   | `IServiceDiscoveryHttpMessageHandlerFactory`  | handler factory     | resolving `HttpMessageHandler`   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
 
@@ -73,7 +63,7 @@
 |  [08]   | `ServiceDiscoveryOptions.ApplyAllowedSchemes`              | instance | allowed-scheme intersection        |
 |  [09]   | `IServiceDiscoveryHttpMessageHandlerFactory.CreateHandler` | instance | resolving handler over inner       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `...Abstractions` assembly holds the public consumer contract; the main assembly carries the resolver, providers, and selector.
@@ -98,9 +88,3 @@
 - Providers register explicitly — `AddConfigurationServiceEndpointProvider` for `IConfiguration`-backed cluster rows, `AddPassThroughServiceEndpointProvider` for already-addressable endpoints.
 - Scheme filtering is package policy through `ServiceDiscoveryOptions.AllowedSchemes`, never a call-site URI check.
 - Dialled authorities carry their scheme preference as composition DATA — `Wire/coordination`'s `DialScheme` rows spell the ordered list this query parses — so no projection hard-codes a scheme for an endpoint family that states none.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.ServiceDiscovery`
-- Owns: outbound endpoint resolution and client-side load balancing
-- Accept: service-name queries and registered endpoint providers
-- Reject: hard-coded endpoint strings or hand-rolled instance round-robin

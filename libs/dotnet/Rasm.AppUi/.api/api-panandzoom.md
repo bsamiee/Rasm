@@ -2,17 +2,7 @@
 
 `PanAndZoom` owns the `ZoomBorder` viewport control: the affine `Matrix` and every pan, zoom, rotate, and fit gesture over a single `Child`. `ZoomBorder` is the host frame the `Wgpu`/Skia render surface mounts inside — the control owns the camera transform, the child owns the pixels.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PanAndZoom`
-- package: `PanAndZoom` (MIT)
-- assembly: `PanAndZoom`
-- namespace: `Avalonia.Controls.PanAndZoom`
-- asset: managed library; `lib/net10.0` binds the consumer, `lib/net8.0` fallback
-- depends: `Avalonia` — `ZoomBorder` derives `Border`; surfaces carry `StyledProperty`/`DirectProperty`/`Matrix`/`Point`/`Rect`/`Vector`/`Thickness`/`ICommand`
-- rail: viewport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [VIEWPORT_TYPES]: the control, its state carriers, and matrix algebra
 
@@ -51,7 +41,7 @@
 |  [05]   | `StretchModeChangedEventArgs` | `StretchModeChanged`/`AutoFitApplied`        |
 |  [06]   | `GestureEventArgs`            | `GestureStarted`/`GestureEnded` (touch)      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every surface hangs off `ZoomBorder`. `Zoom`/`ZoomTo`/`ZoomDeltaTo`/`ZoomIn`/`ZoomOut`/`SetMatrix`/`ResetMatrix` and the four sized and bare stretch fits trail `bool skipTransitions = false`; `ZoomToLevel`, `ZoomToRectangle`, `ZoomToRectangleExact`, `CenterOn`, `Pan`/`PanDelta`/`ContinuePanTo`, the rotation methods, the history and saved-view methods, and `ImportState` trail `bool animate = true`. `ZoomToRectangle`'s `Thickness? padding` also defaults null.
 
@@ -180,7 +170,7 @@ The type name collides: the legacy `Avalonia.Controls.PanAndZoom` package publis
 |  [40]   | `ZoomLevelDescription`/`PanPositionDescription`           | accessibility descriptions   |
 |  [41]   | `UseHighContrastMode`                                     | accessibility contrast       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ZoomBorder` wraps one `Child` and applies the affine `Matrix` to it; the render surface is that `Child`, so the control owns the camera and the child owns the pixels.
@@ -197,9 +187,3 @@ The type name collides: the legacy `Avalonia.Controls.PanAndZoom` package publis
 
 [LOCAL_ADMISSION]:
 - Viewport pan, zoom, and rotate intent binds `ZoomBorder` as the render surface's parent; the affine, gestures, history, saved views, and constraint clamps route through its operations, styled properties, and bound `ICommand`s.
-
-[RAIL_LAW]:
-- Package: `PanAndZoom`
-- Owns: the viewport affine, input gestures (mouse/wheel/keyboard/touch), stretch fitting, constraint clamps, discrete-zoom and grid ladders, view history, named saved views, the `ICommand` rail, exportable `ZoomBorderState`, accessibility descriptions, and the zoom indicator.
-- Accept: viewport intent as `ZoomBorder` operations, styled properties, bound `ICommand`s, and `ExportState`/`ImportState` round-trips; coordinate mapping through `ViewportToContent`/`GetContentToScreenMatrix`.
-- Reject: a hand-rolled `MatrixTransform` pan/zoom on the render control; direct mutation of `ZoomX`/`OffsetX`; scraping private transform fields for persistence; a parallel saved-view store.

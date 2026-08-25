@@ -2,16 +2,7 @@
 
 `ProjNET` owns pure-managed .NET coordinate-system resolution and transformation: EPSG/SRID-keyed CRS lookup, WKT/ESRI parsing, geographic-to-projected and datum-to-datum coordinate transformation, and the `MathTransform` numeric pipeline. It carries no native PROJ and no geometry kernel — the managed planar-algebra transform engine feeding the `Semantics/georeference#GEODETIC_TRANSFORM` datum-bridge leg.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ProjNET`
-- package: `ProjNET` (LGPL-2.1-or-later)
-- assembly: `ProjNET`
-- namespace: `ProjNet`, `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`, `ProjNet.CoordinateSystems.Projections`, `ProjNet.IO.CoordinateSystems`, `ProjNet.Geometries`
-- asset: netstandard2.0/2.1 IL-only AnyCPU managed assembly (net10.0 binds `lib/netstandard2.1`); no P/Invoke, no native PROJ, no `runtimes/` payload — the `MathTransform` `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads ride both builds
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system services and factories
 
@@ -46,7 +37,7 @@
 |  [01]   | `CoordinateSystemWktReader` | static class  | `Parse(string) -> IInfo` (cast to `CoordinateSystem`) from OGC WKT |
 |  [02]   | `MathTransformWktReader`    | static class  | `Parse(string) -> MathTransform` from a transform WKT              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a transformation by EPSG/SRID or WKT
 
@@ -81,7 +72,7 @@
 |  [03]   | `MathTransform.DimSource` / `DimTarget`                 | property | source/target ordinate dimensionality                         |
 |  [04]   | `ICoordinateTransformation.MathTransform`               | property | the numeric transform of a built transformation               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Coordinate transformation is pure double-precision managed numeric algebra — no geometry kernel, no topology, no native PROJ. Every batch overload operates on `double` ordinates (`XY` 16 B, `XYZ` 24 B, both `double`-backed); no `Span<float>`/`float[]` overload exists.
@@ -99,9 +90,3 @@
 - CRS resolution enters through `CoordinateSystemServices.GetCoordinateSystem(srid)` or `CoordinateSystemFactory.CreateFromWkt`; transformation construction through `CoordinateSystemServices.CreateTransformation` or `CoordinateTransformationFactory.CreateFromCoordinateSystems`.
 - Coordinate transformation enters through `MathTransform.Transform`; batch through the strided `Span<double>`/`Span<XY>`/`Span<XYZ>` overloads, with `TransformList` the allocating fallback.
 - `CoordinateSystemFactory` and `CoordinateTransformationFactory` stay single shared owners behind a consumer-held cache; a per-call `new` rebuild of either is the rejected form. `CoordinateSystemServices` wraps that pair around a two-code seed, so it serves only a consumer whose SRID set is the seeded one.
-
-[RAIL_LAW]:
-- Package: `ProjNET`
-- Owns: geodetic datum/projection coordinate transformation between EPSG-keyed coordinate systems
-- Accept: CRS resolution, datum-to-datum reprojection, projected/geographic transformation
-- Reject: geometry kernel and topology (`NetTopologySuite` owns the planar algebra), the rigid IFC map-conversion offset (the kernel `Rasm` transform owns it), native PROJ binding and exotic datum-grid/dynamic-datum transforms (`MaxRev.Gdal.Core` OSR is the escalation counterpart)

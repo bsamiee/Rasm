@@ -2,16 +2,7 @@
 
 `CloudNative.CloudEvents.Amqp` is the CNCF `AMQP 1.0` protocol binding — one static `AmqpExtensions` class mapping a `CloudEvent` onto an `AMQPNetLite.Core` `Amqp.Message` and back in structured and binary content modes. Its `AMQP 1.0` message model is disjoint from the `AMQP 0-9-1` `RabbitMQ.Client` surface (`api-rabbitmq`): the two never share a message type. This binding is the AMQP-native half of the CloudEvents egress projection — the same `CloudEvent` the Kafka sink emits crosses an `AMQP 1.0` broker under its native binding with zero envelope fork.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.Amqp`
-- package: `CloudNative.CloudEvents.Amqp` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.Amqp`; namespace `CloudNative.CloudEvents.Amqp`
-- asset: pure-managed, no native asset or RID burden
-- depends: `CloudNative.CloudEvents` (`libs/dotnet/.api/api-cloudevents.md`) and `AMQPNetLite.Core` (`.api/api-amqpnetlite.md` — the `Amqp.Message` carrier and the whole `AMQP 1.0` transport beneath it)
-- rail: sync-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `AMQP 1.0` protocol binding (`CloudNative.CloudEvents.Amqp`)
 
@@ -19,7 +10,7 @@
 | :-----: | :--------------- | :--------------- | :------------------------------------------------------------------- |
 |  [01]   | `AmqpExtensions` | extension static | `CloudEvent` ⇄ `Amqp.Message`; structured + binary encode and decode |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `AmqpExtensions` egress and ingress maps over `Amqp.Message`
 
@@ -32,7 +23,7 @@
 |  [05]   | `message.ToCloudEvent(formatter, IEnumerable<extensions>)`     | static  | ingress; `IEnumerable<CloudEventAttribute>` attrs         |
 |  [06]   | `message.IsCloudEvent()`                                       | static  | predicate; content type or `cloudEvents_specversion`      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace `CloudNative.CloudEvents.Amqp` carries the single `AmqpExtensions` static class; the `Amqp.Message` carrier, its `ApplicationProperties`/`Properties`/`Data` sections, and the `Symbol`/`Map` value types are `AMQPNetLite.Core` (`Amqp`/`Amqp.Framing`/`Amqp.Types`), disjoint from the `AMQP 0-9-1` `IChannel`/`BasicProperties` surface `api-rabbitmq` owns.
@@ -52,9 +43,3 @@
 - Egress composes `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, EventFormat.Json.Formatter)`; extension declarations derive from generated `event.Extensions` descriptors at the producer/consumer projection, never a kernel roster or hand-spelled catalog.
 - `EventFormat` supplies the formatter instance from the branch owner's one row; serializer and document options fix at that construction, never per message and never per transport.
 - `ToAmqpMessageWithUnderscorePrefix` is the admitted egress; `ToAmqpMessage` and `ToAmqpMessageWithColonPrefix` write the JMS-incompatible `cloudEvents:` form.
-
-[RAIL_LAW]:
-- Package: `CloudNative.CloudEvents.Amqp`
-- Owns: the CloudEvents `AMQP 1.0` protocol binding — `CloudEvent` ⇄ `Amqp.Message` for the `amqp` binding row over the `AMQPNetLite.Core` transport
-- Accept: `ToAmqpMessageWithUnderscorePrefix`/`ToCloudEvent` over the owner's `EventFormat` formatter, `ContentMode.Binary`, and the owner's declared roster carrying trace and handling class
-- Reject: colon-prefix egress, the unqualified `ToAmqpMessage` read as an underscore default on its doc's word, a per-message formatter instance, hand-rolled `cloudEvents_` application-property construction over a raw `Amqp.Message`, conflation with the `AMQP 0-9-1` `RabbitMQ.Client` `Deliver` leg, or a per-transport envelope shape parallel to the shared `CloudEvent` projection

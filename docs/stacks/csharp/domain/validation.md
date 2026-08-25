@@ -77,7 +77,7 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
         Include(new KeyedPack());
         RuleFor(edit => edit.Start).GreaterThanOrEqualTo(0).WithErrorCode("<code-start>")
             .WithSeverity((edit, start, context) =>
-                context.RootContextData.TryGetValue("<policy-override>", out var open) && open is true
+                context.RootContextData.TryGetValue("<policy-override>", out object? open) && open is true
                     ? Severity.Warning : Severity.Error)
             .LessThan(edit => edit.End).When(edit => edit.End > 0, ApplyConditionTo.CurrentValidator);
         RuleFor(edit => edit.End).Cascade(CascadeMode.Stop)
@@ -159,7 +159,7 @@ public static class Bridge {
     public static Seq<string> Codes => toSeq(Cases.Keys);
 
     public static Validation<Error, Admitted<TShape>> Project<TShape>(TShape value, IEnumerable<ValidationFailure> outcome) =>
-        toSeq(outcome).Partition(static f => f.Severity is Severity.Error) is var (gating, riding) && gating.IsEmpty
+        toSeq(outcome).Partition(static f => f.Severity is Severity.Error) is (Seq<ValidationFailure> gating, Seq<ValidationFailure> riding) && gating.IsEmpty
             ? new Admitted<TShape>(value, riding.Map(Departing).Strict())
             : Minted(gating);
 
@@ -171,7 +171,7 @@ public static class Bridge {
 
     private static Fault Mint(ValidationFailure failure) => failure switch {
         { CustomState: Fault typed } => typed,
-        { ErrorCode: { } code } when Cases.TryGetValue(code, out var mint) => mint(failure),
+        { ErrorCode: { } code } when Cases.TryGetValue(code, out Func<ValidationFailure, Fault>? mint) => mint(failure),
         _ => new Fault.Foreign(failure.ErrorCode ?? "<uncoded>", failure.PropertyName, failure.ErrorMessage),
     };
 }
@@ -229,14 +229,14 @@ public static class Seam {
 
     public static Validation<Error, MarkValue> Owned(Func<ShapeEdit> decode) =>
         Admit(decode).Bind(static pair =>
-            MarkValue.Validate(pair.Shape.Value.Code, null, out var owned) is { } fault
+            MarkValue.Validate(pair.Shape.Value.Code, null, out MarkValue owned) is { } fault
                 ? (Validation<Error, MarkValue>)fault
                 : owned);
 
     private static Validation<Error, (Admitted<TShape>, AdmissionRecord)> Projected<TShape>(SeamRow row, TShape shape) where TShape : notnull {
-        var context = ValidationContext<object>.CreateWithOptions(shape, strategy => strategy.IncludeRulesNotInRuleSet().IncludeRuleSets([.. row.Variants]));
+        ValidationContext<object> context = ValidationContext<object>.CreateWithOptions(shape, strategy => strategy.IncludeRulesNotInRuleSet().IncludeRuleSets([.. row.Variants]));
         context.RootContextData["<policy-override>"] = row.OverrideOpen;
-        var outcome = row.Owner.Validate(context);
+        ValidationResult outcome = row.Owner.Validate(context);
         return Bridge.Project(shape, outcome.Errors)
             .Map(admitted => (admitted, new AdmissionRecord(row.Name, toSeq(outcome.RuleSetsExecuted), row.OverrideOpen)));
     }
@@ -268,7 +268,7 @@ public static class ClosureProofs {
 
     private static Validation<Error, Unit> RowClosed(SeamRow row, Seq<string> memberExempt) =>
         row.Owner.CreateDescriptor() switch {
-            var graph => (
+            IValidatorDescriptor graph => (
                 Closed($"<variants:{row.Name}>", Gap(
                     toSeq(graph.Rules).Bind(static rule => toSeq(rule.RuleSets)).Distinct(), row.Variants, ["default"])),
                 Closed($"<members:{row.Name}>", Gap(
@@ -323,7 +323,7 @@ public sealed class OptionsGate(OptionsLaw law) : IValidateOptions<OptionsShape>
         Bridge.Project(options, Outcome(name: null, options));
 
     private Seq<ValidationFailure> Outcome(string? name, OptionsShape options) {
-        var context = new ValidationContext<OptionsShape>(options);
+        ValidationContext<OptionsShape> context = new ValidationContext<OptionsShape>(options);
         context.RootContextData["<name>"] = name ?? Options.DefaultName;
         return toSeq(law.Validate(context).Errors);
     }

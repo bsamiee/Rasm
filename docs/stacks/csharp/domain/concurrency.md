@@ -224,7 +224,7 @@ public static class AdmissionGate {
         IO.lift(() => Gate.AttemptAcquire(intent)).Bracket(
             Use: lease => lease.IsAcquired
                 ? work()
-                : IO.fail<A>(lease.TryGetMetadata(MetadataName.RetryAfter, out var after)
+                : IO.fail<A>(lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan after)
                     ? Error.New(7401, $"<shed-after:{after}>")
                     : Error.New(7402, "<shed>")),
             Fin: static lease => IO.lift(fun(lease.Dispose)));
@@ -370,11 +370,11 @@ public static class LaneDrain {
         ArgumentNullException.ThrowIfNull(lane);
         ArgumentNullException.ThrowIfNull(step);
         _ = lane.Writer.TryComplete();
-        using var budget = CancellationTokenSource.CreateLinkedTokenSource(forced);
+        using CancellationTokenSource budget = CancellationTokenSource.CreateLinkedTokenSource(forced);
         budget.CancelAfter(soft);
-        var (consumed, residue) = (0, 0);
+        (int consumed, int residue) = (0, 0);
         try {
-            await foreach (var item in lane.Reader.ReadAllAsync(budget.Token).ConfigureAwait(false)) {
+            await foreach (T item in lane.Reader.ReadAllAsync(budget.Token).ConfigureAwait(false)) {
                 await step(item).ConfigureAwait(false);
                 consumed++;
             }

@@ -4,15 +4,7 @@
 
 Its callback + EventEmitter surface adapts wholly at the seam, so no member reaches domain code; every maintained SSH wrapper is a Promise skin over this root, admitted as the data remote-transfer root while the skins are mined for design.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ssh2`
-- package: `ssh2` (MIT)
-- module: CJS, single root export
-- runtime: node only; `asn1` + `bcrypt-pbkdf` deps, optional `cpu-features`/`nan` accelerate ciphers behind a pure-JS fallback, so no hard native gate
-- rail: data remote-transfer — the SSH root under every remote exec, SFTP transfer, and remote-watch origin
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, events, and connection config
 
@@ -45,7 +37,7 @@ Its callback + EventEmitter surface adapts wholly at the seam, so no member reac
 
 [TRANSFER_OPTS]: `concurrency` `chunkSize` `step(total, nb, fsize)` `mode` `fileSize`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection, channels, and the jump-host chain
 
@@ -71,7 +63,7 @@ No native SFTP resume or watch exists; both are capability-dispatched policy row
 |  [04]   | `exec("inotifywait …" \| "fswatch …")` → `NodeStream.fromDuplex` | watch push — lowest latency; needs a host tool    |
 |  [05]   | `Schedule`-driven `readdir` + `stat` mtime/size diff             | watch poll — universal default; latency = cadence |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Callback and event surface adapts only at the boundary seam: `Effect.acquireRelease` brackets the connection (`ready` resolves, `end()` releases), `NodeStream`/`NodeSink` lift channels and SFTP streams, `Effect.async`/`Stream.asyncPush` carry discrete events, and the channel `exit` code folds into the typed result rail — language-owned callback control lives only here.
@@ -89,9 +81,3 @@ No native SFTP resume or watch exists; both are capability-dispatched policy row
 - Acquire only through the scoped bracket with pooled reuse; a bare `new Client()` with ad-hoc listeners is rejected.
 - Select the transfer engine by policy row: `Command` rsync for resumable/delta, byte primitives for offset resume, `fastGet`/`fastPut` for parallel throughput.
 - Verify host trust through `hostVerifier`/`hostHash`; keys, passphrases, and agent sockets are config-sourced, never literals.
-
-[RAIL_LAW]:
-- Package: `ssh2`
-- Owns: the in-process SSHv2 client — connection lifecycle and auth, `exec`/`shell` channels, the SFTP subsystem (parallel transfer, streams, byte-offset primitives, namespace ops), port forwarding, `sock`-chained jump hosts
-- Accept: `acquireRelease`-bracketed connections resolved on `ready`, `NodeStream`/`NodeSink` channel lifts, `Effect.async` event lifts, policy-row transfer/resume/watch selection, `sock` as the only duplex injection
-- Reject: Promise-wrapper packages (`node-ssh`, `ssh2-sftp-client`, `ssh2-promise`, `node-scp`), `Socket` as the ssh2 seam, raw EventEmitter consumption in domain code, in-process rsync-delta reimplementation, SCP-subsystem packages duplicating exec + SFTP

@@ -2,17 +2,7 @@
 
 `pgrouting` owns in-database network routing over PostGIS: every `pgr_*` function takes its graph as a `text` inner query and returns paths, costs, spanning trees, tours, flows, or components as SQL rows. It ships no managed assembly — a `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row installs it and the `Query/cypher#GRAPH_QUERY` cases drive it through raw `Npgsql` — so a shortest-path, catchment, or connectivity query folds inside the PostGIS residence over H3-cell node ids while `Query/topology` keeps the authoritative in-process graph.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pgrouting`
-- package: `pgrouting` (GPL-2.0-or-later)
-- namespace: SQL `public` — the `pgr_*` set-returning functions and the inner-query row contracts they consume
-- depends: `requires = 'plpgsql,postgis'`, pulled in one DDL step by the row's `CREATE EXTENSION IF NOT EXISTS "pgrouting" CASCADE`
-- registration: `relocatable = true` function extension whose C functions load lazily per call, registering no background worker, planner hook, or index access method, so `Store/provisioning#SERVER_EXTENSIONS` gates the row as `ExtensionAdmission.BaseType("postgis")`
-- consumed by: `Query/cypher#GRAPH_QUERY` — the `GraphQuery` cases (`Path`/`Via`/`Located`/`Kth`/`Spread`/`Tour`/`TourPlanar`/`Flow`/`Cleave`) selected by the `RouteMode`/`FlowKind`/`CleaveKind` policy rows, over the `Element/identity#ELEMENT_IDENTITY` `NodeCell` cell ids the `network_edge` `source`/`target` carries
-- rail: routing-provisioning, graph-lane
-
-## [02]-[INNER_QUERIES]
+## [01]-[INNER_QUERIES]
 
 [PUBLIC_TYPE_SCOPE]: each call defines its graph by a `text` inner query bound as one `Npgsql` parameter. Identifier columns are `ANY-INTEGER` (`SMALLINT`/`INTEGER`/`BIGINT`), weight and coordinate columns `ANY-NUMERICAL` (adding `REAL`/`FLOAT`). `reverse_cost` and `reverse_capacity` default `-1`, and a negative weight means that directed edge is absent from the graph.
 
@@ -28,7 +18,7 @@
 |  [08]   | `Restrictions SQL`   | restriction set | `path` `cost` — forbidden edge sequences for the TRSP family |
 |  [09]   | `Vertex SQL`         | vertex set      | `id` `in_edges` `out_edges` — a prebuilt vertices table      |
 
-## [03]-[SHORTEST_PATH]
+## [02]-[SHORTEST_PATH]
 
 [ENTRYPOINT_SCOPE]: every path member ships five overloads — one-to-one, one-to-many, many-to-one, many-to-many, and a `Combinations SQL` — over the base call `f(Edges SQL, start vid(s), end vid(s))` closing on named options, `directed` defaulting `true`; `[SURFACE]` carries only what a member takes beyond that base. A* members read an `xy Edges SQL` under named `heuristic`/`factor`/`epsilon`, withPoints members insert a `Points SQL` argument beside a positional unnamed driving side, and TRSP members insert a `Restrictions SQL` argument.
 
@@ -76,7 +66,7 @@
 - TOUR: `(seq, node, cost, agg_cost)`.
 - FLOW: `(seq, edge, start_vid, end_vid, flow, residual_capacity)`.
 
-## [04]-[SPREAD_TOUR_FLOW]
+## [03]-[SPREAD_TOUR_FLOW]
 
 [ENTRYPOINT_SCOPE]: catchment members bound a Dijkstra or spanning-tree walk by distance or depth, taking a single root vid or a vids array under `equicost`, which lands each node in its nearest root's tree alone. Tour members approximate a metric tour over an undirected graph and ignore negative matrix costs. Flow members read a `capacity Edges SQL` on a graph directed by construction, so `(source vid(s), sink vid(s))` or a `Combinations SQL` is their whole variance.
 
@@ -102,7 +92,7 @@
 
 - `pgr_TSP`: takes the symmetric, fully-connected, triangle-obeying matrix the metric bound assumes, built by a `*CostMatrix` under `directed => false`.
 
-## [05]-[GRAPH_ANALYSIS]
+## [04]-[GRAPH_ANALYSIS]
 
 [ENTRYPOINT_SCOPE]: connectivity, contraction, and degree members read a bare `Edges SQL`; the geometry utilities read an `id`/`geom` linework query instead. Each utility exposes `dryrun` to emit its generated SQL as a `NOTICE`, so an application refines the query in place rather than reimplementing it.
 
@@ -127,7 +117,7 @@
 - CLOSE_EDGE: `(edge_id, fraction, side, distance, geom, edge)` — the `Points SQL` shape `pgr_withPoints` consumes.
 - SEGMENT: `(seq, id, sub_id, geom)`.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Edge sign is the graph definition: a negative `cost` or `reverse_cost` removes that directed edge, so a one-way edge is a positive `cost` beside a negative `reverse_cost`, and the `directed` option reinterprets one Edges SQL as directed or undirected — one edge projection serves both readings.
@@ -143,9 +133,3 @@
 
 [LOCAL_ADMISSION]:
 - Routing enters through the PostgreSQL store profile alone: one `ServerExtension` row keyed `pgrouting` under `ExtensionAdmission.BaseType("postgis")`, over an Edges SQL built on the `network_edge` projection whose `source`/`target` are `NodeCell` cell ids.
-
-[RAIL_LAW]:
-- Package: `pgrouting` (GPL-2.0-or-later)
-- Owns: in-PG network routing over PostGIS — the shortest-path, cost, cost-matrix, catchment, spanning-tree, K-shortest-path, turn-restricted, point-anchored, tour, flow, component, contraction, and vertex-derivation functions over the inner-query contracts
-- Accept: the `ServerExtension` CASCADE install over the `postgis` base type, the negative-means-absent edge contract, the five-overload path families and their `*Cost`/`*CostMatrix` siblings read through `FromSql`/`SqlQuery`, `pgr_extractVertices` for vertex derivation, `pgr_findCloseEdges` feeding a `Points SQL`, `pgr_TSP` over a `*CostMatrix`-built Matrix SQL
-- Reject: linking the extension into managed code, an EF-translated `pgr_*` member, a positive `reverse_cost` standing for a missing reverse edge, a runtime-concatenated Edges SQL string, a managed graph engine re-solving the metric routes this router owns

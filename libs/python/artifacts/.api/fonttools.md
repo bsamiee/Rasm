@@ -2,16 +2,7 @@
 
 `fontTools` owns the OpenType/TrueType binary-font model for the artifacts font rail: font IO, the pen outline algebra, variable-font compile and instancing, glyph/feature/table subsetting with WOFF re-flavoring, OpenType Layout feature compilation, from-scratch synthesis, multi-font merge, and cubic-quadratic outline conversion, all through one `TTFont` container. HarfBuzz owns itemisation and layout and `blackrenderer` owns COLRv1 rasterization; this surface never re-parses sfnt tables, hand-prunes glyph entries, or hand-codes the script-to-OT-tag map.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `fontTools`
-- package: `fonttools` (MIT)
-- module: `fontTools`
-- owner: `artifacts`
-- rail: fonts
-- entry points: `fonttools`/`ttx`/`pyftsubset`/`pyftmerge` console scripts; import-only as a library
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: binary font container
 
@@ -65,7 +56,7 @@ Pens are the outline read/write algebra: `getGlyphSet()[name].draw(pen)` replays
 
 - `Options` keys: `layout_features` `name_IDs` `hinting` `flavor` `retain_gids` `glyph_names` `desubroutinize` `drop_tables` `harfbuzz_repacker` `with_zopfli`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: font container IO and glyph access
 
@@ -111,7 +102,7 @@ Pens are the outline read/write algebra: `getGlyphSet()[name].draw(pen)` replays
 |  [06]   | `cu2qu`/`qu2cu` convert                | convert cubic⇄quadratic per-curve or whole-font for CFF↔glyf moves        |
 |  [07]   | `unicodedata` script/OT-tag            | resolve script/block and map OpenType script tags bidirectionally         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op folds through one `TTFont` container; `font[tag]` returns a parsed table object and `lazy=True` defers decompilation to first access.
@@ -127,9 +118,3 @@ Pens are the outline read/write algebra: `getGlyphSet()[name].draw(pen)` replays
 [LOCAL_ADMISSION]:
 - Outlines read through `getGlyphSet()[name].draw(pen)` and write through `TTGlyphPen`/`T2CharStringPen`; raw `glyf`/`CFF` coordinate mutation is boundary-only where no pen adapter fits.
 - Subsetting runs `Subsetter(Options(...))` → `populate(unicodes=…|text=…)` → `subset(font)` → `save`, instancing first when the font is also pinned.
-
-[RAIL_LAW]:
-- Package: `fonttools`
-- Owns: OpenType/TrueType binary font IO, the glyph-outline pen algebra, variable-font compilation and instancing, glyph/feature/table subsetting with WOFF re-flavoring, OpenType Layout feature compilation, from-scratch synthesis, multi-font merge, cubic-quadratic conversion, and Unicode script/OT-tag resolution
-- Accept: `TTFont` for binary work; pen subclasses for outline read/write; `varLib.build`/`instantiateVariableFont` for variable fonts; `Subsetter`+`Options` for pruning; `FontBuilder` for synthesis; `feaLib` for features
-- Reject: hand-parsed sfnt tables; raw outline coordinates where a `FilterPen` subclass fits; a `TTFont.newTable` method call where the `ttLib.newTable` module function allocates; a `setupSTAT` call where the method is `setupStat`; hand-built COLR/CPAL where `colorLib.builder` operates; a hand-coded script-to-OT-tag map where `unicodedata` resolves it

@@ -2,17 +2,7 @@
 
 `Npgsql` owns the PostgreSQL transport every store profile rides — the pooled data source through binary COPY and logical-replication streams — and the advisory-lock and LISTEN/NOTIFY coordination primitives it composes as SQL. Store-profile algebra folds this transport, never a second provider service family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql`
-- package: `Npgsql`
-- assembly: `Npgsql`
-- namespace: `Npgsql`, `NpgsqlTypes`, `Npgsql.PostgresTypes`, `Npgsql.NameTranslation`, `Npgsql.TypeMapping`, `Npgsql.Replication`, `Npgsql.Replication.PgOutput`, `Npgsql.Replication.PgOutput.Messages`
-- target: `net10.0`
-- asset: runtime library
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CONNECTION_TYPES]: data source and command surfaces
 
@@ -111,7 +101,7 @@
 - `ReplicationTuple` (`IAsyncEnumerable<ReplicationValue>`, `NumColumns`) rides `InsertMessage.NewRow`, `UpdateMessage.NewRow`, `FullUpdateMessage.OldRow`, `KeyDeleteMessage.Key`, `FullDeleteMessage.OldRow`.
 - `ReplicationSystemIdentification`: `SystemId` `Timeline` `XLogPos` `DbName` from `IdentifySystem`; `TimelineHistoryFile`: `FileName` `Content` from `TimelineHistory(uint, ct)`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: data source builder configuration
 
@@ -224,7 +214,7 @@ PostgreSQL advisory locks carry no typed member — server functions composed as
 |  [06]   | `TimelineHistory(uint tli, ct)`               | replication call | returns the `TimelineHistoryFile` for a timeline                |
 |  [07]   | `await foreach (ReplicationValue v in tuple)` | tuple read       | streams column values; `v.Kind`/`v.Get<T>(ct)`, `TupleDataKind` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - PostgreSQL enters as one store profile behind the unified store-profile algebra: `NpgsqlDataSource` is the pooled root (`NpgsqlDataSource.Create` or `NpgsqlDataSourceBuilder.Build`), `NpgsqlConnection` the connection root, commands/batches/parameters/readers the query root, the type mapper and name translator the type root, `NpgsqlTracingOptionsBuilder` via `ConfigureTracing` the tracing root.
@@ -241,9 +231,3 @@ PostgreSQL advisory locks carry no typed member — server functions composed as
 - `MaxAutoPrepare`/`AutoPrepareMinUsages` size the LRU prepare budget, explicit `Prepare()` eviction-exempt; `NoResetOnClose` disqualifies once a `UsePhysicalConnectionInitializer` establishes session state.
 - `NpgsqlTracingOptionsBuilder` filters (`ConfigureCopyOperationFilter`, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing`) are profile-level tracing policy, never per-call-site.
 - `Npgsql.Replication`/`Npgsql.Replication.PgOutput` is recorded-unconsumed: Marten's async daemon over the event stream owns the changefeed, and logical replication admits only when a raw-WAL CDC consumer lands beside the daemon.
-
-[RAIL_LAW]:
-- Package: `Npgsql`
-- Owns: PostgreSQL transport — data source/connection/command/batch/COPY, the advisory-lock and LISTEN/NOTIFY primitives as composed SQL, and the recorded-unconsumed logical-replication surface
-- Accept: the PostgreSQL store profile, advisory locks and LISTEN/NOTIFY composed through `NpgsqlCommand`/`NpgsqlBatch` for the coordination and egress owners
-- Reject: provider-specific public service families, a distributed-lock sidecar beside the advisory-lock primitive, treating LISTEN/NOTIFY as an at-least-once cursor, and composing `Npgsql.Replication` before a raw-WAL CDC consumer is admitted

@@ -2,16 +2,7 @@
 
 `prosemirror-history` owns undo: the `history(config)` plugin folds every transaction's steps into rope-backed undo and redo branches, groups adjacent changes by time and adjacency, and rebases its branches over remote steps so undo never reverts another client's work. `undo`/`redo` are plain `Command` values a keymap binds, and the depth readers drive control enablement.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-history`
-- package: `prosemirror-history` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure state folding; the branch store is an immutable rope, so a deep history costs no copy per edit
-- depends: `prosemirror-state`, `prosemirror-transform`, `prosemirror-view` for types, and `rope-sequence` for the branch store
-- rail: `view/content` — the undo plane over the transaction stream
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one configuration interface; the plugin's own field stays private and is reached through the depth readers.
 
@@ -22,7 +13,7 @@
 - `depth` defaults to 100 events, discarding the oldest beyond it; `newGroupDelay` defaults to 500 milliseconds.
 - `HistoryOptions` is declared but not exported; annotate the config structurally or inline it at the `history(...)` call.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the plugin, the commands, and the readers.
 
@@ -39,7 +30,7 @@
 - `closeHistory` returns the same transaction for chaining, marking a boundary rather than clearing the stacks.
 - `isHistoryTransaction` is what a fold uses to skip re-deriving a fact from a replayed change.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `history()` keeps one plugin state field over the transaction stream: each transaction's steps append to the undo branch with their inverted forms, and `undo` pops one event, applies the inversions, and pushes the result onto the redo branch. Nothing outside the field stores history, so a state clone carries its own.
@@ -64,9 +55,3 @@
 - Mark a programmatic or derived edit with `tr.setMeta("addToHistory", false)`, and seal a boundary with `closeHistory(tr)` where an edit must be separately undoable.
 - Read `undoDepth`/`redoDepth` for control enablement rather than tracking counts alongside.
 - Bind the verbs through a `keymap` plugin at the precedence the document class requires.
-
-[RAIL_LAW]:
-- Package: `prosemirror-history`
-- Owns: the undo plane — the `history({depth, newGroupDelay})` plugin folding steps into rope-backed undo and redo branches with time-and-adjacency grouping and collaborative rebasing; the `undo`/`redo` and `undoNoScroll`/`redoNoScroll` command values; the `undoDepth`/`redoDepth` readers; the `closeHistory(tr)` boundary; and the `isHistoryTransaction(tr)` provenance test
-- Accept: one plugin instance per editor with declared retention, verbs bound through `keymap`, `addToHistory: false` metadata on derived and remote edits, `closeHistory` for a deliberate boundary, depth readers behind control enablement, and `isHistoryTransaction` as the guard on any fold derived from editor changes
-- Reject: a snapshot stack or document-copy history beside the plugin, a second `history()` instance in one plugin roster, a programmatic edit landing in the user's undo unmarked, a hand-tracked undo counter where the depth readers answer, and an undo path that reverts a remote client's change

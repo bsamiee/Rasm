@@ -2,17 +2,7 @@
 
 `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` maps NodaTime CLR values onto PostgreSQL temporal, range, and multirange store types for the EF Core Npgsql provider, and translates NodaTime method, member, and aggregate calls to SQL that never client-evaluates. Every value enters through one `UseNodaTime()` call on the provider options builder, feeding the store-provider rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` (`PostgreSQL` license)
-- assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- namespace: `Microsoft.EntityFrameworkCore` public extensions; mappings, translators, and plugins under `Npgsql.EntityFrameworkCore.PostgreSQL.*.Internal`
-- depends: `Npgsql.EntityFrameworkCore.PostgreSQL` base provider; ADO codecs via transitive `Npgsql.NodaTime`
-- asset: runtime library
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PLUGIN_TYPES]: plugin admission and services
 
@@ -59,7 +49,7 @@
 |  [06]   | `NpgsqlNodaTimeAggregateMethodTranslator`           | translates NodaTime aggregates    |
 |  [07]   | `NpgsqlNodaTimeEvaluatableExpressionFilterPlugin`   | pins NodaTime calls into SQL      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin admission
 
@@ -89,7 +79,7 @@ Every projection is a `public static` `DbFunctions` extension legal only inside 
 |  [13]   | `RangeIntersectAgg(IEnumerable<Interval[]>)`     | intersects multirange `Interval[]` sequence to `Interval[]`         |
 |  [14]   | `RangeIntersectAgg(IEnumerable<DateInterval[]>)` | intersects multirange `DateInterval[]` sequence to `DateInterval[]` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - NodaTime mapping is temporal store policy on the PostgreSQL provider profile; a value enters through `UseNodaTime()` and lands as the store type its mapping owns.
@@ -104,9 +94,3 @@ Every projection is a `public static` `DbFunctions` extension legal only inside 
 - NodaTime mapping enters only through the PostgreSQL store-profile declaration; persisted time semantics carry NodaTime types.
 - Mapping, translator, scaffolding, and options types are internal EF service registrations; the consumer surface is `UseNodaTime`, `AddEntityFrameworkNpgsqlNodaTime`, and the `DbFunctions` projections.
 - `Distance` returns `int` for all four overloads — the PostgreSQL `<->` operator difference, never a `Duration` or `TimeSpan`.
-
-[RAIL_LAW]:
-- Package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- Owns: NodaTime mapping and translation for the PostgreSQL EF provider
-- Accept: profile-declared NodaTime mapping
-- Reject: BCL time semantics in PostgreSQL store contracts

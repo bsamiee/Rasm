@@ -18,7 +18,7 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 - Boundary: no production tensor runtime; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner; scipy 2-D sparse-matrix construction stays on `solvers/linear`; the mutate/copy fork (`is_writeable_array` gating `xpx.at`) belongs to transforming consumers of the same resolved `xp`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Final, Literal, Protocol, Self, assert_never
 

@@ -2,15 +2,7 @@
 
 `apache-arrow` owns the columnar container and type system every engine seam meets, exchanged as a `Table` in memory and an IPC frame on the wire; the viewer's GeoArrow plane binds a geometry `Vector`'s typed arrays straight to the GPU. `ui` carries the viewer-tier type-system and builder depth; `data` owns the OLAP/IPC seam.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `apache-arrow`
-- package: `apache-arrow` (Apache-2.0)
-- module: `exports["."]` condition-selects `Arrow.dom` (browser `import`, WHATWG streams), `Arrow.node` (node streams), or the base barrel; `./*` exposes per-concern subpath imports; `sideEffects: false`
-- runtime: browser binds `Arrow.dom` with `ReadableStream`/`Blob`; data lanes bind the node/wasm peers; no peer dependency
-- rail: columnar interchange every engine seam and viewer layer meets
-
-## [02]-[COLUMNAR_CORE]
+## [01]-[COLUMNAR_CORE]
 
 Four nested shapes carry the container hierarchy: `Table` batches columns over a `Schema`, `RecordBatch` holds one aligned column set, `Vector` one logical column, `Data` the raw buffer tuple. Factory functions build every container, so buffer layout stays an implementation detail, and `Vector.toArray()` escapes zero-copy to the backing `TypedArray` the GPU binds.
 
@@ -36,7 +28,7 @@ Four nested shapes carry the container hierarchy: `Table` batches columns over a
 |  [05]   | `isArrowSchema` / `isArrowField` / `isArrowDataType`                    | static   | schema-node and `DataType` narrowing               |
 |  [06]   | `Table.batches -> RecordBatch[]`                                        | property | zero-copy batch list at the per-batch render grain |
 
-## [03]-[TYPE_SYSTEM]
+## [02]-[TYPE_SYSTEM]
 
 One `Type` enum discriminates one `DataType` ADT, dispatched by one `Visitor`: every per-type behavior — value get/set, comparison, builder, IPC buffer load — is a `visit<Type>` arm, so the leaf rosters below seed a generated family, never the mechanism. Extending the type algebra adds one `DataType` subclass, one `Type` member, and one visit arm; consumer code branches on `type.typeId` or lets the visitor route.
 
@@ -61,7 +53,7 @@ One `Type` enum discriminates one `DataType` ADT, dispatched by one `Visitor`: e
 |  [03]   | `makeBuilder(BuilderOptions) -> Builder`                 | factory  | construct the per-`DataType` builder |
 |  [04]   | `builderThroughIterable` / `builderThroughAsyncIterable` | factory  | stream values through a `Builder`    |
 
-## [04]-[IPC_AND_STREAM]
+## [03]-[IPC_AND_STREAM]
 
 `tableFromIPC` decodes an Arrow IPC frame into a `Table`, `tableToIPC` serializes one back, and `RecordBatchReader.from` streams incremental batches. Every reader overloads on source shape — bytes decode synchronously, a `ReadableStream`, `Promise`, or `fetch` `Response` decode asynchronously — so one call covers a `Uint8Array` frame and a streamed body. Compression is a `compressionRegistry` row keyed by `CompressionType`, never a fork.
 
@@ -82,7 +74,7 @@ One `Type` enum discriminates one `DataType` ADT, dispatched by one `Visitor`: e
 |  [02]   | `tableToIPC(table, type?, compression?) -> Uint8Array` | static  | file/stream encode, optionally compressed |
 |  [03]   | `RecordBatchReader.from(source)`                       | factory | open the reader, sync or async by source  |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Arrow carries every analytical result crossing an engine seam — a `Table` in memory, an IPC frame on the wire; JSON or row re-encoding between engines is the named defect.
@@ -94,9 +86,3 @@ One `Type` enum discriminates one `DataType` ADT, dispatched by one `Visitor`: e
 - `turf-turf`(`.api/turf-turf.md`): consumes GeoJSON, so query-scale planar ops materialize the selected coordinate `Vector` at that seam and leave bulk columnar transport on Arrow.
 - `wire`: owns the WKB-to-GeoArrow projection; `tableFromIPC` decodes the viewer-bound frame after, so columnar decode stays here and WKB projection stays in `wire`.
 - `BrowserWorker`: off-thread decode pools carry heavy `tableFromIPC` frames off the render thread, wrapping malformed-frame throws in the typed `Effect` failure channel before layer binding.
-
-[RAIL_LAW]:
-- Package: `apache-arrow`
-- Owns: the columnar containers (`Table`/`RecordBatch`/`Vector`/`Data`/`Schema`/`Field`), the `Type`-discriminated `DataType` ADT with `Visitor` dispatch, the `Builder` family, the `isArrow*` guards, and the IPC codec pair (`tableFromIPC`/`tableToIPC`) with its readers, writers, and `compressionRegistry`
-- Accept: `tableFromIPC`/`tableToIPC` at engine and viewer seams; a `RecordBatch` handed zero-copy to a `GeoArrow*Layer`; `makeBuilder`/`vectorFromArray` for column construction; `Visitor`/`Type` dispatch for per-type behavior; off-thread decode on the `BrowserWorker` pool wrapped in `Effect`
-- Reject: materializing an Arrow column to JS rows before a GeoArrow layer; per-engine result shapes; row-materialized inter-engine transfer; a second columnar vocabulary; a parallel type hierarchy where a `DataType` row and a visit arm suffice; the `arrow2csv` CLI bin as a library surface; WKB decode in `viewer`

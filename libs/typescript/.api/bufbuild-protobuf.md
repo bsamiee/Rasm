@@ -2,15 +2,7 @@
 
 `@bufbuild/protobuf` owns the schema-first proto runtime under every corpus-family decode — binary, ProtoJSON, and the size-delimited stream frame — and the descriptor registry `Any` unpacking, Connect details, and protovalidate resolve through. Messages are plain data branded by `$typeName`; every operation takes the descriptor first, and `create(schema, init?)` is the sole constructor.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@bufbuild/protobuf`
-- package: `@bufbuild/protobuf` (Apache-2.0 AND BSD-3-Clause)
-- module: `.` codec + descriptors, `./codegenv1`/`./codegenv2` generated-code boot, `./reflect` dynamic accessor, `./wkt` well-known types, `./wire` low-level primitives, `./txtpb` text-format codec; `type: module`, ESM + CJS dual, `sideEffects: false`
-- runtime: universal — Node, browser, Bun, worker; no DOM, no peer, zero deps
-- rail: proto codec + descriptor reflection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message model + descriptor family — the schema-first core every op discriminates on
 - `Message` is data (`$typeName` brand), `Desc*` the schema; `MessageShape<Desc>`/`MessageInitShape<Desc>` are the derived runtime and init types a `codec/*` page types decoded values by, never a re-declared interface.
@@ -94,7 +86,7 @@
 |  [09]   | `FieldError`           | reflect error    | `isFieldError` guard; raised by a reflect write the descriptor refuses              |
 |  [10]   | `SupportedEdition`     | edition bound    | `minimumEdition`/`maximumEdition` — the editions this runtime boots a descriptor at |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: message lifecycle — construct, copy, compare, all schema-first
 
@@ -144,7 +136,7 @@
 |  [02]   | `fromJsonString<Desc>(schema, string, options?)`        | static  | text ingress from a JSON string                       |
 |  [03]   | `mergeFromJson`                                         | static  | fold JSON into an existing message                    |
 |  [04]   | `mergeFromJsonString`                                   | static  | fold a JSON string into a message                     |
-|  [05]   | `toJson<Desc>(schema, message, options?): JsonValue`    | static  | diagnostic projection; snapshot fixtures              |
+|  [05]   | `toJson<Desc>(schema, message, options?): JsonValue`    | static  | diagnostic projection; text egress                    |
 |  [06]   | `toJsonString<Desc>(schema, message, options?): string` | static  | readable dump; `prettySpaces`                         |
 |  [07]   | `enumToJson<Desc>(descEnum, value)`                     | static  | enum number→name crossing                             |
 |  [08]   | `enumFromJson<Desc>(descEnum, json)`                    | static  | enum name→number crossing                             |
@@ -221,7 +213,7 @@
 |  [08]   | `tsEnum(desc)`                      | static  | materialize a TS `enum` object                          |
 |  [09]   | `objEnum(desc)`                     | static  | materialize an erasable `as const` enum (no TS `enum`)  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every operation reads `(schema, value, options?)` — descriptor first, the message plain data carrying only `$typeName`, and `create(schema, init?)` the sole constructor. Each `codec/*` page imports the `GenMessage` from generated `_pb.ts`, `fromBinary(Schema, bytes)` infers `MessageShape<Schema>` with no annotation, and a decoded value discriminates by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
@@ -242,9 +234,3 @@
 - Import the generated `GenMessage` schema and call the schema-first codec (`fromBinary`/`toBinary`/`create`); cross a decoded proto into `kernel` vocabulary through `Schema.decode` at the page boundary, never hand-authoring a shape or reusing a decoded proto as a domain model.
 - Every branch decode imports its generated schema directly; `reflect` has no branch consumer.
 - 64-bit fields are `bigint` on the decode path and need no `protoInt64` read; `Timestamp`/`Duration` cross through `timestampMs`/`durationMs` typed against `TimestampSchema`/`DurationSchema`; `Any` unpacks only against `interchange/format`'s one registry; `_READ` and `_JSON_READ` are passed at EVERY read because the JSON default refuses unknown fields.
-
-[RAIL_LAW]:
-- Package: `@bufbuild/protobuf`
-- Owns: the schema-first proto runtime (`create`/`clone`/`merge`/`equals`/`isMessage`), the binary + JSON + text codec including size-delimited streaming under `readMaxBytes`, the descriptor-reflection engine (`createFileRegistry`/`reflect`/`buildPath`), extensions and options, the well-known types (`Any`/`Timestamp`/`Duration`/`Struct`), and the low-level `./wire` primitives (`BinaryReader`/`BinaryWriter`/`WireType`/base64)
-- Accept: generated `GenMessage` schemas from `@bufbuild/protoc-gen-es`, a conforming `FileDescriptorSet` decoded through `FileDescriptorSetSchema`, `protoInt64` for 64-bit fields, a `Registry` for `Any`/extension resolution, `Effect.try`/`Stream` for the error and streaming rails, `Schema.decode` as the domain boundary above the wire shape
-- Reject: `new`-ing a message or calling a method on it, a hand-authored proto shape, a decoded proto reused as a domain model, `Number`-coercing a 64-bit field, treating general `toBinary` output as canonical, reflection where a generated schema exists, and reaching for a sibling codec on a proto family

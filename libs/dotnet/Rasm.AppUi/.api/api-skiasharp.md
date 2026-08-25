@@ -2,16 +2,7 @@
 
 `SkiaSharp` owns the AppUi raster and 2D-vector drawing kernel: every render, capture, drafting, and evidence surface draws through a Skia canvas onto raster or GPU memory, and `SkiaSharp` holds pixel ownership and the `SKObject` native-lifecycle discipline where each managed binding is a P/Invoke shim over unmanaged pixels the `libSkiaSharp` payload backs. One paint and one canvas compose the whole shader, filter, runtime-SkSL, picture-recording, and paged-document pipeline, feeding the visuals rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SkiaSharp`
-- package: `SkiaSharp` (MIT)
-- assembly: `SkiaSharp` (bound `lib/net10.0/SkiaSharp.dll`; managed P/Invoke binding, multi-targeted package)
-- namespace: `SkiaSharp`
-- runtime: managed shim over the per-platform `libSkiaSharp` native payload from `SkiaSharp.NativeAssets.*` (`api-skia-native.md`); pixels live in unmanaged memory
-- rail: visuals
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DRAWING_TYPES]: canvas, paint, path, and geometry value owners
 
@@ -154,7 +145,7 @@
 |  [09]   | `GRD3DBackendContext`   | Direct3D 12 device/queue backend                      |
 |  [10]   | `GRSurfaceOrigin`       | top-left/bottom-left framebuffer origin               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CANVAS_ENTRYPOINTS]: draw, layer, clip, and transform
 - root: `SKCanvas`
@@ -464,7 +455,7 @@
 |  [08]   | `PurgeResources` / `ResetContext` | `GRContext`     | purges cache/recovers a lost context                           |
 |  [09]   | `Dispose`                         | `SKObject`      | releases surface/image/codec/context/stream state              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every render, capture, drafting, and evidence op draws through an `SKCanvas` — leased from the Avalonia backend on the live path, allocated from a raster or GPU `SKSurface` off it.
@@ -491,9 +482,3 @@
 
 [LOCAL_ADMISSION]:
 - Every custom visual draws through the leased `SKCanvas`, composes every effect onto one `SKPaint`, and emits deterministic `SKImage`/`SKData` bytes as its visual evidence; color-managed capture retags through `SKImageInfo.WithColorSpace` so evidence reproduces across host color defaults.
-
-[RAIL_LAW]:
-- Package: `SkiaSharp`
-- Owns: raster and 2D-vector drawing, offscreen and GPU surfaces, animated codecs, picture recording, paged-document export, color-managed spaces, the shader/filter/effect/runtime-SkSL pipeline, and the GPU backend contexts
-- Accept: custom visuals draw through a leased `SKCanvas`; effects compose onto one `SKPaint`; text shapes through HarfBuzz; capture emits deterministic `SKImage`/`SKData` evidence
-- Reject: GDI public vocabulary; a parallel render backend bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; a per-draw resample knob where `SKSamplingOptions` owns filter/mipmap/cubic selection

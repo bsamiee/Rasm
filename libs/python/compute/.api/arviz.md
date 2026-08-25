@@ -2,16 +2,7 @@
 
 `arviz` owns backend-agnostic Bayesian posterior analysis for the compute Bayesian-study rail: MCMC convergence diagnostics, the PSIS-LOO model-comparison family, prior/likelihood sensitivity, predictive divergence and metrics, credible intervals, and posterior visualization over an `xarray.DataTree`. It reads a posterior `DataTree` emitted by any sampler backend and never re-implements a diagnostic the package owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `arviz`
-- package: `arviz` (Apache-2.0)
-- import: `arviz` (alias `az`)
-- owner: `compute`
-- rail: Bayesian-study
-- capability: `xarray.DataTree` I/O and converters, MCMC convergence diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence and metrics, survival curves, HDI/ETI/ROPE intervals, the chained `.azstats` accessor, the validated `rcParams`/`rc_context` registry, and the `plot_*` visualization surface
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result and container types
 
@@ -83,7 +74,7 @@
 - [09]-[DICT_TO_DATASET]: `dict_to_dataset(data, *, attrs, inference_library, coords, dims, sample_dims, index_origin, skip_event_dims=False, check_conventions=True)`
 - [10]-[EXTRACT]: `extract(data, group='posterior', sample_dims, *, combined=True, var_names, filter_vars, num_samples, weights, resampling_method, keep_dataset=False, random_seed)`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: MCMC diagnostics (`arviz_stats`)
 - carry: each shares `(data, sample_dims, group, var_names, filter_vars, chain_axis=0, draw_axis=1)` and accepts a `DataTree` or a raw ndarray via `chain_axis=`/`draw_axis=`; the cell carries the discriminating `method`/threshold args
@@ -202,7 +193,7 @@
 |  [10]   | `dgof`/`dgof_dist`/`ecdf_pit`/`lm`                             | goodness-of-fit  | GOF, ECDF-PIT, linear-model plots                   |
 |  [11]   | `combine_plots`/`add_lines`/`add_bands`                        | composition      | plot combination and overlay primitives             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `arviz` re-exports three owners: `arviz_base` owns the converters, `extract`, `dict_to_dataset`, and the `rcParams`/`rc_context` registry; `arviz_stats` owns every diagnostic, the LOO family, sensitivity, intervals, and the `.azstats` accessor; `arviz_plots` owns the `plot_*` surface, `PlotCollection`/`PlotMatrix`, and the `style` module (`use`/`available`/`get`).
@@ -216,9 +207,3 @@
 
 [LOCAL_ADMISSION]:
 - arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) diagnostics before any posterior claim, the `loo`/`compare` scores before any model-selection claim, and `psense_summary` as the prior-robustness check. Diagnostics feed the C# `Rasm.Compute` model rail; no production runtime imports arviz.
-
-[RAIL_LAW]:
-- Package: `arviz`
-- Owns: backend-agnostic Bayesian diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence and metrics, survival curves, credible intervals, the `.azstats` accessor, the `rcParams` registry, and posterior visualization over `xarray.DataTree`
-- Accept: a `DataTree` posterior via `from_dict`/`convert_to_datatree`, analyzed with `rhat`/`ess`/`loo`/`summary`/`psense` (free-function or chained `.azstats`), defaults tuned through `rcParams`/`rc_context`, with `rhat`/`ess` diagnostics and a `loo` score before any model claim
-- Reject: hand-rolled R-hat/ESS/PSIS-LOO/sensitivity arviz owns; reading nonexistent `elpd_loo`/`p_loo`/`hdi_3%` field names; visualization without a `DataTree`; treating `InferenceData` as a container distinct from `DataTree`

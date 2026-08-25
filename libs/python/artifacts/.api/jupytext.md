@@ -2,16 +2,7 @@
 
 `jupytext` owns notebook<->text conversion for the artifacts reports rail: a polymorphic `read`/`reads`/`write`/`writes` quartet exchanging an `nbformat.NotebookNode` across `.ipynb` and the text grammars, timestamp-ordered paired-file synchronization, executed-output-into-text merge, and round-trip equivalence assertion. It is the text-pairing layer beneath the `nbclient`/`papermill` execution rail and the `nbconvert` export rail, consuming `nbformat` for the node schema and `markdown-it-py` for the MyST parse.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jupytext`
-- package: `jupytext` (MIT)
-- module: `jupytext`
-- rail: reports
-- deps: `markdown-it-py` + `mdit-py-plugins` (MyST parse), `nbformat` (notebook-node schema, `.ipynb` round-trip), `pyyaml` (embedded YAML header), `packaging` (text-format version compare)
-- entry points: console scripts `jupytext` (conversion) and `jupytext-config` (contents-manager config); jupyter-server contents-manager plugins
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: conversion exchange and pairing roots
 
@@ -46,7 +37,7 @@
 |  [04]   | `paired_paths.InconsistentPath`                 | path fault    | a candidate path breaks the configured paired pattern |
 |  [05]   | `jupytext.jupytext.NotSupportedNBFormatVersion` | version fault | the text-format version is newer than jupytext reads  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read and write conversion
 
@@ -135,7 +126,7 @@ Per-grammar `*_to_notebook`/`notebook_to_*` functions are the converters `TextNo
 |  [03]   | `build_async_jupytext_contents_manager_class(*args, **kwargs)` | build an async paired-file contents-manager class |
 |  [04]   | `cli.jupytext(args=None, *, notary=None)`                      | programmatic CLI entry (conversion/pairing)       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - conversion: one `read`/`reads` pair parses and one `write`/`writes` pair serializes; the file-vs-string split is the `fp`/`text` argument, and `read`/`write` delegate to `reads`/`writes` through one `TextNotebookConverter`.
@@ -155,8 +146,3 @@ Per-grammar `*_to_notebook`/`notebook_to_*` functions are the converters `TextNo
 [LOCAL_ADMISSION]:
 - import `jupytext` at boundary scope only.
 - jupytext owns notebook<->text conversion, format detection, paired-path sync, output merge, and pairing config over `nbformat`; `nbformat` owns the node schema, `markdown-it-py`/`mdit-py-plugins` the MyST parse, `nbclient`/`papermill` execution, `nbconvert` export, and jupyter-server the live host.
-
-[RAIL_LAW]:
-- Package: `jupytext`
-- Owns: bidirectional notebook<->text conversion, content-based format detection, per-format lookup and `fmt` normalization, paired-path derivation with timestamp-ordered synchronization, executed-output-into-text merge, round-trip equivalence assertion, metadata-filter projection, traitlets pairing configuration, and jupyter-server paired-file contents managers
-- Reject: a wrapper-rename of the `read`/`reads`/`write`/`writes` quartet; a hand-rolled percent/light/myst parser, `nbformat` round-trip, `.ipynb`<->text sync, or output-zip where `sync_pairs`/`combine_inputs_with_outputs` own it; a string-equality round-trip check where `compare_notebooks` is the oracle; a per-call metadata key list where `metadata_filter_as_dict` projects the config trait; a parallel notebook model or per-format reader/writer type where `fmt` is a call row; a notebook executor or HTML renderer jupytext does not own

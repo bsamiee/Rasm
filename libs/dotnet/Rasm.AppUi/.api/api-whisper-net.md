@@ -2,17 +2,7 @@
 
 `Whisper.net` owns offline speech-to-text for the live-caption rail — `Document/media` owns capture and `Theme/locale#SPEECH_POLICY` `CaptionPolicy` states language and translate election: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Whisper.net`
-- package: `Whisper.net` (MIT)
-- assembly: `Whisper.net`
-- namespace: `Whisper.net`, `Whisper.net.Ggml`, `Whisper.net.LibraryLoader`, `Whisper.net.Logger`, `Whisper.net.Wave`
-- abi: managed bindings over the native `whisper.cpp` ggml engine; the native runtime and the ggml weights load out-of-package
-- depends: `Microsoft.Extensions.AI.Abstractions` (the `ISpeechToTextClient` seam)
-- rail: caption
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [TRANSCRIPTION_CORE]: model handle, build fold, streaming processor, and typed failure rails.
 
@@ -72,7 +62,7 @@
 [RUNTIME_LIBRARY]: `Cpu` `Cuda` `Cuda12` `Vulkan` `CoreML` `OpenVino` `CpuNoAvx`
 [WHISPER_LOG_LEVEL]: `None` `Error` `Warning` `Info` `Cont` `Debug`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [MODEL_AND_STREAM]: `WhisperFactory` loads one model and reuses it; each `CreateBuilder()` fold yields one `WhisperProcessor` whose `Process*` methods take `audio` as a `Stream`, `float[]`, `ReadOnlyMemory<float>`, or `ReadOnlySpan<float>`, and every async surface carries a trailing `CancellationToken`.
 
@@ -130,7 +120,7 @@
 - WhisperToken: `Id` `TimestampId : int`; `Text : string?`; `Start`/`End`/`DtwTimestamp : long`; `VoiceLen` `Probability` `ProbabilityLog` `TimestampProbability` `TimestampProbabilitySum : float`
 - VadSegmentData: `Start`/`End : TimeSpan`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every caption folds through one loaded `WhisperFactory`: `CreateBuilder()` configures one `WhisperProcessor` on the single `With*` builder, `ProcessAsync` streams `SegmentData` off one native context that `IDisposable`/`IAsyncDisposable` teardown frees, and optional Silero VAD gates audio to speech spans before the processor reads it.
@@ -142,9 +132,3 @@
 
 [LOCAL_ADMISSION]:
 - Offline speech-to-text intent loads one `WhisperFactory` per session and streams through `ProcessAsync`; the native `whisper.cpp` runtime rides a separate `Whisper.net.Runtime*` package selected by `RuntimeOptions.RuntimeLibraryOrder` (`CoreML` on Apple silicon), and the ggml weights and the Silero-VAD model download once through `WhisperGgmlDownloader.Default` and cache on disk. A missing runtime or model surfaces through `WhisperModelLoadException` and the `LogProvider` rail.
-
-[RAIL_LAW]:
-- Package: `Whisper.net`
-- Owns: offline speech-to-text for the caption rail — model load, the one `WhisperProcessorBuilder` `With*` fold, streaming `ProcessAsync` to `IAsyncEnumerable<SegmentData>`, in-model translate-to-English (`WithTranslate`), language auto-detect, DTW token timestamps, and Silero-VAD segmentation.
-- Accept: one `WhisperFactory` per session streaming through `ProcessAsync`; task and tuning on the single builder; `WhisperVadProcessor.DetectSpeech*` gating to speech spans; `SegmentData.Start`/`End` `TimeSpan`s driving caption timing; `WhisperSpeechToTextClient.GetStreamingTextAsync` as the `ISpeechToTextClient` seam.
-- Reject: a cloud STT dependency where offline `whisper.cpp` is the mandate; a `Get`/`Transcribe`/`Translate` operation family where the one builder plus `ProcessAsync` discriminate task by `With*` row and input by overload; a hand-rolled VAD beside the Silero pipeline; an inline translation of caption text beside `WithTranslate`; leaking the factory, processor, or VAD handles past their `IDisposable`/`IAsyncDisposable` teardown.

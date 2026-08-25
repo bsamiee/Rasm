@@ -189,20 +189,6 @@ public sealed class CatalogInvariants {
         }
     }
 
-    [Fact]
-    public void DocsSync() {
-        string docsDir = Path.Combine(RepoRoot, "tools", "cs-analyzer", "docs", "rules");
-        string[] docIds = Directory.Exists(docsDir)
-            ? [.. Directory.EnumerateFiles(docsDir, searchPattern: "*.md")
-                .Select(selector: static file => Path.GetFileNameWithoutExtension(file))
-                .Order(StringComparer.Ordinal)]
-            : [];
-        string[] catalogIds = [.. Catalog.All
-            .Select(selector: static row => row.Descriptor.Id)
-            .Order(StringComparer.Ordinal)];
-        Assert.Equal(expected: catalogIds, actual: docIds);
-    }
-
     private static bool Applies(IReadOnlyList<string>? ids, string id) =>
         ids is not null && (ids.Count == 0 || ids.Contains(value: id, comparer: StringComparer.Ordinal));
 

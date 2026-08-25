@@ -24,7 +24,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinitionTable` authoring, linked-source, lifecycle, and instance members; `FileReference`), `Rasm.Rhino.Document` (`DocumentCommit`, `HostInteraction`, `ResourceRef`/`ResourceId`/`ResourceIndex`/`ResourceName`, `DocumentPath`, `GeometryIntake`), kernel `Domain/rails` (`Op`, `Lease<T>`, `Fault`, `Custody`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using Rasm.Domain;
@@ -821,13 +821,13 @@ public static class Blocks {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER]           | [INGRESS]        | [RAIL]                                 | [EGRESS]              |
-| :-----: | :---------------- | :--------------- | :------------------------------------- | :-------------------- |
-|  [01]   | `BlockOp`         | generated values | `Apply`                                | `Unit`                |
-|  [02]   | `BlockTrait`      | generated rows   | `CapabilitySet<CommitDemand>`          | undo + context demand |
+| [INDEX] | [OWNER]            | [INGRESS]        | [RAIL]                                 | [EGRESS]              |
+| :-----: | :----------------- | :--------------- | :------------------------------------- | :-------------------- |
+|  [01]   | `BlockOp`          | generated values | `Apply`                                | `Unit`                |
+|  [02]   | `BlockTrait`       | generated rows   | `CapabilitySet<CommitDemand>`          | undo + context demand |
 |  [03]   | `BlockTransaction` | `Batch`          | factory-proved undo homogeneity        | admitted program      |
-|  [04]   | `Blocks`          | `Commit` · `Ask` | `DocumentCommit.Sealed` · `Fin`        | `Unit` or answer      |
-|  [05]   | `ExplodedPiece`   | `Exploded`       | `Compensated` · `Rollback` · `Custody` | detached custody      |
+|  [04]   | `Blocks`           | `Commit` · `Ask` | `DocumentCommit.Sealed` · `Fin`        | `Unit` or answer      |
+|  [05]   | `ExplodedPiece`    | `Exploded`       | `Compensated` · `Rollback` · `Custody` | detached custody      |
 
 ## [06]-[RESEARCH]
 

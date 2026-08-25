@@ -2,19 +2,7 @@
 
 `@types/geojson` declares the RFC 7946 object model as one closed `type`-discriminated type algebra: a zero-runtime `.d.ts` admitted `import type`, the render-side geometry value vocabulary `ui/viewer` speaks. It owns the geometry union, the `Feature`/`FeatureCollection` generics, and the coordinate primitives; interaction-scale features ride it while bulk columnar geometry rides `@geoarrow/deck.gl-geoarrow` and wire decode stays the core `WkbParser` Schema shape.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@types/geojson`
-- package: `@types/geojson` (MIT)
-- deps: none — a zero-dependency leaf tracking the RFC 7946 encoding
-- asset: declaration-only — a single `index.d.ts` (`types` entry only, NO `main`/`module`, NO runtime, NO exported value); `tsc` is the gate
-- namespace: `export as namespace GeoJSON` — a UMD global for script-tag consumers; module code imports named `type`s instead
-- admission: `import type { Feature, FeatureCollection, Position, … } from "geojson"`; NEVER a value import — there is no runtime symbol to import
-- scope: `scope:viewer` project-local — pulled by `@turf/turf`/`maplibre-gl`/`@deck.gl/layers` and reached directly by `ui/viewer`, compile-time absent from the non-spatial core
-- marker: `Position` is deliberately the wide `number[]`, NOT narrowed to `[number, number] | [number, number, number]` — narrowing is a caller's user-defined type guard, never a package change
-- rail: viewer/geo — the RFC 7946 render-side value vocabulary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the coordinate primitives — the leaf value axes every geometry keys on
 - `Position` is the coordinate array (X, Y, optional Z under RFC 7946); `BBox` is the 2D-or-3D bounding-box tuple; `GeoJsonProperties` is the nullable open property bag. These are the leaves the geometry `coordinates` and the `Feature.properties`/`bbox` fields are built from.
@@ -49,7 +37,7 @@
 |  [05]   | `GeoJsonTypes` = `GeoJSON["type"]`                                | discriminant  | every RFC 7946 `type` literal — boundary switch    |
 |  [06]   | `GeoJsonGeometryTypes` = `Geometry["type"]`                       | discriminant  | the seven geometry `type` literals                 |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One closed type algebra, discriminated by the literal `type` tag: every shape refines `GeoJsonObject`, and narrowing is a `switch (obj.type)` over `GeoJsonTypes`/`GeoJsonGeometryTypes` — never an ad-hoc field probe. RFC 7946 fixes the union, so no new object kind is representable; the vocabulary is fixed data, not an open interface to extend.
@@ -68,9 +56,3 @@
 - Type the render surface with the generic instantiation carrying both facts — `FeatureCollection<Polygon, MyProps>`, not a bare `FeatureCollection` re-narrowed at each accessor. Let the `<G, P>` params thread geometry and property shape to every consumer.
 - Narrow with the `type` discriminant: `switch (g.type)` over `GeoJsonGeometryTypes` for geometry, `GeoJsonTypes` for any object. For 2D-vs-3D `Position`, write a user-defined type guard — the package will not narrow the coordinate array.
 - Keep the wire boundary: consume geojson as the render/turf/maplibre-facing value derived from `wire`-decoded features; never treat it as the `WkbParser` output (that is Schema-typed `GeoFeature.Geometry`) and never re-derive a spatial relation the .NET side owns as authority.
-
-[RAIL_LAW]:
-- Package: `@types/geojson`
-- Owns: the RFC 7946 type algebra — the `Geometry`/`GeometryObject` seven-member union and its members, the `Feature<G, P>`/`FeatureCollection<G, P>`/`GeoJSON<G, P>` container generics, the `Position`/`BBox`/`GeoJsonProperties` coordinate primitives, the `GeoJsonObject` base, and the `GeoJsonTypes`/`GeoJsonGeometryTypes` narrowing discriminants
-- Accept: `import type` usage in `ui/viewer`, generic instantiation over geometry + property shape, `type`-discriminant narrowing, a caller type guard for 2D/3D `Position`, binding a `FeatureCollection` to `GeoJsonLayer.data`/`GeoJSONSource`, turf ops over decoded features, `scope:viewer`-local reach
-- Reject: a value import of the package, hand-narrowing `Position` by patching the type, treating geojson as the `WkbParser` output (it is `GeoFeature.Geometry`, Schema-typed), row-materializing a `RecordBatch` to `FeatureCollection` for a per-row accessor (the geoarrow columnar route owns bulk), re-parsing WKB bytes in `ui`, admission outside `scope:viewer`

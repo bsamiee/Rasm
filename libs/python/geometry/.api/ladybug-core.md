@@ -2,17 +2,7 @@
 
 `ladybug-core` (imported as `ladybug`, not `ladybug_core`) owns the energy band's climate substrate: weather-file ingestion, the `Location`/`AnalysisPeriod`/`DateTime` time model, the polymorphic `DataCollection` time-series algebra, the unit-type registry, `Sunpath` solar geometry, the `psychrometrics`/`skymodel` kernels, the `SQLiteResult` EnergyPlus-output reader, and the visualization set. Solar geometry and every chart emit `ladybug-geometry` primitives; `ladybug-comfort` and `honeybee-energy` consume its `DataCollection`s and shared unit registry as the climate feed.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ladybug-core`
-- package: `ladybug-core` (AGPL-3.0)
-- module: `ladybug` — `ladybug.{epw,wea,stat,ddy,designday,location,analysisperiod,dt}` weather + time model, `ladybug.{datacollection,datacollectionimmutable,header}` time-series algebra, `ladybug.{datatype,sunpath,sql,psychrometrics,skymodel}` registry/solar/output/numeric, `ladybug.{legend,color,graphic,compass,hourlyplot,monthlychart,psychchart,windrose,windprofile,viewsphere,solarenvelope,climatezone}` visualization
-- owner: `geometry`
-- rail: energy / climate
-- consumer: `.planning/energy/climate.md` (weather/series/solar/psychrometrics) + `.planning/energy/simulate.md` (`SQLiteResult` decode)
-- depends: `ladybug-geometry` (`Sunpath`/chart geometry resolves to its primitives), `click` (the `ladybug` CLI)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: weather boundary readers and the time model — `EPW` the canonical source, `Wea` its solar projection, `STAT`/`DDY`/`DesignDay` its design conditions
 
@@ -51,7 +41,7 @@
 |  [09]   | `viewsphere.ViewSphere` / `solarenvelope.SolarEnvelope`       | analysis       | view-factor patches, solar-envelope geometry         |
 |  [10]   | `climatezone`                                                 | analysis       | ASHRAE climate-zone classification                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: weather ingestion — `EPW` field properties and the `Wea` solar factories
 
@@ -135,7 +125,7 @@
 |  [10]   | `skymodel.get_relative_airmass(altitude)` / `get_extra_radiation(doy)`      | airmass / extra-terrestrial rad |
 |  [11]   | `clearness_index(...)`                                                      | clearness index                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every type round-trips the symmetric `from_dict`/`to_dict`, and `EPW` serializes as a file string; source kind is the constructor — `Wea`'s eight named factories, the `EPW`-derived `DDY`/design-days — never a parallel reader class.
@@ -153,9 +143,3 @@
 
 [LOCAL_ADMISSION]:
 - Consume the AGPL ladybug/honeybee stack out-of-process as a process-boundary companion: invoke it at the edge, carry `DataCollection`/EPW values across the wire, and keep its code out of any distributed proprietary artifact.
-
-[RAIL_LAW]:
-- Package: `ladybug-core`
-- Owns: EPW/Wea/STAT/DDY weather ingestion and design-day extraction; the `Location`/`AnalysisPeriod`/`DateTime` time model; the polymorphic `DataCollection` family with its filter/group/statistic/unit algebra; the unit-type registry with IP/SI conversion; `Sunpath` solar geometry; the `psychrometrics`/`skymodel` kernels; the `SQLiteResult` EnergyPlus reader; and the legend/color/graphic/compass/chart/windrose visualization set
-- Accept: the climate feed for `ladybug-comfort` `ComfortCollection`s and `honeybee-energy` simulations; the `Location` geo-anchor `dragonfly-core` places a massing model with; `SQLiteResult` as the recipe-output decode; the shared unit registry across the band; solar geometry expressed in `ladybug-geometry` primitives
-- Reject: wrapper-renames of `EPW`/`Wea`/`DataCollection`; a hand-rolled EPW parser, time-series statistic, unit conversion, psychrometric/sky model, or EnergyPlus SQL reader this package already owns; a per-resolution statistics ladder over the one `DataCollection` family; solar geometry re-derived outside `ladybug-geometry`; importing as `ladybug_core` (the module is `ladybug`)

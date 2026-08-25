@@ -2,23 +2,7 @@
 
 `NetTopologySuite` owns the OGC Simple Features algebra on the double-precision production plane: geometry representation, DE-9IM topology, robust overlay, spatial indexing, validity repair, and the text and binary geometry codecs every geospatial, persistence, and circulation boundary crosses. Kernel `Rasm` keeps exact-predicate geometry; this rail carries everything downstream of that conversion. `NetTopologySuite.Features` couples one geometry to its attribute table as the vector-codec row shape.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite`
-- package: `NetTopologySuite` (BSD-3-Clause)
-- assembly: `NetTopologySuite`
-- namespace: `NetTopologySuite`, `.Geometries`, `.Geometries.Prepared`, `.Geometries.Implementation`, `.Geometries.Utilities`, `.Algorithm`, `.Algorithm.Hull`, `.Operation.OverlayNG`, `.Operation.Union`, `.Operation.Buffer`, `.Operation.Distance`, `.Operation.Valid`, `.Operation.Polygonize`, `.Operation.Linemerge`, `.Triangulate`, `.LinearReferencing`, `.Coverage`, `.Dissolve`, `.Precision`, `.Simplify`, `.Densify`, `.Index`, `.Index.Strtree`, `.Index.Quadtree`, `.Index.HPRtree`, `.IO`
-- asset: IL-only AnyCPU managed JTS port; no P/Invoke and no native GEOS binding
-- rail: geometry
-
-[PACKAGE_SURFACE]: `NetTopologySuite.Features`
-- package: `NetTopologySuite.Features` (BSD-3-Clause)
-- assembly: `NetTopologySuite.Features`
-- namespace: `NetTopologySuite.Features`
-- asset: IL-only AnyCPU managed assembly over the core geometry algebra
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry hierarchy and coordinate model
 
@@ -139,7 +123,7 @@
 
 - `Feature.BoundingBox` is independently assignable and never recomputed from `Geometry` on read.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: predicates, relate, and distance
 
@@ -169,7 +153,6 @@
 
 [`Location`]: `Interior`(0) `Boundary`(1) `Exterior`(2) `Null`(-1) — the vocabulary every locator answers in, so a boundary hit is a declared third outcome and never a tie-break
 [`IndexedPointInAreaLocator`]: accepts `IPolygonal` and `LinearRing` geometries; the segment index is a `SortedPackedIntervalRTree` built on FIRST `Locate` under a synchronized initializer, so construction is free and the instance is documented thread-safe and immutable
-
 
 [ENTRYPOINT_SCOPE]: construction and factory policy
 
@@ -343,7 +326,7 @@
 
 - `ICoordinateSequenceFilter.GeometryChanged` returning true drives the host geometry's cache invalidation at the end of the walk; a filter that mutates ordinates and returns false leaves a stale bounding envelope behind.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `NtsGeometryServices.Instance` fixes the overlay engine, relate engine, precision model, SRID, and coordinate-sequence factory for every factory, reader, and operation the process constructs; `CreateGeometryFactory` hands back cached factories off that one policy.
@@ -368,9 +351,3 @@
 - Repeated predicates against one fixed geometry enter through `PreparedGeometryFactory.Prepare`; a many-against-many join adds the `STRtree<T>` broad phase in front of it.
 - Raw vector ingress passes `GeometryFixer.Fix` before an overlay or a write.
 - WKT and WKB I/O enters through readers and writers constructed from the canonical services instance.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite` with `NetTopologySuite.Features`
-- Owns: the OGC Simple Features algebra on the double-precision plane — every planar predicate, overlay, index, repair, assembly, and geometry codec the branch calls
-- Accept: geometry whose ordinates are production-plane doubles under one declared precision model and SRID
-- Reject: coordinate-system transformation, raster and universal vector drivers, 3D meshing, and the exact-predicate geometry kernel `Rasm` owns

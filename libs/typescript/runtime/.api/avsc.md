@@ -4,17 +4,7 @@
 
 Bundled typings declare themselves incomplete: they cover the node entry alone, spell most payload positions `any`, and omit every member the browser build substitutes. Composition therefore binds the narrow proven core — `Type.forSchema`, `toBuffer`, `fromBuffer`, `isValid`, `fingerprint` — and lands each result through a `Schema` owner rather than reading an `any` forward.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `avsc`
-- package: `avsc` (MIT)
-- module: CJS `main` (`./lib`) with NO `exports` map, so a deep path physically resolves and the branch refuses it
-- types: bundled at `./types` — one hand-written `index.d.ts` whose header declares itself incomplete and browser-blind
-- runtime: node lane — a `browser` map redirects `./lib` to `etc/browser/avsc.js` under a bundler-supplied `buffer` shim, which is exactly the host binding core forbids, so the arm seats here
-- boundary: every byte member takes and returns node `Buffer` and the reader indexes `Buffer`-only slice methods, so a bare `Uint8Array` is not interchangeable at this seam
-- rail: the Avro row of `core/interchange/format`'s event-format roster, whose `arm` column stands empty for exactly this reason
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the schema value, the compiled type, and the option records that decide union and logical-type posture
 
@@ -35,7 +25,7 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 
 - `Callback<V, Err = any>` is the package's node-style callback shape; every member the format arm composes is synchronous and reaches none of it.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: type minting, the binary codec pair, validation, and schema identity
 
@@ -57,7 +47,7 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 |  [14]   | `parse(schemaOrProtocolIdl, options?)`         | function | declared `any`-returning, so the branch mints through `forSchema` |
 |  [15]   | `readSchema(schemaIdl, options?)`              | function | `.avdl` IDL to a schema value; the corpus ships `.avsc` alone     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `wrapUnions` decides the whole payload shape and defaults to `"auto"`, which picks wrapped or unwrapped PER UNION by whether two branches share a JavaScript type bucket; both unions the contract declares are bucket-disjoint and land unwrapped, so the posture is stated at the mint rather than left to that inference.
@@ -85,9 +75,3 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 - Convert the throw at the arm through `Either.try`, since `toBuffer` and `fromBuffer` signal by throwing and carry no result channel.
 - Read schema identity from `fingerprint`, never from a hand-spelled subject-and-version literal beside it.
 - Keep `streams.BlockDecoder`/`BlockEncoder`, `createFileDecoder`, `createFileEncoder`, `Service`, and `assembleProtocol` out of the branch: object-container files and the Avro RPC protocol are neither the event format nor a branch concern.
-
-[RAIL_LAW]:
-- Package: `avsc`
-- Owns: Avro schema compilation, the binary codec pair, validation with per-path evidence, writer-to-reader resolution, canonical schema fingerprinting, and the node object-container streams
-- Accept: one contract-bound module-scope `Type`, explicit `wrapUnions`, bounded octets, `Either.try` at the arm, `Schema` landing, `fingerprint` identity, `createResolver` evolution
-- Reject: inferred schemas, per-call type minting, `Buffer` in domain shapes, an `any` decode read, `avsc/lib/*` deep paths, object-container framing, the Avro RPC service surface

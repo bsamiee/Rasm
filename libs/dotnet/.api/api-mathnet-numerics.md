@@ -2,16 +2,7 @@
 
 `MathNet.Numerics` owns the branch's analytic numeric kernel and its linear-algebra plane, each domain a static owner folding plain `double[]`, `Func`, `Complex[]`, and `Matrix<double>`/`Vector<double>` carriers. Provider selection, dense factorization, sparse ingestion, and Krylov iteration are members of this one assembly; the MKL and OpenBLAS adapter packages supply native kernels behind that selection and own no algebra of their own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MathNet.Numerics`
-- package: `MathNet.Numerics` (MIT)
-- assembly: `MathNet.Numerics`
-- namespace: `MathNet.Numerics`, `.Distributions`, `.Integration`, `.IntegralTransforms`, `.Interpolation`, `.RootFinding`, `.Optimization`, `.Differentiation`, `.Statistics`, `.OdeSolvers`, `.Random`, `.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`
-- asset: managed runtime library; MKL and OpenBLAS kernels ride sibling provider packages
-- rail: numeric
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: distribution seams and the univariate roster under its constructor parameterization
 
@@ -123,7 +114,7 @@
 [KRONECKER_PRODUCT]: the product is an inherited `Matrix<T>` member, so a `SparseMatrix` operand builds through the `new SparseMatrix(storage)` ctor and rides it — `SparseMatrix.OfStorage` is a phantom spelling. The result-writing overload is `virtual` and the allocating one delegates to it, matching the `Solve` pair's shape.
 [SOLVER_SETUP]: `IIterativeSolverSetup<T>` — `SolverType` `PreconditionerType` `SolutionSpeed` `Reliability` `CreateSolver()` `CreatePreconditioner()`; MathNet ships NO concrete implementation — `SolverSetup<T>.LoadFromAssembly(Assembly, bool, params Type[])` reflection-scans for them and orders by `SolutionSpeed / Reliability`, and a consumer authoring its own setups reads neither figure.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: distribution evaluation, sampling, and parameter admission
 
@@ -457,7 +448,7 @@
 [POLYNOMIAL]: `Evaluate` `Fit` `Roots` `Differentiate` `Integrate` `Add` `Subtract` `Multiply` `Divide` `PointwiseMultiply` `PointwiseDivide` `EigenvalueMatrix`
 [ODE]: `RungeKutta.SecondOrder` `RungeKutta.FourthOrder`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IDistribution` to `IUnivariateDistribution` to `IContinuousDistribution` or `IDiscreteDistribution` is the seam ladder: `CumulativeDistribution` rides the univariate seam and `InverseCumulativeDistribution` stays a concrete-distribution member.
@@ -494,9 +485,3 @@
 - Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.
 - Wavelet filter banks and analog-prototype IIR design bind through their own scaling tables outside this package.
 - `Matrix<double>`/`Vector<double>` compose directly — never a package-local matrix wrapper — a residual witness recomputes `‖A·x − b‖₂ / ‖b‖₂` against the original operator in working precision, never the reconstructed factors, and `Control.UseManaged()` selects once at composition: the native MKL/OpenBLAS/CUDA providers are separate x64-only companion packages, so osx-arm64 always rides `ManagedLinearAlgebraProvider.Instance` and a per-call-site `Control.TryUseNativeMKL()` is the named defect.
-
-[RAIL_LAW]:
-- Package: `MathNet.Numerics`
-- Owns: the analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, metric reduction, descriptive statistics — and the linear-algebra plane's provider selection, dense factorization, sparse ingestion, and Krylov solve
-- Accept: `Func<double,double>` integrands and root targets, `double[]` sample and signal axes, the distribution seams, `IInterpolation` results, the no-throw `TryFindRoot` rail, in-place `Complex[]` and split `double[]` spectral buffers under a `FourierOptions` scaling, `Matrix<double>`/`Vector<double>` dense work, CSR ingestion through the `Of*` statics, and one composition-time provider selection
-- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it, a hand-rolled Levenberg-Marquardt or normal-equations loop, a Gram-plus-ridge squaring `κ` where thin-QR avoids it, a package-local matrix wrapper, and a per-call-site provider switch beside the one composition selection

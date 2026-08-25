@@ -2,16 +2,7 @@
 
 `@visx/scale` re-shapes `d3-scale`'s chained-mutator factories into one config-object form: each factory takes a typed `ScaleConfig` and returns the real d3 scale object `.api/d3.md` owns, unwrapped, so an inapplicable knob is a compile error and `createScale`/`updateScale` discriminate on `type` to build or immutably re-derive on data change.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@visx/scale`
-- package: `@visx/scale` (MIT)
-- module: dual ESM/CJS via conditional `exports`; no side effects
-- runtime: framework-agnostic pure computation, no DOM or React peer; sole dep `@visx/vendor` (the pinned d3 bundle) this surface re-shapes
-- plane: `plane:runtime` (W4 `ui`)
-- rail: the visx chart spine — scale construction under `.api/visx-shape.md` and `.api/visx-axis.md`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the vocabulary generic chart components constrain against.
 
@@ -19,7 +10,7 @@
 
 - `ScaleConfig` is the discriminated config union `createScale` reads and `ScaleType` its `type` tag; `PickScaleConfig`/`PickD3Scale` project one scale's config and d3 result by tag, `AnyD3Scale`/`D3Scale` gate the returned scale object, `ScaleInput`/`InferD3ScaleOutput` recover a scale's input and output types, and `NiceTime` bounds the temporal `nice` interval.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the config-object factory roster and the polymorphic build entry; every factory returns the real d3 scale object.
 
@@ -38,7 +29,7 @@
 
 [COMPOSITION]: `y = scaleLinear<number>({domain:[0,max],range:[innerHeight,0],nice:true,zero:true})` `x = scaleBand<string>({domain:keys,range:[0,innerWidth],padding:0.2})` `next = updateScale(y,{domain:[0,nextMax]})`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every factory returns the unwrapped d3 scale object, so one config value per axis builds the scale in the chart fold and `updateScale` re-derives it immutably on data change, never a chained mutator or a per-render reconstruction.
@@ -51,9 +42,3 @@
 
 [LOCAL_ADMISSION]:
 - Plot (`.api/observablehq-plot.md`) infers its own scales from channels, so a visx scale never feeds a Plot spec. Position and size scales are free; categorical color ranges resolve from `system/token` and data-value colormaps from the d3 chromatic family, per the token law.
-
-[RAIL_LAW]:
-- Package: `@visx/scale`
-- Owns: typed config-object scale construction for the visx set — the factory roster, the `createScale`/`updateScale` polymorphic entry, the reflection utils, and the `ScaleConfig`/`AnyD3Scale` type vocabulary.
-- Accept: one scale per axis built in the chart fold; `updateScale` for data-driven rederive; reach-through to d3 scale methods for ticks/format/invert; d3-direct construction for sequential/diverging scales typed as `AnyD3Scale`.
-- Reject: chained d3 mutator construction where the config form exists; per-render scale reconstruction; wrapping the returned scale; a `scaleSequential` spelling expected on this surface; hardcoded ranges where `responsive` dimensions parameterize them.

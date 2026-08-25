@@ -22,7 +22,7 @@
 - Growth: a display axis is one owner and one `StrokeDef` column; a standard line type is already one `LineType` row on the kernel ladder.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
 using Rasm.Drawing;

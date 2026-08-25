@@ -2,17 +2,7 @@
 
 `bw2analyzer` is the analysis leg of the Brightway rail: it reads an already-solved `bw2calc.LCA` or the `bw2data` graph and extracts what dominates a result — top contributing processes and emissions, cross-database activity comparison, tag-aggregated traversal, technosphere PageRank, and graph health. It computes nothing itself: every entry consumes a populated `characterized_inventory`/`supply_array` or the activity graph, so the solver, the store, and the datapackage substrate stay owned elsewhere.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bw2analyzer`
-- package: `bw2analyzer` (BSD-3-Clause)
-- module: `bw2analyzer` (`from bw2analyzer import ContributionAnalysis`)
-- namespaces: `bw2analyzer` (library-only, no console script)
-- asset: pure-Python `py3-none-any` purelib; numerics ride the solved `bw2calc` matrices, `numpy`/`scipy` arrive transitively
-- depends: `bw2calc` (the solved `LCA` every analysis consumes), `bw2data` (activity annotation via `get_activity`)
-- rail: lca-analysis (EPD/LCA cluster)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the exported analysis owners (`__all__`)
 
@@ -27,7 +17,7 @@
 
 [ERROR_ABSENCE]: `bw2analyzer` publishes NO exception module and no typed error of its own (verified against the installed distribution). A mining fence therefore names the SOLVER family it walks (`bw2calc.errors.BW2CalcError`) beside the stdlib rows an absent activity, a short top-N slice, or a mis-typed method tuple raise through it — `KeyError`, `IndexError`, `TypeError`, `ValueError`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: contribution extraction, cross-database comparison, tagged traversal, and the graph folds
 - `ContributionAnalysis` `top_*`/`annotated_top_*` carry: `**kwargs` -> `sort_array` (`limit`, `limit_type`, `total`)
@@ -56,7 +46,7 @@
 - `print_recursive_*`: stdout diagnostic surfaces, never composed into a normalization fold or a frame egress.
 - Comparison/traversal knobs: `mode`/`max_level`/`cutoff` tune leaf grouping depth, `rel_tol`/`abs_tol`/`locations` scope input diffs, `secondary_tags`/`fg_databases` scope the tag walk.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every contribution entry reads an already-solved `bw2calc.LCA` — `lci()`/`lcia()` have run and `characterized_inventory`/`supply_array` are populated — so analysis is a read over the solve, never a re-solve.
@@ -69,9 +59,3 @@
 
 [LOCAL_ADMISSION]:
 - `ContributionAnalysis` is the sole top-k owner admitted over a solved matrix; a consumer names tags to reach `traverse_tagged_databases`, and cross-database reconciliation reaches `compare_activities_by_lcia_score`.
-
-[RAIL_LAW]:
-- Package: `bw2analyzer`
-- Owns: contribution analysis over solved LCAs (top processes/emissions, annotated rows, dominant sub-matrices), cross-database activity comparison, recursive calculation/supply-chain walks, tagged traversal, technosphere PageRank, and database health checks
-- Accept: `ContributionAnalysis().annotated_top_processes(lca, limit=n)`/`annotated_top_emissions(...)` as the mined contribution rows; `compare_activities_by_lcia_score` for cross-database reconciliation; `traverse_tagged_databases` for tag-aggregated impact
-- Reject: re-implementing top-k extraction over `characterized_inventory` where `ContributionAnalysis` owns it; re-solving inside an analysis call; composing the stdout printers into a normalization fold; the matplotlib plotting extras (visualization is the artifacts plane's)

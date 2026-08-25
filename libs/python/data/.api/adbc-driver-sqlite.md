@@ -2,16 +2,7 @@
 
 `adbc-driver-sqlite` binds the native ADBC SQLite driver to the data partition rail: `connect` maps a SQLite URI (`:memory:`, a filesystem path, or a `file:` URI) onto an `AdbcDatabase`, and `dbapi.connect` derives an `AdbcSqliteConnection` over the shared driver-manager DBAPI core. `ConnectionOptions` keys `adbc.sqlite.load_extension.*` and `StatementOptions` carries `BATCH_ROWS` as canonical wire keys; `AdbcSqliteConnection` adds the sqlite-distinctive `enable_load_extension`/`load_extension` pair, while every query, ingest, and metadata concern rides the driver-manager rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `adbc-driver-sqlite`
-- package: `adbc-driver-sqlite` (Apache-2.0)
-- module: `adbc_driver_sqlite`, `adbc_driver_sqlite.dbapi`
-- driver: native `libadbc_driver_sqlite.so`, bound by `connect` to a SQLite URI
-- owner: `data`
-- rail: partition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: factory, option vocabularies, and the sqlite connection subtype
 
@@ -24,7 +15,7 @@
 |  [03]   | `StatementOptions`           | option enum        | statement-scoped result-batch row hint                |
 |  [04]   | `dbapi.AdbcSqliteConnection` | connection subtype | `dbapi.Connection` plus the loadable-extension pair   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection factories
 
@@ -71,7 +62,7 @@
 | :-----: | :------------------- | :------- | :---------------------------------------- |
 |  [01]   | `Cursor.adbc_ingest` | instance | stream an Arrow table into a SQLite table |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `connect` binds `libadbc_driver_sqlite.so` to a SQLite URI; `dbapi.connect` derives `AdbcSqliteConnection` from the shared database object, never a parallel client class. A `None`/`:memory:` URI is in-memory; a path or `file:` URI is a local file.
@@ -92,9 +83,3 @@
 - bind through `connect`/`dbapi.connect`; carry option keys from `ConnectionOptions`/`StatementOptions` by enum value.
 - register extensions through `enable_load_extension`/`load_extension`, provisioned from an admitted root.
 - bulk-load through `Cursor.adbc_ingest` with an explicit `mode`.
-
-[RAIL_LAW]:
-- Package: `adbc-driver-sqlite`
-- Owns: in-memory and local-file SQLite binding, loadable-extension registration, Arrow-native bulk ingest, and per-statement fetch-batch sizing
-- Accept: local-file federation feeding Arrow record batches to the partition, query, and dataframe owners; Arrow-table bulk load; native SQLite extension registration
-- Reject: wrapper-renames of `connect`/`dbapi.connect`; a raw `SELECT load_extension`/`PRAGMA` where `enable_load_extension`/`load_extension` apply; a per-row insert loop where `adbc_ingest` streams the whole Arrow table; a hand-written `sqlite_master` query where the manager's `adbc_get_objects` returns Arrow; a `DatabaseOptions`-style table where the URI carries identity; string-literal option keys bypassing `ConnectionOptions`/`StatementOptions`; a `sqlite3`-module DBAPI shim the manager supersedes

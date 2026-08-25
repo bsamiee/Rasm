@@ -2,16 +2,7 @@
 
 `maplibre-gl` owns the vector basemap: one `Map` binds one WebGL2 context, one camera, one typed event stream, and the declarative style, driving populate/navigate/query through parameterized source/layer/control/handler rails. deck.gl interleaves GPU layers through the `addControl`/`CustomLayerInterface` rail into that one context — never a peer camera — while React owns mount and unmount alone and the imperative lifecycle folds into the `viewer` panel atom; `scope:viewer` project-local.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `maplibre-gl`
-- package: `maplibre-gl` (BSD-3-Clause)
-- module: `type: module` ESM, zero peer deps; re-exports the `@maplibre/maplibre-gl-style-spec` `*Specification` style vocabulary
-- runtime: browser — a DOM container and a WebGL2 context, both `browser`-provided ports the `viewer` declares; `scope:viewer`
-- rail: the basemap render surface `viewer/geo/layers` binds; one `Map` per viewport
-- modules: `Map` (`Map$1`, alias `MapLibreMap`) forwarding the composed camera API; source/control/handler classes; `Marker`/`Popup`; the event classes over generic `Evented<EventType>`; the geometry value types; the worker/plugin globals; the re-exported `*Specification` vocabulary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: map root + camera
 - `Map extends Evented<MapEventType>` composes an internal `Camera` — `jumpTo`/`easeTo`/`flyTo` and the `get*`/`set*` camera verbs are `Map` methods, and `Camera` never exports. One `MapOptions` record is the whole knob surface: container/style/view, interaction gates, request/worker policy. `MapOptions`, `CustomLayerInterface`, and `IControl` field shapes ride the inline records below.
@@ -101,7 +92,7 @@
 |  [07]   | `getWorkerUrl` / `setWorkerUrl` / `importScriptInWorkers`  | worker policy      | worker script URL + injection                        |
 |  [08]   | `getVersion()` / `config` / `EXTENT` (`= 8192`)            | runtime constants  | version probe; tile extent for custom-source math    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, populate, interleave, drive, query, tear down
 - Lifecycle is imperative and single-sourced: `new Map(options)`, populate through `addSource`/`addLayer`/`addControl`, interleave deck.gl through `addControl`, drive with the camera vocabulary, read with `project`/`queryRenderedFeatures`, `remove()` at unmount. Populate and drive methods return `this` for fluent folds; queries and projections return values.
@@ -151,7 +142,7 @@
 - Row [19] arities: `setSky(sky: SkySpecification, options?: StyleSetterOptions): this` / `setLight(light: LightSpecification, options?: StyleSetterOptions): this`.
 - Row [21] arities: `addImage(id: string, image: StyleImageSource, options?: Partial<StyleImageMetadata>): this`; `loadImage(url: string): Promise<GetResourceResponse<HTMLImageElement | ImageBitmap>>` where `GetResourceResponse<T> = ExpiryData & { data: T }` — the load resolves data the caller then registers, so a glyph mint is `loadImage` → `hasImage` guard → `addImage`, idempotent by the guard.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Map` owns the WebGL2 context and forwards its composed camera; generic `Evented<EventType>` owns the typed event rail. deck.gl interleaves — never a second context or peer camera.
@@ -172,9 +163,3 @@
 [LOCAL_ADMISSION]:
 - `scope:viewer` project-local; the core `ui` never imports it, keeping heavy render deps out of the non-spatial majority.
 - WKB decode stays in `wire`, style is authored as `*Specification` data, and coordinate math goes through `project`/`unproject`.
-
-[RAIL_LAW]:
-- Package: `maplibre-gl`
-- Owns: the vector basemap `Map`, its single WebGL2 context + `Camera` + typed event rail, the declarative style vocabulary, the parameterized source/layer/control/handler rails, the DOM `Marker`/`Popup` overlays, and the worker/RTL/protocol globals
-- Accept: one `new Map` per viewport; the `addSource`/`addLayer`/`addControl` rails; `MapboxOverlay` interleaving through `addControl` into the shared context; the `Camera` as the single navigation authority whose getters feed deck's per-`move` view-state; `project`/`unproject` for coordinate sync; `on`→`Subscription` folded into the panel atom; `*Specification` style data; `getClusterOptions` as the live cluster read; `updateImage({image})` for a bitmap swap; a `StyleImageWebGLData` image drawing its own atlas slot and rebuilding its GPU resources per draw; `setMissingStyleImageResolver` as the async missing-image door; a live-style probe (`getLayer`/`getSource`/`hasImage`/`getSprite`) ahead of any write whose miss must surface; `addProtocol`/`transformRequest` for transport
-- Reject: a second GL context or peer camera, WKB decode in `ui`, style authored as code, hand-rolled projection math, an app signal fired through the map's own event map, a blob round trip where `updateImage` takes the bitmap, a cluster-config mirror beside the source that answers it, a style image holding GPU resources across a context loss or drawing past its atlas slot, a resize pushed through `updateImage`, an unprobed style write whose miss the caller then cannot observe, importing it into the core `ui`, a React wrapper owning the map lifecycle beyond mount/unmount

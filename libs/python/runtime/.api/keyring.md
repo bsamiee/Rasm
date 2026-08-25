@@ -2,15 +2,7 @@
 
 `keyring` owns platform-agnostic secret retrieval: a top-level facade routes every read, write, and delete to the highest-priority viable `KeyringBackend`, discovered by priority rank and selected from environment or config, with a `Credential` protocol for structured username-and-password pairs and a subclass extension point for a custom store. It is the runtime secret-admission row — a secret is read once at startup and minted into the downstream auth surface, never held in an env var or config file while a native keystore is viable.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `keyring`
-- package: `keyring` (MIT)
-- module: `keyring`
-- namespaces: `keyring`, `keyring.core`, `keyring.backend`, `keyring.credentials`, `keyring.errors`, `keyring.backends`
-- rail: secrets
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: backend family
 
@@ -44,7 +36,7 @@
 |  [05]   | `errors.PasswordDeleteError` | exception      | delete operation failed       |
 |  [06]   | `errors.NoKeyringError`      | exception      | no viable backend found       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: top-level facade
 
@@ -84,7 +76,7 @@
 |  [07]   | `get_viable_backends() -> set[type[KeyringBackend]]`      | discovery       | viable subclasses ranked by priority            |
 |  [08]   | `with_properties(**kwargs)` / `set_properties_from_env()` | configure       | clone with overrides / hydrate props from env   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - facade-dispatch law: `get_password`/`set_password`/`delete_password`/`get_credential` delegate to the active backend from `get_keyring()`; consuming code never constructs a backend.
@@ -101,9 +93,3 @@
 [LOCAL_ADMISSION]:
 - `set_keyring`/`init_backend(limit=...)` inject or constrain a controlled backend at the test boundary; production selects via env/config, never by mutating the active backend in-process.
 - `errors.NoKeyringError` is the expected failure in a headless/container lane with no native keystore; the secret-admission rail lifts it to a typed boundary fault and falls back to the explicitly-configured env/config source, never a silent plaintext default.
-
-[RAIL_LAW]:
-- Package: `keyring`
-- Owns: platform-backed secret storage/retrieval, priority-ranked backend discovery, env/config backend selection, and the `KeyringBackend` extension point
-- Accept: `get_password`/`set_password`/`delete_password`/`get_credential` facade calls; `init_backend`/`load_env`/`load_config`/`load_keyring` selection; `recommended`/`by_priority`/`get_viable_backends` ranking; `KeyringBackend` subclassing with an explicit `priority`; the keyring-sourced `Credential` minted once into the httpx `Auth`/pydantic-settings rail
-- Reject: raw secrets in env vars or config files while a viable keyring exists; backends constructed directly in domain code; the secret re-read per request instead of minted once into the auth surface; the active backend mutated in production via `set_keyring`

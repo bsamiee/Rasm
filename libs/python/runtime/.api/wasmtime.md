@@ -2,15 +2,7 @@
 
 `wasmtime` embeds the Wasmtime runtime behind a ctypes-loaded shared library; runtime's `WorkerKind.WASM` guest sandbox consumes one slice (`workers.md`). Caller bytes validate host-side before anything else; one epoch-armed `Engine` per interpreter then compiles each module once, and every call instantiates fresh against a limit-bounded `Store`, exchanging bytes over the `GUEST_ABI` exports with zero imports. Epoch deadline is the kill mechanism: a daemon pacer increments the engine-global epoch against each store's relative tick budget, so a guest dies mid-kernel at wall clock. Fuel metering, WASI, and the component model sit outside runtime scope.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `wasmtime`
-- package: `wasmtime` (Apache-2.0 WITH LLVM-exception)
-- module: `wasmtime`
-- rail: worker crossing
-- namespaces: `wasmtime`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine, store, module, instance
 - every store-scoped read or call takes the `Store` as its first argument.
@@ -33,7 +25,7 @@
 |  [01]   | `WasmtimeError` | fault base    | guest trap, epoch trip, and instantiation failure carrier |
 |  [02]   | `ExitTrap`      | fault         | WASI `proc_exit` subclass carrying `.code`; unconsumed    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine, compilation, and per-call isolation
 - `Config` setters are write-only; `set_epoch_deadline` takes ticks relative to the engine's current epoch, so concurrent stores under one heartbeat stay isolated, and `set_limits` negative arguments leave a bound unset.
@@ -51,7 +43,7 @@
 |  [08]   | `func(store, *params)`                                                  | instance | direct export call; single value or list back |
 |  [09]   | `memory.write(store, value, start)` / `memory.read(store, start, stop)` | instance | request in, reply out as bytes                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - engine law: one epoch-armed `Engine` per interpreter; the daemon pacer increments the engine-global epoch every `EPOCH_TICK` while per-store deadlines stay relative ticks, so one heartbeat serves every concurrent guest and none kills another. Engine and compiled-module memos resolve as a PAIR under one gate — concurrent first guests on the thread arm are the ordinary case, a bare memo re-enters its body on a concurrent first miss, and a store on one engine instantiating a module compiled on another refuses.
@@ -69,9 +61,3 @@
 [LOCAL_ADMISSION]:
 - wasmtime is the branch's sole guest-sandbox owner; a second WASM runtime, a subprocess-per-guest scheme, or an `exec`-based plugin sandbox is the deleted form.
 - guest modules reach the crossing only as `Kernel.of(wasm_bytes)`; no page constructs an `Engine`, `Store`, or `Instance` beside the workers arm, whose admission gate is the one place a second, config-free engine exists and it compiles nothing.
-
-[RAIL_LAW]:
-- Package: `wasmtime`
-- Owns: in-process WASM guest execution — the epoch-armed engine, per-call store isolation with memory limits, once-per-bytes compilation, zero-import instantiation, and the byte-exchange ABI over exports
-- Accept: `Kernel.of(wasm_bytes)` as the sole ingress, `Module.validate` on a throwaway engine as the host-side admission gate, the `GUEST_ABI` export triple, `set_epoch_deadline` relative ticks under the one pacer, `set_limits(memory_size=)` ceilings, `except WasmtimeError` spanning compile, instantiate, and call with elapsed-budget discrimination
-- Reject: WASI or host imports on a guest, fuel metering beside the epoch kill, a per-call `Module` compile or a second RUN engine beside the memoized one, an unserialized engine/module memo pair, unvalidated caller bytes reaching a worker, `Trap` caught where `WasmtimeError` is the raise, a second sandbox runtime, and guest state carried across calls through a reused `Store`

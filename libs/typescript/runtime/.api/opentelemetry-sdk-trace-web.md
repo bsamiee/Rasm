@@ -4,16 +4,7 @@
 
 Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds a `PerformanceResourceTiming` entry into span network events, the lane every URL-bearing browser span rides; `@effect/opentelemetry` `WebSdk` drives the constructor over `register()`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-web`
-- package: `@opentelemetry/sdk-trace-web` (Apache-2.0)
-- module: CJS default (`main`) + ESM mirror (`module`); flat barrel, no `exports` subpath map; `sideEffects: false`
-- runtime: browser only — `StackContextManager` binds `window`/DOM and `utils` reads `PerformanceResourceTiming`; `sdk-trace-node` owns the node counterpart
-- depends: `@opentelemetry/api` (`Context`/`ContextManager`/`Span`/`HrTime`), `@opentelemetry/core` (composite W3C propagator `register()` installs), `@opentelemetry/sdk-trace-base` (`BasicTracerProvider` base + re-exported roster)
-- rail: observability/sdk-bridge — the browser trace provider `@effect/opentelemetry` `WebSdk` drives
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the browser provider, its window-scoped context manager, and the RUM resource-timing vocabulary
 
@@ -30,7 +21,7 @@ Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds 
 
 - `WebTracerConfig`: `register()` alone carries the browser behavior, so the base `TracerConfig` axes (`sampler`/`spanProcessors`/`idGenerator`) reach the browser provider unchanged.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider registration and the window-scoped context manager
 
@@ -63,7 +54,7 @@ Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds 
 - `getResource`: optional `ignoredResources` `WeakSet` skips reused entries and `initiatorType` filters by kind; the return pairs `mainRequest` with its CORS pre-flight.
 - `addSpanNetworkEvents`: trailing `ignoreNetworkEvents`, `ignoreZeros`, `skipOldSemconvContentLengthAttrs` flags gate emission and legacy content-length keys.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `WebTracerProvider` extends `BasicTracerProvider`, and `register()` installs the api globals — the tracer provider, a `CompositePropagator` of W3C trace-context and baggage, and `StackContextManager` — each field opting out with `null` or defaulting with `undefined`.
@@ -83,9 +74,3 @@ Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds 
 - `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no folder outside `telemetry` imports `sdk-trace-web`, and instrumentation emits through Effect's native signals against the facade-driven provider.
 - design code reaches the `WebSdk` layer for the browser provider and the RUM `utils` for URL-bearing span enrichment; `register()` serves a pure-SDK non-Effect path alone.
 - native `Otlp` export stays the standing rail; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` collapse roster this browser SDK leg joins.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/sdk-trace-web`
-- Owns: the browser trace provider `WebTracerProvider` with its `register()` global-install semantics (`StackContextManager` and the W3C composite propagator), the synchronous `StackContextManager`, and the `PerformanceTimingNames` enum and `utils` resource-timing enrichment toolkit; the barrel re-exports the `sdk-trace-base` roster catalogued in `opentelemetry-sdk-trace-base.md`.
-- Accept: `new WebTracerProvider(tracerConfig)` reached through `@effect/opentelemetry` `WebSdk`; base processors and samplers imported from this barrel; `BatchSpanProcessorBrowserConfig` pagehide-flush for RUM drain-before-navigation; the `utils` fold enriching any URL-bearing browser span; `register()` on a pure-SDK path.
-- Reject: `.register()` under the effect facade (it owns global context wiring — a double registration); `StackContextManager` for cross-`await` parenting (sync-only — effect's fiber context is the spine); this leg in node (`sdk-trace-node` owns it); a hand-rolled URL parser where `parseUrl`/`normalizeUrl` exist; re-cataloguing the re-exported base roster; importing outside `scope:runtime`.

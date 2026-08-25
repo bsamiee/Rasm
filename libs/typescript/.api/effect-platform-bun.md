@@ -2,16 +2,7 @@
 
 `@effect/platform-bun` binds every abstract `@effect/platform` service Tag to a Bun-native implementation, so a Node↔Bun runtime change is a Layer selection at the app root, never a code fork. It owns the Bun runtime boot, the aggregate `BunContext`, `Bun.serve` HTTP, subprocess and worker-pool exec, filesystem KV, socket transport, and the `@effect/cluster` sharding runners on Bun. It is the `runtime:node` lane the edge ledger bans inside `runtime:browser`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/platform-bun`
-- package: `@effect/platform-bun` (MIT)
-- module: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`@effect/platform-bun/BunHttpServer`, `/BunRuntime`, …)
-- runtime: `runtime:node` lane; peers `@effect/platform-node-shared` for `Sink`/`Stream`/`SocketServer`
-- rail: platform/bun — the Bun binding of every abstract `@effect/platform` Tag
-- depends: `@effect/platform` (abstract Tags this satisfies), `@effect/cluster`, `@effect/rpc`, `@effect/sql` (cluster-runner peers)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime boot + aggregate context
 
@@ -51,7 +42,7 @@
 |  [04]   | `BunClusterSocket.layer`                                 | cluster runner | `work/entity` sharding runner (socket) |
 |  [05]   | `BunSink.*` / `BunStream.*` (`node-shared`)              | io             | file/stream sink + source              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: runtime boot + HTTP serve
 
@@ -79,7 +70,7 @@
 - `BunCommandExecutor.layer: Layer<CommandExecutor, never, FileSystem>` and `BunWorker.layer(spawn: (id) => Worker): Layer<WorkerManager | Spawner>` back `proc/exec`.
 - `BunClusterHttp.layer` carries `{ transport: "http" | "websocket", serialization?: "msgpack" | "ndjson", clientOnly?, storage?: "local" | "sql" | "byo", serializationMaxBufferSize? }` — transport, serialization, storage, and the frame-buffer ceiling are policy values.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Node↔Bun is a Layer swap: providing `BunContext.layer` + `BunHttpServer.layer` + `BunRuntime.runMain` at the app root selects Bun, and every Bun `layer*` satisfies the same abstract `@effect/platform` Tag its Node counterpart does.
@@ -94,12 +85,6 @@
 - within-lib: `BunSocket`/`BunSocketServer` back the `net/channel` framed-transport rows, and `BunCommandExecutor` + `BunWorker` back the `proc/exec` subprocess + worker choreography the `work` runner discovery executes over.
 
 [LOCAL_ADMISSION]:
-- imported only inside `runtime:node` subpaths; the `tests/typescript/_architecture` import audit catches a browser rail that imports it.
+- imported only inside `runtime:node` subpaths.
 - `BunContext.layer` is the aggregate binding; individual `BunFileSystem`/`BunPath`/`BunCommandExecutor` merges serve only a rail needing a single service.
 - cluster runners require the `@effect/cluster`/`@effect/sql` peers; admit them only in `work` with the data driver satisfying `MessageStorage`.
-
-[RAIL_LAW]:
-- Package: `@effect/platform-bun`
-- Owns: the `BunRuntime.runMain` boot + `BunContext` aggregate, `BunHttpServer` over `Bun.serve` + `BunMultipart` body parsing, `BunCommandExecutor`/`BunWorker` exec, `BunKeyValueStore` filesystem KV, `BunSocket` transport, the `BunClusterHttp`/`BunClusterSocket` `@effect/cluster` runners, and the Bun `FileSystem`/`Path`/`Terminal`/`HttpPlatform` bindings
-- Accept: `runMain` as the Bun boot, `BunContext.layer` as the aggregate context, `BunHttpServer.layer` as the `serve/route` row hosting the app `HttpApi` + EventLog server, Bun `layer*` satisfying abstract `@effect/platform` Tags, `BunClusterHttp` as the `work` runner with transport/serialization/storage as policy values
-- Reject: this package inside `runtime:browser`, a second `runMain`, per-service merges where `BunContext.layer` suffices, hardcoded transport/serialization/storage where the cluster options own the axis, hand-rolled `Bun.serve`/subprocess/WebSocket wrappers

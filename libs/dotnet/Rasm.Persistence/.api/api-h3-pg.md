@@ -4,16 +4,7 @@
 
 One cell vocabulary spans in-process and in-database indexing: the id this surface computes is bit-for-bit the id the managed `pocketken.H3` pin computes at ingest.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `h3-pg` — extensions `h3` + `h3_postgis`
-- package: `h3-pg` (Apache-2.0)
-- namespace: SQL `public` — the `h3index` type, the `h3_*` functions, the operator, cast, and operator-class set
-- registration: both extensions are `RELOCATABLE` and preload-free; `h3` stands alone and `h3_postgis` requires `h3`, `postgis`, `postgis_raster`, which one `CASCADE` install pulls
-- consumed by: `Element/identity` cell columns and the `Query/lane` `SetPredicate.Cell` lowering, executed over raw `Npgsql`
-- rail: geospatial-index, geo-provisioning
-
-## [02]-[CELL_TYPE]
+## [01]-[CELL_TYPE]
 
 [CELL_TYPE_SCOPE]: `h3index` — an unsigned 64-bit id naming any H3 object, declared `LIKE int8` so storage and pass-by-value match `bigint`; text I/O is the lowercase hex form (`'8928308280fffff'`) and `h3index_recv`/`h3index_send` carry the binary wire.
 
@@ -35,7 +26,7 @@ One cell vocabulary spans in-process and in-database indexing: the id this surfa
 
 - `geometry @ integer`: `geography` left operands pair it, both riding `h3_postgis`.
 
-## [03]-[INDEXING]
+## [02]-[INDEXING]
 
 [INDEXING_ENTRY_SCOPE]: location-to-cell conversion and cell inspection
 
@@ -55,7 +46,7 @@ Native `point` arguments read `(lat, lng)`; the `h3_postgis` `geometry`/`geograp
 
 - `h3_cell_to_boundary`: `SET h3.extend_antimeridian TO true` extends coordinates across the 180th meridian.
 
-## [04]-[TRAVERSAL]
+## [03]-[TRAVERSAL]
 
 [TRAVERSAL_ENTRY_SCOPE]: grid traversal and the resolution hierarchy
 
@@ -81,7 +72,7 @@ Native `point` arguments read `(lat, lng)`; the `h3_postgis` `geometry`/`geograp
 - `h3_cell_to_children_slow`: same children at lower peak allocation.
 - `h3_grid_path_cells_recursive`: `h3_postgis` recursion over the same two cells.
 
-## [05]-[EDGE_VERTEX_METRIC]
+## [04]-[EDGE_VERTEX_METRIC]
 
 [EDGE_VERTEX_METRIC_ENTRY_SCOPE]: directed-edge topology, cell vertices, and grid metrics — bare rosters, every member keyed on `h3index` unless its name says otherwise
 
@@ -91,7 +82,7 @@ Native `point` arguments read `(lat, lng)`; the `h3_postgis` `geometry`/`geograp
 
 Each metric carries a trailing `unit text` argument defaulting to `km` or `km^2`; `h3_get_extension_version()` reports the installed extension build.
 
-## [06]-[POSTGIS_BRIDGE]
+## [05]-[POSTGIS_BRIDGE]
 
 [BRIDGE_ENTRY_SCOPE]: region fill and the `h3_postgis` geometry, geography, EWKB, and raster legs
 
@@ -119,7 +110,7 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 [CONTINUOUS]: `h3_raster_summary` `h3_raster_summary_clip` `h3_raster_summary_centroids` `h3_raster_summary_subpixel` `h3_raster_summary_stats_agg`
 [DISCRETE]: `h3_raster_class_summary` `h3_raster_class_summary_clip` `h3_raster_class_summary_centroids` `h3_raster_class_summary_subpixel` `h3_raster_class_summary_item_agg` `h3_raster_class_summary_item_to_jsonb`
 
-## [07]-[INDEX_SUPPORT]
+## [06]-[INDEX_SUPPORT]
 
 [INDEX_SUPPORT_TYPE_SCOPE]: operator classes over the four built-in access methods
 
@@ -132,7 +123,7 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 |  [03]   | `h3index_minmax_ops`       | brin   |    yes    | append-mostly, cell-clustered tables                             |
 |  [04]   | `h3index_ops_experimental` | spgist |    no     | hierarchical `=`, `@>`, `<@`; named explicitly at index DDL      |
 
-## [08]-[IMPLEMENTATION_LAW]
+## [07]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ServerExtension.H3Pg` carries `ExtensionAdmission.Standalone` and `ServerExtension.H3Postgis` carries `ExtensionAdmission.BaseType("h3")`, so `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS … CASCADE` and one statement pulls `postgis` and `postgis_raster`; neither row yields a `PreloadLibrary`, keeping the pair off the `ClusterSetting` `shared_preload_libraries` value.
@@ -147,9 +138,3 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 [LOCAL_ADMISSION]:
 - `Query/lane` lowers the `SetPredicate.Cell` leaf to `h3_grid_disk(anchor, k)` membership over the identity tier's cell column under the admitted `WalkDepth` ring; the `Spatial` leaf keeps the PostGIS GiST plane, and the two planes stay disjoint.
 - Durable keying rides the immutable `bigint` cell id on `ElementIdentity` and `NodeCell`, minted through the managed entry and railed as `IdentityFault.CellUnresolvable` when a centroid decodes invalid.
-
-[RAIL_LAW]:
-- Package: `h3-pg` (Apache-2.0)
-- Owns: in-database Uber-H3 cell indexing — the `h3index` type and its operator algebra, the indexing, inspection, traversal, hierarchy, edge, vertex, and metric function surface, the `h3_postgis` geometry, geography, EWKB, and raster bridge, and the btree, hash, brin, and spgist operator classes
-- Accept: the `CreateSql` CASCADE install, `h3_latlng_to_cell` at every call site, SRID-4326 PostGIS inputs, an `h3index` opclass index on a cell column, `h3_grid_disk` and `h3_polygon_to_cells` cell-set membership ahead of a geometry refine, ingest parity with the managed `pocketken.H3` pin
-- Reject: linking the extension into managed code, a `shared_preload_libraries` placement, a per-row `ST_DWithin` scan where a cell-set membership test serves, a second managed coordinate model beside NTS and H3, a stored mutable cell instance beside the durable `bigint`

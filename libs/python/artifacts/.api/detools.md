@@ -2,21 +2,7 @@
 
 `detools` owns binary-delta for the artifacts DELTA_BUNDLE rail: `create_patch` diffs a from-image against a to-image into a compressed patch, `apply_patch` reconstructs the to-image, and `patch_info` peeks the self-describing header for per-kind metadata. Native `bsdiff`/`hdiffpatch`/`suffix_array` extensions own the diffing, in-place segmentation, and firmware data-format awareness; the patch-payload codecs are admitted siblings `detools` selects and frames, and `detools.Error` lifts to an `expression` `Result.Error` at the codec `async_boundary`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `detools`
-- package: `detools` (BSD)
-- import: `detools`
-- owner: `artifacts`
-- rail: delta
-- marker: native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist, interpreter-tagged (no abi3), rebuilt per Python minor
-- depends: `humanfriendly`, `bitstruct`, `pyelftools` (ELF offset reader), `zstandard`, `lz4`, `heatshrink2` — the codec siblings `detools` selects
-- namespaces: `detools`, `detools.create`, `detools.apply`, `detools.info`, `detools.compression`, `detools.data_format`, `detools.errors`
-- public surface: no `__all__`; the library contract is the explicit `from … import …` re-export set the `[02]`/`[03]` rosters carry, `Error`, and `__version__`; the module's `_do_*` handlers, `data_format_args`, `add_data_format_args`, `find_data_offset_into_binfile`, and `parse_range` are `__main__` CLI plumbing, never library surface
-- entry points: console script `detools`; library use is import-only
-- capability: binary-delta patch creation across `sequential`/`in-place`/`bsdiff` patch types and `bsdiff`/`hdiffpatch`/`match-blocks` algorithms, `divsufsort`/`sais` suffix-array construction, `bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none` compression, data-format-aware ELF/AArch64/Cortex-M4/Xtensa-LX106 segmentation, patch application from file-like or named-file inputs, and patch-container inspection returning a per-kind metadata record
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: failure root
 
@@ -26,7 +12,7 @@
 | :-----: | :------- | :------------ | :----------------------------------------------- |
 |  [01]   | `Error`  | error         | base failure for every `detools` patch operation |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: patch creation
 
@@ -74,7 +60,7 @@ Per-kind `patch_info` info tuple (`detools.info`), the second element of the `(k
 - [02]-[IN_PLACE]: `(patch_size, compression, compression_info, memory_size, segment_size, shift_size, from_size, to_size, segments[(dfpatch_size, data_format, info)])` — `shift_size` is `detools.create.calc_shift`'s computed slide `max((memory_segments - from_segments) * segment_size, minimum_shift_size)`, where `memory_segments = memory_size // segment_size` (a `memory_size` not a multiple of `segment_size` raises `Error`), `from_segments = div_ceil(from_size, segment_size)`, and `minimum_shift_size` defaults to `2 * segment_size` and itself divides by `segment_size`; an audit re-derives the slide from the echoed sizes, never equality-checking the configured `minimum_shift_size`
 - [03]-[HDIFFPATCH]: `(patch_size, compression, compression_info, to_size)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `create_patch` owns diffing and one `apply_patch` owns reconstruction (peeking the header, dispatching sequential vs hdiffpatch); `apply_patch_bsdiff` and `apply_patch_in_place` are the headerless-bsdiff and in-place header KINDS, not parallel owners.
@@ -92,8 +78,3 @@ Per-kind `patch_info` info tuple (`detools.info`), the second element of the `(k
 
 [LOCAL_ADMISSION]:
 - `detools` is the superset diff engine: its `bsdiff` algorithm and `apply_patch_bsdiff` subsume `bsdiff4`, and it adds `hdiffpatch`, in-place segmentation, and firmware data-format awareness — admit it as the single diff owner, a sibling codec only the payload compressor it selects.
-
-[RAIL_LAW]:
-- Package: `detools`
-- Owns: binary-delta patch creation (bsdiff/hdiffpatch, sequential/in-place/bsdiff framing), patch application from file-like or named-file inputs, and patch-container inspection
-- Accept: DELTA_BUNDLE create/apply and patch metadata feeding the artifacts persistence owner

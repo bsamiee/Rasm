@@ -2,16 +2,7 @@
 
 `@visx/shape` owns the SVG geometry roster of the visx chart spine: each component renders a vendored `d3-shape` generator as one addressable React `<svg>` element — accessor props in, path out, token classes and handlers and per-element a11y on every node. This per-element addressability earns visx its surface over Plot; headless config-object factories cover geometry when no element must render.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@visx/shape`
-- package: `@visx/shape` (MIT)
-- module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19
-- runtime: browser SVG; deps `@visx/curve` `@visx/group` `@visx/scale` `@visx/vendor` (the pinned d3 bundle) + `classnames` — curves are consumed internally, so no `curve*` member re-exports from this entry
-- plane: `plane:runtime` (W4 `ui`)
-- rail: the visx SVG geometry roster — line/area/bar/radial/link/region components rendering against `@visx/scale` scales inside a `@visx/group` frame
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the vocabulary generic chart wrappers constrain against.
 
@@ -19,7 +10,7 @@
 
 - `AddSVGProps<OwnProps, Element>` merges a component's own props with `SVGProps<Element>` minus the keys the component owns, so every shape accepts native SVG attributes with no prop collision; `PositionScale` gates the scale a shape's accessors read, `StackOffset`/`StackOrder` the offset and order selector unions, and `Accessor`/`SeriesPoint` the datum-in and stack-point-out shapes.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: every component emits one addressable React SVG element; accessors, stack policy, and the config-object factories are the headless helpers.
 
@@ -46,7 +37,7 @@
 
 `curve` binds a d3 `CurveFactory` value, never a `@visx/curve` re-export — that dep stays internal here, so curve values import from the d3 substrate (`.api/d3.md` `curveMonotoneX`/`curveNatural`), structurally identical to the vendored factories.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every component computes its path through the vendored `d3-shape` generator and emits a plain SVG element, so one accessor fold per chart feeds line, area, bar, radial, link, and region alike and each path stays an addressable React node rather than a canvas draw.
@@ -63,9 +54,3 @@
 [LOCAL_ADMISSION]:
 - Admit `@visx/shape` as the sole SVG geometry owner of the visx spine; every path renders through a component or a headless factory, never a hand-built `d` string.
 - Geometry at DOM-hostile point counts leaves SVG — `uplot`(`.api/uplot.md`) owns dense time series and a GPU engine owns spatial maps — and a declared chart needing no per-element addressability routes to `observablehq-plot`(`.api/observablehq-plot.md`), whose `stackY`/`differenceX` marks own the stacked-band shading `AreaStack` covers here.
-
-[RAIL_LAW]:
-- Package: `@visx/shape`
-- Owns: the SVG geometry roster — accessor-driven line, area, bar, radial, link, and region components, stack layout with named offset and order tables, children-as-function layout escapes, and the headless config-object factories.
-- Accept: accessors folded once per chart; scales from `@visx/scale` shared with axes; curve values from the d3 substrate; children-as-function for custom bar, pie, and stack rendering; token classes on every element.
-- Reject: a hand-built `d` string where a component or factory exists; per-shape scale reconstruction; expecting `curve*` or a `Threshold` shading member from this entry, where curves ride the d3 substrate and threshold shading is its own package; SVG at `uplot` or GPU-engine point counts; visx layers mixed into a Plot-owned chart.

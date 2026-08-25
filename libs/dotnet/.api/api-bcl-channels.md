@@ -2,15 +2,7 @@
 
 `System.Threading.Channels` owns asynchronous producer-consumer transport: one channel splits into a `ChannelReader<T>` observation half and a `ChannelWriter<T>` publication half, so a host or native callback publishes without blocking while a consumer drains at its own cadence. Each half reaches only its own direction, so the type separates publication ownership from observation ownership.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Threading.Channels`
-- package: `System.Threading.Channels` (MIT)
-- assembly: `System.Threading.Channels.dll` (shared framework)
-- namespace: `System.Threading.Channels`
-- rail: producer-consumer transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transport roots, halves, policy records, and the closed fault
 
@@ -28,7 +20,7 @@
 |  [10]   | `BoundedChannelFullMode`                | enum            | `Wait`, `DropNewest`, `DropOldest`, `DropWrite`                 |
 |  [11]   | `ChannelClosedException`                | exception class | closed-channel fault over `InvalidOperationException`           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction, half hand-out, and both halves' members — every `Channel` static returns `Channel<T>` and every `CancellationToken` parameter defaults to `default`
 
@@ -65,7 +57,7 @@
 - `Channel<TWrite, TRead>.Reader` / `Writer`: each setter is `protected`, so a subclass seats its own halves and no consumer rebinds one.
 - `ChannelWriter<T>.Complete` is NON-virtual over the `virtual` `TryComplete`, so a custom writer overrides `TryComplete` alone and `Complete` inherits its refusal.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Channel<TWrite, TRead>` owns the lifecycle and assigns both halves through protected setters; `Channel<T>` refines it symmetrically, so an asymmetric lane and a same-type lane share one root and one completion.
@@ -83,9 +75,3 @@
 [LOCAL_ADMISSION]:
 - Producer-consumer hand-offs compose this surface: the owner retains the `ChannelWriter<T>` and publishes only the `ChannelReader<T>`, so a consumer cannot write or complete the lane it drains.
 - Custom transports subclass `Channel<TWrite, TRead>`; the implicit half operators foreclose a wrapper type that re-exposes reader members.
-
-[RAIL_LAW]:
-- Package: `System.Threading.Channels`
-- Owns: asynchronous producer-consumer transport — buffered hand-off, capacity and full-mode policy, drop observation, priority drain, and the reader/writer split
-- Accept: bounded, rendezvous, unbounded, and prioritized construction; callback-local `TryWrite`; the `WaitToReadAsync`/`TryRead` and `ReadAllAsync` drains; `Complete`/`TryComplete` shutdown
-- Reject: a lock-and-semaphore queue, `BlockingCollection<T>` on an async path, a caller-side drop counter where `itemDropped` observes eviction

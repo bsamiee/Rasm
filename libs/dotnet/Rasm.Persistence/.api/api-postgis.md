@@ -2,17 +2,7 @@
 
 `postgis`, `postgis_raster`, and `postgis_sfcgal` own the PostgreSQL server-tier geospatial SQL surface — the `geometry`/`geography`/`raster` types, the `ST_*` construction, measurement, relationship, and overlay families over the built-in GiST index AM, and the `CG_*` exact-3D SFCGAL surface. Every surface is server-side SQL with no managed linkage: the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows install it, and the `api-npgsql-nts` codec and `api-nts-ef` EF plugin reach it as `NetTopologySuite.Geometries.Geometry`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `postgis` + `postgis_raster` + `postgis_sfcgal`
-- packages: `postgis` + `postgis_raster` + `postgis_sfcgal` (GPL-2.0-or-later)
-- namespace: SQL `public` (the `geometry`/`geography`/`raster` types, the `ST_*` and `CG_*` functions, the operator/opclass set)
-- depends: `postgis` is the base; `postgis_raster` and `postgis_sfcgal` each `requires = postgis` — installed as their own `ServerExtension` rows
-- registration: preload-free — GiST/SP-GiST/BRIN operator classes over the built-in AMs, no custom access method and no `shared_preload_libraries` row; the EF `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model
-- consumed by: the `api-npgsql-nts` `NetTopologySuiteTypeInfoResolverFactory` wire codec and the `api-nts-ef` `NpgsqlGeometryTypeMapping<TGeometry>` column mapping, the `Element/identity#ELEMENT_IDENTITY` `Bounds` footprint column, and the `h3_postgis`/`pgrouting` extensions that `requires` it
-- rail: geospatial-provisioning, spatial-store
-
-## [02]-[SPATIAL_TYPES]
+## [01]-[SPATIAL_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the geospatial store types. `geometry` typmods carry the subtype token — `POINT`/`LINESTRING`/`POLYGON`/`MULTIPOINT`/`MULTILINESTRING`/`MULTIPOLYGON`/`GEOMETRYCOLLECTION`, the curved `CIRCULARSTRING`/`COMPOUNDCURVE`/`CURVEPOLYGON`, and the surface `POLYHEDRALSURFACE`/`TIN`/`TRIANGLE` — with a `Z`/`M`/`ZM` dimensionality suffix and an SRID (`geometry(PointZ, 4326)`).
 
@@ -25,7 +15,7 @@
 |  [05]   | `spheroid`        | `SPHEROID[...]` measurement datum for `ST_LengthSpheroid`/`ST_DistanceSpheroid`           |
 |  [06]   | `raster`          | (`postgis_raster`) georeferenced multiband pixel grid; in-db or GDAL-backed out-db        |
 
-## [03]-[GEOMETRY_IO]
+## [02]-[GEOMETRY_IO]
 
 [ENTRYPOINT_SCOPE]: construction and inspection.
 
@@ -62,7 +52,7 @@
 |  [11]   | `ST_AsGML` / `ST_AsKML` / `ST_AsSVG(geometry)` → `text`         | GML / KML / SVG                           |
 |  [12]   | `ST_GeoHash(geometry[, precision])` → `text`                    | geohash of a lon/lat point or bbox        |
 
-## [04]-[RELATIONSHIPS]
+## [03]-[RELATIONSHIPS]
 
 [ENTRYPOINT_SCOPE]: measurement. `geography` overloads measure on the spheroid; `ST_DistanceSphere` is the fast spherical approximation, `ST_DistanceSpheroid` the exact form.
 
@@ -90,7 +80,7 @@
 |  [07]   | `ST_Relate(geometry, geometry[, pattern])` → `text` / `boolean` | DE-9IM matrix / intersection-pattern match |
 |  [08]   | `ST_OrderingEquals(geometry, geometry)` → `boolean`             | identical vertex order and values          |
 
-## [05]-[PROCESSING]
+## [04]-[PROCESSING]
 
 [ENTRYPOINT_SCOPE]: geometry-producing overlay and derivation. `ST_Buffer` carries a `quad_segs`/`endcap`/`join` parameter string and a `geography` overload.
 
@@ -118,7 +108,7 @@
 |  [06]   | `ST_ClusterIntersecting` / `ST_ClusterWithin(geometry)` agg → `geometry[]` | connected-component clustering                      |
 |  [07]   | `ST_AsMVTGeom(geometry, box2d, ...)` / `ST_AsMVT(anyelement)` agg          | clip to tile pixel space / Mapbox Vector Tile bytea |
 
-## [06]-[RASTER]
+## [05]-[RASTER]
 
 [ENTRYPOINT_SCOPE]: `postgis_raster` — a `raster` is a georeferenced multiband pixel grid stored in-db or out-db (GDAL). `raster2pgsql` loads source rasters; out-db access is GUC-gated.
 
@@ -137,7 +127,7 @@
 |  [11]   | `ST_SummaryStats` / `ST_Histogram` / `ST_ValueCount(raster)`       | per-band statistics                     |
 |  [12]   | `ST_Tile(raster, w, h)` → `SETOF raster`                           | split into fixed-size tiles             |
 
-## [07]-[SFCGAL_3D]
+## [06]-[SFCGAL_3D]
 
 [ENTRYPOINT_SCOPE]: `postgis_sfcgal` — exact 3D and solid modeling over the SFCGAL backend; every function is called through its `CG_` name. `ST_ExtrudeStraightSkeleton` is the one solid-roof entry that keeps the `ST_` prefix.
 
@@ -157,7 +147,7 @@
 |  [12]   | `CG_ApproxConvexPartition` / `CG_OptimalConvexPartition(geometry)`       | convex partitioning                          |
 |  [13]   | `CG_Visibility(geometry, ...)` → `geometry`                              | visibility polygon                           |
 
-## [08]-[INDEX_SUPPORT]
+## [07]-[INDEX_SUPPORT]
 
 [ENTRYPOINT_SCOPE]: PostGIS ships operator classes for the built-in GiST/SP-GiST/BRIN access methods over `geometry`/`geography` — no custom AM, so a bare `USING gist (geom)` picks the default `gist_geometry_ops_2d` while an N-D or `geography` index names its opclass. `geom <-> geom` (2D) and box-KNN `geom <#> geom` ride the GiST opclass for index-ordered nearest-neighbour; the bbox operators `&&` (2D) and `&&&` (nD) drive `ST_Intersects`/`ST_DWithin` pushdown.
 
@@ -171,7 +161,7 @@
 |  [06]   | `brin_geometry_inclusion_ops_2d`         | brin   | no        | block-range 2D bbox inclusion               |
 |  [07]   | `brin_geometry_inclusion_ops_3d` / `_4d` | brin   | no        | 3D / 4D BRIN inclusion                      |
 
-## [09]-[IMPLEMENTATION_LAW]
+## [08]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - No managed assembly, built-in AMs: `postgis` registers types, functions, operators, and GiST/SP-GiST/BRIN operator classes (no custom access method), so the family is absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row. `postgis` is the base; `postgis_raster` and `postgis_sfcgal` each `requires = postgis` and install as their own `ServerExtension` rows; the EF `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model.
@@ -185,9 +175,3 @@
 
 [LOCAL_ADMISSION]:
 - Spatial capability enters only through the PostgreSQL store profile: the `ServerExtension` rows for `postgis`/`postgis_raster`/`postgis_sfcgal` and `UseNetTopologySuite` on the EF options AND the ADO data source, paired. Per-property SRID is mapping policy; geometry values use `NetTopologySuite` types, never WKT strings or raw `bytea` columns.
-
-[RAIL_LAW]:
-- Package: `postgis` + `postgis_raster` + `postgis_sfcgal` (GPL-2.0-or-later)
-- Owns: the in-PG geospatial SQL surface — the `geometry`/`geography`/`raster` types, the `ST_*` construction/measurement/relationship/overlay/aggregate functions, the `CG_*` exact-3D SFCGAL surface, and the GiST/SP-GiST/BRIN operator classes
-- Accept: `CREATE EXTENSION postgis`/`postgis_raster`/`postgis_sfcgal`, `NetTopologySuite`-typed geometry through the `Npgsql.NetTopologySuite` codec, EF member/method/`EF.Functions` translation to `ST_*`, a `gist_geometry_ops_2d` index behind `ST_Intersects`/`ST_DWithin`/`<->`, the `CG_` SFCGAL spelling, in-db or GUC-gated out-db rasters
-- Reject: linking PostGIS into managed code, a WKT string or raw `bytea` column standing for a geometry contract, a client-evaluated spatial predicate, a per-row scan where a `gist` bbox index serves, placing the family on the `shared_preload_libraries` row

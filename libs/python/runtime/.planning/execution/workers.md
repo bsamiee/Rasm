@@ -32,7 +32,7 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 - Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools. `execution/admission#CONTEXT` admits the `isolation` axis upstream and refuses an unbound crossing there, so `KernelTrait` selects the worker kind INSIDE a value the profile already serves — `INLINE` under `in-proc`, `PURE` and `RELEASING` under `thread`, `HOSTILE` under `process`, `SANDBOXED` under `wasm`, the `WorkerKind.REMOTE` fleet arm under `remote` — and a kernel reaching a crossing the profile never admitted is unrepresentable, never a runtime downgrade this owner absorbs.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import hashlib
 import math
 import sys
@@ -483,7 +483,7 @@ KIND_POLICY: Final[Map[WorkerKind, KindPolicy]] = Map.of_seq([
 - Boundary: pools serve the lanes offload hop, the daemon drain fold, the fleet and device consumers, and the supervisor — a consumer never imports an executor class, holds a future, or sizes a pool; sizing derives from `loky.cpu_count(only_physical_cores=True)`, which already folds the `LOKY_MAX_CPU_COUNT` deploy override and the cgroup budget, so a cgroup-capped batch arm is deploy placement with zero new surface — the capped daemon's workers inherit its cgroup and every pool self-sizes to the quota, scheduling class and affinity riding the same deploy custody, never a kind — and `WORKER_BAND` bounds in-flight admission above the pool, refusing burst past physical cores. `REMOTE` and `GPU` are caller placement, never trait-derived — the lanes offload never routes to them, and a consumer acquires the arm with its `RemoteEndpoint` or `Device` exactly as trait declaration is consumer domain knowledge on the crossing; priority is the same placement axis — a latency class acquires its own arm key, never a queue-discipline knob. Fan-out modality stays the lane's `drain` — the pools expose `submit` alone, never a second `map`, stream, or priority surface. `Kernel.of` is the whole payload-classification surface and `ShmSpan` the one out-of-band buffer channel, so no per-object wrap, pickler swap, or reducer registration exists beside them; the span bracket itself is the lane's, so `submit` takes arguments already exported and a direct-submit consumer brackets its own call with `exported`/`released` rather than expecting the pool to read `kernel.wire`. Host-side admission sits at that same seam under the same law — the lane's `offload` runs `admitted` once for every crossing it drives, and a direct-submit consumer runs it itself, so the gate is never paid twice on the terminal guest route.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import atexit
 import os
 from concurrent.futures import Future
@@ -915,7 +915,7 @@ class WorkerPool:
 - Boundary: adapters own PostgreSQL, broker, or service calls; this owner carries no SQL, polling protocol, or provider transaction.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Annotated, Literal, Protocol, assert_never
 
@@ -1095,7 +1095,7 @@ def _verdict(verb: str, answered: RuntimeRail[LeaseVerdict], expected: str) -> R
 - Boundary: the supervisor actuates pooled arms — device arms included — remote channels, and daemon children only — `ChargeKind` seals that subject set by construction — and it never restarts the serve host, never owns the signal seam (`transport/serve#ENTRY`'s), and never emits health protocol wire (the serve owner's `ServerHost`, the generated `grpc.health.v1` `Health` servicer, is the sole advertiser). Probe evidence writes its `supervise` line at the actuation site.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress

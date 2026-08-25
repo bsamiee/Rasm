@@ -52,7 +52,7 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 - Growth: a new draw modality is one `IconDraw` plan case with its `IconProduct` result case; the gate never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 

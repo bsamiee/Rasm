@@ -20,7 +20,7 @@ Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/ato
 - Boundary: framing is a COLUMN on the row and never a second roster — only four of the seventeen rows carry the periodic twin, and the shaped rows carry filter-design alone; `Rasm.Compute` `Stats/signal` `WindowKind` was the strata twin this roster absorbed — its `rectangular` spelling reads `Dirichlet` here and its default sigma and fraction stay Compute policy values handed in as `TaperShape`, never roster defaults.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
@@ -114,7 +114,7 @@ public sealed partial class WindowTaper {
 - Boundary: `MathNet.Numerics.Interpolation` is one-dimensional whole, so a bicubic or scattered-surface reconstruction is the regression route's and never a factory here; the extension blocks are the ONLY reach to `Differentiate`/`Differentiate2`/`Integrate`, so a consumer holding an `Interpolant<Sampled>` cannot spell them.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -232,7 +232,7 @@ public static class Interpolant {
 - Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and `Spectrum` names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`Spectrum.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Numerics;

@@ -29,7 +29,7 @@ A hook point is the finer-grained fact seam a lifecycle surface fires mid-operat
 - Boundary: the registry composes the observe and metrics owners and adds no second egress — a subscriber that needs OTLP reaches it through the taps, and a library registers points while only the app root registers subscribers.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum

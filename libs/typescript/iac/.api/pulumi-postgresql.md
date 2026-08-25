@@ -8,18 +8,9 @@ In the `iac` plane it is the `kube/data` egress — finalizing per-app databases
 [EXPORTS]: `Database` `Schema` `Role` `Grant` `GrantRole` `Extension` `Function` `DefaultPrivileges` `DefaultPrivileg` `Publication` `Subscription` `ReplicationSlot` `PhysicalReplicationSlot` `SecurityLabel` `UserMapping` `Server`
 [EXPORTS]: `getSchemas` `getSchemasOutput` `getSequences` `getSequencesOutput` `getTables` `getTablesOutput` `config` `types`
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[PUBLIC_TYPES]
 
-[PACKAGE_SURFACE]: `@pulumi/postgresql`
-- package: `@pulumi/postgresql` (Apache-2.0)
-- module: `@pulumi/postgresql` — flat namespace, per-resource subpaths, `config`/`types` sub-namespaces
-- runtime: `node` — Automation-API program process; peer `@pulumi/pulumi` owns `CustomResource`/`Output`/`Input`; needs the `pulumi-resource-postgresql` plugin binary and a reachable server
-- asset: generated `CustomResource` classes, the connection `Provider`, `get*`/`get*Output` data-source pairs, `config` readers, `types.input`/`types.output` shapes
-- rail: iac / data-provisioning
-
-## [02]-[PUBLIC_TYPES]
-
-### [02.1]-[RESOURCE_QUADRUPLE]
+### [01.1]-[RESOURCE_QUADRUPLE]
 
 [PUBLIC_TYPE_SCOPE]: the shared Terraform-bridge codegen shape
 - rail: iac / data-provisioning
@@ -37,7 +28,7 @@ Every resource fills this quadruple; the roster in [02.2] is the data fed to it,
 
 [DATABASE_ATTRS]: `Database.name: pulumi.Output<string>` `Database.owner` `Database.template` `Database.encoding` `Database.lcCollate` `Database.lcCtype` `Database.tablespaceName` `Database.connectionLimit: pulumi.Output<number|undefined>` `Database.allowConnections: pulumi.Output<boolean|undefined>` `Database.isTemplate: pulumi.Output<boolean>` `Database.alterObjectOwnership: pulumi.Output<boolean|undefined>` — `DatabaseArgs` mirrors each as `pulumi.Input<T|undefined>`
 
-### [02.2]-[RESOURCE_ROSTER]
+### [01.2]-[RESOURCE_ROSTER]
 
 [PUBLIC_TYPE_SCOPE]: managed objects
 - rail: iac / data-provisioning
@@ -61,7 +52,7 @@ Every resource fills this quadruple; the roster in [02.2] is the data fed to it,
 |  [15]   | `Server`                  | foreign server (FDW)           | `serverName`, `fdwName`, `options`, `serverType`            |
 |  [16]   | `DefaultPrivileg`         | singular codegen alias         | mirrors `DefaultPrivileges`                                 |
 
-### [02.3]-[DATA_SOURCES]
+### [01.3]-[DATA_SOURCES]
 
 [PUBLIC_TYPE_SCOPE]: drift-read data sources
 - rail: iac / drift-read
@@ -77,7 +68,7 @@ Each source ships a dual — an eager `get*(args, opts?): Promise<Result>` and a
 [SURFACES]: `getSchemas(GetSchemasArgs,pulumi.InvokeOptions?) -> Promise<GetSchemasResult>` `getSchemasOutput(GetSchemasOutputArgs,pulumi.InvokeOutputOptions?) -> pulumi.Output<GetSchemasResult>`
 [LIKE_PATTERNS]: `likeAllPatterns` `likeAnyPatterns` `notLikeAllPatterns` — the `like*Patterns?` glob every data source carries
 
-### [02.4]-[PROVIDER]
+### [01.4]-[PROVIDER]
 
 [PUBLIC_TYPE_SCOPE]: the connection boundary
 - rail: iac / data-provisioning
@@ -100,7 +91,7 @@ Explicit `Provider` carries the DSN and binds every resource in the arm to the C
 
 `config` re-exports every `ProviderArgs` field as a package-wide read from `postgresql:*` stack config; an explicit `Provider` lets one program bind several clusters. `types.input`/`types.output` carry the nested shapes (`ProviderClientcert`, grant `policies`).
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every managed object is the quadruple: `XArgs` fields are `pulumi.Input<T>` (a raw value, a `Promise`, or an upstream `Output<T>`), and `X` attributes are `pulumi.Output<T>` threaded through the DAG — compose with `.apply` / `pulumi.all([...]).apply` / `pulumi.output`, never read an `Output` synchronously.
@@ -116,10 +107,3 @@ Explicit `Provider` carries the DSN and binds every resource in the arm to the C
 - `@pulumi/policy`(`.api/pulumi-policy.md`): `validateResourceOfType(postgresql.Role, (role, _, report) => role.superuser && report(...))` narrows CrossGuard against the exact `Role`/`Grant` classes exported here.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`) / `@pulumi/random`(`.api/pulumi-random.md`): `Role`/`Provider` `password` takes a secret `Output` — a Doppler config read or `RandomPassword.result` — marked `pulumi.secret(...)`, never a literal.
 - within-lib: the `Extension` roster realizes the PG18.4 capability profile the `StackSpec` capability column names, one `Extension` per `lane/capability` ensure entry with `database` bound to the per-app `Database` and `version` pinned; `getSchemas`/`getTables` feed the `policy/drift` read-back and any `store`-side conformance check; `provider/dispatch` `Match.exhaustive` selects this subgraph as the `selfhosted-k8s` arm.
-
-[RAIL_LAW]:
-- Package: `@pulumi/postgresql`
-- Owns: declarative PostgreSQL logical-object provisioning — the DDL half of the `lane/capability` rail, applied against a running server
-- Accept: `pulumi.Input<T>` for every arg; an explicit `Provider` bound to the CNPG service; a secret `Output` for `password`; a `Schema`-decoded `StackOutputs` crossing to `work`
-- Reject: raw libpq or `pg`-client DDL in the deploy program; ambient package `config` where an explicit `Provider` binds the cluster; a mutable knob on a `forceNew` field
-- Faults: apply failures carry no typed `Result` here; the Automation boundary maps the rejected Pulumi operation to `DeployFault`

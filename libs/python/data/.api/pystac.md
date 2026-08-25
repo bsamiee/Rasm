@@ -2,17 +2,7 @@
 
 `pystac` supplies the in-memory STAC object model for the data STAC-catalog rail: the `Catalog`/`Collection`/`Item`/`Asset` hierarchy over a `Link` graph, `Extent`/`Provider` metadata, the `MediaType`/`CatalogType`/`RelType`/`ProviderRole` vocabularies, pluggable `StacIO` read/write, schema migration on read, JSON-Schema validation, and the typed extension family reached through `obj.ext.<short>`. `pystac` owns STAC JSON serialization, the migration path, and the HREF-resolution link graph; the data owner composes the `STACObject` hierarchy and the module readers as its STAC in-memory owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pystac` (Apache-2.0)
-- module: `import pystac`
-- composition: namespace meta-package — `pystac-core` fills the core `pystac.*` namespace and each extension is an independently-published `pystac-ext-*` distribution publishing into the shared `pystac.extensions.*` namespace via `pkgutil.extend_path`; the caller surface (`import pystac`, `obj.ext.<short>`) is one contract regardless of the split
-- owner: `data`
-- rail: STAC catalog
-- entry points: none (library only)
-- capability: the STAC in-memory object graph — catalog/collection/item/asset construction, `Link` traversal and HREF normalization, spatial/temporal extent and provider metadata, the STAC vocabularies, pluggable JSON read/write via `StacIO`, schema migration on read, JSON-Schema validation, and the full typed STAC extension namespace
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: STAC object hierarchy, metadata, and vocabularies
 
@@ -60,7 +50,7 @@
 
 - `DeprecatedWarning` (a `FutureWarning`) is emitted, not raised, on deprecated-field access; catch it through `warnings`, never the error rail.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, construct, traverse, save
 
@@ -127,7 +117,7 @@
 |  [19]   | `item.ext.version` / `VersionExtension`       | I·A·C        | version/deprecation lineage                                              |
 |  [20]   | `collection.ext.item_assets`                  | C            | collection-level `item_assets` -> `ItemAssetDefinition` template         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - hierarchy: one `STACObject` root fans to `Catalog`/`Collection`/`Item`/`ItemCollection`; `Collection` is a `Catalog` with `Extent`/`Provider`/`Summaries`, and `Item` carries assets via the `Assets` mixin and common fields via `common_metadata`.
@@ -150,9 +140,3 @@
 
 [LOCAL_ADMISSION]:
 - `pystac.Item`/`Collection` and the `read_file`/`read_dict` module readers are the sole STAC in-memory surface; a `pystac-client`-yielded `Item` enters unchanged.
-
-[RAIL_LAW]:
-- Package: `pystac`
-- Owns: the in-memory STAC object graph, spatial/temporal extent and provider metadata, the STAC vocabularies, pluggable JSON read/write via `StacIO`, schema migration on read, JSON-Schema validation, and the typed STAC extension namespace
-- Accept: `read_file`/`read_dict` polymorphic ingest, `STACObject` hierarchy construction, the `get_item`/`get_items`/`get_all_items`/`walk`/`map_items` traversal family, `Link.*` factory edges, `normalize_and_save` egress, the `MediaType`/`CatalogType`/`RelType`/`ProviderRole` enums, `obj.ext.<short>` extension application, `StacIO` injection, `validate_all` gating
-- Reject: wrapper-renames of `Item`/`from_dict`/`to_dict`; a per-kind parallel record type; a second item type where `pystac-client` yields `Item`; hand-built HREFs where the `Link` factories and `normalize_hrefs` apply; raw rel/media strings where `RelType`/`MediaType` resolve; a hand-rolled `add_extension` or manual `stac_extensions` mutation where `obj.ext` owns application; a forked reader where `StacIO` injection swaps strategy

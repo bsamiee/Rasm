@@ -2,19 +2,7 @@
 
 `Silk.NET.Input` is the cross-platform input abstraction: `IView.CreateInput()` mints an `IInputContext` whose device lists expose immutable poll state and per-device event streams over one backend-updated state. `Silk.NET.Input.Common` owns the public contracts and carriers, while the meta-package carries no assembly and admits SDL2 or GLFW backends. `[InputPlatform]` registers `Silk.NET.Input.Sdl` reflectively for the osx-arm64 controller path; that backend and the `Silk.NET.SDL` haptic root P/Invoke one SDL2 runtime, so AppUi `InputFabric` owns a single per-process native binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.Input`
-- package: `Silk.NET.Input` (MIT)
-- package: `Silk.NET.Input.Common` (MIT)
-- package: `Silk.NET.Input.Glfw` (— `[InputPlatform]` backend, reflection-loaded)
-- package: `Silk.NET.Input.Sdl` (— `[InputPlatform]` backend, osx-arm64 controller/haptic path)
-- assembly: `Silk.NET.Input.Common`
-- namespace: `Silk.NET.Input` (single public namespace)
-- asset: runtime library + reflection-loaded backend assemblies (`Silk.NET.Input.Sdl`, `Silk.NET.Input.Glfw`)
-- rail: input
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and device contracts
 - rail: input
@@ -67,7 +55,7 @@
 |  [02]   | `GamepadExtensions`      | static class  | named-button/stick accessors (throw `PlatformNotSupportedException`) |
 |  [03]   | `InputPlatformAttribute` | assembly attr | backend discovery marker                                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: context creation and platform registry
 - rail: input
@@ -117,7 +105,7 @@
 |  [18]   | `HotspotX` / `HotspotY` / `Image`(`RawImage`) / `IsSupported(...)`          | `ICursor`              | custom cursor configuration |
 |  [19]   | `Index` / `Speed` (get/set)                                                 | `IMotor`               | rumble actuation            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [INPUT_TOPOLOGY]:
 - Single public namespace `Silk.NET.Input`; the meta-package carries no assembly and folds to empty under decompile, so the consumable types (10 interfaces, 8 enums, 7 value-carrier structs, 3 static/attribute owners) live in `Silk.NET.Input.Common`.
@@ -135,10 +123,3 @@
 - `IInputContext` is the one disposed input owner per view; the AppUi InputFabric pairs `CreateInput()` and `Dispose()` in a scoped boundary capsule and never holds device references past context disposal.
 - Per-frame InputFabric reads the immutable state carriers (`Button`, `Thumbstick`, `Trigger`, `Axis`, `Hat`) and folds them into canonical input facts; the device `event Action<...>` streams feed edge-triggered actions, never a second polling loop over the same state.
 - Rumble routes through `IGamepad.VibrationMotors[i].Speed`; haptic intensity beyond linear motor speed is a `Silk.NET.SDL` force-feedback concern (`.api/api-silk-sdl.md`), not this abstraction.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.Input` (+ `Silk.NET.Input.Common`, `Silk.NET.Input.Sdl`)
-- Owns: the input device abstraction — `IInputContext` aggregation, `IGamepad`/`IJoystick`/`IKeyboard`/`IMouse` state and event streams, `Deadzone` policy, and the `CreateInput` entrypoint over the reflection-loaded SDL2 backend for osx-arm64.
-- Stacks: `DeviceDriver` folds `Gamepad(Silk.NET.Input controller)` and `Haptic(Silk.NET.SDL force-feedback)` beside `Hid(HidSharp SpaceMouse)` and `Midi(Melanchall.DryWetMidi)`; all four capsules bind one `InputFabric` edge onto the `CommandRow` table. Gamepad faults map to `InputDriverFault` `DeviceAbsent`/`OpenRejected`, polled carriers fold into the canonical input fact, and `Gamepad` and `Haptic` share one SDL2 binding because both packages P/Invoke the same runtime.
-- Accept: one `IInputContext` per view through `IView.CreateInput()`; both polled state carriers and per-device `event Action<...>` subscriptions over the same backend state; named gamepad controls through `GamepadExtensions`.
-- Reject: a hand-rolled SDL controller poll loop beside `IInputContext`; a second SDL2 native binding re-loaded against the `Silk.NET.SDL` haptic root (the InputFabric owns one shared SDL2 bundle per process); a parallel device→intent edge beside the single `InputFabric` fold; renaming `IGamepad`/`IJoystick` into a parallel device model; mixing keyboard/mouse focus or windowing concerns into the input rail (those stay in `Silk.NET.Windowing`).

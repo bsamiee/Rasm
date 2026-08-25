@@ -2,16 +2,7 @@
 
 `igraph` owns the libigraph C-core graph surface for the data graph rail: one `Graph` container carrying the `community_*` detection family, modularity scoring, component and core decomposition, and C-core centrality, with `VertexClustering`/`VertexDendrogram` result carriers and the `compare_communities` partition-distance surface. Data graph detection routes through `Graph.community_leiden`/`community_multilevel`/`community_infomap`, reads `VertexClustering.membership`/`modularity` directly, and folds the C-core modularity optimization rather than re-implementing it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `igraph`
-- package: `igraph` (GPL)
-- module: `import igraph`
-- rail: graph — the data-branch community-detection and C-core graph engine
-- asset: native C extension (`igraph._igraph`, libigraph C core) over a `GraphBase` base
-- entry points: console script `igraph` (interactive shell); library use is import-only
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph container and clustering carriers
 
@@ -34,7 +25,7 @@
 |  [13]   | `igraph.ARPACKOptions`    | solver options    | ARPACK eigensolver tuning       |
 |  [14]   | `igraph.InternalError`    | error             | libigraph C-core failure        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Graph` community detection
 
@@ -133,7 +124,7 @@ All rows are instance methods on `Graph`.
 |  [11]   | `get_vertex_dataframe()`                                                           | pandas vertex frame (egress)       |
 |  [12]   | `simplify(multiple=True, loops=True, combine_edges=None)`                          | drop parallel edges / self-loops   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Graph` owns construction, mutation, and the `community_*` detection family; algorithm selection is a method row, never a per-algorithm detector class.
@@ -150,9 +141,3 @@ All rows are instance methods on `Graph`.
 [LOCAL_ADMISSION]:
 - `igraph` carries a GPL libigraph C core; confine it to the data graph rail, and route a plugin-distributed graph to the Apache `rustworkx`(`.api/rustworkx.md`) sibling.
 - Import at boundary scope; the admitted surface is C-core detection, modularity, centrality, and component split, with live drawing (`plot`/Cairo/Matplotlib) outside the rail.
-
-[RAIL_LAW]:
-- Package: `igraph`
-- Owns: libigraph C-core graph containers, the `community_*` detection family, modularity scoring, `connected_components`/`decompose` component split, `k_core`/`coreness` decomposition, `pagerank`/`betweenness`/`closeness`/`distances` centrality, `VertexClustering`/`VertexDendrogram` carriers, and `compare_communities` partition comparison
-- Accept: `Graph.community_leiden`/`community_multilevel`/`community_infomap` for detection, direct `VertexClustering.membership`/`modularity`, `compare_communities` keyed by `method`, `Graph.DataFrame`/`TupleList` at construction, and `get_*_dataframe`/`to_networkx` at egress
-- Reject: a hand-rolled modularity optimization or Leiden/Louvain loop the C core owns, a per-algorithm detector type where the method row covers it, a re-implemented partition-distance metric where `compare_communities` carries `method`, a Python re-walk of centrality or components the C core computes, and the GPL C core linked into a host-distributed plugin

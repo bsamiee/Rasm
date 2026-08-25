@@ -2,16 +2,7 @@
 
 `VividOrange.IForceMomentInteraction` owns the interface floor of the column capacity hull: `IForceMomentMesh`, `IForceMomentVertex`, and `IForceMomentTriFace` specialize a `VividOrange.Geometry` `ICartesianMesh` as an N-M-M capacity onion whose axes carry axial `Force` and two `Torque` `UnitsNet` quantities, so the capacity surface is a unit-typed mesh, not a bag of doubles. No behaviour ships — a Materials RC-capacity owner reads this contract, the concrete `ForceMomentMesh` implementing it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.IForceMomentInteraction`
-- package: `VividOrange.IForceMomentInteraction` (MIT)
-- assembly: `VividOrange.IForceMomentInteraction`
-- namespace: `VividOrange.ForceMomentInteraction`
-- asset: runtime library, pure-managed AnyCPU, no native RID asset; multi-TFM down to `net48`, a `net10.0` consumer binding the `net8.0` asset
-- rail: profiles — RC/steel column capacity surface, contract half
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the N-M-M capacity-hull contract, three interfaces specializing the geometry floor. `ICartesianMesh<TVertex, TFace, TCoord, X, Y, Z>` binds `X = Force`, `Y = Torque`, `Z = Torque`, so the surface is a unit-typed mesh and a vertex is one feasible (N, My, Mz) load combination on the capacity boundary.
 
@@ -21,7 +12,7 @@
 |  [02]   | `IForceMomentVertex`  | interface     | feasible boundary load point |
 |  [03]   | `IForceMomentTriFace` | interface     | triangular hull facet        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the contract properties surfaced from the `VividOrange.ICartesianBase` geometry floor; these interfaces add no member of their own. `Verticies` retains the package spelling, and `Brush`/`Opacity` are the settable render pair while every other property is get-only.
 
@@ -42,7 +33,7 @@
 |  [13]   | `IForceMomentTriFace.Center -> IForceMomentVertex`        | property | facet centroid            |
 |  [14]   | `IForceMomentTriFace.Area -> IQuantity`                   | property | facet meshing weight      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IForceMomentMesh` is `ICartesianMesh<IForceMomentVertex, IForceMomentTriFace, ICoordinate, Force, Torque, Torque>`, `IGeometryBase`, and `ITaxonomySerializable`, adding no member beyond the closed specialization.
@@ -62,9 +53,3 @@
 [LOCAL_ADMISSION]:
 - A Materials capacity owner reads the hull through `IForceMomentMesh`, the engine's return type, folding a capacity-check over `mesh.Verticies`/`mesh.Faces`.
 - `Force`/`Torque` coordinates map onto the canonical Materials load/capacity quantity types at the boundary, never reduced to `double` in an interior signature.
-
-[RAIL_LAW]:
-- Package: `VividOrange.IForceMomentInteraction`
-- Owns: the N-M-M capacity-hull interface floor — `IForceMomentMesh`/`IForceMomentVertex`/`IForceMomentTriFace` as a `VividOrange.Geometry` `ICartesianMesh` with `Force`/`Torque`/`Torque` axes and the `ITaxonomySerializable` JSON marker; contract only, no behaviour.
-- Accept: a column capacity surface read through `IForceMomentMesh`, its `Force`/`Torque` coordinates mapped onto the Materials capacity owner at the boundary.
-- Reject: reading the hull through the concrete `ForceMomentMesh` instead of this floor; reducing a `Force`/`Torque` coordinate to `double` in an interior signature; treating the facet `Area` `Ratio` as a physical quantity.

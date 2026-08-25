@@ -4,19 +4,7 @@
 
 Catalogue placement follows the folder rule that a CRD estate arriving with no chart of its own earns a folder-tier catalogue: no chart surface exists to hang a stacking bullet on, leaving the fences that assert these members verifying against nothing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `gateway-api`
-- group: `gateway.networking.k8s.io`, source `kubernetes-sigs/gateway-api` (Apache-2.0), distributed as the release's `standard-install.yaml` manifest rather than a chart or an npm package
-- channel: STANDARD — each release ships a standard channel beside an `experimental` one, and this estate reads standard alone, so a member absent from this catalogue is absent from the channel the cluster carries
-- asset: ten definitions in the standard channel — `GatewayClass`, `Gateway`, `HTTPRoute`, `GRPCRoute`, `TLSRoute`, `TCPRoute`, `UDPRoute`, `BackendTLSPolicy`, `ReferenceGrant`, `ListenerSet` — of which this estate asserts three
-- version: `v1` is served AND storage for `GatewayClass`, `Gateway`, and `HTTPRoute`; every field below is read off that version
-- plane: `plane:deploy` — authored through committed `crd2pulumi` classes, depended on by nothing at runtime
-- rail: deployment / network edge
-
-[INSTALL_OWNER]: these CRDs are a cluster precondition, not a stack resource. No `helm.v4.Chart` row in this folder plants them, no `skipCrds` toggle governs them, and the render-carrier law the chart-borne CRD estates follow has no analogue here — a cluster whose controller predates the group carries no `gateway` edge row at all, which is what the legacy `Ingress` fallback answers.
-
-## [02]-[GATEWAY_CONTRACT]
+## [01]-[GATEWAY_CONTRACT]
 
 [CLASS_CONTRACT]: `GatewayClass` is CLUSTER-scoped and this estate REFERENCES one by name without ever authoring it — the controller installs its own class, so `spec.controllerName` (`string` 1..253, REQUIRED, domain-slash-path pattern) is read-only estate context. `description` is `string` maxLength 64 and `parametersRef` is the implementation-specific handle.
 
@@ -38,7 +26,7 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 [LISTENER_KEY]: listeners key on `name`, and `name`/`port`/`protocol` is the only required set, so a listener is spellable with no TLS block at all — an HTTPS listener carrying no `certificateRefs` is schema-valid and fails at the controller instead. That gap is what `operate/policy.md`'s `gateway-tls-required` row closes, walking listener sets for an `HTTPS` member whose `certificateRefs` is non-empty.
 [REF_NAMESPACE]: `certificateRefs[].namespace` (`string` 1..63) crosses namespaces only under a `ReferenceGrant` in the target namespace; a cross-namespace ref without one resolves to a refused listener, never a silent fallback.
 
-## [03]-[ROUTE_CONTRACT]
+## [02]-[ROUTE_CONTRACT]
 
 [ROUTE_CONTRACT]: `HTTPRoute` is NAMESPACED and its `spec` requires nothing — every field defaults, so an empty spec is admissible and inert. That is the trap the rows below exist against: absence is a decision the schema makes, not one the author made.
 
@@ -60,7 +48,7 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 [WEIGHT_ALGEBRA]: `weight` is a PROPORTION, never a percentage — each backend receives `weight / (sum of weights in this backendRefs list)`, and the sum need not equal 100. One backend alone carrying weight above 0 takes everything regardless of the number. Weight `0` forwards nothing to that entry while leaving it resolved and reported. Omitting `weight` is weight `1`, so a two-backend rule written without weights is an even split — which makes the field's absence a routing decision rather than a default worth resting on. Implementations may deviate by an epsilon from the exact proportion.
 [INVALID_BACKEND]: an invalid backendRef sheds nothing onto its siblings — the proportion routed to it answers `500` instead, and when every entry is invalid with no filters on the rule, all matching traffic answers `500`. Weighted splits become safe only once the referenced Service exists: writing a candidate weight ahead of the candidate Service turns that share of live traffic into errors rather than routing it to the incumbent.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 - Controller installs the CRDs; this estate authors the CRs. Every Gateway API object the branch declares is a committed `crd2pulumi` class, so the routing vocabulary is compile-checked at the one seam the public edge runs through, and a raw untyped `CustomResource` has no spelling.
 - Generated CRD module and the channel pin move together: a Gateway API bump regenerates `../crds/gateway` rather than shifting an npm dependency, so the cluster schema and the typed classes never disagree.
@@ -80,9 +68,3 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 - State `tls.mode` even though `Terminate` is the default, and pair it with a non-empty `certificateRefs` — the schema admits an HTTPS listener with neither and defers the failure to the controller.
 - Bind `parentRefs` by `name` alone where one listener serves, and reach for `sectionName` the moment a Gateway carries more than one; attachment to every compatible listener is the default and it widens as listeners are added.
 - Let `matches` default only where matching every path is the intent — that default is a PathPrefix `/` rule, so an omitted match block is a catch-all rather than an inert route.
-
-[RAIL_LAW]:
-- Contract: Gateway API `v1` custom resources, standard channel
-- Owns: the network edge's routing vocabulary — listener and TLS termination shape, route attachment, hostname binding, path matching, and the weighted backend split
-- Accept: `v1` for `Gateway` and `HTTPRoute`; typed CRs from the generated module; a stated `tls.mode` over non-empty `certificateRefs`; an explicit `weight` on every entry of a multi-backend rule; a candidate Service ordered ahead of the weight naming it; the standard channel as the pin boundary
-- Reject: a raw untyped `CustomResource` where a generated class exists; an off-channel member under a standard pin; a weighted split written before its backend Service exists; a partial weight set on a multi-backend rule; a cross-namespace ref with no `ReferenceGrant`; a stale weight row surviving its cutover

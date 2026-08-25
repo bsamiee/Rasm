@@ -2,15 +2,7 @@
 
 `xlsxwriter` mints the constant-memory streaming XLSX/XLSM writer for the artifacts spreadsheet rail: one `Workbook` root opens a path or stream, mints `Worksheet`/`Format`/`Chart`/`Chartsheet` objects, emits Office Open XML row-major, and packages a zip64-capable container at `close`. Under `constant_memory` each completed row flushes to a temp file while only the active row stays resident, so the writer holds O(1) row memory and never re-implements the OOXML/zip64 packaging it owns; it writes only, and reading or editing an existing workbook routes to the ingest owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `xlsxwriter`
-- package: `xlsxwriter` (BSD-2-Clause)
-- module: `xlsxwriter`
-- abi: pure-Python, no native build
-- rail: spreadsheet — write-only streaming XLSX/XLSM authoring feeding the artifacts download and export owners
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: workbook root and minted objects
 
@@ -30,7 +22,7 @@
 - [07]-[XLSX_INPUT_ERROR]: `DuplicateWorksheetName` `InvalidWorksheetName` `DuplicateTableName` `OverlappingRange` `EmptyChartSeries`
 - [08]-[XLSX_FILE_ERROR]: `FileCreateError` `FileSizeError` `UndefinedImageSize` `UnsupportedImageFormat` `ThemeFileError`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Workbook` lifecycle and minting
 
@@ -161,7 +153,7 @@ Print layout rides sheet-state setters available under `constant_memory`; a sett
 |  [04]   | `set_bg_color(bg_color)`     | set cell fill color               |
 |  [05]   | `set_border(style=1)`        | set the cell border style         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - streaming: `constant_memory=True` flushes each completed row to `tmpdir` and holds only the active row for O(1) row memory; `in_memory=True` keeps the spill in RAM when no disk path exists; `use_zip64=True` lifts the 4 GiB archive ceiling. Streaming is a policy row on `options`, never a parallel writer type.
@@ -182,9 +174,3 @@ Print layout rides sheet-state setters available under `constant_memory`; a sett
 
 [LOCAL_ADMISSION]:
 - xlsxwriter owns write-only XLSX/XLSM generation for large datasets, custom value cells, print-ready reports, and charts over written ranges; reading and editing route to the ingest owners. `EmitFact` carries the saved bytes.
-
-[RAIL_LAW]:
-- Package: `xlsxwriter`
-- Owns: constant-memory streaming XLSX/XLSM authoring — `Workbook` lifecycle, `Worksheet` row-major writes and structured features, the `add_write_handler` type-dispatch hook, page-setup layout, embedded charts/images/textboxes with secondary axes, `Format` style minting, and OOXML/zip64 packaging at `close`
-- Accept: write-only generation feeding the artifacts spreadsheet, download, and export owners, custom value-type cells via `add_write_handler`, and macro embedding via `add_vba_project`/`add_signed_vba_project`
-- Reject: a wrapper-rename of `Workbook`/`add_worksheet`/`write`; a hand-rolled OOXML or zip packager; an in-RAM row matrix where `constant_memory` streams; an `isinstance` ladder or `str()` coercion where `add_write_handler` registers the type; a parallel writer type per cell value or feature; `add_table` under `constant_memory`; reading an existing workbook

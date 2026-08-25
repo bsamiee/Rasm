@@ -4,17 +4,7 @@
 
 Flat codec work stays with `imagecodecs`(`.api/imagecodecs.md`), which encodes anonymous single-part planes at every compression row and reads a part by index while DISCARDING names. Ownership splits by NAMES, never by capability overlap: a per-channel egress plane takes `imagecodecs`, and a role-bearing, multi-part, sub-sampled, or environment-map file takes this owner. Container-level tiling exists here; a mip or rip PYRAMID does not survive the write, so a pyramid ships as per-level files.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `openexr`
-- package: `openexr` (BSD-3-Clause, ASWF)
-- module: `OpenEXR`
-- asset: sdist built at the Forge floor through `scikit-build-core`; `Imath`, `libdeflate`, and `OpenJPH` are VENDORED in-tree, so no native library row is required
-- rail: raster (scene-linear HDR document IO)
-- target: `numpy` arrays of `uint32`/`float16`/`float32`, one per channel, with `dict` headers
-- capability: the `File`/`Part`/`Channel` document model over arbitrary channel names, multi-part files, scanline and tiled storage, twelve compression methods including `DWAA`/`DWAB`/`HTJ2K32`/`HTJ2K256`, `Envmap` latlong and cube tagging, sub-sampled channels, and the full header-attribute type set
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the document model
 - rail: raster
@@ -47,7 +37,7 @@ Every enum is exported twice — as a class with members and as bare module cons
 |  [06]   | `LineOrder`         | `INCREASING_Y` `DECREASING_Y` `RANDOM_Y`                                              |
 |  [07]   | `Envmap`            | `ENVMAP_LATLONG` `ENVMAP_CUBE` — the environment-map header tag                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document read and write
 - rail: raster
@@ -65,7 +55,7 @@ Every enum is exported twice — as a class with members and as bare module cons
 |  [08]   | `Channel.pixels -> NDArray`                            | the channel array; sampling and `pLinear` carry beside it                |
 |  [09]   | `isOpenExrFile(path) -> bool`                          | magic sniff without opening the document                                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Documents are a HEADER DICT beside a CHANNEL DICT; no builder and no writer object exists. Writing is one `File(header, channels).write(path)` or `File([Part, …]).write(path)`, and every authored attribute is a key in that dict — `compression`, `type`, `tiles`, `envmap`, `chromaticities`, `name`.
@@ -92,9 +82,3 @@ Every enum is exported twice — as a class with members and as bare module cons
 [LOCAL_ADMISSION]:
 - `import OpenEXR` at boundary scope only, behind the same `lazy import` proxy the other native document owners use.
 - Deep-scanline and deep-tile storage (`Storage.deepscanline`, `Storage.deeptile`) are declared by the format and unused by the estate; a deep document admits only with an owner that consumes sample counts.
-
-[RAIL_LAW]:
-- Package: `openexr`
-- Owns: the named-channel EXR document — arbitrary channel namespaces, multi-part files, `ONE_LEVEL` tiled and scanline storage, all twelve compression rows, per-channel `xSampling`/`ySampling`/`pLinear`, the `envmap` latlong and cube tag, and the full header-attribute type set including opaque pass-through
-- Accept: header and channel dicts authored from a typed policy struct; channel arrays contiguous and already at their declared dtype; `separate_channels=True` whenever names carry meaning; `header_only=True` for a metadata probe; lossy compression rows only where the content key is minted over encoded bytes; per-level FILES for a pyramid
-- Reject: a mip- or rip-tiled write, which this binding cannot read back; a write header seeded from `Header(w, h)`, whose `channels` and `dataWindow` values the constructor refuses; reading `Part.name`/`type`/`width`/`height` or `Channel.type` as properties, or CALLING `Channel.name` (a plain `str` attribute on read); a positionally-constructed `TileDescription`; reuse of a channels dict after `File(header, channels)` mutated it; an anonymous single-part plane authored here where `imagecodecs` is the flat surface; any pixel transform, resample, or mip fold in this owner; a color-space conversion inside the write, which belongs to the OCIO processor; deep storage without a sample-count consumer

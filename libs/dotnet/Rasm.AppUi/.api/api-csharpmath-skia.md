@@ -2,15 +2,7 @@
 
 `CSharpMath.SkiaSharp` renders TeX-subset math and mixed math-text runs onto an `SKCanvas` through `MathPainter` (a `MathList`) and `TextPainter` (a `TextAtom` run), each a `SKCanvas`/`SKColor` binding of the backend-agnostic `Painter<TCanvas,TContent,TColor>` base that owns the knob surface, the typed `Result` parse rail, and the measure/draw contract. A Math typography arm sets `LaTeX`, reads `Measure`, and draws into a leased `SKCanvas`; a parse failure lands in `ErrorMessage` instead of throwing, and the same painter encodes headless to an image `Stream` for capture.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CSharpMath.SkiaSharp` over `CSharpMath.Rendering` and `CSharpMath`
-- package: `CSharpMath.SkiaSharp` (MIT)
-- assembly: `CSharpMath.SkiaSharp` (painters, `ICanvas`/`Path` adapters, color/encode extensions), `CSharpMath.Rendering` (`Painter` base, `MathKeyboard`, vendored `Typography.OpenFont` glyph engine), `CSharpMath` (`LaTeXParser`, atom/display model, `Result<T>`)
-- namespace: `CSharpMath.SkiaSharp`, `CSharpMath.Rendering.FrontEnd` (`Painter`, `ICanvas`, `Path`, `MathKeyboard`, enums), `CSharpMath.Atom` (`LaTeXParser`, `LaTeXSettings`, `LineStyle`), `CSharpMath.Structures` (`Result<T>`)
-- rail: typography
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [SKIASHARP_PAINTER_TYPES]: SkiaSharp-bound painters and draw adapters — `CSharpMath.SkiaSharp`.
 
@@ -53,7 +45,7 @@
 
 [RESULT_RAIL_SURFACE]: `Result<T>` carries a nullable `Error` string, constructs through implicit conversions from `T` or `string`, is consumed by `Deconstruct(out T, out string?)` and `Match(Func<T,R>, Func<string,R>)`, and chains through `Bind` — a parse consumer never catches an exception.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [PAINTER_KNOBS]: `Painter<TCanvas,TContent,TColor>` owns the shared knob surface both painters inherit.
 
@@ -114,22 +106,16 @@
 |  [05]   | `LaTeXParser.MathListToLaTeX(MathList, StringBuilder?)`    | static   | math list → LaTeX serialize  |
 |  [06]   | `LaTeXSettings.ParseColor(string?) : Color?`               | static   | LaTeX color-token parse      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Painters render through the base `ICanvas` contract, `SkiaCanvas` binding it to `SKCanvas`/`SKPaint`; no math-render path reaches `SKPaint`/`SKFont` directly.
 - LaTeX parse is a typed rail: `LaTeXParser.MathListFromLaTeX` returns `Result<MathList>`, and setting `Painter.LaTeX` routes a parse failure into `ErrorMessage` under `ErrorColor`/`ErrorFontSize`/`DisplayErrorInline`, never a throw; a null `Display` beside a non-null `ErrorMessage` is the failure signal.
 
 [STACKING]:
-- `api-skiasharp`(`.api/api-skiasharp.md`): painters draw through `SKCanvas`/`SKPaint`/`SKPath`/`SKPoint`/`SKColor` and `Extensions.ToNative`/`FromNative` bridge `SKColor`↔`Color`; `DrawAsStream(width, SKEncodedImageFormat.Png, quality)` encodes a painter headless on the same `SKEncodedImageFormat` surface the raster-capture owner shares, so a math golden renders without a live host.
+- `api-skiasharp`(`.api/api-skiasharp.md`): painters draw through `SKCanvas`/`SKPaint`/`SKPath`/`SKPoint`/`SKColor` and `Extensions.ToNative`/`FromNative` bridge `SKColor`↔`Color`; `DrawAsStream(width, SKEncodedImageFormat.Png, quality)` encodes a painter headless on the same `SKEncodedImageFormat` surface the raster-capture owner shares, so math rasterizes without a live host.
 - `api-avalonia-skia`(`.api/api-avalonia-skia.md`): `SkiaCanvas(SKCanvas, antiAlias)` binds over the `SKCanvas` an `ISkiaSharpApiLease.SkCanvas` exposes, so math composites into the leased surface without a side bitmap.
 - Within-lib typography: `LocalTypefaces` accepts the `Typography.OpenFont.Typeface` chain the theme's embedded-font admission resolves through `OpenFontReader.Read`, so math glyphs share the app's registered font set rather than a private math font; `SKTypeface`/`SKFontManager` stay on the raster side of that bridge and never reach the painter.
 
 [LOCAL_ADMISSION]:
 - `CSharpMath.SkiaSharp` is the branch's sole math typesetter; a Math typography arm holds one painter, sets `LaTeX`, reads `Measure`, and draws into the leased `SKCanvas`, `LineStyle` selecting display vs inline sizing and `PainterConstants.DefaultFontSize`/`LargerFontSize` anchoring the size ramp.
-
-[RAIL_LAW]:
-- Package: `CSharpMath.SkiaSharp`
-- Owns: TeX-subset math and mixed math-text layout, the painter knob surface (`LaTeX`, `FontSize`, `Magnification`, `TextColor`, `LineStyle`), measure and aligned `Draw` onto an `SKCanvas`, interactive editing through `MathKeyboard`, and the typed `Result`/`ErrorMessage` parse rail.
-- Accept: one painter per Math arm, its parse consumed through `Result<T>.Match`/`Deconstruct` or an observed `ErrorMessage` folded into the diagnostics rail's typed envelope; `FontSize`/`Magnification` and the `PainterConstants` anchors parameterize size.
-- Reject: a hand-rolled TeX box model or glyph layout; a private `SKPaint`/`SKFont` math path bypassing `SkiaCanvas`; a `try`/`catch` around `LaTeX` assignment; a literal font size.

@@ -2,16 +2,7 @@
 
 `cryptography` owns the branch's AEAD envelope and key-wrap primitives: one-shot authenticated ciphers binding associated data into the tag, deterministic key-wrapping over a KEK, HKDF derivation, and constant-time comparison. Its `hazmat` tier exposes the raw construction and refuses every default — nonce width, key length, and associated-data binding are the caller's contract — so the composing owner fixes each as a policy value and this catalog names the members that contract spells.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cryptography`
-- package: `cryptography` (Apache-2.0 OR BSD-3-Clause)
-- module: `cryptography`
-- namespaces: `cryptography.exceptions`, `cryptography.hazmat.primitives.ciphers.aead`, `cryptography.hazmat.primitives.keywrap`, `cryptography.hazmat.primitives.kdf.hkdf`, `cryptography.hazmat.primitives.constant_time`, `cryptography.hazmat.primitives.hashes`
-- abi: Rust extension over OpenSSL (`rust_openssl`), compiled
-- rail: evidence custody
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: authenticated ciphers
 
@@ -34,7 +25,7 @@
 |  [04]   | `UnsupportedAlgorithm` | backend refusal | the linked OpenSSL build carries no such primitive                                      |
 |  [05]   | `AlreadyFinalized`     | lifecycle       | a finalized context reused for a second operation                                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: AEAD seal and open
 
@@ -63,7 +54,7 @@
 |  [05]   | `HKDF.derive(key_material)`                            | instance | one-shot derive; `verify` re-derives and compares in constant time |
 |  [06]   | `constant_time.bytes_eq(a, b)`                         | function | timing-invariant byte comparison for tags and digests              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - nonce law: `AESGCM` authenticates but never generates a nonce, so the composing owner mints 96 random bits per message from `secrets.token_bytes` and carries them beside the ciphertext; a repeated nonce under one key destroys both confidentiality and authenticity, which is what makes the nonce a stored field rather than a derived one.
@@ -78,9 +69,3 @@
 [STACKING]:
 - `msgspec`(`libs/python/.api/msgspec.md`): ciphertext, nonce, and wrapped key ride `bytes` fields on frozen `Struct` rows, so a sealed envelope encodes and persists through the same codec every other wire shape crosses and no ciphertext is re-framed as text.
 - stdlib `secrets`: `token_bytes` supplies every nonce and salt this rail consumes, because a `random` draw is predictable and reuses state across a fork.
-
-[RAIL_LAW]:
-- Package: `cryptography`
-- Owns: AEAD envelope sealing, KEK key wrapping, HKDF derivation, and constant-time comparison
-- Accept: one-shot `encrypt`/`decrypt` under a caller-minted nonce with the identity coordinate bound as associated data
-- Reject: a reused nonce under one key, a hand-rolled tag comparison where `constant_time.bytes_eq` decides, a `random` draw for nonce or salt material, and an `InvalidTag` folded to absence where the key ledger owns that verdict

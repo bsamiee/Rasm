@@ -79,7 +79,7 @@
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses the offset collision profiles; only consumed stock enters the area and cost denominators.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CavalierContours.Core;
 using CavalierContours.Polyline;
 using CommunityToolkit.HighPerformance.Helpers;

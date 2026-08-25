@@ -2,17 +2,7 @@
 
 `jinja2` owns report-templating for the artifacts `document` rail: one sandboxed `Environment` composes a loader axis, an undefined-handling axis, autoescape policy, native-type rendering, the filter/test/global/extension registries, bytecode/precompile caching, and the sync/async render path that drives report generation from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity`. Its owner re-implements no lexing, parsing, compilation, or rendering jinja2 already carries.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jinja2`
-- package: `jinja2` (BSD-3-Clause)
-- module: `jinja2`
-- namespaces: `jinja2`, `jinja2.sandbox`, `jinja2.nativetypes`, `jinja2.ext`, `jinja2.bccache`
-- owner: `artifacts`
-- rail: report-templating
-- depends: `MarkupSafe` runtime dependency; `Babel` only under the `i18n` extra
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine and template roots
 
@@ -73,7 +63,7 @@
 |  [04]   | `ext.LoopControlExtension`          | loop-control        | `{% break %}` / `{% continue %}` inside loops (`"jinja2.ext.loopcontrols"`) |
 |  [05]   | `ext.DebugExtension`                | debug extension     | `{% debug %}` dumps the render context (`"jinja2.ext.debug"`)               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction and resolution
 
@@ -128,7 +118,7 @@
 |  [07]   | `ModuleLoader(path)`                                                      | ctor    | pre-compiled-template loader    |
 |  [08]   | `FileSystemBytecodeCache(directory=None, pattern='__jinja2_%s.cache')`    | ctor    | on-disk compiled-bytecode cache |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Environment` is the single engine owner; report policy defaults to `autoescape=select_autoescape(...)`, `undefined=StrictUndefined`, and `enable_async=True`, so a missing variable faults rather than rendering blank.
@@ -151,9 +141,3 @@
 - BSD-3-Clause pure-Python wheel; admitted for the `document` report-templating rail. `MarkupSafe` is the runtime dependency; `Babel` enters only under the `i18n` extra.
 - Import lazily at boundary scope (`import jinja2`); module-level import is banned by the manifest import policy.
 - Sandbox attribute/operator filters stay enabled for every untrusted source; the owner never disables them to expose host internals.
-
-[RAIL_LAW]:
-- Package: `jinja2`
-- Owns: report-templating composition — sandboxed engine, loader axis, undefined axis, autoescape policy, native-type rendering, the filter/test/global/extension registries, bytecode/precompile caching, and the sync/async render path.
-- Accept: report-body rendering from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity` into bytes the document/PDF owner consumes; a shared `Environment` passed into `docxtpl`.
-- Reject: wrapper-renames of `render`/`get_template`; a second engine per template source where a loader row suffices; a parallel engine for native output where `NativeEnvironment` is the row; a custom-tag hack where an `ext.Extension` belongs; live UI templating; identity minting the runtime owns.

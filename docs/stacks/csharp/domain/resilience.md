@@ -149,10 +149,10 @@ public static class HopSeam {
         Func<CancellationToken, ValueTask<Reply>> hop, CancellationToken caller) {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(allotment);
-        var context = ResilienceContextPool.Shared.Get(operationKey, caller);
+        ResilienceContext context = ResilienceContextPool.Shared.Get(operationKey, caller);
         context.Properties.Set(Window, allotment.Total);
         try {
-            var outcome = await pipeline.ExecuteOutcomeAsync(
+            Outcome<Reply> outcome = await pipeline.ExecuteOutcomeAsync(
                 static async (ctx, state) => {
                     try { return Outcome.FromResult(await state(ctx.CancellationToken).ConfigureAwait(false)); }
                     catch (Exception ex) when (ex is not OutOfMemoryException) { return Outcome.FromException<Reply>(ex); }
@@ -252,7 +252,7 @@ public sealed class HopTopology {
     }
 
     ResiliencePipeline<Reply> Resolved(HopKey key) =>
-        registry.TryGetPipeline<Reply>(key, out var pipeline) ? pipeline : ResiliencePipeline<Reply>.Empty;
+        registry.TryGetPipeline<Reply>(key, out ResiliencePipeline<Reply> pipeline) ? pipeline : ResiliencePipeline<Reply>.Empty;
 
     ResiliencePipeline<Reply> Conceded(HopRow row) =>
         (Conflicts.Swap(facts => facts.Add(new ClaimFact(

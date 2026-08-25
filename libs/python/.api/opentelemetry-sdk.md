@@ -2,16 +2,7 @@
 
 `opentelemetry-sdk` owns the in-process telemetry pipeline: concrete signal providers replacing the no-op API surface at startup, the processor/reader/sampler machinery carrying signals from creation through batching and aggregation to the exporter boundary, the `Resource` labeling every signal with service identity, and the `View`/`Aggregation`/`ExemplarReservoir` shaping of metric output. One provider per signal composes at the root over a shared `Resource` and configured processors, the OTLP exporter its terminal sink.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-sdk`
-- package: `opentelemetry-sdk` (Apache-2.0)
-- module: `opentelemetry.sdk`
-- namespaces: `opentelemetry.sdk.trace`, `...trace.export`, `...trace.sampling`, `...trace.id_generator`, `opentelemetry.sdk.metrics`, `...metrics.export`, `...metrics.view`, `opentelemetry.sdk._logs`, `...logs.export`, `opentelemetry.sdk.resources`
-- asset: runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace SDK family
 
@@ -123,7 +114,7 @@
 |  [17]   | `sdk.resources.ProcessResourceDetector`      | detector      | process pid/runtime/command resource                |
 |  [18]   | `sdk.resources.OsResourceDetector`           | detector      | OS type/version resource                            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: TracerProvider construction and lifecycle
 - `TracerProvider(sampler=None, resource=None, shutdown_on_exit=True, active_span_processor=None, id_generator=None, span_limits=None, *, meter_provider=None)` — provider constructor
@@ -198,7 +189,7 @@
 |  [08]   | `get_aggregated_resources(detectors, initial_resource=None, timeout=5)`          | static   | merge a detector sequence          |
 |  [09]   | `SERVICE_NAME` / `SERVICE_NAMESPACE` / `SERVICE_VERSION` / `SERVICE_INSTANCE_ID` | const    | canonical resource attribute keys  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one provider per signal at the composition root over a shared `Resource`; `TracerProvider`/`LoggerProvider` take processors at construction or via `add_*`, `MeterProvider` takes `metric_readers`/`views` at construction only — readers never added later.
@@ -241,9 +232,3 @@
 - Temporality and aggregation preference homes at the constructing surface that owns the wire: an exporting composition sets both on the OTLP metric exporter, and a reader-side preference exists only on `MetricReader` subclasses that carry no exporter. `InMemoryMetricReader()` constructed bare seeds CUMULATIVE for every instrument class, so a backend-free read passes no preference map: under the DELTA wire pin that construction makes a second read a total, never the sliver since the last.
 - Preference maps state every family whose wire shape the composition rules, since an unstated one falls to the exporter's environment seed; both maps spell their keys from `sdk.metrics`, never from `opentelemetry.metrics`.
 - pass explicit `service.name` via `Resource.create({SERVICE_NAME: ...})` at startup; an unset name degrades to `unknown_service`.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-sdk`
-- Owns: concrete provider implementations, batch/simple processors, samplers, id generators, metric readers, view/aggregation/exemplar machinery, resource detection, and in-memory/console exporters
-- Accept: one SDK provider per signal at the composition root, `Resource.create()` with `SERVICE_NAME`, `Batch*Processor` + `PeriodicExportingMetricReader` for production, `View`/`Aggregation` for metric shaping, in-memory exporters for tests
-- Reject: SDK imports in library code, metric readers added after `MeterProvider` construction, `Simple*Processor` in production, missing `shutdown()`/`force_flush()` on exit, hand-built `MetricsData` trees, temporality or aggregation preferences passed to `PeriodicExportingMetricReader` or keyed on `opentelemetry.metrics` instrument classes, the deprecated `Log*` aliases and the `LoggingHandler` stdlib bridge

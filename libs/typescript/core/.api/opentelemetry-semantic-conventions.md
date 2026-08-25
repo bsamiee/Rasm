@@ -2,19 +2,7 @@
 
 `@opentelemetry/semantic-conventions` owns the OpenTelemetry name vocabulary as code-generated literal-typed string constants — one `const` per attribute key, bounded value, metric name, and event name — with zero runtime dependency and zero peer. `observe/convention` re-exports the Rasm subset as typed rows, and a raw string literal at any signal site is the stringy-key defect.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/semantic-conventions`
-- package: `@opentelemetry/semantic-conventions` (Apache-2.0)
-- module: dual CJS (`build/src`) + ESM (`build/esm`) + esnext (`build/esnext`); `sideEffects: false` tree-shakes unused constants to zero bytes.
-- exports: `.` (stable tier) and `./incubating` (stable and the overlay names); a not-yet-promoted constant resolves only from `./incubating`.
-- runtime: isomorphic — pure data, no addon.
-- asset: `build/src/index.d.ts`.
-- peer: none. deps: none.
-- plane: runtime, `scope:telemetry`.
-- rail: observability/convention.
-
-## [02]-[VOCABULARY_PATTERN]
+## [01]-[VOCABULARY_PATTERN]
 
 [VOCABULARY_TYPE_SCOPE]: the four generated constant families every name in the package belongs to
 
@@ -31,7 +19,7 @@ Generation owns the roster, so enumerating it here re-anchors the catalog to wha
 
 Names resolve from `./incubating` if and only if an `experimental_*` module declares them, and that barrel is a strict superset of the stable one — so a stable name imported from `./incubating` compiles and merely forfeits the tier signal.
 
-## [03]-[TIER_SPLIT]
+## [02]-[TIER_SPLIT]
 
 [TIER_SPLIT_TYPE_SCOPE]: which of the two module entrypoints resolves each namespace, and what a consumer forfeits by taking the other
 
@@ -74,7 +62,7 @@ Incubating (`./incubating`) namespaces, imported behind the alias row:
 - `container.*` and `k8s.*` sit in `stable_attributes` at this pin and resolve from BOTH entries, so an import left on `./incubating` compiles while forfeiting the frozen-spelling claim every durable dashboard reads — tier placement is re-proved against the installed build at each pin bump, never inherited from the previous roster.
 - `ATTR_CONTAINER_IMAGE_TAGS` is the whole image-tag surface at this pin — a plural array key with no singular twin — so a `container.image.tag` spelling downstream is a collector dialect resolving to no semconv name. `container.id` stays outside the `observe/convention` rows for the detector reason, not the tier reason: `containerDetector` stamps it onto the resource at `runtime/otel/emit`, the same carve `host.arch` and `process.*` take.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every name crosses as its generated constant, never its literal: the constant's type IS the literal, so a mistyped key fails compile, a bounded value discriminates a fold, and the same identifier carries the spelling to every signal site. Generation owns the roster, so this catalog anchors the RESOLUTION rule and the tier split rather than a name census that goes stale at the next pin.
@@ -93,9 +81,3 @@ Incubating (`./incubating`) namespaces, imported behind the alias row:
 - Pure data with zero deps, so this package is the standing name source the `[OTEL_PIN_BLOCK]` SDK-block retirement leaves behind and never a member of that block.
 - Rasm-owned fact vocabularies — audit actor/action/target, meter counters — are project convention rows beside these imports, never re-declarations of a spec name.
 - Cross-language parity is name-level against the OTel spec, so no shared artifact crosses the branch boundary.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/semantic-conventions`
-- Owns: the OpenTelemetry attribute-key / metric-name / event-name / bounded-value vocabulary as literal-typed constants, split into the stable (`.`) and incubating (`./incubating`) tiers across the `ATTR_*`/`*_VALUE_*`/`METRIC_*`/`EVENT_*` families.
-- Accept: the flat `ATTR_*`/`METRIC_*`/`EVENT_*` constants imported into `observe/convention` as typed rows; the `*_VALUE_*` bounded sets as `Match`-discriminated values; stable names by default and incubating names behind the Rasm churn-absorbing alias row; the constant referenced wherever a field is named.
-- Reject: a raw string literal where a constant exists (the stringy-key defect); an incubating name embedded directly in a durable dashboard or SLO row without the churn-absorbing alias; treating this package as an `[OTEL_PIN_BLOCK]`-collapse member; re-declaring an OTel standard name as a Rasm-owned row.

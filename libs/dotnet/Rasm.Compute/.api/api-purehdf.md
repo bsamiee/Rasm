@@ -2,33 +2,7 @@
 
 `PureHDF` is the fully managed HDF5 read and write engine behind the chunked simulation-field lane: one entry class opens a file, stream, or memory-mapped accessor, traversal walks the object tree, and a dataset read projects a file-space hyperslab onto a caller-owned buffer with no native HDF5 library. Writing inverts that — an `H5File` graph encodes to a new file and `BeginWrite` defers per-dataset payloads to a live writer. `PureHDF.Filters.Lzf` and `PureHDF.Filters.BZip2.SharpZipLib` extend the filter roster managed, so the admitted set holds on every RID.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PureHDF`
-- package: `PureHDF` (MIT)
-- assembly: `PureHDF`
-- namespace: `PureHDF`, `PureHDF.Selections`, `PureHDF.Filters`, `PureHDF.VOL.Native`
-- abi: writes the HDF5 1.10 format — h5py, ParaView, and HDFView read the output, and netCDF-4 corpora read back as raw HDF5 objects
-- asset: single managed AnyCPU IL assembly; the `net8.0` build binds on `net10.0`, no native payload and no RID-specific asset
-- rail: scientific-array interchange
-
-[PACKAGE_SURFACE]: `PureHDF.Filters.Lzf`
-- package: `PureHDF.Filters.Lzf` (MIT)
-- assembly: `PureHDF.Filters.Lzf`
-- namespace: `PureHDF.Filters`
-- asset: managed LZF codec, compress and decompress; depends on `PureHDF` alone
-- rail: filter-pipeline row
-
-[PACKAGE_SURFACE]: `PureHDF.Filters.BZip2.SharpZipLib`
-- package: `PureHDF.Filters.BZip2.SharpZipLib` (MIT)
-- assembly: `PureHDF.Filters.BZip2.SharpZipLib`
-- namespace: `PureHDF.Filters`
-- asset: managed BZip2 codec, compress and decompress; pulls `SharpZipLib` transitively, no manifest row of its own
-- rail: filter-pipeline row
-
-- verification: every member, default, and throw site here decompiles from the installed `net8.0` assemblies on the assay `--key purehdf` rail, cross-read against the shipped XML documentation; the accelerated-filter RID claim reads the published `Blosc2.PInvoke`, `Bitshuffle.PInvoke`, and `Intrinsics.ISA-L.PInvoke` payload layouts, which carry `linux-x64`, `win-x64`, and `win-x86` alone.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: read model — interface face and its native realization
 
@@ -86,7 +60,7 @@
 |  [12]   | `IWritingChunkCache` / `SimpleWritingChunkCache` | iface / class  | write-side chunk staging                                          |
 |  [13]   | `ChunkCache`                                     | static class   | the two default cache factories, both settable                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `H5File` open and traverse
 
@@ -174,7 +148,7 @@ Rank-wise construction is the canonical form: `starts` is the origin, `strides` 
 |  [12]   | `ChunkCache.DefaultReadingChunkCacheFactory`          |   n/a   | settable factory, defaults to 521 slots and 1 MiB |
 |  [13]   | `ChunkCache.DefaultWritingChunkCacheFactory`          |   n/a   | settable factory for the write-side cache         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Byte order gates a read, never converts it: a dataset or attribute whose element byte order differs from the host refuses with `Byte order conversion is not (yet) support by PureHDF.`, a VAX-endian type refuses outright, and opening on a big-endian host refuses before the superblock parses. Big-endian corpora therefore re-encode upstream and never decode here — an endianness converter ships in the assembly that no read path calls.
@@ -224,9 +198,3 @@ Rank-wise construction is the canonical form: `starts` is the origin, `strides` 
 - Filter registration runs once at `HdfArchive.Mount` — never per read, because the registry is process-static and a per-call register writes a shared `ConcurrentDictionary` on the hot path.
 - Every read declares its selection: an unqualified whole-dataset read of a screening-scale corpus refuses at admission, since the file space is the corpus and the memory buffer bounds to the lane staging policy.
 - A folder needing HDF5 outside this package admits the library for its own seam and carries its own catalog; archive artifacts leave content-addressed through `ArtifactIndexRow.Admit` on the Persistence blob lane, never a Compute-side file catalog.
-
-[RAIL_LAW]:
-- Package: `PureHDF`, `PureHDF.Filters.Lzf`, `PureHDF.Filters.BZip2.SharpZipLib`
-- Owns: managed HDF5 file read and write, group and attribute traversal, hyperslab and point selections, the chunked filter pipeline, and the read/write chunk caches
-- Accept: little-endian HDF5 and netCDF-4 corpora read through bounded selections into caller-owned buffers, h5py-authored virtual datasets under whole or hyperslab selections with missing-source regions yielding the declared fill value, and create-only chunk-aligned writes under the Shuffle/Deflate/Fletcher32/Lzf/BZip2 filter set
-- Reject: big-endian corpora, cross-width element decode (a float32 read of a float64 dataset and the reverse refuse by type size), append or in-place edit of an existing file, `H5Constants.Unlimited` file dimensions on the write path (`BeginWrite` faults at encode), out-of-order chunk writes, SZIP/N-Bit payloads and Scale-Offset compression, deflate levels outside `{-1, 0, 1, 9}`, concurrent reads over a caller-supplied `Stream`, and the accelerated filter packages whose natives never reach the branch RID

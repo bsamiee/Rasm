@@ -19,7 +19,7 @@ Construction classification binds `MasterFormat` work results, `UniFormat` eleme
 - Growth: a new division/element/table is one `_DIVISIONS`/`_ELEMENTS`/`_OMNI_TABLES` row; a new classification system is one `ClassSystem` member plus one `re.Pattern` and one arm on each projection (`assert_never` forcing each); a new crosswalk edge is one `_CROSSWALK` row the inverse absorbs; a new fault cause is one `ClassFault` case.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from builtins import frozendict
 from enum import StrEnum
@@ -429,7 +429,7 @@ __all__ = ["ClassCode", "ClassFault", "ClassPeer", "ClassRelation", "ClassSystem
 - Boundary: this owner computes the coordination, never the artifact — no rendered matrix (the `visualization/table#TABLE` renderer folds `rows`/`facts`), no second producer rail.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from builtins import frozendict
 from collections.abc import Iterable
 from typing import Self, assert_never, overload

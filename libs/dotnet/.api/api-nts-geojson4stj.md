@@ -2,18 +2,7 @@
 
 `NetTopologySuite.IO.GeoJSON4STJ` is the `System.Text.Json`-native GeoJSON (RFC 7946) codec for `NetTopologySuite`: one `GeoJsonConverterFactory` on `JsonSerializerOptions.Converters` makes `Geometry`, `Feature`, and `FeatureCollection` first-class to `JsonSerializer`, carrying BBox emit, feature-`id`↔property mapping, ring-orientation enforcement, and a lazy attribute table that pulls typed property bags out of feature JSON on demand. It decodes to the one NTS `Geometry` currency under the same precision-and-SRID configuration the core WKB and WKT codecs carry, so a value crossing GeoJSON, WKB, and the GeoPackage blob keeps one grid. Two folders drive one converter: `Rasm.Bim` the `Semantics/feature#GEO_BOUNDARY` codec leg (site context, web GeoJSON projection), `Rasm.Persistence` the `Ingest/geospatial#FEATURE_ROWS` `GeoContainer`/`GeoWire` seam (PostGIS geometry-column to GeoJSON API response). It is distinct from the Newtonsoft `NetTopologySuite.IO.GeoJSON` (the FlatGeobuf closure): this factory holds every web-payload and PostGIS-projection boundary, the Newtonsoft codec serving only the FlatGeobuf dependency.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoJSON4STJ`
-- package: `NetTopologySuite.IO.GeoJSON4STJ` (BSD-3-Clause)
-- assembly: `NetTopologySuite.IO.GeoJSON4STJ`
-- namespace: `NetTopologySuite.IO.Converters` — public `GeoJsonConverterFactory` and `RingOrientationOption`; the `Stj*Converter` per-kind converters and `GeoJsonObjectType` are `internal`, produced by the factory
-- namespace: `NetTopologySuite.Features` — the lazy read-side tables `IPartiallyDeserializedAttributesTable`, `JsonElementAttributesTable`, `JsonObjectAttributesTable`
-- asset: netstandard2.0 single TFM, bound by the net10.0 consumer; IL-only AnyCPU managed assembly, no P/Invoke
-- dependency: `NetTopologySuite` (the `Geometry`/`GeometryFactory`/`NtsGeometryServices` algebra), `NetTopologySuite.Features` (the `Feature`/`FeatureCollection`/`IAttributesTable` shape), `System.Text.Json` (in-box under net10.0)
-- rail: geospatial
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: converter factory and orientation policy
 
@@ -30,7 +19,7 @@
 |  [02]   | `JsonElementAttributesTable`            | class         | `JsonElement`-backed, read-only; number properties box as `decimal` |
 |  [03]   | `JsonObjectAttributesTable`             | class         | `JsonObject`-backed, mutable (`Add`/`Delete`); edits propagate      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: register the factory
 
@@ -56,7 +45,7 @@ Every serialize/parse call rides `JsonSerializer`: `Serialize` takes a `Geometry
 |  [04]   | `TryGetJsonObjectPropertyValue<T>(string, options, out T) -> bool`        | instance | pull one typed property lazily              |
 |  [05]   | `TryDeserializeJsonObject<T>(options, out T) -> bool`                     | instance | lift the whole table to a typed `T`         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `GeoJsonConverterFactory` on `JsonSerializerOptions.Converters` routes the entire surface — `Geometry` and its concrete subtypes, `IFeature`, `FeatureCollection`, `IAttributesTable`, per-type converters internal and reached only through `CreateConverter` — no `GeoJsonReader`/`GeoJsonWriter` pair (that is the Newtonsoft `NetTopologySuite.IO.GeoJSON`); configure the options object once and reuse it, `JsonSerializerOptions` being thread-safe after first use.
@@ -74,9 +63,3 @@ Every serialize/parse call rides `JsonSerializer`: `Serialize` takes a `Geometry
 
 [LOCAL_ADMISSION]:
 - GeoJSON entry binds a composition-built `JsonSerializerOptions` carrying one `GeoJsonConverterFactory` seeded from `NtsGeometryServices.Instance`; serialize/parse is plain `JsonSerializer`, and typed attribute access is a cast to `IPartiallyDeserializedAttributesTable`.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite.IO.GeoJSON4STJ`
-- Owns: the `System.Text.Json`-native RFC 7946 GeoJSON converter factory for NTS `Geometry`/`Feature`/`FeatureCollection` — ring-orientation enforcement, feature-`id` mapping, optional BBox emit, and the lazy partially-deserialized attribute table
-- Accept: STJ GeoJSON serialize/parse, async streaming ingest, lazy typed attribute extraction, single-pipeline composition with the other STJ converters
-- Reject: hand-rolled GeoJSON shaping; the geometry algebra (`NetTopologySuite` owns it); Newtonsoft-based GeoJSON (`NetTopologySuite.IO.GeoJSON`, the FlatGeobuf closure); datum/projection transformation (`ProjNET`/OSR own it); the non-GeoJSON vector container formats their own NTS IO codec packages own

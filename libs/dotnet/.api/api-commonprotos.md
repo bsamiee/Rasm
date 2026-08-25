@@ -2,16 +2,7 @@
 
 `Google.Api.CommonProtos` owns the generated `google.rpc` and `google.type` vocabularies the corpus imports: the `Status` envelope every gRPC rich error rides, the ten standard error details and their registry, the canonical `Code` roster, and the calendar scalars (`Date`, `TimeOfDay`, `DateTime`, `DayOfWeek`) the element and host families declare. It is a generated-message distribution over `Google.Protobuf`; the carriage of `Status` onto a call is `Grpc.StatusProto`'s.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Google.Api.CommonProtos`
-- package: `Google.Api.CommonProtos` (BSD-3-Clause)
-- assembly: `Google.Api.CommonProtos`
-- namespace: `Google.Rpc`, `Google.Rpc.Context`, `Google.Type`, `Google.Api`
-- depends: `Google.Protobuf`
-- rail: remote-contracts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `google.rpc` status and error details
 
@@ -48,7 +39,7 @@
 |  [09]   | `Decimal`                      | message       | `Value` decimal text                                           |
 |  [10]   | `DateExtensions`               | static class  | `ToDate(DateTime)`, `ToDate(DateTimeOffset)`                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: status details
 
@@ -80,7 +71,7 @@
 - `Date` permits zero-valued components for partial dates. `DateTime` permits year zero but requires a real month and day by contract; its generated setters do not enforce those semantic ranges.
 - `DateTime.TimeOffsetCase.None` is a local civil time. `UtcOffset` and `TimeZone` are mutually exclusive arms, and `ClearTimeOffset()` returns the message to `None`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Status.details` is the ONE extension slot on a gRPC error; an estate detail is one `Any` inside it beside the standard details, never a second trailer.
@@ -99,9 +90,3 @@
 [LOCAL_ADMISSION]:
 - `Status` enters and leaves only through `Grpc.StatusProto`; the estate never serializes it by hand.
 - Calendar scalars cross into domain time through the NodaTime bridge at the wire edge; no `google.type` value lives past a seam.
-
-[RAIL_LAW]:
-- Package: `Google.Api.CommonProtos`
-- Owns: the `google.rpc` status and error-detail messages, the canonical code roster, the standard detail registry, and the `google.type` scalars
-- Accept: `Status` as the one rich-error envelope, standard details packed beside the estate detail, calendar scalars as declared wire fields
-- Reject: a hand-written status or error-detail record, `ErrorInfo.Metadata` carrying typed estate columns as strings, `RetryInfo` standing in for the estate recovery oneof

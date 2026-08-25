@@ -2,23 +2,7 @@
 
 `SkiaSharp.NativeAssets.macOS` and `SkiaSharp.NativeAssets.Linux.NoDependencies` supply the per-platform `libSkiaSharp` native payload the managed `SkiaSharp` bindings P/Invoke, and the buildTransitive `.targets` that copy the RID-matched asset to output. Neither ships a managed assembly — the `lib/<tfm>/_._` files are compile placeholders — so these packages own only the native load identity the AppUi render, capture, and headless rails resolve against.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SkiaSharp.NativeAssets.macOS`
-- package: `SkiaSharp.NativeAssets.macOS` (MIT)
-- assembly: no managed runtime assembly
-- namespace: no managed namespace
-- asset: `runtimes/osx/native/libSkiaSharp.dylib` (universal arm64+x64) + buildTransitive `.targets`
-- rail: visuals
-
-[PACKAGE_SURFACE]: `SkiaSharp.NativeAssets.Linux.NoDependencies`
-- package: `SkiaSharp.NativeAssets.Linux.NoDependencies` (MIT)
-- assembly: no managed runtime assembly
-- namespace: no managed namespace
-- asset: `runtimes/linux-*/native/libSkiaSharp.so` (statically linked) + buildTransitive `.targets`
-- rail: visuals
-
-## [02]-[PACKAGE_ASSETS]
+## [01]-[PACKAGE_ASSETS]
 
 [MACOS_NATIVE]: universal `libSkiaSharp.dylib`; buildTransitive `.targets` group the macOS-workload and legacy copy logic.
 
@@ -38,7 +22,7 @@
 |  [04]   | `buildTransitive/{net48,net462}/*.targets`                                       | legacy copy    |
 |  [05]   | `lib/net10.0/_._`                                                                | compile marker |
 
-## [03]-[ASSET_ENTRYPOINTS]
+## [02]-[ASSET_ENTRYPOINTS]
 
 [ASSET_ENTRYPOINTS]: RID selection and output copy — no managed call surface.
 
@@ -48,7 +32,7 @@
 |  [02]   | RID asset graph           | `osx` / `linux-*`           | SDK RID selection      |
 |  [03]   | copy-local targets        | `buildTransitive/*.targets` | build-time output copy |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `libSkiaSharp` reaches build output at the RID-correct path for every admitted profile; a missing or wrong-RID payload surfaces as a load-time `DllNotFoundException` at the first `SkiaSharp` call, never a compile error.
@@ -60,9 +44,3 @@
 
 [LOCAL_ADMISSION]:
 - Exactly one Linux native payload reaches output — the statically-linked `NoDependencies` build; the glibc/fontconfig-dependent `SkiaSharp.NativeAssets.Linux` variant is never an AppUi copy-local asset.
-
-[RAIL_LAW]:
-- Package: `SkiaSharp.NativeAssets.macOS`, `SkiaSharp.NativeAssets.Linux.NoDependencies`
-- Owns: the per-platform native Skia load identity, the buildTransitive copy targets, and per-RID output-asset presence
-- Accept: the native arrives through the package `runtimes/<rid>/native` payload and the RID-asset/targets copy; its load is part of the raster evidence each capture reproduces per platform
-- Reject: dual Linux `libSkiaSharp.so` payloads, a runtime system-fontconfig dependency, or documenting a native asset as a public managed type — managed API facts stay in `api-skiasharp.md`

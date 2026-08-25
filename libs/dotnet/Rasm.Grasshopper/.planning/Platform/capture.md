@@ -53,7 +53,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using CoreMedia;

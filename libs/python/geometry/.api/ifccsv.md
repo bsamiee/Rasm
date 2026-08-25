@@ -2,17 +2,7 @@
 
 `ifccsv` owns bidirectional IFC-to-tabular exchange over the `ifcopenshell` model: `IfcCsv().export` writes a selector-scoped element set to CSV/ODS/XLSX or a Pandas `DataFrame`, and `IfcCsv().Import` re-applies an edited table's attribute and Pset cells back onto the model. Column values resolve through `ifcopenshell.util.selector.get_element_value` and write through `set_element_value`, so an attribute string is the same `Pset.Property`/`type.` selector-path grammar the `IfcSelector` gate admits.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifccsv`
-- package: `ifccsv` (LGPL-3.0-or-later)
-- import: `import ifccsv`
-- owner: `geometry`
-- rail: ifc-lifecycle / tabular-exchange
-- entry points: none (single-module library; `python -m ifccsv` is an argparse CLI, not a `console_scripts` row)
-- capability: `export` writes the selected set to CSV/ODS/XLSX or returns a Pandas `DataFrame`; `Import` re-applies an edited table's cells through `util.selector.set_element_value`; ODS needs `odfpy`, XLSX and Pandas need `openpyxl`/`pandas`, imported under `try` guards
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exchange object (`ifccsv.IfcCsv`)
 - `ifccsv.FILE_FORMAT` is the closed output-format literal: `csv`, `ods`, `xlsx`, `pd`.
@@ -33,7 +23,7 @@
 
 Result-shaping helpers `group_results`/`summarise_results`/`sort_results`/`format_results`/`get_wildcard_attributes` run inside `export` from its `groups`/`summaries`/`sort`/`formatting` spec dicts, not as standalone entrypoints. `import_xlsx`/`import_ods` decode the workbook to a `DataFrame` and delegate to `import_pd`; `process_row` is the per-row `set_element_value` writer both import paths converge on, keyed on the row's `GlobalId` first column via `model.by_guid`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tabular export and re-import
 
@@ -47,7 +37,7 @@ Export consumes a model, an `IfcSelector.filter`-scoped element iterable, an att
 
 - `IfcCsv().export`: `include_global_id=True` prepends the `GlobalId` column that keys re-import; `format="pd"` returns the frame, every other format writes to `output` and returns `None`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TABULAR_EXCHANGE_TOPOLOGY]:
 - export axis: `IfcCsv().export(model, elements, attributes, format=<FILE_FORMAT>, output=<path>)` resolves each attribute through `util.selector.get_element_value`, so the attribute vocabulary is the selector-path grammar (`Pset.Property`, `type.Attribute`). `export` expands no wildcard of its own: `get_wildcard_attributes` is a separate member reading the object's `ifc_file`, which `export` binds only on entry, so a caller wanting `Pset.*` binds the model and expands the roster ahead of the call. `export` also inserts the `include_global_id` key column into the caller's own `attributes` list, so each call hands it a fresh one. Its element set arrives `IfcSelector.filter`-scoped, so a malformed selector faults before `export` runs; `format="pd"` returns the `DataFrame`, `csv`/`ods`/`xlsx` write to `output`, and `format=None` runs the resolve half alone, leaving the grid and resolved headers on the object with no writer opened.
@@ -55,12 +45,6 @@ Export consumes a model, an `IfcSelector.filter`-scoped element iterable, an att
 - lifecycle stacking: `ifc/costing#LIFECYCLE` owns integration: its `LifecyclePhase.EXPORT` arm threads a selector through the `IfcSelector.filter` gate, hands the filtered set, the expanded column vocabulary, and a `TableFormat` token to `IfcCsv().export` under `format=None`, so the grid lands on the object and the durable spreadsheet write belongs to `python:data/spatial`; its `LifecyclePhase.IMPORT` arm drives `IfcCsv().Import` inside that transaction fence and censuses the run through one `process_row` override. A new format is one `TableFormat` member with its `export_*` writer; a new column is one selector-path attribute string.
 - evidence: both directions name their loss on the SAME closed law roster rather than counting it — a blind `count`/`material` column the write never reaches, a null substitution, an empty substitution, a `by_guid` miss the provider prints and publishes no count for, and a table row narrower than the resolved header roster the per-index write truncates. Each occurrence carries its subject, its column, and the substituted spelling; `FidelityLog` keeps the per-law census on the lifecycle result.
 - boundary: `ifccsv` owns IFC-to-tabular export and table-to-IFC re-import over the `ifcopenshell` model; element selection stays the shared `IfcSelector` gate; attribute read stays `util.selector.get_element_value` and write stays `set_element_value`; the durable spreadsheet write defers to `python:data/spatial`, binding the writer call without holding a file handle across the seam.
-
-[RAIL_LAW]:
-- Package: `ifccsv`
-- Owns: bidirectional IFC-to-tabular exchange — `IfcCsv().export` (CSV/ODS/XLSX/Pandas) and `IfcCsv().Import` (re-apply an edited table onto the model)
-- Accept: an `ifcopenshell.file` plus an `IfcSelector.filter`-scoped element set and a selector-path attribute list for export, or a model plus an edited table path for re-import
-- Reject: a hand-rolled `csv.writer` fold over `util.element.get_psets` where `export` owns column resolution; a bespoke `by_guid`-keyed property-set mutation where `Import` routes cells through `util.selector.set_element_value`; a raw `util.selector.filter_elements` call where `IfcSelector` is the validated gate
 
 [CAPTURE_GAP]:
 - members: the `IfcCsv.export`/`export_csv`/`export_ods`/`export_xlsx`/`export_pd`/`Import`/`import_csv`/`import_pd`/`process_row` surface, the `FILE_FORMAT` literal, and the `export`/`Import` default kwargs verify by source read against the single-module distribution — the `ifcopenshell` C extension does not build on darwin/python3.15, so `ifccsv.py` confirms by read, never runtime import

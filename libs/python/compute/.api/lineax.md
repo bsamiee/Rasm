@@ -2,16 +2,7 @@
 
 `lineax` owns JAX-native linear operators, tag-dispatched direct and iterative solvers, and lazy operator algebra for the differentiable-linear-algebra rail. Every solve compiles under `jax.jit`, batches under `vmap`, and differentiates through the implicit-function-theorem adjoint, so it nests inside an `optimistix` root-find or a `diffrax` implicit step without re-deriving its gradient.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lineax`
-- package: `lineax`
-- import: `lineax` (alias `lx`)
-- owner: `compute`
-- rail: differentiable linear algebra
-- capability: JAX-native linear operators, direct and iterative solvers, structure-tagged auto-dispatch, operator arithmetic algebra, and autodiff-through-solve pipelines under JIT/`vmap`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: linear operator types
 
@@ -61,7 +52,7 @@
 
 [RESULTS_ITEMS]: `successful` (zero code) `max_steps_reached` `singular` `breakdown` `stagnation` `conlim` `nonfinite_input` — the `Solution.result` termination vocabulary, read to a message via `RESULTS[item]`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solve and invert operations — both default `solver=AutoLinearSolver(well_posed=True)`, `*, options=None, throw=True`
 
@@ -95,7 +86,7 @@
 |  [09]   | `transpose_tags(tags: frozenset)` → `frozenset`              | tag transform  | tag-set → transpose tag-set (TAGS in, not operator)  |
 |  [10]   | `transpose_tags_rules`                                       | tag registry   | dispatch `transpose_tags` reads; extend for new tags |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Operators are `equinox.Module` pytrees; `a + b`, `a @ b`, `c * a`, `-a` build lazy `AddLinearOperator`/`ComposedLinearOperator`/`MulLinearOperator`/`NegLinearOperator` nodes, forming no matrix until a solver's `.mv` runs.
@@ -115,9 +106,3 @@
 [LOCAL_ADMISSION]:
 - Build the operator once per problem outside the hot loop and pass it into `linear_solve` under JIT; `materialise` runs only on a static, small operator.
 - `invert` returns a matrix-free `FunctionLinearOperator`; store and reapply it across many right-hand sides under autodiff instead of re-solving.
-
-[RAIL_LAW]:
-- Package: `lineax`
-- Owns: JAX-native linear-operator abstraction, tag-dispatched direct and iterative solvers, and differentiable batched solve pipelines
-- Accept: `AbstractLinearOperator` subclasses as the operator surface, `AbstractLinearSolver` instances as the solver surface, `linear_solve` as the unified entry
-- Reject: `jnp.linalg.solve` or `scipy.sparse.linalg` where a differentiable, batched, or tag-dispatched solve is required

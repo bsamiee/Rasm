@@ -2,18 +2,7 @@
 
 `latex2mathml` converts a LaTeX math expression to presentation MathML in pure Python — the front-end `ziamath` drives for its `Latex`/`Text` paths. Artifacts composes it at two seams: `ziamath` consumes the conversion internally, and `typography/math#FORMULA` composes `commands.FUNCTIONS` directly — the module-global operator registry whose tuple identity makes the per-render snapshot-and-restore real.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `latex2mathml`
-- package: `latex2mathml` (MIT)
-- module: `latex2mathml`
-- owner: `artifacts`
-- rail: figure (behind `ziamath`); operator-registry custody (direct)
-- depends: none (pure Python, stdlib `xml.etree` egress)
-- entry points: library and a `latex2mathml` CLI; the design composes the in-process API
-- capability: LaTeX -> presentation-MathML conversion (string or `ET.Element`), a typed LaTeX-grammar exception family, and the module-global operator vocabulary `\DeclareMathOperator`-style registration rebinds
-
-## [02]-[CONVERSION]
+## [01]-[CONVERSION]
 
 [ENTRYPOINT_SCOPE]: LaTeX -> MathML egress
 
@@ -30,7 +19,7 @@
 
 Malformed LaTeX raises one of twelve grammar exceptions (`DenominatorNotFoundError`, `DoubleSubscriptsError`, `DoubleSuperscriptsError`, `ExtraLeftOrMissingRightError`, `InvalidAlignmentError`, `InvalidStyleForGenfracError`, `InvalidWidthError`, `LimitsMustFollowMathOperatorError`, `MissingEndError`, `MissingSuperScriptOrSubscriptError`, `NoAvailableTokensError`, `NumeratorNotFoundError`) from `latex2mathml.exceptions` — a boundary converts them to the fault rail at the seam that parses caller-supplied LaTeX; through `ziamath` they surface inside the render call and ride that owner's fence.
 
-## [03]-[OPERATOR_REGISTRY]
+## [02]-[OPERATOR_REGISTRY]
 
 [REGISTRY_SCOPE]: `commands.FUNCTIONS` — the composed member
 
@@ -41,7 +30,7 @@ Malformed LaTeX raises one of twelve grammar exceptions (`DenominatorNotFoundErr
 |  [01]   | `commands.FUNCTIONS: tuple[str, …]` | registry | upright-operator vocabulary; rebound, never mutated — snapshot/restore-safe |
 |  [02]   | `commands.LIMIT: tuple[str, …]`     | registry | operators taking limits-style scripts (read-only companion roster)          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `convert` (string) and `convert_to_element` (`ET.Element`, optionally grafted through `parent=`) spell one conversion egress — never a per-format converter family; `walker.walk`/`tokenizer.tokenize` are the pre-XML intermediates a grammar-analysis consumer reads, not a second egress.
@@ -52,9 +41,3 @@ Malformed LaTeX raises one of twelve grammar exceptions (`DenominatorNotFoundErr
 - `ziamath`(`.api/ziamath.md`): the render trio's `Latex`/`Text` paths call this conversion internally and `declareoperator` rebinds this registry — the artifacts formula rail reaches LaTeX through `ziamath`, and this package's direct composition is the registry custody alone (`typography/math#FORMULA` `_laid` brackets `config.svg2` and the `FUNCTIONS` snapshot under one `RLock` with a `finally` restore).
 - `document/model`(`.planning/document/model.md`): a MathML-bearing document node consumes `convert_to_element` output grafted via `parent=` where the equation must join an existing `xml.etree` tree without the ziamath layout pass — the raw-MathML lane beside the rendered-SVG lane.
 - runtime rails: caller-supplied LaTeX converts under the boundary `Result` rail with the twelve grammar exceptions as the named `except` arms; registry mutation runs serialized on the `to_thread` lane inside the owning lock, matching the `ziamath` global-config discipline.
-
-[RAIL_LAW]:
-- Package: `latex2mathml`
-- Owns: LaTeX -> presentation-MathML conversion (string and `ET.Element`), the LaTeX token/walk intermediates, the typed grammar-exception family, and the `commands.FUNCTIONS`/`commands.LIMIT` operator vocabulary custody
-- Accept: the `ziamath` front-end dependency; direct `commands.FUNCTIONS` snapshot-and-restore at the one formula owner; `convert_to_element` for raw-MathML document nodes joining a caller tree
-- Reject: MathML -> SVG typesetting where `ziamath` owns layout; a second LaTeX parser or hand-rolled operator table where `FUNCTIONS` is the registry; an in-place mutation of `FUNCTIONS` where rebind is the contract; recording the registry length where import order owns it; a raised grammar exception crossing the async edge where the boundary rail owns failure

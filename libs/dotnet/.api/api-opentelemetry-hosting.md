@@ -2,16 +2,7 @@
 
 `OpenTelemetry.Extensions.Hosting` seats provider ownership in the generic host: one builder over the application `IServiceCollection` carries all three signals through the DI graph, and construction, flush, and disposal ride host start and stop.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Extensions.Hosting`
-- package: `OpenTelemetry.Extensions.Hosting`
-- assembly: `OpenTelemetry.Extensions.Hosting`
-- namespace: `OpenTelemetry`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
-- rail: telemetry composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: DI composition builder and the extension verb minting it
 
@@ -22,7 +13,7 @@
 
 `OpenTelemetryBuilder` implements `IOpenTelemetryBuilder`; cross-cutting exporter and enrichment verbs extend that interface and chain off the instance the fluent verbs return.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: host composition — every row past `AddOpenTelemetry` is an `OpenTelemetryBuilder` member returning that same builder.
 
@@ -43,7 +34,7 @@
 - `OpenTelemetryBuilder.WithLogging`: only the two-delegate overload admits a null leg; the single-delegate overload faults on a null configure.
 - Two homes carry this verb and neither is wrong: `OpenTelemetryBuilder` declares the INSTANCE overloads here, each forwarding to the `IOpenTelemetryBuilder` STATIC extension `api-opentelemetry.md` rows, so a fence naming the concrete builder binds the instance form and one naming the interface binds the extension.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - root: one `AddOpenTelemetry()` per host, `ConfigureResource` the only verb stamping identity onto all three providers at once
@@ -60,9 +51,3 @@
 
 [LOCAL_ADMISSION]:
 - `serviceInstanceId` pins from the suite boot mint inside `ConfigureResource`; auto-generation anonymizes restart lineage.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Extensions.Hosting`
-- Owns: DI-hosted three-signal provider composition and host-bound provider lifetime
-- Accept: one builder per hosted process, configured through the resource verb and the three signal delegates
-- Reject: a second `AddOpenTelemetry` root fragmenting resource identity; hosted composition inside a plugin load context

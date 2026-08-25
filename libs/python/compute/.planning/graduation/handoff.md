@@ -22,7 +22,7 @@ Compute graduation is the tier-0 hub every compute evidence producer composes. I
 - Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the .NET owner planning. No ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. Geometry stays outside the compute graduation axis and retains the canonical result each operation produces.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
 from math import isfinite

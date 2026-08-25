@@ -2,17 +2,7 @@
 
 `System.IO.Ports` owns BCL serial-fieldbus transport: `SerialPort` opens an RS-232/422/485 line over a named port, reads and writes line-framed or raw bytes synchronously or through the `DataReceived` event, and exposes the underlying `Stream` for binary protocols. AppHost's live-wire `serial` transport row binds it behind the one `TransportRow` adapter, and a thrown `TimeoutException` projects to `WireFault` at the boundary — the unix runtime raises no `ErrorReceived` event.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.IO.Ports`
-- package: `System.IO.Ports`
-- assembly: `System.IO.Ports`
-- namespace: `System.IO.Ports`
-- asset: runtime library
-- resolve: `lib/net10.0/System.IO.Ports.dll` is the `PlatformNotSupportedException` facade; host truth decompiles from `runtimes/unix/lib/net10.0/`, and Windows-only members live in `runtimes/win/lib/net10.0/`
-- rail: live-wire
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: port, policy, and event-argument surfaces
 
@@ -29,7 +19,7 @@
 |  [09]   | `SerialErrorReceivedEventArgs` | event args    | `EventType` (`SerialError`)                             |
 |  [10]   | `SerialPinChangedEventArgs`    | event args    | `EventType` (`SerialPinChange`)                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifecycle and configuration
 
@@ -73,7 +63,7 @@
 |  [04]   | `Frame`    |    8    | framing error on a received character     |
 |  [05]   | `TXFull`   |  0x100  | transmit buffer full, unreachable on unix |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SerialPort` is `IDisposable`; the AppHost binding holds it in a token-gated state cell, so a reconnect replaces the whole cell and a stale teardown never disposes a fresh port.
@@ -91,9 +81,3 @@
 
 [LOCAL_ADMISSION]:
 - `BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake` and the line grammar are binding-spec policy data; the per-row retry is the `OutboundHop` redial, never a serial reconnect loop or a call-site literal.
-
-[RAIL_LAW]:
-- Package: `System.IO.Ports`
-- Owns: BCL serial-line transport — named-port open, byte and line framing, and the pin, data, and error signal events.
-- Accept: one `TransportRow` serial row projecting each decoded frame to one `ExternalValue`.
-- Reject: a serial-specific poller, a reconnect loop, or a second serial surface beside the one `TransportRow` adapter.

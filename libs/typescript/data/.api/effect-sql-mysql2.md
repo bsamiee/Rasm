@@ -2,17 +2,7 @@
 
 `@effect/sql-mysql2` binds the neutral `@effect/sql` `SqlClient` to the `mysql2` pool as the read-only interop lane — a typed ingress into enterprise MySQL an app already owns, never a record of truth; this driver owns only the pooled connection, the `mysql`-seeded span, and construction, its `dialect: "mysql"` compiler lighting the `sql.onDialect` `mysql` arm to emit MySQL SQL from one statement definition.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/sql-mysql2`
-- package: `@effect/sql-mysql2` (MIT)
-- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends), `@effect/experimental` (`Reactivity`), `@effect/platform`
-- backing: `mysql2` pool via `Mysql.PoolOptions`
-- runtime: `runtime:node`/bun services — `mysql2` is a node-native wire driver, never the browser plane
-- rail: read-only `read/query` interop row — typed MySQL ingress folded into the journal, never authority
-- modules: `MysqlClient`, `MysqlMigrator` (banned)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `MysqlClient` service Tag and its config — `MysqlClient extends SqlClient` adds `config` alone, no `listen`/`notify`/`json` surface
 
@@ -27,7 +17,7 @@
 |  [07]   | `MysqlClientConfig.poolConfig` (`Mysql.PoolOptions`)     | raw pool knobs      | TLS/charset/timezone the shared fields omit       |
 |  [08]   | `MysqlClientConfig.spanAttributes` + name transforms     | telemetry/transform | shared with every dialect driver                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer — either Layer yields both `MysqlClient` and `SqlClient` Tags, only construction reaching the concrete Tag
 
@@ -41,7 +31,7 @@
 - `layer`/`layerConfig` yield `Layer<MysqlClient | SqlClient, ConfigError | SqlError>` and `make` yields `Effect<MysqlClient, SqlError, Scope | Reactivity>`. `make` — not the compiler — seeds every span: `db.system.name=mysql` beside `server.address` and `server.port` read off the config's optional fields, the driver filling `localhost` and `3306` where each is absent, and `db.namespace` appearing only when `database` is set.
 - `makeCompiler` fixes `dialect: "mysql"` on a `?` placeholder, and its `onCustom` and `onRecordUpdate` arms emit EMPTY — a `Statement.custom` segment and a `sql.updateValues` multi-row update each compile to nothing on this lane rather than failing, so neither reaches a MySQL statement.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `@effect/sql`(`.api/effect-sql.md`): the driver Layer satisfies the neutral `SqlClient` Tag, so every `SqlSchema` decode, `SqlResolver` batch, and `withTransaction` scope runs on this pool; the `dialect: "mysql"` compiler makes `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` emit MySQL SQL from the shared definition, the `mysql` arm realized.
@@ -54,9 +44,3 @@
 - No pool-adoption entrypoint ships: `layer`/`layerConfig`/`make` each build their own pool, so one composition owns one pool per interop lane and the pg spine's `layerFromPool` fan-out has no counterpart here.
 - `sql.updateValues` and `Statement.custom` compile empty under this dialect, so neither belongs in a statement this client runs.
 - `MysqlMigrator` is banned branch-wide — an interop source is read, never schema-owned; DDL is `iac`↔`data` declarative ensure.
-
-[RAIL_LAW]:
-- Package: `@effect/sql-mysql2`
-- Owns: the `mysql2` binding of `SqlClient` — `layer`/`layerConfig`/`make`/`makeCompiler`, the `MysqlClientConfig` family, the `dialect: "mysql"` compiler lighting the `sql.onDialect` `mysql` arm, and the banned `MysqlMigrator`
-- Accept: the read-only interop row under one `@effect/sql` contract, `Config`-sourced credentials, MySQL SQL through the `mysql` `onDialect` arm, facts folded into the journal
-- Reject: a driver import in a neutral row, MySQL as a record of truth, `MysqlMigrator` or runtime schema mutation, hardcoded credentials or pool sizes, a second relational contract for interop

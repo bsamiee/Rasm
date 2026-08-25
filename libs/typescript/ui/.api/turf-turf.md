@@ -2,17 +2,7 @@
 
 `@turf/turf` is the browser-side planar and spherical GeoJSON geometry engine — the JS peer of C# NetTopologySuite meeting it at the WKB/GeoJSON wire: DE-9IM predicates, overlay, measurement, and construction as pure `(geojson, options) => geojson | scalar` transforms over a parameterized constructor/traversal/accessor substrate. `viewer/geo` composes it over `wire`-decoded features, never hand-looping coordinates; `scope:viewer` project-local.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@turf/turf`
-- package: `@turf/turf` (MIT)
-- deps: the `@turf/*` op modules + `@types/geojson` value types; `tslib`
-- runtime: `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-excluded from the non-spatial core
-- asset: self-typed ESM+CJS, `sideEffects: false` — tree-shakeable, so the umbrella import prunes to used ops and a hot module imports `@turf/<op>` directly
-- entry: the `.` barrel re-exports every op and the `helpers`/`meta`/`invariant`/`clusters`/`random`/`projection` namespaces; pure sync functions — no runtime, no effect rail, no DOM
-- rail: viewer/geo, viewer/mark — the browser GeoJSON geometry engine
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: turf's flexible-input, unit, and grid-option types
 
@@ -29,7 +19,7 @@
 |  [07]   | `Corners`                                                                       | enum          | bbox corner and center selector       |
 |  [08]   | `Id` = `string \| number`                                                       | union         | feature identifier                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the substrate — one constructor family, one traversal family, one accessor family
 
@@ -100,7 +90,7 @@ Surface-analysis, tessellation, spatial-statistics, projection, and random famil
 |  [06]   | `toMercator` / `toWgs84`                                                             | projection   | `viewer/geo/project`  |
 |  [07]   | `randomPoint` / `randomLineString` / `randomPolygon` / `randomPosition`              | generator    | `dev`, `viewer/probe` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op is a synchronous `(input, options) => GeoJSON | scalar` with no state, no effect, no DOM; the concern families (measure, construct, overlay, convert, predicate, surface, grid, cluster/stat) sit on the substrate, catalogued by concern rather than a flat roster.
@@ -119,9 +109,3 @@ Surface-analysis, tessellation, spatial-statistics, projection, and random famil
 - Consume `wire#vocab`-decoded GeoJSON; the WKB→GeoJSON decode is `wire`-owned and happens once, never re-minted in `ui`.
 - Run turf at interaction scale over materialized features; the bulk `arrow.RecordBatch`→layer path stays on the geoarrow columnar route.
 - Import from the `.` umbrella (tree-shaken via `sideEffects: false`) or `@turf/<op>` directly in a hot module, every turf import inside `scope:viewer`.
-
-[RAIL_LAW]:
-- Package: `@turf/turf`
-- Owns: the browser-side planar/spherical GeoJSON geometry engine — the concern families, the `feature`/`coordEach`/`getCoord` substrate, the `Units`/`AreaUnits` algebra, the `geojsonRbush` index, and the WGS84↔Mercator projection ops
-- Accept: pure ops over `wire`-decoded GeoJSON, substrate build/walk/read, `{ units }`-parameterized measurement, interaction-scale turf beside bulk geoarrow render, `GeoJsonLayer.data`/`PolygonLayer.getPolygon`/`GeoJSONSource` result binding, a `geojsonRbush` index for repeated queries, `Effect.sync` inside an effectful pipeline
-- Reject: WKB decode or geometry re-mint in `ui`, hand-looped `coordinates` where `meta` folds them, bulk `RecordBatch`→GeoJSON to run an op, per-unit function siblings, O(n) predicate scans where an rbush index applies, a re-minted C# NTS computation crossing back over the wire, turf imports outside `scope:viewer`

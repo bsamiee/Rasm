@@ -34,6 +34,7 @@ internal abstract partial record Gh2ScrubOutcome {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class ShellHost : IDisposable {
+    private static readonly Guid Grasshopper2PluginId = Guid.Parse(input: "8307876d-a461-4daa-bb77-eb3715925513");
     private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
     private const string McneelPlugInGuid = "2668d7ed-f507-4a68-8295-8172147a0e39";
@@ -169,7 +170,7 @@ public sealed class ShellHost : IDisposable {
         Admit(connection: connection);
         activeManifest = manifest;
         return await pump.OnUiThreadAsync(job: () => {
-            PreloadHostPlugins(plugins: manifest.HostPlugins);
+            PreloadHostPlugin(id: Grasshopper2PluginId);
             LoadedCargo loaded = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
             Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: loaded.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
             Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: loaded.Scenarios.Select(selector: static scenario => scenario.Name))));
@@ -349,20 +350,18 @@ public sealed class ShellHost : IDisposable {
         }
     }
 
-    private void PreloadHostPlugins(Guid[] plugins) {
-        foreach (Guid id in plugins) {
-            string outcome;
-            try {
-                outcome = PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true
-                    ? "already-loaded"
-                    : PlugIn.LoadPlugIn(pluginId: id, loadQuietly: true, forceLoad: false)
-                        ? PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true ? "loaded" : "load-true-not-loaded"
-                        : "load-returned-false";
-            } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-                outcome = $"threw {error.GetType().Name}: {error.Message}";
-            }
-            Publish(evt: BridgeEvent.Fact(key: $"hostplugin.{id:D}", value: outcome));
+    private void PreloadHostPlugin(Guid id) {
+        string outcome;
+        try {
+            outcome = PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true
+                ? "already-loaded"
+                : PlugIn.LoadPlugIn(pluginId: id, loadQuietly: true, forceLoad: false)
+                    ? PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true ? "loaded" : "load-true-not-loaded"
+                    : "load-returned-false";
+        } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
+            outcome = $"threw {error.GetType().Name}: {error.Message}";
         }
+        Publish(evt: BridgeEvent.Fact(key: $"hostplugin.{id:D}", value: outcome));
     }
 
     private static HostFingerprint RunningFingerprint() => new(

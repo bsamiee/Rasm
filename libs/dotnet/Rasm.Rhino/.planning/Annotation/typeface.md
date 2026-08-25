@@ -26,7 +26,7 @@
 - Growth: a host decoration member joins as one column on the row that already names its concept; a new specialty reading is one `FaceTrait` row every census and descriptor gains without another column.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
 using Rasm.Domain;

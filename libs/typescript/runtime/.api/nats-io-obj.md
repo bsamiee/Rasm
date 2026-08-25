@@ -2,15 +2,7 @@
 
 `@nats-io/obj` chunks large binaries across a JetStream stream over the one core connection the fanout engine holds — a distinct package, not a jetstream sub-export, standing as the ObjectStore topology row of `net/pubsub` for transient blob passing; per-chunk sha-256 digests are wire integrity, never content identity, so `ContentKey` stays the sole addressing vocabulary and durable objects live on the object plane, never in a NATS store.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@nats-io/obj`
-- package: `@nats-io/obj` (Apache-2.0)
-- module format: ESM + CJS dual
-- runtime target: isomorphic — node, bun, browser over websockets
-- rail: ObjectStore topology row (`net/pubsub`); transient blob passing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the read and info shapes
 - rail: boundaries
@@ -25,7 +17,7 @@
 
 - [05]-[PURGE_RESPONSE]: `@nats-io/jetstream` declares the type and this package's root never re-exports it, so a consumer imports it from that peer directly.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store lifecycle, chunked transfer, and aliasing
 - rail: boundaries
@@ -42,7 +34,7 @@
 |  [08]   | `os.delete(name)`                                    | remove         | → `Promise<PurgeResponse>`; removal evidence                  |
 |  [09]   | `os.seal()` / `os.status(opts?)` / `os.destroy()`    | admin          | read-only freeze, introspection, teardown                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `@nats-io/jetstream` (`.api/nats-io-jetstream.md`): the store IS a stream of chunk messages; `watch` rides a nameless ordered consumer minted with `AckPolicy.None` that cannot ack — a replay/tail surface by construction, so at-least-once processing of object-change events rides a durable `AckPolicy.Explicit` consumer on the backing stream, never an ack against the watch iterator.
@@ -55,9 +47,3 @@
 - Observe `ObjectResult.error` on every `get` — a consumed `.data` with an unobserved `.error` is the named silent-truncation defect.
 - Alias with `link`/`linkStore`; a byte copy where a link suffices rejects.
 - Ensure stores at engine Layer build from topology rows; `seal` is the terminal state of a store whose write phase is ruled complete.
-
-[RAIL_LAW]:
-- Package: `@nats-io/obj`
-- Owns: store administration, chunked stream put/get with per-chunk digests, blob convenience members, object census and change tail, byte-free links, seal/status/destroy lifecycle
-- Accept: Layer-build store ensure, `Stream.toReadableStream`/`Stream.fromReadableStream` at the body seam, `.error` joined to the typed failure channel, links over copies, `putBlob`/`getBlob` for bounded payloads only
-- Reject: the store as system of record or second content-addressing vocabulary, unobserved `.error` channels, per-call dials, whole-body materialization where a stream flows, ack calls against ordered watch iterators

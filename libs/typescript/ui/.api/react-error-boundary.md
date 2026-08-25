@@ -4,15 +4,7 @@
 
 `ErrorBoundary` seams the Effect typed-error channel to the React tree: a failed `useAtomSuspense` read throws `Cause.squash(cause)` in render, so the boundary catches the tagged `E` and the recovery folds it through `Match` into the `value/fault` projection.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-error-boundary`
-- package: `react-error-boundary` (MIT)
-- module: self-typed ESM (`dist/react-error-boundary.d.ts`)
-- runtime: client component, `"use client"`; peer `react`
-- rail: system/primitive — the render-catch boundary every subtree fault folds through
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the recovery prop union, payload, and context contract
 
@@ -26,7 +18,7 @@
 |  [04]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`              | context       | `didCatch`/`error`/`resetErrorBoundary` for a reader |
 |  [05]   | `UseErrorBoundaryApi` (`error`, `resetBoundary`, `showBoundary`) | record        | the `useErrorBoundary` return contract               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: boundary component, escalation hook, HOC wrap, and message extractor
 
@@ -41,7 +33,7 @@ One boundary owner drives all recovery; the modality is the prop-union arm, neve
 
 - `useErrorBoundary`: valid only inside an `ErrorBoundary` subtree.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Whichever arm is set, the recovery receives `FallbackProps` (`error`, `resetErrorBoundary`), so reset is arm-independent.
@@ -60,9 +52,3 @@ One boundary owner drives all recovery; the modality is the prop-union arm, neve
 - Read async atoms through `useAtomSuspense` under a `<Suspense>` + this boundary; escalate only carrier-less throws with `showBoundary(Cause.squash(cause))`.
 - Bind `resetKeys` to the atom/query input and re-run the failed `Effect` in `onReset`.
 - Render the recovery through `Match` over the tagged fault family localized by `intl`; `getErrorMessage` is the last-resort unknown-throw extractor.
-
-[RAIL_LAW]:
-- Package: `react-error-boundary`
-- Owns: the single `ErrorBoundary` render-catch owner with a three-arm discriminated recovery union, the `useErrorBoundary` escalation hook, the `withErrorBoundary` HOC, and the `FallbackProps`/`ErrorBoundaryContext` contract
-- Accept: one recovery arm per boundary, `useAtomSuspense` as the primary async rail (`<Suspense>` waiting + boundary `Failure`), `showBoundary(Cause.squash(cause))` for carrier-less throws, `resetKeys` bound to the atom input with an `Effect`-re-running `onReset`, `FallbackProps.error` projected through `Match` + `intl`, the `react-dom` root error trio as the outer frame
-- Reject: a hand-rolled `componentDidCatch` class, mixed recovery arms, a per-component `try/catch` around a `useAtomSuspense` read, a swallowed promise rejection, a reset that does not re-drive the failed `Effect`, an inline `instanceof`/`if` ladder where `Match` owns the fault family

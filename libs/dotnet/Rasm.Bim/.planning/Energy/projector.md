@@ -23,7 +23,7 @@ Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gate
 - Boundary: projector dispatch publishes no recovery policy. Every native region crosses ONE kernel `Op.Catch` funnel; the documented energy boundaries become `BoundaryFailed` with their original `Error` and immutable posture, while returned typed errors and unknown foreign errors pass through unchanged. `EnergyMaterial` density has NO seam thermal column and a fabricated `OfMechanical` stiffness is the rejected form — density is DROPPED at the raise (systematic, never a per-material warning), the OSM rebuild's 1000 kg/m³ fallback carrying the consequence. Every physics literal is a NAMED policy value on this owner: `VapourOpen` is μ = 1 still air (the vapour-open end of the seam's own `>= 1` admission) because no energy schema declares the factor, and `LayerConductance` is the EN ISO 6946 λ/d unit conductance the seam `Thermal` case stores per `MaterialId` — film-free by construction, since surface resistances belong to the ASSEMBLY U-value its own owner computes and folding them into a ply attributes an assembly property to one layer. Structural-graph legality (endpoints, ids) is the seam's `ElementFault`, IFC-semantic legality the composed `IfcLegality` → `BimFault.Refused` with `BimReason.Rejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;

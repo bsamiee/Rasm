@@ -2,16 +2,7 @@
 
 `@pulumiverse/doppler` is the canonical secret owner of the deploy plane: the `Project → Environment → BranchConfig → Secret` chain provisions the store, `ServiceToken` scopes a config to mint the `DOPPLER_TOKEN` for `doppler run` injection, `getSecrets` reads a whole config as an `Output` map, and the `integration`/`secretssync` namespaces mirror a config to N external destinations. `iac` composes it as the store where `random`/`tls`-generated material lands canonically and the source every sibling `Provider` credential binds to — never an import in either direction.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumiverse/doppler`
-- package: `@pulumiverse/doppler` (Apache-2.0)
-- module: `@pulumiverse/doppler` (root), `@pulumiverse/doppler/{secretssync,integration,projectmember}` (namespaces)
-- asset: Doppler project/config/secret provisioning, service tokens, RBAC, webhooks, external sync destinations
-- runtime: `node` — Terraform-bridge provider plugin auto-downloads on first registration; bootstrap token via `Provider({ dopplerToken })` or the `DOPPLER_TOKEN` env
-- rail: secret
-
-## [02]-[RESOURCE_SURFACE]
+## [01]-[RESOURCE_SURFACE]
 
 Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + `constructor(name, args, opts?)` and surfaces its `id`. `Secret.value` is state-encrypted sensitive; `ServiceToken.key` is the sensitive token.
 
@@ -44,7 +35,7 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + 
 |  [02]   | `getSecretsOutput(...)`         | `Output`  | Input-accepting mirror of `getSecrets`     |
 |  [03]   | `getUser` / `getUserOutput`     | both      | workplace user lookup                      |
 
-## [03]-[SECRET_TOPOLOGY]
+## [02]-[SECRET_TOPOLOGY]
 
 Three parameterized patterns own the surface; the target roster is seed data feeding them.
 
@@ -68,7 +59,7 @@ Three parameterized patterns own the surface; the target roster is seed data fee
 
 Every sync arg carries `config` + `integration` + `project`. `GithubActions` [06] takes the pre-existing `integration` slug, then `syncTarget` = `"repo"`\|`"org"` selecting `repoName`/`environmentName` or `orgScope`, with `deleteBehavior`.
 
-## [04]-[INTEGRATION]
+## [03]-[INTEGRATION]
 
 Doppler is the canonical store in the generate → store → inject rail; `effect` owns the bootstrap token, provider `Layer`, and config decode.
 
@@ -99,15 +90,9 @@ Doppler is the source both ends of the seam each sibling catalog names inbound; 
 [SURFACES]: `cfg = new doppler.BranchConfig("prd",{project:proj.name,environment:env.slug},{parent})` `token = new doppler.ServiceToken("prd-app",{project:proj.name,config:cfg.name,name:"app",access:"read"},{parent})` `grafanaAuth = doppler.getSecretsOutput({project:proj.name,config:cfg.name}).apply(r=>r.map["GRAFANA_TOKEN"])`
 [COMPOSITION]: `RandomPassword.result -> doppler.Secret.value`
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SECRET_TOPOLOGY]:
 - `random`/`tls` generate, Doppler stores, apps read via `doppler run`; a value duplicates into a second store only through a `secretssync.<Target>` mirror.
 - `Secret.value` and `ServiceToken.key` are sensitive; a value leaves two ways only — an in-graph `getSecretsOutput(...).apply(r => r.map[KEY])` `Output<string>` bound to a sibling `Provider` credential `Input` (state-encrypted, stays in the Pulumi graph), or `key` as the `DOPPLER_TOKEN` env for `doppler run` at the process boundary — never a decrypted payload in an import.
 - Scope `ServiceToken.access` to `read` for consumers, `read/write` for provisioners.
-
-[RAIL_LAW]:
-- Package: `@pulumiverse/doppler`
-- Owns: project/environment/config/secret provisioning, service tokens, RBAC, webhooks, external sync destinations
-- Accept: `pulumi.secret`-tracked generated material as `Secret.value`; the bootstrap `DOPPLER_TOKEN` from `Config.redacted`; `getSecrets.map` decoded through `Schema`; a single-key `getSecretsOutput` pluck bound to a sibling `Provider` credential `Input<string>`; the `parent` chain for the hierarchy
-- Reject: a plaintext secret value in source; a sibling `Provider` credential as a literal or second-sourced value where the Doppler read is canonical; a second store as source of truth (mirror via `secretssync`); the `DOPPLER_TOKEN` in state as anything but redacted; per-target sync or per-consumer read code paths where one pattern dispatches on `<Target>`/`KEY`

@@ -2,16 +2,7 @@
 
 `numcodecs` mints the buffer-codec registry and `Codec` contract zarr binds for chunk filters, compressors, and the extra-compressor family beyond zarr's built-ins. Every codec subclasses `Codec` with one `encode`/`decode` pair and a JSON-round-trippable `get_config`/`from_config` identity keyed by `codec_id`, selected polymorphically through `get_codec`. It owns only the per-chunk byte transform over contiguous `numpy` buffers; `zarr`/`icechunk` own chunk indexing and IO, and the artifacts-rail codecs own transport payloads.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `numcodecs`
-- package: `numcodecs`
-- module: `import numcodecs`
-- namespaces: `numcodecs`, `numcodecs.abc`, `numcodecs.registry`, `numcodecs.compat`, `numcodecs.blosc`, `numcodecs.zstd`, `numcodecs.errors`
-- rail: array — chunk-codec supplier for the chunked-array rail
-- entry points: codec plugins register through the `numcodecs.codecs` entry-point group (`run_entrypoints()` ingests them into `codec_registry`); the `zfpy`/`pcodec` extras add the `ZFPY`/`PCodec` serializers
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec contract, registry, and buffer protocol
 
@@ -85,7 +76,7 @@ Registry ids diverge from class names at `json2`, `msgpack2`, `vlen-utf8`/`vlen-
 - `[ArrayArrayCodec]`: `Delta` `FixedScaleOffset` `Quantize` `BitRound` `PackBits` `AsType`
 - `[ArrayBytesCodec]`: `PCodec` `ZFPY`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: codec resolution (`numcodecs.registry`, re-exported at `numcodecs`)
 
@@ -144,7 +135,7 @@ Chain codecs by feeding one `encode` output into the next codec's `encode`, and 
 
 Pass these in a zarr array's `filters=`/`serializer=`/`compressors=` slots.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every codec folds through one `encode`/`decode`/`get_config`/`from_config` shape keyed by `codec_id`; `get_codec({'id': ...})` selects on the `'id'` discriminant and the config dict is the sole persisted identity.
@@ -167,9 +158,3 @@ Pass these in a zarr array's `filters=`/`serializer=`/`compressors=` slots.
 - Select a codec through `get_codec({'id': ..., ...})` and persist it as the config dict.
 - Bind a codec to a zarr array through `zarr.codecs.numcodecs.<Codec>` in the slot its base family dictates.
 - Coerce buffers through `numcodecs.compat.ensure_contiguous_ndarray` at the boundary and set `set_nthreads` once at process start.
-
-[RAIL_LAW]:
-- Package: `numcodecs`
-- Owns: the buffer-codec registry and `Codec` contract for the chunked-array rail — lossless compressor, array filter/transform, checksum, and variable-length/serialization codecs, JSON-config resolution, buffer coercion, native thread control, and the zarr-v3 codec adapter
-- Accept: codec selection through `get_codec` and config-dict persistence; the filter-then-compressor chain with `Shuffle`/`BitRound` before `Zstd`/`Blosc`; `Blosc` as the fused shuffle+inner-codec meta-compressor; `ensure_contiguous_ndarray` at the boundary; process-global `set_nthreads`; zarr binding through `zarr.codecs.numcodecs.<Codec>`; lossy-parameter retention on the array result and compression-ratio observation on the write span
-- Reject: hand-rolled compression where a codec exists; per-codec method names or parallel constructors where one `get_codec`/`encode`/`decode` shape suffices; the deprecated `numcodecs.zarr3` shim in place of `zarr.codecs.numcodecs`; hand-encoded chunk bytes outside the pipeline; a lossy filter on data that must round-trip bit-exact; `@retry` around a pure `encode`/`decode`; per-chunk thread reconfiguration; discontiguous buffers reaching `encode` uncoerced; a duplicate `Zstd`/`Blosc` owner where the artifacts-rail codecs own transport and container payloads

@@ -4,15 +4,7 @@
 
 Both send legs are twin members on every handler — synchronous `Send` beside asynchronous `SendAsync` — and neither delegates to the other, so a link overriding one alone silently passes the other through unobserved.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Net.Http`
-- package: BCL inbox (MIT)
-- assembly: `System.Net.Http.dll` (shared framework)
-- namespace: `System.Net.Http`, `System.Net.Http.Headers`
-- rail: outbound HTTP transport behind every exporter, blob client, and dial-out hop
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: invoker and handler chain, the message pair, the content family, headers, and the fault vocabulary.
 
@@ -46,7 +38,7 @@ Both send legs are twin members on every handler — synchronous `Send` beside a
 |  [26]   | `RangeHeaderValue`         | class           | byte-range request value over `RangeItemHeaderValue` items               |
 |  [27]   | `MediaTypeHeaderValue`     | class           | media type with charset, admitted by content constructors                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: chain construction, the two send legs, message and content mint, and header writes.
 
@@ -114,7 +106,7 @@ Send parameters resolve as `request` to `HttpRequestMessage`, `token` to `Cancel
 - `TryAddWithoutValidation` takes `IEnumerable<string?>`, so an enumerated header copies across under covariance.
 - `SocketsHttpHandler.SslOptions` is the one client-TLS seat: `HttpClientHandler` exposes `ClientCertificates` and a validation callback but no chain policy, so a custom trust anchor reaches only the sockets handler; `CertificateChainPolicy` NARROWS the anchor set while `RemoteCertificateValidationCallback` replaces the verdict outright, and setting the callback to an unconditional true disables verification whatever the policy says.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `HttpMessageHandler` declares `SendAsync` abstract and `Send` virtual, so a link overriding the async leg alone compiles clean.
@@ -148,9 +140,3 @@ Send parameters resolve as `request` to `HttpRequestMessage`, `token` to `Cancel
 - Custom links override `Send` and `SendAsync` together, routing both to one core.
 - Replayed payloads ride `ByteArrayContent`, with framing headers re-derived from the replay body.
 - Faults classify on `HttpRequestError` and `HttpResponseMessage.StatusCode`.
-
-[RAIL_LAW]:
-- Package: `System.Net.Http`
-- Owns: outbound HTTP — handler chain, message pair, header stores, payload content, and connection pool
-- Accept: composition-root chain construction; both send legs on every custom link; memory-backed replay content
-- Reject: per-call-site `HttpClient` construction; a link overriding one send leg; a copied framing header; an unbuffered `StreamContent` retry

@@ -186,14 +186,14 @@ public sealed partial class Marker {
 
 public static class MarkerBoundary {
     public static Fin<int> Admit(ReadOnlySpan<char> raw, Input input) =>
-        Marker.Validate(raw, null, out var marker) is { } fault
+        Marker.Validate(raw, null, out Marker? marker) is { } fault
             ? Fin.Fail<int>(fault)
             : Fin.Succ(marker!.Switch(state: input,
                 markA: static value => value.Score,
                 markB: static value => value.Score * 2));
 
     public static ImmutableArray<string> Advertised() => [.. Marker.Items.Select(static item => item.Key)];
-    public static Option<Marker> Probe(string key) => Marker.TryGet(key, out var marker) ? Optional(marker) : None;
+    public static Option<Marker> Probe(string key) => Marker.TryGet(key, out Marker marker) ? Optional(marker) : None;
 }
 ```
 
@@ -257,8 +257,8 @@ public static class IterativeSurface {
 
     static Step Advanced(Step.Advance a, int ceiling) =>
         a.Seed <= 1 ? new Step.Settled(a.Seed) : Next(a.Seed) switch {
-            var folded when folded >= ceiling => new Step.Diverged(folded),
-            var folded                        => new Step.Advance(folded),
+            int folded when folded >= ceiling => new Step.Diverged(folded),
+            int folded                        => new Step.Advance(folded),
         };
 
     static int Next(int seed) => (seed & 1) == 0 ? seed >> 1 : (3 * seed + 1) >> 1;
@@ -292,7 +292,7 @@ public static class Boundary {
         where TOwner : IObjectFactory<TOwner, TValue, TError>
         where TValue : notnull, allows ref struct
         where TError : Error, IValidationError<TError> =>
-        TOwner.Validate(value, culture, out var item) is { } fault
+        TOwner.Validate(value, culture, out TOwner? item) is { } fault
             ? Fin.Fail<TOwner>(fault)
             : Fin.Succ(item!);
 

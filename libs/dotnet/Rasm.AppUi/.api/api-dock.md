@@ -2,27 +2,7 @@
 
 `Dock.Avalonia` binds an `IDock` model graph to a live Avalonia docking surface, and `Dock.Model.ReactiveUI` supplies the `ReactiveObject` binding and the `Factory : FactoryBase` constructing that graph. Every layout mutation flows through the `IFactory` operations under `DockControl.DockManager` validation, never a hand-built splitter or tab arrangement. `Dock.Model` owns the host-neutral contracts in the transitively-restored core, and the `Dock.Serializer.SystemTextJson` catalog (`api-dock-serializer.md`) owns the persistence round-trip.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Dock.Avalonia`
-- package: `Dock.Avalonia` (MIT)
-- assembly: `Dock.Avalonia`
-- namespace: `Dock.Avalonia.Controls`, `.Selectors`, `.Themes`, `.Mdi`, `.CommandBars`, `.Services`
-- target: `lib/net10.0`
-- asset: runtime library
-- depends: `Dock.Model`, `Dock.Settings`
-- rail: docking
-
-[PACKAGE_SURFACE]: `Dock.Model.ReactiveUI`
-- package: `Dock.Model.ReactiveUI` (MIT)
-- assembly: `Dock.Model.ReactiveUI`
-- namespace: `Dock.Model.ReactiveUI`, `.Core`, `.Controls`, `.Services`
-- target: `lib/net10.0`
-- asset: runtime library
-- depends: `Dock.Model`, `reactiveui`
-- rail: docking
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DOCK_CONTROLS]: `Dock.Avalonia.Controls` visual tree; every row is a `control`.
 
@@ -130,7 +110,7 @@
 |  [09]   | `MdiWindowState`                                                           | MDI child window state                                    |
 |  [10]   | `DockCapability` / `DockCapabilityValueSource`                             | per-dockable capability flags                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: `DockControl` wiring — rows [01]-[10] are `StyledProperty`-backed and bind from XAML; the rest answer at runtime.
 
@@ -392,7 +372,7 @@
 - `DockSurfaceWorkbenchBrush` and `DockSeparatorBrush` resolve as `DynamicResource` yet no shipped dictionary defines them: the shell supplies both or the bound brush stays unset.
 - Every other brush key resolves to a `SemiColor*` slot, so an OKLCH palette override re-tints dock chrome with no dock-side edit; `Themes/Light` and `Themes/Dark` redefine the same key set, so a `ThemeVariant` flip re-resolves them whole.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Panel arrangement is an `IDock` graph bound through `DockControl.Layout`; the `Factory` docking operations mutate that graph, `DockControl.DockManager` (`IDockManager`) validates every drag/drop, and data templates resolve `Document`/`Tool` view-models to views, auto-generated under `AutoCreateDataTemplates`. Visual tree, floating hosts, and overlays render the graph, never authoring it.
@@ -404,13 +384,3 @@
 
 [LOCAL_ADMISSION]:
 - `Dock.Model.ReactiveUI` is the one admitted binding; a `Dock.Model.Avalonia`/`Dock.Model.Mvvm` parallel binding, a hand-rolled `INotifyPropertyChanged` model duplicating `DockableBase`, or a bespoke serializer replicating the `Dock.Serializer` polymorphism is rejected.
-
-[RAIL_LAW]:
-- Package: `Dock.Avalonia`
-- Owns: the dock visual tree, drag/drop targets and the drag ghost, both float hosts (`HostWindow` native, `ManagedHostWindow` in-app under `ManagedWindowLayer`), pinned strips and their preview reveal, selector and dialog/confirmation/busy overlays through `OverlayHost`, command-bar merge, MDI, and the `IDockThemeManager` preset switch.
-- Accept: an `IDock` graph bound through `DockControl.Layout`, mutated by the `IFactory` operations under `IDockManager` validation; chrome and skin variation seated on `ToolChromeControl` `ControlTheme` slots and the `Dock*` resource keys.
-- Reject: hand-built splitter/tab arrangement, graph mutation through view manipulation, a second selector/overlay layer beside `DockSelectorOverlay`/`OverlayHost`, a bespoke float-host picker beside `DockFloatingWindowHostMode`.
-- Package: `Dock.Model.ReactiveUI`
-- Owns: the `ReactiveObject` binding of the dock model graph and the `Factory : FactoryBase` override constructing ReactiveUI-typed `RootDock`/`DocumentDock`/`ToolDock`/`Document`/`Tool` with the inherited `IFactory` operations and registries.
-- Accept: layout state in factory-created models; `DocumentDock.CanCreateDocument`/`CreateDocument` drives runtime document spawning; observed-property reactivity drives the bound `DockControl` without manual invalidation.
-- Reject: view-layer mutation of dock structure outside the factory surface.

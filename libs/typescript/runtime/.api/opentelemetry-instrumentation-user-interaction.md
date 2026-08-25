@@ -2,15 +2,7 @@
 
 `@opentelemetry/instrumentation-user-interaction` opens one span per admitted DOM interaction and parents the async work its handler triggers, so a click's fetch lands under the click span and closes the user-action→request causality the RUM plane reads. It patches `Zone` when the zone manager is present and `HTMLElement.addEventListener` otherwise; the event roster and span-admission predicate are its construction policy.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation-user-interaction`
-- package: `@opentelemetry/instrumentation-user-interaction` (Apache-2.0)
-- module: dual CJS + ESM flat barrel, no subpath exports; extends `@opentelemetry/instrumentation` `InstrumentationBase`
-- runtime: browser only — patches `Zone` or `HTMLElement.addEventListener`
-- rail: observability/rum
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the interaction instrumentation and its construction-policy shapes
 
@@ -24,7 +16,7 @@
 
 - `AttributeNames`: `event_type` `target_element` `target_xpath` `url.full`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and its policy fields
 
@@ -34,7 +26,7 @@
 |  [02]   | `eventNames`                                  | property | the admitted event roster, click-only by default |
 |  [03]   | `shouldPreventSpanCreation`                   | property | refuse spans for noise targets before they open  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - composition-root only — the row patches globals; a library registration double-instruments the host.
@@ -48,9 +40,3 @@
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, browser lane; registration lives only in the browser boot graph.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation-user-interaction`
-- Owns: DOM interaction spans and the async parenting of the work they trigger
-- Accept: one construction at the root; a deliberate event roster; a span-admission predicate on every high-frequency row
-- Reject: library-altitude registration, an unbounded event roster, interaction spans as a metrics substitute (the vital rows own graded scalars)

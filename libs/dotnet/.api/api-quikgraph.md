@@ -2,16 +2,7 @@
 
 `QuikGraph` owns the managed graph lane: generic vertex-and-edge containers, the edge shape family every algorithm binds, the projection rail between container forms, and the traversal, ordering, component, path, spanning-tree, flow, and matching algorithms over them. Its boundary is the domain-folded graph — the caller supplies vertices, weights, capacities, roots, partitions, and factories, and every result leaves as an ordering, a component map, a `TryFunc` accessor, or an edge sequence.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `QuikGraph`
-- package: `QuikGraph` (MS-PL, Alexandre Rabérin)
-- assembly: `QuikGraph`
-- namespace: `QuikGraph`, `.Algorithms`, `.Algorithms.Assignment`, `.Algorithms.Cliques`, `.Algorithms.Condensation`, `.Algorithms.ConnectedComponents`, `.Algorithms.Exploration`, `.Algorithms.GraphPartition`, `.Algorithms.MaximumFlow`, `.Algorithms.MinimumSpanningTree`, `.Algorithms.Observers`, `.Algorithms.RandomWalks`, `.Algorithms.RankedShortestPath`, `.Algorithms.Ranking`, `.Algorithms.Search`, `.Algorithms.Services`, `.Algorithms.ShortestPath`, `.Algorithms.TopologicalSort`, `.Algorithms.TSP`, `.Algorithms.VertexColoring`, `.Algorithms.VertexCover`, `.Collections`, `.Predicates`
-- abi: `TEdge : IEdge<TVertex>` constrains every container and algorithm; `TVertex` takes no constraint, so identity rides the caller's comparer
-- rail: graph
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: edge shapes — `Source` and `Target` are the whole contract, a tagged shape adds `Tag`
 
@@ -166,7 +157,7 @@
 
 [FAULTS]: `NonAcyclicGraphException` `NegativeCycleGraphException` `NegativeWeightException` `NegativeCapacityException` `NoPathFoundException` `NonStronglyConnectedGraphException` `ParallelEdgeNotAllowedException` `VertexNotFoundException` `QuikGraphException`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized and abbreviates to its bare name.
 
@@ -418,7 +409,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 
 - Rows [11] and [12] ARE the `EdgeEqualityComparer<TVertex>` shape an `UndirectedGraph<TVertex, TEdge>` constructor takes as a method group; only the unsorted form has a `Get*` factory, so a sorted-pair container binds `EdgeExtensions.SortedVertexEquality` directly.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AddVerticesAndEdge` admits both endpoints where `AddEdge` requires them present, and `AddVertexRange` preserves the isolated vertices a later fold reads.
@@ -444,11 +435,3 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `OfflineLeastCommonAncestor` binds rooted trees; a multi-parent DAG resolves its merge base through BFS closure intersection in the domain fold.
 - `MaximumBipartiteMatchingAlgorithm` rolls its super-terminal and reversed-edge augmentation back inside `Compute()`, and `MatchedEdges` reads after it returns; the type lives at `QuikGraph.Algorithms` (decompile-verified), never `QuikGraph.Algorithms.MaximumFlow` where the namespace roster suggests it.
 - `IQueue<TVertex>` selects the frontier ONLY on `BreadthFirstSearchAlgorithm`: `BinaryQueue`, `FibonacciQueue` where decrease-key dominates, `SoftHeap` where bounded corruption buys the bound. Every other search seats its own frontier — `AStarShortestPathAlgorithm` and `DijkstraShortestPathAlgorithm` construct `FibonacciQueue<TVertex, double>` in `Initialize()`, and `BestFirstFrontierSearchAlgorithm` takes only `(IBidirectionalIncidenceGraph, Func<TEdge, double>, IDistanceRelaxer)` with an optional host, running an INTERNAL `BinaryHeap` — so `IDistanceRelaxer` is the one composition knob on all three.
-
-[RAIL_LAW]:
-- Package: `QuikGraph`
-- Owns: generic graph containers, the edge shape family, container projection, and every algorithm over them
-- Accept: domain-folded graphs carrying caller-supplied weights, capacities, roots, partitions, comparers, and factories, with `IQueue<TVertex>`, `IDistanceRelaxer`, and observer attachment as the composition knobs
-- Reject: domain identity, arithmetic, persistence, analytical projection, and result ownership; a hand-rolled adjacency map, visited-set traversal, or path reconstruction beside the container and `TryFunc` accessor this package owns
-- `Rasm.Element`: `Graph/element` memoizes `(EdgeFilter, EdgeOrientation)`-keyed `BidirectionalGraph<NodeId, TypedEdge>` views; `Graph/table` climbs the ascending Spatial view through `AlgorithmExtensions.TreeBreadthFirstSearch` + `TryFunc` for both spatial columns in one breadth-first pass; `Projection/audit` proves whole-graph acyclicity over the Composition view.
-- `Rasm.Compute`: `Runtime/scheduling#JOB_GRAPH` freezes one memoized `ToArrayAdjacencyGraph` snapshot per admitted roster and reads `SourceFirstTopologicalSort` and `CondensateStronglyConnected` off it.

@@ -1,19 +1,19 @@
 # [APPUI_DIAGNOSTICS_PROOF]
 
-Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay cells from live catalogs. Capture rows prove pixels by content hash, benchmark rows gate headless frame cost against held `Benchmark` claims, command journals replay under virtual time, and CsCheck with Verify seals the matrix. This page owns the row families, derivation engine, benchmark lane, render-hash law, the typed `ProofFault` rail, and the golden and skew registries as DATA.
+Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay cells from live catalogs. Capture rows prove pixels by content hash, benchmark rows gate headless frame cost against held `Benchmark` claims, command journals replay under virtual time, and CsCheck property sampling seals the matrix. This page owns the row families, derivation engine, benchmark lane, render-hash law, the typed `ProofFault` rail, and the skew registry as DATA.
 
 ## [01]-[INDEX]
 
 - [02]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof with its attribution election.
 - [03]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix and benchmark lanes; deterministic command-journal replay; the one index-divergence walk.
-- [04]-[PROOF_LAW]: Law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold, the frame-bench gate, the bundle-tree pin, the shipped-roster conformance fold.
-- [05]-[GUARD_REGISTRY]: Committed-golden roster and the cross-package skew guards as constructed rows with their re-prove entries.
+- [04]-[PROOF_LAW]: Law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold, the frame-bench gate, the bundle conservation fold, the shipped-roster conformance fold.
+- [05]-[GUARD_REGISTRY]: Cross-package skew guards as constructed rows with their re-prove entries.
 
 ## [02]-[CAPTURE_LANES]
 
 - Owner: `ProofFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per proof failure and the ONE divergence-attribution election; `FrameGrab` — the one grab shape returning the rasterized frame beside its optional sealed record; `CaptureRow` — the admitted per-surface capture row carrying scale, gamut, text posture, and tick policy; `Captures` — the shot-and-regression surface.
 - Entry: `Captures.Shot(VisualRuntime runtime, CaptureRow row)` — `IO` rail through the settled encode fold with one PNG `VisualArtifact` per shot; `CaptureRow.Of` — accumulating admission whose refusal names every offending column.
-- Auto: `CaptureRow.Key` is the complete artifact-cell identity supplied by `RenderHashLane.Cell`, so `Captures.Shot` prefixes it once and never re-appends scale, gamut, or posture; the `Scale`, `Gamut`, and `Posture` columns enter the grab delegate together, pinning render scaling, the exact `VisualCodec.ColorPolicy` row, and the exact `Theme/typography#SHAPING_RAIL` `RenderPosture` row, so a golden reproduces on any machine rather than diffing on the panel it was taken over; the `Ticks` column enters `ProofEngine.Advance`, the one forced-frame operation capture and benchmark lanes share; `VisualArtifact.FrameHash` rides the suite content-hash identity row, and a grab that recorded its ops hands the sealed `SKPicture` back so the encode owner folds its `Serialize` bytes onto `DrawHash`.
+- Auto: `CaptureRow.Key` is the complete artifact-cell identity supplied by `RenderHashLane.Cell`, so `Captures.Shot` prefixes it once and never re-appends scale, gamut, or posture; the `Scale`, `Gamut`, and `Posture` columns enter the grab delegate together, pinning render scaling, the exact `VisualCodec.ColorPolicy` row, and the exact `Theme/typography#SHAPING_RAIL` `RenderPosture` row, so a capture reproduces on any machine rather than hashing the panel it was taken over; the `Ticks` column enters `ProofEngine.Advance`, the one forced-frame operation capture and benchmark lanes share; `VisualArtifact.FrameHash` rides the suite content-hash identity row, and a grab that recorded its ops hands the sealed `SKPicture` back so the encode owner folds its `Serialize` bytes onto `DrawHash`.
 - Outcome: a regression divergence is a typed `ProofFault` whose CASE carries the attribution — `RasterDiverged` where draw ops held while pixels moved, `DrawDiverged` where the ops themselves moved, `HashDiverged` where either side carries no draw hash — elected by the ONE `ProofFault.Diverged` factory; a bare `Error.New` on this rail is the deleted form.
 - Packages: SkiaSharp, Avalonia.Headless, Avalonia.Skia, Thinktecture.Runtime.Extensions, Rasm (kernel `FaultBand`/`Fault`), LanguageExt.Core
 - Growth: one capture row absorbs a new surface lane; one `Scale` value absorbs a new DPI baseline; one `Posture` value absorbs a new surface-class text reading; one `ProofFault` case is one `[FaultCase]` leaf; a widened grab is one edit on `FrameGrab`; zero new surface.
@@ -56,6 +56,8 @@ public abstract partial record ProofFault : Fault {
     public sealed partial record DrawDiverged(string Cell, UInt128 Actual, UInt128 Baseline) : ProofFault($"proof/draw: {Cell} draw ops moved {Actual} != {Baseline} — a content change");
     [FaultCase(11)]
     public sealed partial record DockCoverage(Seq<string> Gaps) : ProofFault($"proof/skew-dock: {Gaps.Count} controls resolve a control theme under some variants and not others");
+    [FaultCase(12)]
+    public sealed partial record BundleSkewed(Seq<string> Entries) : ProofFault($"proof/bundle: {Entries.Count} entries stand on one side of the declared roster alone");
 
     public static ProofFault Diverged(string cell, UInt128 actual, UInt128 baseline, Option<UInt128> freshDraw, Option<UInt128> heldDraw) =>
         freshDraw.Bind(fresh => heldDraw.Map(held => (Fresh: fresh, Held: held))).Match(
@@ -120,7 +122,7 @@ public static class Captures {
 - Entry: `ProofEngine.Derive(catalog, grid, probe)` — each headless row crosses only the checks its own `Checks` capability column admits, then spans every variant-density cell; `ProofEngine.Bench(catalog, samples, ticks, warmup)` admits budgets before constructing any benchmark lane; `ProofEngine.Divergent(first, second)` — indices past the shorter side report as mismatches, so a dropped or extra tail outcome never hides behind pairwise truncation, and `Diagnostics/devloop.md`'s cross-machine verify composes this same walk.
 - Auto: derived specs execute on the shared `HeadlessUnitTestSession` through `GetOrStartForAssembly` once per assembly and `Dispatch` per spec — a session that cannot start refuses as `ProofFault.SessionUnavailable` at the acquisition, never as an untyped throw; `FakeTimeProvider` time travel fills the headless row's virtual-time slot; `Replay` drives the journal through the one remote-invocation route on the frozen deck, so journal replay, deep links, and interactive execution return the same `DeckOutcome`; the snapshot store rehydrates screen state before the first journal entry, so replay is deterministic end to end; the pointer-walk and drag-drop checks drive synthetic input through `HeadlessWindowExtensions.MouseDown`/`MouseMove`/`MouseUp`/`MouseWheel` between `ForceRenderTimerTick` advances, the drag-drop check driving `DragDrop` in the load-bearing `DragEnter` → `DragOver` → `Drop` sequence (a `DragOver` without a prior `DragEnter` seeds no drop context), the resulting effect read from `DragEventArgs.DragEffects` inside the handler; benchmark lanes derive from the same `HeadlessLane` the proof matrix crosses, so a screen added to the catalog gains its frame benchmark with zero roster edit.
 - Outcome: executed operations fire their own `AppUiFact` cases; each proof row returns `Unit` or its typed `ProofFault`.
-- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia.Skia, Verify.XunitV3, CsCheck (testkit), Microsoft.Extensions.TimeProvider.Testing, Thinktecture.Runtime.Extensions, Rasm (kernel `CapabilitySet`), LanguageExt.Core, BCL inbox
+- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia.Skia, CsCheck (testkit), Microsoft.Extensions.TimeProvider.Testing, Thinktecture.Runtime.Extensions, Rasm (kernel `CapabilitySet`), LanguageExt.Core, BCL inbox
 - Growth: one check row sweeps every headless screen whose `Checks` column admits it, one grid cell sweeps every check, one `RenderHashLane` cell sweeps every key×scale×gamut combination, and one `BenchLane` cell sweeps every headless row at its budgets; zero new surface.
 - Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; every lane rides the ONE shared session, because `StartNew` composes the assembly's `[AvaloniaTestApplication]` entry point and only DEFAULTS the headless WINDOWING subsystem where that entry point selected none — the entry point's own `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` and `UseSkia` selections both survive into the session the render-hash lanes draw under; a second render-proof `AppBuilder` beside that session is the rejected form and the `Shell/hosts#HOST_AXIS` one-setup guard throws process-wide on the second admission; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
 - Law: `ScreenCatalogRow.Checks : CapabilitySet<ProofCheck>` is the applicability RELATION seated on the catalog row (`Shell/screens.md`), so which checks a screen admits reads off the roster a maintainer edits rather than off a predicate closure at every derivation call.
@@ -216,11 +218,11 @@ public static class ProofEngine {
 
 ## [04]-[PROOF_LAW]
 
-- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, the `MetricCollector<T>` instrument lane, the frame-bench gate returning the judged `Benchmark`, the bundle-tree pin, the `Theme/tokens.md` shipped-roster conformance fold, and the suite-hygiene gates over the golden registry.
+- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, the twin-grab FrameHash equality, the `MetricCollector<T>` instrument lane, the frame-bench gate returning the judged `Benchmark`, the bundle conservation fold, and the `Theme/tokens.md` shipped-roster conformance fold.
 - Entry: `ProofMatrix(...)` — the one entrypoint owning the singular-cell and full-matrix run by input shape, so a per-spec screenshot helper is the deleted form.
-- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale, `VisualCodec.ColorPolicy`, and `RenderPosture` data, so a new screen, gamut, or surface-class text reading expands proof without a named roster edit; `FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal outcome counts before pairing, and verifies the complete digest sequence; `FrameCost` requires a baseline for every pass and ACCUMULATES every regressed pass, so a second regression never hides behind the first; `InstrumentFold` mounts contributions, resolves the named handle off the mounted roster, and brackets the collector around the supplied exercise so direct writes and observable-gauge reads share one cell family; `FrameBench` discards the lane's warm-up frames before the allocation bracket, samples between forced ticks, hands the elapsed spans to `BenchMeasurement.Of`, mints one unjudged `Benchmark`, and composes `BenchmarkGate.Gate` over the held claim and mounted instruments; `Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio`; `BundleShape` pins the exported support archive as two goldens that both report.
-- Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, Rasm.AppHost (project, seam types), Rasm (kernel `Custody`/`UnitInterval`), NodaTime, LanguageExt.Core
-- Growth: one lane cell absorbs a new golden; one benchmark claim is one held `Benchmark` value; zero new surface.
+- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale, `VisualCodec.ColorPolicy`, and `RenderPosture` data, so a new screen, gamut, or surface-class text reading expands proof without a named roster edit; `FrameHashEquality` shoots one generated cell through two independent grabs and hands the pair to the ONE `Captures.Regression` election; `ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal outcome counts before pairing, and refuses at the FIRST index the one divergence walk names; `FrameCost` requires a baseline for every pass and ACCUMULATES every regressed pass, so a second regression never hides behind the first; `InstrumentFold` mounts contributions, resolves the named handle off the mounted roster, and brackets the collector around the supplied exercise so direct writes and observable-gauge reads share one cell family; `FrameBench` discards the lane's warm-up frames before the allocation bracket, samples between forced ticks, hands the elapsed spans to `BenchMeasurement.Of`, mints one unjudged `Benchmark`, and composes `BenchmarkGate.Gate` over the held claim and mounted instruments; `Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio`; `BundleShape` covers the declared member roster against the extracted entry set both ways, then re-hashes every extracted entry to its member's `ContentKey`.
+- Packages: CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, Rasm.AppHost (project, seam types), Rasm (kernel `Custody`/`UnitInterval`), NodaTime, LanguageExt.Core
+- Growth: one lane cell absorbs a new screen, scale, gamut, or posture; one benchmark claim is one held `Benchmark` value; zero new surface.
 - Law: the proof fence is a terminal edge — `IO<A>.Run()`/`RunAsync()` THROW the typed `Error` on failure, so a failing disposition composes BEFORE the terminal, and the `@catch` recovery on a property lane narrows to the proof band so a bug outside it surfaces instead of reading as a clean `false` verdict.
 - Law: the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchMeasurement.Of`, `Benchmark.Of`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge over `HostFingerprint`; the held claim arrives as a value off the Persistence reuse index, and the gate writes its mounted instruments directly; the allocation delta reads a process-wide counter, so bench lanes run serially and no parallel proof cell overlaps the bracket.
 
@@ -248,21 +250,13 @@ public static class ProofLaw {
     public static Gen<RenderHashLane> LaneGen(Seq<RenderHashLane> lanes) => Gen.OneOfConst([.. lanes]);
 
     // --- [LAW_ENTRIES]
-    public static async Task SuiteHygiene() {
-        GoldenLanes.Sound().ThrowIfFail();
-        await Task.WhenAll(
-            VerifyChecks.Run(),
-            Task.Run(static () => DanglingSnapshots.Run()));
-    }
-
-    public static async Task FrameHashEquality(VisualRuntime runtime, RenderHashLane lane, FrameGrab grab) {
-        VisualArtifact artifact = await lane.Row(grab)
-            .Match(Succ: row => Captures.Shot(runtime, row), Fail: IO.fail<VisualArtifact>)
-            .RunAsync();
-        await Verifier.Verify(new { lane.Cell, artifact.FrameHash, artifact.DrawHash, artifact.ColorSpace })
-            .UniqueForTargetFramework()
-            .UseTextForParameters(lane.Cell);
-    }
+    public static IO<VisualArtifact> FrameHashEquality(
+        VisualRuntime runtime, RenderHashLane lane, FrameGrab grab, FrameGrab twin) =>
+        from primary in lane.Row(grab).Match(Succ: row => Captures.Shot(runtime, row), Fail: IO.fail<VisualArtifact>)
+        from mirror in lane.Row(twin).Match(Succ: row => Captures.Shot(runtime, row), Fail: IO.fail<VisualArtifact>)
+        from judged in Captures.Regression(lane.Cell, primary, mirror.FrameHash, mirror.DrawHash)
+            .Match(Succ: IO.pure, Fail: IO.fail<VisualArtifact>)
+        select judged;
 
     public static void DeterministicCapture(VisualRuntime runtime, Seq<RenderHashLane> lanes, FrameGrab grab, string seed) =>
         LaneGen(lanes).Sample(lane =>
@@ -280,27 +274,37 @@ public static class ProofLaw {
         Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<Unit>>> probe) =>
         ProofEngine.Derive(catalog, grid, probe).TraverseM(ProofEngine.Dispatch).As().Map(static _ => unit);
 
-    public static async Task ReplayDeterminism(
+    public static IO<Unit> ReplayDeterminism(
         CommandDeck deck,
         Seq<(string Key, Rasm.Contracts.Ui.CommandPayloadWire Payload, CallerModality Caller)> journal,
         Func<IO<Unit>> restore,
-        FakeTimeProvider time) {
-        Seq<(string First, string Second)> digests = await (
-            from _first in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
-            from first in ProofEngine.Replay(deck, journal, restore)
-            from _second in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
-            from second in ProofEngine.Replay(deck, journal, restore)
-            from pairs in first.Count == second.Count
-                ? IO.pure(first.Map(static r => r.PayloadDigest).Zip(second.Map(static r => r.PayloadDigest)).ToSeq())
-                : IO.fail<Seq<(string, string)>>(new ProofFault.ReplayShape(first.Count, second.Count))
-            select pairs).RunAsync();
-        await Verifier.Verify(digests);
-    }
+        FakeTimeProvider time) =>
+        from _first in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
+        from first in ProofEngine.Replay(deck, journal, restore)
+        from _second in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
+        from second in ProofEngine.Replay(deck, journal, restore)
+        from paired in first.Count == second.Count
+            ? IO.pure(unit)
+            : IO.fail<Unit>(new ProofFault.ReplayShape(first.Count, second.Count))
+        from settled in ProofEngine.Divergent(
+            first.Map(static outcome => outcome.PayloadDigest),
+            second.Map(static outcome => outcome.PayloadDigest)) switch {
+            { IsEmpty: true } => IO.pure(unit),
+            var indices => IO.fail<Unit>(new ProofFault.ReplayDiverged(indices.Head)),
+        }
+        select unit;
 
-    public static Task BundleShape(string bundlePath, string extractedRoot) =>
-        Task.WhenAll(
-            Task.Run(async () => await Verifier.VerifyZip(bundlePath)),
-            Task.Run(async () => await Verifier.VerifyDirectory(extractedRoot)));
+    public static Fin<Unit> BundleShape(Seq<BundleMember> declared, HashMap<string, UInt128> extracted) =>
+        declared.Map(static member => member.ArtifactName).Filter(name => extracted.Find(name).IsNone)
+            .Append(extracted.Keys.ToSeq().Filter(name => !declared.Exists(member => member.ArtifactName == name)))
+            .Strict() switch {
+            { IsEmpty: false } skewed => Fin.Fail<Unit>(new ProofFault.BundleSkewed(skewed)),
+            _ => declared.Traverse(member => extracted[member.ArtifactName] == member.ContentKey
+                    ? Validation<Error, Unit>.Success(unit)
+                    : Validation<Error, Unit>.Fail((Error)new ProofFault.HashDiverged(
+                        member.ArtifactName, extracted[member.ArtifactName], member.ContentKey)))
+                .As().ToFin().Map(static _ => unit),
+        };
 
     // --- [FOLDS]
     public static Fin<long> InstrumentFold(
@@ -377,39 +381,17 @@ public static class ProofLaw {
 
 ## [05]-[GUARD_REGISTRY]
 
-- Owner: `GoldenLane` with `GoldenLanes` — the committed-golden roster as CONSTRUCTED rows, each naming its pinned artifact beside the entry that writes it, with the `Sound` uniqueness fold the suite-hygiene gate reads; `SkewVerdict` `[SmartEnum<string>]` — the three-value guard disposition; `SkewGuard` with `SkewGuards` — the per-pair guard rows carrying witnessed verdict, resolution, and the entry that RE-PROVES on a bump, beside the two live re-provable folds.
+- Owner: `SkewVerdict` `[SmartEnum<string>]` — the three-value guard disposition; `SkewGuard` with `SkewGuards` — the per-pair guard rows carrying witnessed verdict, resolution, and the entry that RE-PROVES on a bump, beside the two live re-provable folds.
 - Cases: `SkewVerdict` = binds | covers | fails — `binds` is a cross-boundary type crossing that loaded and invoked, `covers` is a themable-surface roster that resolved whole, `fails` is a load-time refusal whose resolution is the DROP recorded beside it.
 - Entry: `SkewGuards.DockTheming(host, controls, variants)` — refuses with the WHOLE asymmetric-gap set as a typed `ProofFault.DockCoverage`, so no gap hides past a message-format cap; `SkewGuards.SkiaBoundary(context)` — leases the Skia api feature at the live render boundary under `Custody.Bracket` and refuses each crossing BY NAME on an accumulating admission.
 - Auto: a guard row is DATA — the pair, the mechanism, the witnessed verdict, and the resolution are columns, and a row whose `Guard` column names an entry re-proves on every bump of either side; the two provable guards ride the settled proof rails and mint nothing — dock coverage is a resource read over the live theme (the sweep passes each `ThemeVariant` explicitly), and the Skia boundary is one lease off the same `ISkiaSharpApiLeaseFeature` the `Vfx` material route composes; a dropped package carries no `Guard` entry because there is nothing left to bind.
 - Outcome: a guard refusal is a typed `ProofFault` on the proof rail like every other lane, so a skew break reports beside a pixel drift rather than as a build-time surprise.
 - Packages: Avalonia, Avalonia.Skia, SkiaSharp, Semi.Avalonia.Dock, Dock.Avalonia, Thinktecture.Runtime.Extensions, Rasm (kernel `Custody`), LanguageExt.Core
-- Growth: a new golden is one `GoldenLanes` row naming its writer; a new cross-package pair is one `SkewGuards` row and, where the pair is bindable, one fold beside the two here; zero new surface.
-- Law: the registry is the reverse index from a committed artifact to the entry that writes it — a golden with no row is an orphan file and a row with no writer is a lane nothing proves; `LayoutWireGolden.Canonical` lives in the AppUI test package because it asserts the deterministic `Shell/solver#TS_PROJECTION` canonical serialization, and this registry NAMES it rather than re-spelling it, since a second snapshot over the same wires would commit a second file that drifts silently from the first.
-- Law: the three package rows record verdicts witnessed on the assay bind-and-invoke rail, and a verdict is never a version pin — the Skia pair is proven at the render boundary rather than pinned, because the framework's declared dependency is a FLOOR the loader satisfies with a higher major under a matching public key, so the guard is the re-run.
+- Growth: a new cross-package pair is one `SkewGuards` row and, where the pair is bindable, one fold beside the two here; zero new surface.
 - Boundary: the validation package is DROPPED estate-wide rather than pinned back — the manifest and registry drop lands at the package owners and its row records the verdict and the resolution; the dock skin carries zero keys in its own theme dictionaries and inherits every light/dark decision from the base Semi dictionaries, so the standing obligation is VARIANT COHERENCE — the two Semi packages move to one variant vocabulary together while the dock skin may lag the dock CONTROL package freely (`Shell/navigation#DOCK_LAYOUTS` states the same obligation at the consuming boundary).
 
 ```csharp
-// --- [TABLES] --------------------------------------------------------------------------
-public sealed record GoldenLane(string Lane, string Pins, string Writer);
-
-public static class GoldenLanes {
-    public static readonly Seq<GoldenLane> Rows = Seq(
-        new GoldenLane("render-hash", "frame hash, draw hash, colour space per capture cell", nameof(ProofLaw.FrameHashEquality)),
-        new GoldenLane("replay-digests", "the whole ordered payload-digest sequence of two replays", nameof(ProofLaw.ReplayDeterminism)),
-        new GoldenLane("bundle-roster", "support-archive zip entries", nameof(ProofLaw.BundleShape)),
-        new GoldenLane("bundle-tree", "extracted tree beside each entry's ContentKey", nameof(ProofLaw.BundleShape)),
-        new GoldenLane(
-            "layout-protojson-golden",
-            "ordered generated LayoutProgram canonical ProtoJSON",
-            "Rasm.AppUi.Tests LayoutWireGolden.Canonical"));
-
-    public static Fin<Unit> Sound() =>
-        Rows.Map(static row => row.Lane).Distinct().Count == Rows.Count
-        && Rows.ForAll(static row => !string.IsNullOrWhiteSpace(row.Writer))
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ProofFault.SessionUnavailable("proof/goldens: every lane is unique and names its writer"));
-}
-
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]

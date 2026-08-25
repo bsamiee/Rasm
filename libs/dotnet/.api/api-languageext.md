@@ -2,17 +2,7 @@
 
 `LanguageExt.Core` is the branch functional substrate: `Fin<A>` is the rail every domain operation returns, and every other carrier — presence, accumulation, deferral, collection, cell, optic — names its conversion onto that rail. Its higher-kinded trait system makes one `Apply` fan-in, one `Traverse` inversion, and one operator set work across every carrier, so a new rail is a trait conformance rather than a new combinator family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `LanguageExt.Core`
-- package: `LanguageExt.Core` (MIT)
-- assembly: `LanguageExt.Core` (`lib/net10.0`)
-- namespace: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Traits.Domain`
-- asset: pure managed library; `using static LanguageExt.Prelude;` carries the constructor vocabulary
-- abi: every carrier implements `K<Self, A>`, so one trait extension binds uniformly across rails, collections, and transformers
-- rail: functional substrate
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result, validation, and effect rails
 
@@ -110,7 +100,7 @@
 |  [32]   | `Amount<SELF, SCALAR>`           | interface       | ordered vector-space measure axis            |
 |  [33]   | `Locus<SELF, DIST, DIST_SCALAR>` | interface       | affine position over a distance axis         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Fin<A>` construction, fold, and egress
 
@@ -565,7 +555,7 @@
 - `Change` fires ONCE per accepted commit with a `HashMapPatch<K, V>` carrying `From`, `To`, and a `HashMap<K, Change<V>>` of per-key deltas, which makes the cell an observable keyed store rather than a mutable dictionary a watcher polls. A bulk member commits one patch covering every touched key, so a range write is one notification and not one per entry.
 - Every mutating member re-runs its transition inside the CAS loop exactly as `Atom<A>.Swap` does, so the same side-effect prohibition binds: a dispose, a counter bump, or a log inside a swap runs once per losing attempt.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Domain operations return `Fin<A>`; `Fin.Succ` and `Fin.Fail` are the construction spellings, and an `Error`-derived domain fault record is the failure payload.
@@ -619,10 +609,3 @@
 - Rails, collections, traits, and transformers compose directly; a domain failure type derives `Error` so it rides `Fin` and `Validation` natively.
 - `using static LanguageExt.Prelude;` is in force in rail code: `Some`, `None`, `Optional`, `guard`, `Seq`, `toSeq`, `unit`, `Atom`, `AtomHashMap`, `Ref`, `atomic`, `memo`, `memoK`, `tell`, `foldWhileM`, and `use` are unqualified vocabulary.
 - Every public signature carries the concrete carrier; a `K<F, A>` and the trait interfaces stay inside one composition body.
-
-[RAIL_LAW]:
-- Package: `LanguageExt.Core`
-- Owns: result, accumulation, presence, deferral, failure vocabulary and its code block, immutable carriers, lock-free and transactional state, monoidal output, cadence policy, optics, memoization, the algebraic value-trait axes, and the higher-kinded trait system that unifies them.
-- Accept: `Fin<A>`-returning domain operations; `Validation` fan-ins exiting `ToFin`; `Writer`/`WriterT` evidence accumulation; `Eff`/`IO` deferral after `Op.Catch`; `Seq` and `Arr` seam carriers; `Option`-shaped lookups; `guard` admission gates; `Atom`, `AtomHashMap`, and `Ref` shared state; `Schedule`-driven repeat and retry; `Catch` recovery postures; `PartitionFallible` roster splits; the `Traits.Domain` axes on any owner whose values carry an algebra.
-- Reject: `Try.lift(...).Run()` or `Error.New(Exception)` at a Rasm capture boundary; a local result, option, or either re-mint; exception control flow in domain logic; a throwing lookup where `Find` or `Head` returns `Option`; a `lock`ed cell or an `Atom<HashMap<K,V>>` beside `AtomHashMap.SwapKey`; a hand-rolled early-exit loop where `Traverse`, `TraverseM`, or a bounded fold inverts the shape; a hand delay ladder beside a `Schedule`; a mutable accumulator beside a `Monoid`; a domain fault code inside the package's own `-2000000001`..`-2000000015` block; a wrapper renaming a rail member.
-- `Rasm.Element`: `Validation<Error, T>` applicative accumulation as the folder's admission law (`AdmissionSlots` slots joined by tuple `.Apply`/`Traverse`, collapsed `.ToFin()` once per seam return), `Fin` the public rail, per-shape `Option` carriers at every boundary, `Op.Catch` preserving foreign exceptions, `Seq` element-wise `IEquatable` carrying record equality (`TableRow`), and `toSet`/`toHashSet`/`toMap` at the erased edges.

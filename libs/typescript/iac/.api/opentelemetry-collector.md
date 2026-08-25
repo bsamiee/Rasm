@@ -2,16 +2,7 @@
 
 `opentelemetry-collector` is the ingest gateway the deploy plane installs as one Helm chart and configures as one YAML document. One row carries two contracts: CHART values decide rendered names, image distribution, k8s-side obligations, and env plumbing, and the CONFIG document the chart plants in its ConfigMap types the pipelines. Both resolve as wire data — the chart at `helm.v4.Chart` render time, the config at tier decode — so a fence spells each contract rather than importing it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-collector`
-- chart: `opentelemetry-collector` (Apache-2.0)
-- distribution: `otel/opentelemetry-collector-contrib` — every contrib component a pipeline names binds this image, and `otel/opentelemetry-collector` narrows to the core roster under `command.name: otelcol`
-- asset: one Deployment/DaemonSet/StatefulSet, its Service, ConfigMap, ServiceAccount, and the ClusterRole a preset earns
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / telemetry-ingest
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 Values merge as maps and REPLACE as lists, so an explicit `null` row deletes a chart-default component the tier does not own and naming a pipeline list overwrites it whole. `presets` own the k8s-side obligations a config document cannot express — RBAC rules, host volumes, security context — and `config` extends a preset's components without deleting them.
 
@@ -52,7 +43,7 @@ Values merge as maps and REPLACE as lists, so an explicit `null` row deletes a c
 
 [FULLNAME]: `fullnameOverride` pins the rendered object name whole; absent it the chart helper renders `.Release.Name` when the release name CONTAINS the chart name and `<release>-<chart>` otherwise, so a release named for a signal rather than its chart renders a name no projection guesses.
 
-## [03]-[CONFIG_DOCUMENT]
+## [02]-[CONFIG_DOCUMENT]
 
 Component maps ride beside `service`, each key spelling `<type>` or `<type>/<name>`. `service.pipelines` decides liveness: a definition no pipeline names parses and stays inert, and a pipeline naming an undefined component fails the load.
 
@@ -136,7 +127,7 @@ Component maps ride beside `service`, each key spelling `<type>` or `<type>/<nam
 
 [ENV_EXPANSION]: `${env:NAME}` expands anywhere in the config document from the process environment, so a credential reaches a receiver through `extraEnvsFrom` and never through a values literal; the chart's own defaults use it for `MY_POD_IP` and the `OTEL_K8S_*` resource attributes.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One collector owns ingress for every signal, and `service.pipelines` is the whole wiring: a component absent from a pipeline costs nothing past its parse, and every reference resolves at load rather than at first datapoint. Every second reach — a store-side scrape, a second gateway, an SDK dialing a backend directly — forks the ingest the pipeline graph exists to make total, so a new source lands as one receiver row on an existing pipeline.
@@ -152,9 +143,3 @@ Component maps ride beside `service`, each key spelling `<type>` or `<type>/<nam
 [LOCAL_ADMISSION]:
 - Only the k8s arm admits these keys: `operate/observe#DEV_ROW` publishes the same OTLP door from an all-in-one image accepting none of them, so a dev-loop parity claim rests on the endpoint shape rather than a shared values tree.
 - Chart versions arrive as `Lgtm.Versions` args rather than a workspace-manifest row, because a Helm chart is a deploy-time reference and not a build dependency.
-
-[RAIL_LAW]:
-- Contract: `opentelemetry-collector` chart values + collector config document
-- Owns: the one ingest door — OTLP admission, gateway-side enrichment and shaping, span-derived RED and topology series, per-signal fan-out to the backend rows, and the persistent queue that survives a backend restart
-- Accept: the contrib distribution as a standing fact; `fullnameOverride` on every install; presets for k8s-side obligations with the typed config extending them; `${env:NAME}` for every credential; `memory_limiter` first and `batch` last in every pipeline; `file_storage` on a PVC with an explicit `directory`; `sending_queue` and `retry_on_failure` spelled per exporter
-- Reject: a DSN in `receivers.postgresql.endpoint`; a credential in `config` or in a chart values literal; `alternateConfig` on a direct install; a pipeline built from chart defaults the tier never named; `internalTelemetryViaOTLP`, which deletes the default prometheus receiver both monitor blocks scrape

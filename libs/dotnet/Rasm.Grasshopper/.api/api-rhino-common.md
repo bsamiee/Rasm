@@ -2,16 +2,7 @@
 
 `RhinoCommon` carries the Rhino-side seams the Grasshopper host composes: `RhinoDoc` is the active-model handoff the editor getter arbitrates, and `Rhino.Geometry` mints the value structs and `GeometryBase` reference carriers the component ports and `GardenData` transfer type against.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon Grasshopper-boundary surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino`, `Rhino.Geometry`
-- asset: in-process `RhinoCommon.dll` from the installed RhinoWIP bundle at `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/RhinoCommon.dll`
-- rail: host-rhino
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Rhino` active-model handoff
 
@@ -39,7 +30,7 @@
 - Registers `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): `Point3d`, `Vector3d`, `Plane`, `Line`, `BoundingBox`, `Transform`, `MeshFace`, `Quaternion`, `Interval`, `Box`, and `GeometryBase` carry their algebra there and type ports by that spelling; the rows above are the carriers this boundary adds beyond it.
 - Every row is an opaque port payload here — the folder types against it and never operates on it, so a carrier's members are read at its owning catalogue alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Rhino` RhinoDoc access and identity
 
@@ -57,7 +48,7 @@
 
 - Registers the `Rhino.UI` host-bridge seams (`libs/dotnet/.api/api-rhino-ui.md`): the `Dialogs.ShowEditBox` and `Dialogs.ShowNumberBox` native value prompts carry their algebra there and this boundary calls them by that spelling; the rows above are the `RhinoDoc` handoff this partition adds beyond it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RhinoDoc` crosses one seam — `Editor.BeginRhinoGetter(RhinoDoc)` on `Shell/editor.md`'s `GetterCase` — and a getter-arbitration consumer reads `ActiveDoc` as the default target when the case carries `None`; a direct `RhinoDoc` getter beside the editor is the deleted form
@@ -75,9 +66,3 @@
 - `RhinoDoc` is admitted only as the editor getter payload; Rhino document semantics are `Rasm.Rhino`'s concern entirely and no owner in this folder adjudicates the document
 - geometry carriers are opaque port and data payloads; the folder defers every geometric operation to the Rasm kernel and the host rather than re-implementing a `Rhino.Geometry` op
 - native input is the registered value prompts through the `PickerSpec` fast lane; a hand-rolled edit or number dialog is the deleted form
-
-[RAIL_LAW]:
-- Partition: RhinoCommon Grasshopper boundary (`Rhino`, `Rhino.Geometry` port carriers)
-- Owns: the `RhinoDoc` getter-handoff payload and the boundary-added `Rhino.Geometry` port carriers over the registered value substrate
-- Accept: active-document access at the editor getter seam, geometry-carrier typing at ports and data transfer, native value input through the registered prompt fast lane
-- Reject: Rhino document mutation and semantics (`Rasm.Rhino`), Eto and Rhino UI styling and prompts (`api-rhino-ui`), the GH2 document graph (`api-gh2-document`), a re-tabling of the substrate carrier algebra

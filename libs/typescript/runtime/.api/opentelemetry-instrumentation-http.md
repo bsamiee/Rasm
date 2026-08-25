@@ -2,15 +2,7 @@
 
 `@opentelemetry/instrumentation-http` patches node's `http` and `https` modules so every inbound request and outbound client call opens a span carrying stable HTTP semconv. One row covers both directions, each independently disableable, each with its own ignore hook, parent-presence gate, and header allow-list; query-parameter redaction runs inside the span builder, before `url.full` reaches an attribute.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation-http`
-- package: `@opentelemetry/instrumentation-http` (Apache-2.0)
-- module: dual CJS + ESM flat barrel; `@opentelemetry/api` `^1.3.0` is the one peer, `@opentelemetry/instrumentation` the base
-- runtime: node and bun only — the row patches `node:http` and `node:https` at require time, so it must register before either module loads
-- rail: observability/tracing — the server and client HTTP span source for libraries the Effect seams never reach
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row and its config hook family
 
@@ -28,7 +20,7 @@
 - `redactedQueryParams` names query-string parameters masked inside the recorded URL, so a deployment keeping `url.full` still drops named secrets at the span source; the roster REPLACES the package's own default set (`sig`, `Signature`, `AWSAccessKeyId`, `X-Goog-Signature`) rather than extending it, so a policy row that names one parameter unmasks the other four.
 - `requireParentforIncomingSpans` and `requireParentforOutgoingSpans` stay separate: an inbound request is legitimately a trace root, while an orphan outbound span signals a hop the owning code never opened.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
@@ -38,7 +30,7 @@
 |  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
 |  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - registration precedes module load — the row patches `http`/`https` on require, so the registration node must run before any module that imports them; a lazily-imported agent factory exists precisely to avoid loading `http` too early.
@@ -56,9 +48,3 @@
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer, and Effect's own `Effect.withSpan` seams remain the primary span source.
 - this row covers foreign libraries; a branch seam reaching for it instead of opening its own span inverts the precedence law.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation-http`
-- Owns: node inbound and outbound HTTP spans under stable semconv, with per-direction ignore, parent gating, header allow-lists, and query-parameter redaction
-- Accept: one construction inside the server registration node with collector self-exclusion, outbound parent gating, and a named redaction roster
-- Reject: blanket header capture, a second HTTP instrumentation row, registration after `http` has loaded, use as a substitute for an owning seam's own span

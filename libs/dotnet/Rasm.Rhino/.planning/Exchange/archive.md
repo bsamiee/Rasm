@@ -23,7 +23,7 @@ The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic
 - Growth: a new mesh channel is one `MeshChannel` row plus its column in each target's declared set; a new slice is one `ArchiveSlice` row.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;

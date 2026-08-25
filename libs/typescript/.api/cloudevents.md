@@ -4,16 +4,7 @@
 
 Barrel exports bound the admitted surface. Four HTTP header members and the `Detector` shape live in modules the barrel never re-exports, no `exports` map fences `dist/`, and the branch refuses the deep path reaching them; every such member is branch-owned instead.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cloudevents`
-- package: `cloudevents` (Apache-2.0)
-- module: CJS `main` (`dist/index.js`) with `types` at `dist/index.d.ts` and NO `exports` map, so `dist/` deep paths physically resolve and the branch refuses them
-- runtime: node-declared — `engines` reads `node >=20 <=24`, `message` types reference `http`/`Buffer`, `parsers` reads `process.env`, and `event/cloudevent` reads `Date` and `uuid`
-- browser: `bundles/cloudevents.js` ships a webpack build no `browser` field selects, so bundler resolution takes the node entry and its `process`/`util` polyfills
-- rail: interchange/carrier — message-envelope mint, transport-header projection, JSON event format
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the barrel's exported type surface — the message envelope, the transport-agnostic frame, and the per-transport frames
 
@@ -34,7 +25,7 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - `dist/message/index.d.ts` declares `Detector`, the `Binding.isEvent` shape, and the barrel omits it, so a branch surface naming a detector declares its own predicate type.
 - `Mode` is a TypeScript `enum`, which `erasableSyntaxOnly` refuses in branch code; its three members reach the branch as an owned literal union and cross to `emitterFor` at the seam alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: barrel-reachable construction, per-transport serialize and deserialize, and per-call emission
 
@@ -61,7 +52,7 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - `headersFor`, `sanitize`, `allowedContentTypes`, and `requiredHeaders` are declared in `dist/message/http/headers.d.ts` and a second `headersFor` in `dist/message/kafka/headers.d.ts`; `message/http/index.d.ts` re-exports `HTTP` alone, so none reaches the barrel and each is branch-owned.
 - No `Binding` carries a batch serializer, so batch ENCODE is branch-owned at every transport while HTTP and Kafka decode a batch through `toEvent`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Construction mints an absent `id` from `uuid.v4()`, an absent `time` from `new Date().toISOString()`, and an absent `specversion` from `V1`, so a mint that omits any of the three reads ambient randomness and the wall clock inside the SDK where no `Clock` or `Random` service can reach.
@@ -104,9 +95,3 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - Select the binding and the content mode as owned typed data above `emitterFor`, and never spell a `ce-`, `ce_`, or unprefixed header literal beside the binding that owns it.
 - Refuse `Emitter`, `event.emit()`, `strict: false` on untrusted bytes, and every `cloudevents/dist/*` deep path.
 - Encode the body to bytes once, before any signature, since `toString` and `toJSON` re-format `time` on every call.
-
-[RAIL_LAW]:
-- Package: `cloudevents`
-- Owns: the frozen `CloudEvent` message envelope with `cloneWith`/`toJSON`/`toString`/`validate`, `ValidationError`, the `Message`/`Binding` contract, the HTTP/Kafka/MQTT binary and structured bindings with HTTP and Kafka batch decode, `MQTTMessageFactory`, the `emitterFor`/`httpTransport` per-call emission pair, and `CONSTANTS`/`V1`/`V03`
-- Accept: explicit `id`/`time`/`specversion`, `Effect.try` construction catching `TypeError`, carrier-folded extensions, arity-narrowed decode, typed binding and mode selection, per-call emission, pre-sign encoding
-- Reject: SDK-minted identity or instant, `Emitter` and `event.emit()`, `CE_USE_BIG_INT`, raw `ValidationError` into a fold, hand-spelled transport header literals, hand-built CloudEvents JSON, `strict: false` on untrusted bytes, `cloudevents/dist/*` deep imports, serialization after signing

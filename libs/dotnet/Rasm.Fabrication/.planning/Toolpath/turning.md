@@ -50,7 +50,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Boundary: `Turning` owns process geometry and semantic directives; posting admits no typed `TurnProgram` counterpart and reads the lowered `MotionDirective` stream alone.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using LanguageExt;
 using LanguageExt.Common;

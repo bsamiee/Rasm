@@ -15,7 +15,7 @@ Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flo
 ## [02]-[EXPORT_DESTINATIONS]
 
 - Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportArm` [SmartEnum] — the target-family roster the export form reads; `ExportFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per export failure; `ExportDelivery` — the one delivery entry and the measured delivery fold that publishes a `VisualArtifact`; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the contribution fold onto the Bundle destination.
-- Cases: `VisualDestination` = FilePath · BlobLane · Bundle; `ExportArm` = document · office · print · bundle; `[FaultCase]` = RenderFailed · SignerUnavailable · ProfileInvalid · PartGraphRejected · DeliveryFailed · ContentUnsupported · AnnotationRejected · IntentUnsupported; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-goldens · collab-ops.
+- Cases: `VisualDestination` = FilePath · BlobLane · Bundle; `ExportArm` = document · office · print · bundle; `[FaultCase]` = RenderFailed · SignerUnavailable · ProfileInvalid · PartGraphRejected · DeliveryFailed · ContentUnsupported · AnnotationRejected · IntentUnsupported; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-digests · collab-ops.
 - Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload)` — the ONE delivery rail at the widest payload shape; `public static IO<VisualArtifact> Landed(VisualRuntime runtime, ArtifactKind kind, string format, string colour, Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce)` — the one measured deliver-and-publish fold; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold.
 - Law: `DeliveryFailed` and `SignerUnavailable` publish `Retriability.Transient`, so a scheduled delivery re-drives on the fault's own declaration and no consumer classifies by message.
 - Law: the payload crosses as ONE `ReadOnlyMemory<byte>` from compose to write — both delegate seams on `VisualRuntime` already take memory, so the defensive `ToArray` on the blob and bundle arms copied against a signature that never demanded it.
@@ -192,7 +192,7 @@ public sealed record BundleMember(string ArtifactName, DataClassification Classi
     public static BundleMember GpuTimelines(ReadOnlyMemory<byte> timelines) => new("gpu-timelines.jsonl", DataClassification.Operational, timelines);
     public static BundleMember QualityVerdicts(ReadOnlyMemory<byte> verdicts) => new("quality-verdicts.jsonl", DataClassification.Operational, verdicts);
     public static BundleMember NativeAssets(ReadOnlyMemory<byte> facts) => new("native-assets.jsonl", DataClassification.HostIdentity, facts);
-    public static BundleMember GoldenDigests(ReadOnlyMemory<byte> digests) => new("proof-goldens.jsonl", DataClassification.Operational, digests);
+    public static BundleMember ProofDigests(ReadOnlyMemory<byte> digests) => new("proof-digests.jsonl", DataClassification.Operational, digests);
     public static BundleMember CollabOps(ReadOnlyMemory<byte> opWindow) => new("collab-ops.json", DataClassification.UserContent, opWindow);
 }
 

@@ -22,7 +22,7 @@
 - Boundary: dialect byte spelling stays in `Dialect`; this cluster declares codes as ROW data and renders none.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;

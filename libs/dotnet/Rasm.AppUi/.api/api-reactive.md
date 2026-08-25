@@ -2,16 +2,7 @@
 
 `System.Reactive` owns the observable stream algebra under the AppUi reactive stack: the `IObservable<T>`/`IObserver<T>` contracts, the `Observable` operator surface, the subject, scheduler, and disposable families, and the async/event bridges. It is the operator and lifetime tier beneath DynamicData change-sets, ReactiveUI commands, and Avalonia property streams — each emits `IObservable<T>`, and this package folds those streams, marshals them to the render thread, and bounds their lifetime.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Reactive`
-- package: `System.Reactive` (MIT)
-- assembly: `System.Reactive`
-- target: `net8.0`
-- namespace: `System.Reactive`, `System.Reactive.Linq`, `System.Reactive.Subjects`, `System.Reactive.Concurrency`, `System.Reactive.Disposables`, `System.Reactive.Disposables.Fluent`, `System`
-- rail: streams
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [STREAM_TYPES]: observable, observer, and notification value carriers
 
@@ -62,7 +53,7 @@
 |  [06]   | `CancellationDisposable`       | class         | `CancellationTokenSource` bridge   |
 |  [07]   | `Disposable`                   | class         | `Create(Action)` / `Empty` factory |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [FACTORY_ENTRYPOINTS]: observable creation and async/event bridges over `Observable`
 
@@ -120,7 +111,7 @@
 - `Observable.ResetExceptionDispatchState`: clears the captured `ExceptionDispatchInfo` so a resubscribed source re-throws a fresh fault rather than replaying the stale, stack-corrupted original.
 - `DisposableExtensions.DisposeWith`: `System.Reactive.Disposables.Fluent`; returns the item so an assignment chains, registering it into the `CompositeDisposable` for group teardown.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every stream terminates at an explicit lifecycle scope carrying an explicit scheduler and an explicit disposable; internal composition stays operator-driven, never subject-mutation-driven, and the render-thread hop is a single `ObserveOn` per pipeline.
@@ -136,9 +127,3 @@
 
 [LOCAL_ADMISSION]:
 - Shell, sidecar, companion, diagnostics, and downstream app streams share one scheduler and disposable vocabulary across every admitted surface.
-
-[RAIL_LAW]:
-- Package: `System.Reactive`
-- Owns: the observable stream algebra, subjects, schedulers, notifications, disposables, and async/event bridges — the operator and lifetime tier beneath DynamicData, ReactiveUI, and Avalonia property streams.
-- Accept: a stream terminating at an explicit lifecycle scope with an explicit scheduler and disposable; cold fan-out sharing through `Publish().RefCount()`.
-- Reject: an event-handler chain as state transport; an unscheduled cross-thread `Subscribe` mutating UI state off the render thread; a second scheduling or disposal vocabulary.

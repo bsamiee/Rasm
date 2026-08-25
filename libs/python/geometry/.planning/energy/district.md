@@ -19,7 +19,7 @@ Dragonfly's AGPL-3.0 band rides the standing companion-lane charter — function
 - Boundary: rooms/faces/apertures are `energy/model`'s — this page stops at `Room2D` plates and the explosion seam, and the urbanopt arm returns its emitted artifact addresses rather than the live honeybee models the writer also hands back, since a model reaches a consumer only through the model page's own gate; simulation and result decode are `energy/simulate`'s, weather is `energy/climate`'s; accurate CRS work beyond dragonfly's own equirectangular helpers is the data folder's `pyproj` plane.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path

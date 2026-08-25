@@ -28,7 +28,7 @@ Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` state
 - Boundary: `WeldPolicy` holds no geometry and no clock. `IWeldAccess.Check` and `WeldDemandBinding.Facts` read the `WeldPass` roster `Joining/weld` `[03]-[PASS]` emits, because both are evaluated AFTER pass generation over the passes they judge — the seam is named at both ends and neither owner reaches the other's behaviour.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
 using LanguageExt;

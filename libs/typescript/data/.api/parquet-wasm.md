@@ -2,15 +2,7 @@
 
 `parquet-wasm` owns engine-free Parquet decode and encode at the lake-at-rest edge, round-tripping `apache-arrow` `Table` values through Parquet bytes with no analytical engine booted. Parquet is the format at rest, Arrow IPC the in-memory wire, and this codec the seam on `lane/olap`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `parquet-wasm`
-- package: `parquet-wasm` (MIT)
-- module: `exports["."]` condition-selects the synchronous `node` build (wasm inlined) against the async `esm`/`bundler` default; `./node`, `./esm`, `./bundler` name each build explicitly
-- runtime: both lanes — the `node` build rides the `@duckdb/node-api` server lane, the async build the `@duckdb/duckdb-wasm` browser lane beside the worker engine
-- rail: `lane/olap` `[08]-[ARROW_WIRE]` at the parquet-at-rest edge — every read decodes to Arrow IPC, every write accepts it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the wasm-backed containers and the writer-policy vocabulary
 
@@ -28,7 +20,7 @@
 - `ReaderOptions` carries `batchSize`, `rowGroups`, `limit`, `offset`, `columns`, and `concurrency` — the read-policy row every lazy entry takes, so a scan states its batch grain and its request fan rather than inheriting silent defaults.
 - Members prefixed `into` consume their receiver and members prefixed `to` keep it alive for a later `free()`; `writeParquet` consumes BOTH its table and its writer properties, so the write path leaves nothing to release.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parquet decode, encode, and the streaming reader/writer
 
@@ -46,7 +38,7 @@
 - `ParquetFile.fromUrl` reads by RANGE on both builds: opening costs three bounded requests — a suffix range for the footer length, a suffix range for the footer metadata, and one bounded span for the page index — and the stream then draws exactly ONE range request per row group, so a scan pays metadata and the groups it reads, never a whole-object GET.
 - `ReaderOptions.concurrency` bounds range requests in flight at precisely its value on the node build, and `batchSize` splits each row group into ceil(rowGroupRows / batchSize) emitted batches, so both knobs are live on the server lane rather than browser-only.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Parquet's own `Table` never leaves the codec as a value — the IPC `Uint8Array` or the `FFIStream` is the only egress, so a wasm-backed container meets `apache-arrow`'s across the stream buffer or the Arrow C Data Interface, never by shared class identity.
@@ -62,9 +54,3 @@
 - No container leaves the expression that minted it — bytes and `apache-arrow` values are the only egress, so no linear-memory view crosses a lane seam.
 - Each async build resolves its default initializer once at construction, proven before any entry; the `node` build inlines its wasm and resolves nothing, so the lane owner takes the initializer as a coordinate and no call site branches on runtime.
 - Unbounded lake objects ride `ParquetFile.stream`/`readParquetStream` lifted through `Stream.fromReadableStream`; `readParquet` whole-buffer decode admits only where the object is provably bounded.
-
-[RAIL_LAW]:
-- Package: `parquet-wasm`
-- Owns: engine-free Parquet decode, encode, and the streaming reader/writer at the lake-at-rest edge, round-tripping `apache-arrow` Tables over IPC or the Arrow C Data Interface
-- Accept: the parquet↔Arrow-IPC round-trip, `WriterPropertiesBuilder` policy as one row, `ParquetFile` range-request and stream reads under a bracket that frees, `FFIStream` zero-copy handoff, a consuming member's handle released by the call itself
-- Reject: a DuckDB or Flight engine booted only to transcode parquet, parquet's own `Table` leaking as a value, a release arm over a handle a consuming member already took, an unbracketed `ParquetFile`, a second columnar codec, row-object re-encoding between lake and wire

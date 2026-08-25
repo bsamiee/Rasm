@@ -2,18 +2,7 @@
 
 `Microsoft.IdentityModel.Tokens` owns the cryptographic and validation substrate under the IdentityModel stack: the security-key hierarchy, signing/encrypting/key-wrap credentials, the crypto-provider factory and cache, and two parallel token-validation contracts — a throwing delegate rail and a result-based ROP rail with typed `Validated*` outcomes. `Microsoft.IdentityModel.JsonWebTokens` validates against these parameters and keys, and the `BaseConfigurationManager` slot binds the rotating signing keys `Microsoft.IdentityModel.Protocols.OpenIdConnect` discovery feeds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.IdentityModel.Tokens`
-- package: `Microsoft.IdentityModel.Tokens` (MIT)
-- assembly: `Microsoft.IdentityModel.Tokens`
-- namespace: `Microsoft.IdentityModel.Tokens`
-- asset: runtime library
-- abi: native `lib/net10.0` asset (consumer-bound); ML-DSA binds the `net10.0` `System.Security.Cryptography.MLDsa` type
-- depends: `Microsoft.IdentityModel.Logging`, `Microsoft.IdentityModel.Abstractions`
-- rail: tokens-core
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validation contracts
 
@@ -74,7 +63,7 @@ Throwing `Validators.Validate*` overloads and `JsonWebTokenHandler.ValidateToken
 |  [04]   | `SecurityTokenInvalidSignatureException` | exception      | signature rejected |
 |  [05]   | `SecurityTokenInvalidIssuerException`    | exception      | untrusted issuer   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: result-based validation — `Validators` + `ValidationParameters`
 
@@ -125,7 +114,7 @@ Throwing `Validators.Validate*` overloads trail `TokenValidationParameters` and 
 |  [15]   | `Base64UrlEncoder.Encode(ReadOnlySpan<byte>, Span<char>)`    | static   | zero-alloc encode    |
 |  [16]   | `Base64UrlEncoder.Decode(string)`                            | static   | decode               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - two rails: `TokenValidationParameters` (wide knob bag with per-facet delegate slots) folds into `TokenValidationResult`; `ValidationParameters` (per-facet `*Delegate` slots, lazy `SigningKeys`/`DecryptionKeys`, `CryptoProviderFactory`, `ConfigurationManager`) folds into `ValidationResult<T, ValidationError>` and the typed `ValidatedToken`
@@ -149,9 +138,3 @@ Throwing `Validators.Validate*` overloads trail `TokenValidationParameters` and 
 - Build keys from typed constructors (`SymmetricSecurityKey`, `RsaSecurityKey`, `X509SecurityKey`, `MlDsaSecurityKey`) and credentials from `SigningCredentials(key, algorithm)`; identify keys by `ComputeJwkThumbprint`/`KeyId`, never by index
 - Reuse `CryptoProviderFactory.Default` (or one instance with `CacheSignatureProviders = true`) across the validate loop; never mint a provider per token
 - Take `MlDsaSecurityKey` as the post-quantum signing path on net10, dispose it, and gate its use on `CryptoProviderFactory.IsSupportedAlgorithm(alg, key)`
-
-[RAIL_LAW]:
-- Package: `Microsoft.IdentityModel.Tokens`
-- Owns: security keys (post-quantum ML-DSA and JWK included), signing/encrypting credentials, the crypto-provider factory and cache, ECDH-ES key agreement, base64url encoding, and both the throwing and result-based token-validation contracts
-- Accept: result validation through `ValidationParameters` + `Validators` returning `ValidationResult<T, ValidationError>`; throwing validation through `TokenValidationParameters` + `TokenValidationResult`; discovery through a `BaseConfigurationManager`
-- Reject: throwing-validator control flow where the result-based `Validators` overload exists, hand-rolled base64url/JWK parsing, per-token crypto-provider construction, static signing keys for rotating issuers, string-keyed key identity

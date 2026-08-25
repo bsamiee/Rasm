@@ -2,17 +2,7 @@
 
 `connectorx` is the parallel, zero-copy database-to-dataframe reader on the data query rail: `read_sql` executes one SQL query across range partitions in a Rust thread pool and reconstructs the wire stream directly into Pandas, Polars, Arrow (table or `RecordBatchReader`), Modin, or Dask with no Python-object roundtrip. `partition_sql` exposes the planner, `get_meta` probes the result schema, `ConnectionUrl` builds the typed per-backend connection string, and a `dict` connection federates multiple sources behind one query.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `connectorx`
-- package: `connectorx` (MIT)
-- module: `connectorx`
-- asset: native Rust/maturin extension (`connectorx.connectorx` PyO3 core)
-- owner: `data`
-- rail: query
-- reach: FLOOR-GATED — the manifest row carries a `python_version` marker no supported interpreter satisfies, `find_spec("connectorx")` resolves `None`, and no member below is callable while that holds. Every row is catalog-sourced under that marker; `tabular/query#QUERY` refuses each `RemoteDriver.CONNECTORX` spec at its `_UNREACHED` gate, so this file documents an admitted-but-unreachable surface and every member re-verifies by live reflection the moment the marker lifts.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: typed connection constructor and the wire-protocol vocabulary
 
@@ -23,7 +13,7 @@
 
 - `ConnectionUrl` `backend` admits `sqlite`/`bigquery` (file/path) and `redshift`/`clickhouse`/`postgres`/`postgresql`/`mysql`/`mssql`/`oracle`/`duckdb` (server).
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the polymorphic read, planner, schema probe, and connection construction
 - partition carry (`read_sql`, `partition_sql`, `read_sql_pandas`): `partition_on`, `partition_num`, `partition_range`
@@ -42,7 +32,7 @@
 - `read_sql(return_type='arrow_stream')` yields a `pa.RecordBatchReader` for incremental consumption; every other return type materializes a full frame.
 - `read_sql_pandas(sql, con, ...)` is the SQLAlchemy-shaped positional alias over `read_sql`, not a distinct capability; `reconstruct_arrow`/`reconstruct_arrow_rb`/`reconstruct_pandas` are internal FFI reassembly the `return_type` rail dispatches into, not a direct call surface.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `read_sql` is the sole polymorphic read; `return_type` discriminates `pandas`/`polars`/`arrow`/`arrow_stream`/`modin`/`dask` egress over one wire reconstruction.
@@ -61,9 +51,3 @@
 [LOCAL_ADMISSION]:
 - read through `read_sql(ConnectionUrl(...), query, return_type=..., partition_on=..., partition_num=...)`; the egress frame is a call arg, never a per-frame wrapper.
 - construct connections through `ConnectionUrl` typed kwargs; federate through a `dict` of `ConnectionUrl`s; `get_meta` probes schema before a heavy fetch.
-
-[RAIL_LAW]:
-- Package: `connectorx`
-- Owns: parallel range-partitioned database-to-dataframe reads, zero-copy multi-frame reconstruction (Pandas/Polars/Arrow/`RecordBatchReader`/Modin/Dask), multi-source federation, per-backend wire-protocol selection, server-side pagination, pre-execution session setup, and result-schema probing
-- Accept: `read_sql` as the polymorphic read with `return_type` egress, `partition_on`/`partition_num`/`partition_range` for parallelism, `ConnectionUrl` for typed connection construction, a `dict` connection for federation, `arrow`/`arrow_stream` feeding the columnar interop owner, and the `pl.DataFrame` feeding a dataframely contract gate
-- Reject: per-frame read wrappers, serial single-partition reads where a partition column exists, hand-rolled cursor iteration, connection strings built by concatenation instead of `ConnectionUrl`, and treating connectorx as a duplicate of daft's distributed `read_sql` rather than its eager in-process counterpart

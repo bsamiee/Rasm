@@ -2,15 +2,7 @@
 
 `exceljs` owns the `.xlsx` workbook document model — worksheets, the row/column/cell grid, the style/value/table/conditional-format/data-validation vocabularies, defined names, page setup, and embedded images — behind two IO surfaces: an in-memory `Workbook` and a constant-memory `stream.xlsx` writer/reader pair. `work/report` composes it as the sole `.xlsx` egress engine behind one `renderWorkbook` effect boundary, its Promise-based mutating API never awaited in domain code.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `exceljs`
-- package: `exceljs` (MIT)
-- module: CJS, named exports only (`import * as ExcelJS from "exceljs"` — the tree declares no default, so a default import refuses to typecheck); `Workbook`, `stream.xlsx.WorkbookWriter`/`WorkbookReader`, and the model interfaces are the surface
-- runtime: node/bun — the streaming writer/reader, `archiver`, and `readable-stream` bind node, so `work/report` runs exceljs on its node egress lane, never a browser bundle
-- rail: the `.xlsx` workbook-model and egress owner for `work/report`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the workbook/worksheet model; `Workbook` owns metadata + IO facades, `Worksheet` owns the grid, tables, and formatting, and style rides each cell (`Row extends Style`, `Cell extends Style, Address`) with no parallel style map.
 
@@ -49,7 +41,7 @@
 |  [02]   | `stream.xlsx.WorkbookStreamReaderOptions`                        | reader config | per-part cache/emit for huge input        |
 |  [03]   | `XlsxReadOptions` / `XlsxWriteOptions` / `JSZipGeneratorOptions` | IO options    | `XlsxWriteOptions` extends writer options |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `.xlsx` in-memory IO — every terminal an instance `Promise` on `workbook.xlsx`, wrapped in `Effect.tryPromise` onto the report-error rail.
 
@@ -87,7 +79,7 @@
 |  [06]   | `protect(password, options)` / `addImage(id, range)` / `autoFilter` | instance | sheet decoration                    |
 |  [07]   | `workbook.addWorksheet(name, options)` / `addImage(img) -> number`  | instance | workbook assembler; shared media id |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - exceljs is the engine and `effect` is the boundary: every IO call returns a mutating `Promise`, so `work/report` owns one `renderWorkbook(spec, rows) -> Effect<Buffer, ReportRenderError>` wrapping each terminal in `Effect.tryPromise`, and domain code never awaits exceljs.
@@ -102,9 +94,3 @@
 - `jspdf` + `papaparse` (`runtime/.api/jspdf.md`, `runtime/.api/papaparse.md`): the output-format peers over the same decoded rows, one policy row selecting PDF, XLSX, or CSV; `papaparse` owns standalone CSV, so `exceljs.csv` reserves for re-projecting an existing `Worksheet`.
 - `jszip` + `nodemailer` (`runtime/.api/jszip.md`, `runtime/.api/nodemailer.md`): the shared `deliver` channels — the `writeBuffer()` `Buffer` feeds `jszip` bundling and `nodemailer` attachment.
 - `work/report` (within-library): folds every report through one `renderWorkbook` over a `ReportSpec` with the streaming writer as the `effect/Stream` sink, so a new report is a spec row and never a bespoke builder.
-
-[RAIL_LAW]:
-- Package: `exceljs`
-- Owns: the `.xlsx` workbook/worksheet/row/column/cell model, the style/value/table/conditional-format/data-validation vocabularies, defined names, page setup, embedded images, the in-memory `Workbook` facade, and the constant-memory `stream.xlsx.WorkbookWriter`/`WorkbookReader`.
-- Accept: exceljs behind a `renderWorkbook(spec, rows)` effect boundary, the streaming writer as an `effect/Stream` sink under `acquireRelease`, reports expressed as `ReportSpec` data, `writeBuffer` routed through the platform `FileSystem`, the `Buffer` as the shared deliver artifact, XLSX as one arm of the output-format policy.
-- Reject: a bare `await` on an exceljs `Promise`, a full in-memory workbook for an unbounded report, a per-report imperative builder or duplicated style code, `workbook.xlsx.writeFile` to `node:fs` from a domain effect, `exceljs.csv` where `papaparse` owns CSV, exceljs on a browser lane.

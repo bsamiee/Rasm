@@ -2,15 +2,7 @@
 
 `@nats-io/jetstream` layers JetStream over a `@nats-io/nats-core` connection: `jetstreamManager` administers streams, `jetstream` mints the client whose `publish` arms `msgID` dedup and `expect` optimistic concurrency, whose `startBatch` stages indivisibly, whose consumers deliver `JsMsg` beside their own status rail, and whose `DeliverPolicy` anchors bounded replay. It is the fanout/replay engine of `net/pubsub` — at-least-once redelivery, exactly-once publish inside the dedup window — never the system of record: retention bounds every stream and the journal owns full history.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@nats-io/jetstream`
-- package: `@nats-io/jetstream` (Apache-2.0)
-- module: ESM + CJS dual; modular sibling of `@nats-io/nats-core`
-- runtime: node, bun, or browser-over-websockets, wherever the core connection runs; peer `@nats-io/nats-core` supplies the `NatsConnection`
-- rail: fanout/replay engine row of `net/pubsub`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: streams, consumers, messages
 
@@ -51,7 +43,7 @@
 
 - `ConsumerNotFoundError` and `StreamNotFoundError`: `instanceof` narrows both, so a fence never re-spells the code roster to discriminate.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: publish, consume, administer
 
@@ -74,7 +66,7 @@
 
 [PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, lastSubjectSequenceSubject, streamName } }` — `expect` arms optimistic concurrency; `lastSubjectSequenceSubject` redirects the `lastSubjectSequence` constraint onto a wildcardable subject.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `@nats-io/nats-core` (`.api/nats-io-nats-core.md`): the connection and `Nats-Msg-Id` carriage — the `msgID` publish option writes the header the consumer reads back as identity.
@@ -94,9 +86,3 @@
 - Ordered and durable consumers never share a mint: a nameless `consumers.get(stream, options)` is fixed to `AckPolicy.None` and its every ack member is a no-op, while at-least-once consumption declares a durable through `jsm.consumers.add` with `AckPolicy.Explicit` and binds it by name.
 - Anchored replay validates against retention; an anchor beyond `max_age` answers the typed horizon fault, never an empty read reported as success.
 - Server durability deploys rather than assumes: file-store fsync defaults to a 2-minute interval, so the engine row holds no system-of-record data and the deploy plane owns `sync_interval` and replica quorum.
-
-[RAIL_LAW]:
-- Package: `@nats-io/jetstream`
-- Owns: stream administration, dedup-windowed publish with OCC arms, atomic multi-message staging, ordered/durable consumers with anchored starts, the `JsMsg` ack algebra, the consumer status rail, bounded replay
-- Accept: Layer-build stream ensure, content-derived `msgID` on every publish, ack-after-success with row-selected `ackAck`, `Stream.fromAsyncIterable` over a scoped `consume()` whose bounds and status iterator both ride declared rows
-- Reject: keyless publishes, pre-ack consumption, the stream as system of record, hand pull loops beside the lifted iterator, an unread `status()`, a bare `consume()` inheriting the client's buffer, sequential republishing spelled as atomicity

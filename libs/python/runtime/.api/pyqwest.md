@@ -2,16 +2,7 @@
 
 `pyqwest` owns the HTTP transport beneath every `connectrpc` dial: one native `HTTPTransport` carries TLS roots, the mTLS pair, proxy, pool, and HTTP-version policy over reqwest, `Client` issues requests through it, and `aclose` on the transport is the one socket release — the `ConnectClient` riding it closes nothing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyqwest`
-- package: `pyqwest`
-- module: `pyqwest`
-- namespaces: `pyqwest`, `pyqwest.httpx`, `pyqwest.middleware`, `pyqwest.testing`
-- abi: reqwest-backed native extension (`_pyqwest.abi3.so`) carrying `HTTPTransport`, `Client`, and their sync twins; `py.typed` ships
-- rail: transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transport, client, and message family
 
@@ -32,7 +23,7 @@
 
 `pyqwest.middleware` exports `retry` alone, whose `RetryTransport(transport, initial_interval=0.5, randomization_factor=0.5, multiplier=1.5, max_interval=60.0, max_retries=4)` carries a complete jittered-exponential curve, a `Retry-After` reader over both the seconds and HTTP-date forms, and a transient predicate re-driving `ConnectionError`, `429`, and `5xx` other than `501` on `GET`/`HEAD`/`PUT`/`DELETE` alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: transport construction, dialing, and release
 - `HTTPTransport` ctor carries keyword-only: `tls_ca_cert`, `tls_include_system_certs`, `tls_key`, `tls_cert`, `http_version`, `proxy`, `timeout`, `connect_timeout`, `read_timeout`, `pool_idle_timeout`, `pool_max_idle_per_host`, `tcp_keepalive_interval`, `enable_gzip`, `enable_brotli`, `enable_zstd`, `use_system_dns`, `enable_cookie_store`, `follow_redirects`, `max_redirects`, `enable_otel`, `meter_provider`, `tracer_provider`.
@@ -58,7 +49,7 @@
 - `follow_redirects` carries the shipped stub's `True` default while that same docstring states the default is disabled, so a Connect dial states the value rather than inheriting a surface contradicting itself; `max_redirects=10` bounds the follow with `TooManyRedirects`.
 - `enable_otel` defaults on and emits the transport's own client spans; `tracer_provider` selects WHICH provider receives them and `enable_otel=False` is the one off switch.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `HTTPTransport` owns sockets and pools; `Client` and `ConnectClient` hold no resource of their own, so whoever constructs the transport owns its `aclose`.
@@ -78,9 +69,3 @@
 - `middleware.retry` is REFUSED whole. `reliability/resilience#RESILIENCE` holds every schedule the branch runs, `RetryClass.WIRE` names the Connect row, and a transport-level curve beneath it makes effective attempts the product of two schedules the branch RULINGS foreclose for exactly that reason.
 - Every transport row states `timeout` and `read_timeout`, since the package leaves both unset and the enclosing retry budget bounds no in-flight read.
 - Every transport row states `follow_redirects`, because a silently followed 3xx re-issues one RPC against a second authority the credential posture never named.
-
-[RAIL_LAW]:
-- Package: `pyqwest`
-- Owns: the HTTP/1 and HTTP/2 transport, TLS and mTLS material, proxy and pool policy, and the socket release beneath every Connect dial
-- Accept: `HTTPTransport(tls_ca_cert=..., tls_cert=..., tls_key=...)` per credential posture with `timeout`/`read_timeout`/`follow_redirects` stated, `Client(transport=...)` injected into `ConnectClient`, `await transport.aclose()` at the drain
-- Reject: `middleware.retry` in every spelling — `RetryTransport`, `SyncRetryTransport`, `RetryMode` — as a second retry owner beside `RetryClass`; a transport row leaving `timeout`/`read_timeout` unset behind a retried dial; an unstated `follow_redirects`; an `HTTPTransport()` carrying no TLS material on a TLS dial; a transport no composition closes; a second HTTP client beside `connectrpc` on the Connect seam

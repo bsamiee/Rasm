@@ -2,16 +2,7 @@
 
 `topologicpy` owns the geometry-algebra rail's non-manifold topology modeling and graph analytics: stateless static-method facades over `topologic_core` C++ handles across the `Vertex`-through-`CellComplex` hierarchy, the polymorphic `Topology` owner, and a `Graph` facade. It never re-implements the boolean kernel or graph analytics `topologic_core` and `networkx` own, and IFC semantic identity stays with the C# `IfcSemanticModel` seam. Its `AGPL-3.0-or-later` network copyleft gates admission opt-in on the Forge lane.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `topologicpy`
-- package: `topologicpy` (AGPL-3.0-or-later)
-- module: `topologicpy`
-- owner: `geometry`
-- rail: geometry-algebra, opt-in Forge lane
-- capability: non-manifold vertex/edge/wire/face/shell/cell/cell-complex topology, polymorphic `Topology` analysis and boolean ops, graph construction and centrality/shortest-path analytics, dictionary attribute attachment, vector/matrix/color algebra, and IFC/Honeybee/Speckle BIM integration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 Every symbol is a stateless static-method facade over a `topologic_core` handle: a `By*` constructor returns the handle the next static call consumes, so state lives in the handle. `Polyskel` is a free-function straight-skeleton module; the BIM rows are integration facades.
 
@@ -62,7 +53,7 @@ Every symbol is a stateless static-method facade over a `topologic_core` handle:
 |  [07]   | `Ontology`    | semantics       | OWL/RDF ontology classes                 |
 |  [08]   | `GraphRAG`    | retrieval       | graph retrieval-augmented generation     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Topology construction and export (`Topology`)
 
@@ -135,7 +126,7 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 |  [19]   | `Dictionary.ByKeysValues(keys, vals)` | construct      | attribute dictionary                        |
 |  [20]   | `Dictionary.ValueAtKey(dict, key)`    | accessor       | read an attribute value                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Import per class at boundary scope (`from topologicpy.Topology import Topology`); the manifest import policy bans module-level import.
@@ -156,9 +147,3 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 
 [LOCAL_ADMISSION]:
 - `topologicpy` admits opt-in on the Forge lane only, excluded from the default server build: its `AGPL-3.0-or-later` network copyleft makes any network-exposed deployment that links it inherit the source-disclosure obligation. Its PyPI `License ::` classifier reads `GPLv3`, but the bundled `LICENSE` and `__init__.py` header bind AGPLv3-or-later, so the binding license is network copyleft.
-
-[RAIL_LAW]:
-- Package: `topologicpy`
-- Owns: non-manifold cell/aperture topology modeling, polymorphic `Topology` analysis and boolean ops, graph construction and analytics, dictionary attributes, and vector/matrix/color algebra, gated against the C# `IfcSemanticModel`
-- Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner on the opt-in Forge lane
-- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting the IFC semantic identity the .NET owner holds; linking into the default server build or any network-exposed deployment off the Forge lane

@@ -2,16 +2,7 @@
 
 `python-dateutil` reads a timestamp string wider than any RFC-3339 grammar admits, and `dateutil.parser.isoparse` is the member every CloudEvents binding decodes its `time` attribute through. It returns a `dateutil.tz` zone object rather than the stdlib `timezone.utc` singleton and raises a bare `ValueError` on a string it cannot read, so conformance and zone identity both prove at the admitting consumer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-dateutil`
-- package: `python-dateutil` (Apache-2.0 AND BSD-3-Clause)
-- module: `dateutil`
-- namespaces: `dateutil.parser`, `dateutil.tz`
-- depends: `six`
-- rail: timestamp admission beneath the CloudEvents bindings
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `dateutil.parser` readers and their fault
 
@@ -30,7 +21,7 @@
 |  [01]   | `tzutc`    | tzinfo        | zero-offset zone every `Z`, `z`, `+00`, and `+00:00` suffix resolves to |
 |  [02]   | `tzoffset` | tzinfo        | fixed-offset zone a signed numeric suffix resolves to, name `None`      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ISO-8601 admission
 
@@ -47,7 +38,7 @@
 - `isoparser(sep=None)`: admits ANY single character between the date and time halves, so `2018-01-01 00:00:00Z` reads exactly as the `T` form does.
 - `parse_tzstr`: `zero_as_utc=True` folds a zero offset to `tzutc`, so `+00:00` and `Z` return one zone object.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `isoparse` admits the ISO-8601 superset, so a truncated `2018`, a `2018-W01-1` week date, a `2018-001` ordinal date, and a `20180101T000000Z` basic-format string all read where RFC-3339 refuses; wire conformance proves at the consumer, never at the reader.
@@ -65,9 +56,3 @@
 - Normalize an `isoparse` result to `datetime.timezone.utc` at the admitting boundary, so one zone representation reaches the interior and no comparison straddles two `tzinfo` families.
 - `parser`, `parserinfo`, and `UnknownTimezoneWarning` stay out — a heuristic reader guessing day-month order over a wire value fabricates a timestamp no producer sent.
 - `relativedelta`, `rrule`, `easter`, `utils`, and `zoneinfo` stay out — `apscheduler` owns cron and interval recurrence, and the stdlib `zoneinfo` module owns the tz database.
-
-[RAIL_LAW]:
-- Package: `python-dateutil`
-- Owns: ISO-8601 string admission beneath the CloudEvents bindings — the superset `isoparse` reader, the `isoparser` separator binding and its date, time, and offset halves, and the `tzutc`/`tzoffset` zones each string resolves to
-- Accept: `isoparse` over a vendor binding's raw `time` value under a catch set naming `ValueError`; `isoparser(sep=)` where one separator is fixed; offset presence and RFC-3339 conformance proved at the consumer; normalization to `timezone.utc` at admission
-- Reject: `parser` heuristics over a wire value; a catch set naming `ParserError` for an `isoparse` call; a naive result threaded past admission; a hand-rolled RFC-3339 regex beside the reader every binding already runs

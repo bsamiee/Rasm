@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Http.Diagnostics` owns outbound-`HttpClient` diagnostics on the factory pipeline: a per-request latency breakdown, redaction-aware structured request/response logging, and downstream-dependency request metadata. Its registration extensions bind onto `IServiceCollection` and `IHttpClientBuilder`, layering measurement and redacted log records over the same named-client handler chain the resilience and service-discovery handlers occupy.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Http.Diagnostics`
-- package: `Microsoft.Extensions.Http.Diagnostics`
-- assembly: `Microsoft.Extensions.Http.Diagnostics`
-- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Http.Diagnostics`, `Microsoft.Extensions.Http.Latency`, `Microsoft.Extensions.Http.Logging`
-- asset: runtime library
-- rail: transport diagnostics
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DI_EXTENSIONS]: registration classes, namespace `Microsoft.Extensions.DependencyInjection`
 
@@ -43,7 +34,7 @@
 
 [LOG_TAG_KEYS]: `server.address` `http.request.method` `url.path` `url.query` `http.request.header.` `http.response.header.` `http.response.status_code` `Duration` `RequestBody` `ResponseBody`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipeline admission
 
@@ -56,7 +47,7 @@
 
 - `AddExtendedHttpClientLogging` on `IHttpClientBuilder` carries a `wrapHandlersPipeline` overload positioning the logger around, not inside, the delegating-handler chain; the `IServiceCollection` form applies it to every named client.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AddHttpClientLatencyTelemetry` installs a handler recording per-stage checkpoints into the latency context; `EnableDetailedLatencyBreakdown` selects the per-stage breakdown over one coarse duration.
@@ -72,9 +63,3 @@
 [LOCAL_ADMISSION]:
 - Latency and extended logging register once per named-client factory at the composition root the outbound boundary owns.
 - Extended logging is the sole logger on an instrumented client; leaving the built-in client logger active double-logs every request.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Http.Diagnostics`
-- Owns: outbound-request latency breakdown, redaction-aware extended logging, and downstream-dependency request metadata
-- Accept: factory-pipeline admission through `AddHttpClientLatencyTelemetry` / `AddExtendedHttpClientLogging` with `DataClassification`-mapped redaction
-- Reject: the built-in client logger left active beside the extended logger; span-shaped latency records duplicating the OpenTelemetry HTTP client span

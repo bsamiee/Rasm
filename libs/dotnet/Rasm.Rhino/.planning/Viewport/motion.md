@@ -19,7 +19,7 @@ Temporal identity is the kernel's too: every tick advances one `MonotonicTimelin
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
 using Foundation;

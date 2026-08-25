@@ -2,16 +2,7 @@
 
 `laspy` owns LAS/LAZ point-cloud file IO and the COPC octree-subset read for the data scan-exchange rail. `laspy.open(source, mode)` is the one polymorphic IO entry, discriminating `mode` into a `LasReader`/`LasWriter`/`LasAppender`, and `laspy.read` is the eager whole-file load into a `LasData`. Compressed decode rides a companion `LazBackend`, so the LASzip range codec is never re-implemented here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `laspy`
-- package: `laspy` (BSD-2-Clause)
-- module: `laspy`
-- namespaces: `laspy`, `laspy.copc`, `laspy.errors`
-- rail: scan-exchange
-- depends: `numpy` point buffer; `lazrs`/`laszip` LAZ backends; `pyproj` CRS round-trip; `requests` COPC-over-HTTP
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: in-memory and streaming IO carriers
 
@@ -56,7 +47,7 @@
 |  [01]   | `laspy.copc.CopcReader` | COPC reader   | octree-indexed spatial/LOD reader over local path + HTTP |
 |  [02]   | `laspy.copc.Bounds`     | bounds record | axis-aligned box; `overlaps`, `ensure_3d`                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: LAS/LAZ/COPC IO operations
 - read/open carry: `laz_backend`, `decompression_selection` (default `DecompressionSelection.all()`), `encoding_errors`
@@ -86,7 +77,7 @@
 |  [21]   | `CopcReader.copc_info` / `CopcReader.header`               | property | octree info (`spacing`, root) and `LasHeader` |
 |  [22]   | `LasHeader.parse_crs(prefer_wkt) -> CRS \| None`           | instance | read CRS off VLRs+EVLRs; absence rides `None` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `laspy.open(source, mode)` is the one IO entry: `mode='r'` yields a `LasReader` (eager `read()` or `chunk_iterator(n)` out-of-core), `mode='w'` a `LasWriter` (requires `header=`, `write_points` per chunk), `mode='a'` a `LasAppender`; `laspy.read` is `open('r').read()`. Compressed-LAZ append requires `LazBackend.Lazrs`/`LazrsParallel`, since `Laszip.supports_append` is `False`.
@@ -103,9 +94,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `laspy` for LAS 1.0–2.0 / LAZ / COPC point-cloud file interchange on the scan rail; a compressed read or append requires `lazrs` or `laszip` present on the worker lane.
-
-[RAIL_LAW]:
-- Package: `laspy`
-- Owns: LAS/LAZ read/write/append/convert, the `laspy.open` mode-discriminated streaming IO, extra-dimension/CRS/VLR management, and the COPC octree-subset spatial/LOD read
-- Accept: LAS 1.0–2.0 files, LAZ through a `LazBackend`-selected codec, `DecompressionSelection` field masking, `ExtraBytesParams` extra dimensions, and COPC paths/HTTP URLs/file objects through `CopcReader`
-- Reject: hand-rolled binary LAS parsing; a re-implemented LASzip range codec; a per-direction IO type where `laspy.open(mode)` discriminates; a raw NumPy column where `ExtraBytesParams` declares the dimension; a second field-mask vocabulary parallel to `DecompressionSelection`

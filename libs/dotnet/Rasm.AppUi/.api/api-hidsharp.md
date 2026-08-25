@@ -2,17 +2,7 @@
 
 `HidSharp` owns the AppUi raw-HID surface: driver-free cross-platform device enumeration, duplex `HidStream` open over the win/linux/macos backend, raw input/output/feature report I/O, and the `HidSharp.Reports` descriptor parser that decodes a report into typed `DataValue` fields. `Hid` folds onto the single `InputFabric` edge every device rail shares, decoding a 6-DOF HID device through `DeviceItemInputParser`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HidSharp`
-- package: `HidSharp` (Apache-2.0)
-- assembly: `HidSharp`
-- consumer-tfm: `netstandard2.0` (package ships `netstandard2.0`/`net35`; `net10.0` binds the `netstandard2.0` asset)
-- namespace: `HidSharp`, `HidSharp.Reports`, `HidSharp.Reports.Input`
-- asset: managed runtime library; P/Invokes the OS HID stack (Win32 `hid.dll`/SetupAPI, Linux `udev`/`hidraw`, macOS IOKit) at runtime, ships no native asset
-- rail: input
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: device enumeration and access
 
@@ -56,7 +46,7 @@
 |  [01]   | `HidDeviceInputReceiver` | background reader | event-driven report pump        |
 |  [02]   | `DeviceItemInputParser`  | report decoder    | per-collection value extraction |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: enumeration and filtering
 
@@ -141,7 +131,7 @@
 |  [03]   | `HidDeviceInputReceiver.Received` / `Started` / `Stopped`    | event    | pump lifecycle events       |
 |  [04]   | `HidDeviceInputReceiver.WaitHandle` / `IsRunning` / `Stream` | property | wait gate and running state |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DeviceList.Local` roots process-wide enumeration; source-side `vendorID`/`productID` filters select through `DeviceFilterHelper.MatchHidDevices`, and `HidDevice` carries identity and report capacities before `Open` acquires the one OS handle.
@@ -160,9 +150,3 @@
 - Enumeration passes vendor and product ids to `GetHidDevices`; the capsule never enumerates the full set and post-filters.
 - `Open`/`TryOpen` pair with `Dispose` in a scoped fold; raw report bytes decode inside `DeviceItemInputParser`/`DataValue`, so canonical `DeviceAxis` values leave the capsule, never raw HID arrays.
 - A polling loop sets a finite `ReadTimeout`; the event path parks on `HidDeviceInputReceiver.WaitHandle`, never a busy-wait `Read`.
-
-[RAIL_LAW]:
-- Package: `HidSharp`
-- Owns: cross-platform raw HID access — enumeration, open/configuration, raw input/output/feature report I/O, report-descriptor parsing, and typed multi-axis value decoding for the InputFabric `Hid` source.
-- Accept: `DeviceList.Local` enumeration with source-side vendor/product filters, scoped `HidStream` open-and-dispose pairs, descriptor-driven `DeviceItemInputParser`/`DataValue` decoding, and the `Hid` case on the single `InputFabric` edge beside `Gamepad`/`Haptic`/`Midi`, folding normalized `DeviceAxis` samples onto the one `CommandRow` table.
-- Reject: a vendor-specific 3DConnexion driver dependency, manual bit-shifting of raw report bytes when `DataItem`/`DataValue` model the field, a busy-wait `Read` loop when `HidDeviceInputReceiver` plus `WaitHandle` carries the stream, and a parallel HID→intent edge beside the shared `InputFabric` fold.

@@ -20,7 +20,7 @@ The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template
 - Boundary: this page emits profiles, vocabulary rows, bags, seam property sets, and the seed fold. `MasonryVoids.Bucket` rails an invalid derived fraction on `CoringRejected`; bond-orbit refusals lower once to `BondRejected`, and section-map membership derives from `ProfileTopology.Solvable`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;

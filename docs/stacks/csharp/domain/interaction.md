@@ -128,7 +128,7 @@ public static class Spine {
 
     public static Seq<RestoreFact> Restore(ShellScreen shell, Seq<string> saved) {
         ArgumentNullException.ThrowIfNull(shell);
-        var resolved = saved
+        Seq<(RestoreFact Fact, IRoutableViewModel View)> resolved = saved
             .Map(key => Catalog.Find(row => row.Key == key)
                 .Map(row => (Fact: new RestoreFact(key, true), View: row.Make(shell)))
                 .IfNone(() => (new RestoreFact(key, false), Catalog[0].Make(shell))))
@@ -161,7 +161,7 @@ public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyD
     string raw = "";
 
     public EditScreen(Func<string, Validation<Error, int>> admit, IObservable<int> live) {
-        var outcome = this.WhenAnyValue(static screen => screen.Raw).Select(value => admit(value));
+        IObservable<Validation<Error, int>> outcome = this.WhenAnyValue(static screen => screen.Raw).Select(value => admit(value));
         score = outcome.Select(static fold => fold.Match(Succ: identity, Fail: static _ => 0))
             .ToProperty(this, static screen => screen.Score, initialValue: 0, deferSubscription: true);
 
@@ -260,7 +260,7 @@ public static class CommandTable {
     public static Validation<Error, Seq<KeyBinding>> KeyTable(Seq<BoundRow> table, string scope) =>
         toSeq(table.Choose(static bound => bound.Row.Gesture.Map(chord => (Chord: chord, bound.Command)))
                 .GroupBy(static claim => claim.Chord))
-            .Traverse(group => toSeq(group) is [var only]
+            .Traverse(group => toSeq(group) is [(string Chord, ReactiveCommand<Trigger, CommandOutcome> Command) only]
                 ? Success<Error, KeyBinding>(new KeyBinding { Gesture = KeyGesture.Parse(only.Chord), Command = only.Command })
                 : new Fault.Bounds($"<gesture-conflict:{scope}:{group.Key}>"))
             .As()
@@ -331,9 +331,9 @@ public static class BindingEdge {
     public static (ReadOnlyObservableCollection<RowModel> View, IDisposable Live) Bound(
         IObservable<IChangeSet<RowModel, string>> rows, IScheduler ui) {
         ArgumentNullException.ThrowIfNull(rows);
-        var live = rows.DisposeMany()
+        IDisposable live = rows.DisposeMany()
             .ObserveOn(ui)
-            .SortAndBind(out var view,
+            .SortAndBind(out ReadOnlyObservableCollection<RowModel> view,
                 SortExpressionComparer<RowModel>.Ascending(static row => row.Entry.Path),
                 new SortAndBindOptions { UseBinarySearch = true, ResetThreshold = 80, InitialCapacity = 256 })
             .Subscribe();
@@ -440,7 +440,7 @@ public static class VariantFold {
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(tokens);
         ArgumentNullException.ThrowIfNull(edge);
-        var (axis, variant, density) = edge.Selected;
+        (string axis, string variant, string density) = edge.Selected;
         return tokens.Swap(axis, variant, density).Changed.IsEmpty
             ? unit
             : Apply(app, theme, tokens.Current, Variants[variant], edge.Compact);

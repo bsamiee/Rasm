@@ -24,7 +24,7 @@ Capability, fidelity, and scale participation are all SET membership over `Capab
 - Growth: a new fidelity is one row plus its legal corner; a new trait, axis, or resource stance is one row; every option projection that reads the new column breaks loudly at the row constructor, never silently at a call site.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;

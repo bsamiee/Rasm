@@ -25,7 +25,7 @@
 - Growth: a new join mechanism is one `JoinMethod` row and, where its scalar or identifier is new, one `JoinMetric` or `JoinText` row; phase, edge, scheduler, preimage, and consumer surfaces stay unchanged.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;

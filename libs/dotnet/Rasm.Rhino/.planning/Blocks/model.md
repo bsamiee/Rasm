@@ -54,7 +54,7 @@ public static class Definitions {
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinition`, `GetReferences`, `UseCount`, `GetContainers`, `UsesLayer`/`UsesLinetype`/`UsesDefinition`), RhinoCommon document (`.api/api-rhinocommon-document.md` — tables the dependency probes bound against), kernel `Domain/identity` (`ContentHash.Of<TState>`, `CanonicalWriter`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -456,7 +456,7 @@ public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md:98-100` — the three `CreatePreviewBitmap` overloads), kernel `Interaction/asset` (`AssetExtent`), kernel `Domain/validation` (`CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;

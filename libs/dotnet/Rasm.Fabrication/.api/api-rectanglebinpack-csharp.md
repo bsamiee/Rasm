@@ -2,16 +2,7 @@
 
 `RectangleBinPack.CSharp` is the pure-managed C# port of Jylanki's academic axis-aligned 2D bin-packing suite: four stateful per-bin packers (`MaxRectsBinPack`, `SkylineBinPack`, `GuillotineBinPack`, `ShelfBinPack`) and the mass-cut `SingleBinPack`, each an incremental `Insert` stream over its own heuristic enum, all returning the mutable `Rect` struct. `Nesting/stock` consumes it as the sheet-material rectangle placement and utilization engine, from panel-saw straight cuts to homogeneous sheet yield. Placement failure is the `Height == 0` sentinel, never a thrown exception.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `RectangleBinPack.CSharp`
-- package: `RectangleBinPack.CSharp` (MIT)
-- assembly: `RectangleBinPacking` (`lib/netstandard2.0/RectangleBinPacking.dll`; single TFM, the sole asset — the assembly name diverges from the package id)
-- namespace: `RectangleBinPacking`
-- asset: pure-managed AnyCPU IL, zero package dependencies — no native asset, no RID burden, ALC-safe; the `net10.0` consumer binds the one `netstandard2.0` asset directly
-- rail: fabrication (`Nesting/stock` 2D cutting-stock placement)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: packer classes and the rectangle struct
 
@@ -66,7 +57,7 @@
 - `SkylineBinPack.LevelChoiceHeuristic`: `LevelBottomLeft` `LevelMinWasteFit`
 - `ShelfBinPack.ShelfChoiceHeuristic`: `ShelfNextFit` `ShelfFirstFit` `ShelfBestAreaFit` `ShelfWorstAreaFit` `ShelfBestHeightFit` `ShelfBestWidthFit` `ShelfWorstWidthFit`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: per-algorithm incremental `Insert` — one part per call, returning the placed `Rect` (`Height == 0` marks the part that did not fit)
 
@@ -78,7 +69,7 @@
 |  [04]   | `ShelfBinPack.Insert(int, int, ShelfChoiceHeuristic)`                                         | instance | row-band shelf fit        |
 |  [05]   | `SingleBinPack.Insert(int, int, int) -> List<Rect>`                                           | fold     | homogeneous sheet yield   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each packer is a mutable single-bin state machine: construct or `Init` to one bin extent, then `Insert` per part, each call mutating the free/used geometry and returning the placed `Rect`; the consumer pre-sorts parts descending by area or longer side (placement is order-sensitive) and folds each returned `Rect.X`/`Rect.Y` into a scalar placement transform.
@@ -95,9 +86,3 @@
 
 [LOCAL_ADMISSION]:
 - `Nesting/stock` is the sole consumer: build one packer per sheet, feed parts `Insert`-at-a-time in descending-area order, and map `Height == 0` to `FabricationFault.Nest`; the guillotine `Insert` references `GuillotineBinPack.FreeRectChoiceHeuristic.*` explicitly — its nested enum is a distinct type from the top-level `FreeRectChoiceHeuristic`.
-
-[RAIL_LAW]:
-- Package: `RectangleBinPack.CSharp` (assembly `RectangleBinPacking`)
-- Owns: the academic axis-aligned 2D bin-packing suite — `MaxRectsBinPack` densest general, `SkylineBinPack` fast streaming, `GuillotineBinPack` panel-saw straight-cut, `ShelfBinPack` row-band, `SingleBinPack` homogeneous mass-cut — each a stateful per-bin `Insert` stream over its own heuristic enum, all returning `Rect`.
-- Accept: the `Nesting/stock` sheet-placement and material-utilization fold — footprints and sheet extents ceiled to `int`, the algorithm chosen by layout intent, utilization and remnants derived from `Rect.Area` sums and the free-rectangle lists.
-- Reject: true-shape or irregular-polygon nesting (the suite is AABB-only); a second rectangular packer beside `StockNest.Pack`; a `Rect` or heuristic-enum type escaping the `Nesting/stock` fold into an unrelated sibling signature; treating the two `FreeRectChoiceHeuristic` enums as one type.

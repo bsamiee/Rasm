@@ -23,7 +23,7 @@ Rebuilds compose the un-gated Genus-tolerant `Topology` projection as the before
 - Boundary: crossing, CDT, and boolean classification stay `Intersection`/`Tessellation`/`Arrangement` property, point proximity the `Spatial` neighbor lane. `RepairPolicy.Retile` names the constrained CDT stage, never remeshing; a composed sibling fault propagates unwrapped, and a collapse or re-mesh preserves every load-bearing feature.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -511,14 +511,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or column.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RAIL]                                             | [CASES] |
-| :-----: | :--------------- | :-------------- | :------------------------------------------------- | :-----: |
-|  [01]   | Healing rail     | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>`    |    7    |
-|  [02]   | Heal modality    | `HealStage`     | `stage.Step(StepSeed) → Fin<HealStep>`    |    7    |
-|  [03]   | Retile row       | `Cut`           | interior (plane carriage)                          |    2    |
-|  [04]   | Policy row       | `RepairPolicy`  | `RepairPolicy.Of → Fin<RepairPolicy>`              |    —    |
-|  [05]   | Request carrier  | `HealPlan`      | `HealPlan.Of → Fin<HealPlan>`                      |    —    |
-|  [06]   | Shared incidence | `Incidence`     | interior (arena-tier scratch)                      |    3    |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RAIL]                                          | [CASES] |
+| :-----: | :--------------- | :-------------- | :---------------------------------------------- | :-----: |
+|  [01]   | Healing rail     | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>` |    7    |
+|  [02]   | Heal modality    | `HealStage`     | `stage.Step(StepSeed) → Fin<HealStep>`          |    7    |
+|  [03]   | Retile row       | `Cut`           | interior (plane carriage)                       |    2    |
+|  [04]   | Policy row       | `RepairPolicy`  | `RepairPolicy.Of → Fin<RepairPolicy>`           |    —    |
+|  [05]   | Request carrier  | `HealPlan`      | `HealPlan.Of → Fin<HealPlan>`                   |    —    |
+|  [06]   | Shared incidence | `Incidence`     | interior (arena-tier scratch)                   |    3    |
 
 ## [04]-[RESEARCH]
 

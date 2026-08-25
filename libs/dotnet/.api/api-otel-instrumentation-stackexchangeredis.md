@@ -2,16 +2,7 @@
 
 `OpenTelemetry.Instrumentation.StackExchangeRedis` mints the Redis wire's db-semconv span: it registers a profiling-session factory on each bound `IConnectionMultiplexer` and folds every drained `IProfiledCommand` into a `Client`-kind span named for the Redis verb, backdated to the profiled command's creation. Its `ActivitySource` name matches the package on every semantic-convention arm, and no `Meter` ships — cache-op counts and hit ratios stay backend span aggregation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- package: `OpenTelemetry.Instrumentation.StackExchangeRedis` (Apache-2.0)
-- assembly: `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- namespace: `OpenTelemetry.Trace`, `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- depends: `StackExchange.Redis` — the `RegisterProfiler` hook every bound multiplexer takes
-- rail: storage instrumentation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumentation handle, its per-name options carrier, and the callback payload
 
@@ -21,7 +12,7 @@
 |  [02]   | `StackExchangeRedisInstrumentationOptions` | class         | per-name span policy           |
 |  [03]   | `RedisInstrumentationContext`              | struct        | filter and enrich payload      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder admission, connection binding, and the options slots each registration name carries; every shorthand folds to `AddRedisInstrumentation(string?, IConnectionMultiplexer?, object?, Action<StackExchangeRedisInstrumentationOptions>?)`, which resolves an absent connection from the application `IServiceProvider` and keys that lookup on `serviceKey`
 
@@ -48,7 +39,7 @@
 - `ConfigureRedisInstrumentation`: throws `NotSupportedException` on a builder outside `IDeferredTracerProviderBuilder`.
 - `StackExchangeRedisInstrumentationOptions.Filter`: drops the command on both a `false` return and a thrown exception.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - profiler seat: each bound connection takes `RegisterProfiler` with a session factory keyed on `Activity.Current`'s trace and span ids; a null or non-W3C current activity routes its commands to that connection's default session, and those spans mint parentless.
@@ -71,9 +62,3 @@
 - Registration binds at the AppHost root owning the Redis clients; that root reaches the source name alone, never the `StackExchange.Redis` assembly Persistence carries.
 - Setting `Filter` or `Enrich` holds every profiled command until its parent activity completes, so both stay unset on high-fanout cache paths unless the drop or tag earns the retained memory.
 - Every held multiplexer joins through `AddConnection`, or its hops leave the trace.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- Owns: Redis command spans and the per-connection profiler hook at the composition root
-- Accept: `AddRedisInstrumentation` with its held or DI-keyed connection; `ConfigureRedisInstrumentation` for late `AddConnection` across several multiplexers
-- Reject: hand-rolled db-semconv spans over raw `IProfiledCommand`

@@ -19,7 +19,7 @@ Kernels follow the runtime lane law — a caller supplies its kernel, the corpus
 - Boundary: no timing, quantile, threshold, verdict, or instrument construction at artifacts grain — the runtime tier measures and grades, and a page-local `perf_counter` bracket or a second tool-discovery ladder is the deleted form; a benchmark grades the producer and creates no artifact. A process-terminal corpus run rides the runtime `JobRun.bounded` envelope so the final projection flushes. A `floor` names the runtime roster's own `KTX_TOOL` PROVISION id, never the texture plane's spawn-command constant — one is the key a host is probed under and the other the executable a leg launches, and conflating them makes both surfaces candidate owners of one spelling. The import direction is one-way by construction: the grader and the tool roster seat at a tier every stratum reaches, so a producer plane composes them directly and no lookup reaches upward.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from typing import Final, Literal
 

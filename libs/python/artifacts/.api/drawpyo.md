@@ -2,15 +2,7 @@
 
 `drawpyo` owns the editable draw.io (`.drawio`) egress and ingest concern for the artifacts diagram rail: a pure-Python `File` -> `Page` -> `XMLBase` spine whose `File.write` serializes native mxGraph XML, a closed `Object`/`Edge`/`Group`/`Point`/`TextFormat` vocabulary with TOML-bounded style axes, the `object_from_library` shape factory and Edit-Style round-trip, the `dict`-folding `TreeDiagram`/`BarChart` auto-layout builders, and the inverse `load_diagram` parser to a typed `ParsedDiagram`. It owns the editable-`.drawio` wire alone: rasterization routes to `resvg-py`/`vl-convert`/`pyvips`, graph routing to `rustworkx`/`pyelk`/`fast-sugiyama` (`TreeDiagram` is the built-in hierarchical fallback, never the routing engine), and content identity to `rasm.runtime.identity#ContentIdentity`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `drawpyo`
-- package: `drawpyo` (MIT)
-- module: `drawpyo`
-- namespaces: `drawpyo`, `drawpyo.diagram`, `drawpyo.diagram_types`, `drawpyo.drawio_import`, `drawpyo.utils`
-- rail: diagram
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document spine
 
@@ -73,7 +65,7 @@
 
 `RawMxCell` fields: `id`/`parent`/`children`/`value`/`style`/`is_vertex`/`is_edge`/`source`/`target`/`geometry`; `RawGeometry` fields: `x`/`y`/`width`/`height`/`relative`/`points`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document spine — author, serialize, write
 
@@ -163,7 +155,7 @@
 |  [03]   | `ParsedDiagram.get_by_id(cell_id)`   | lookup  | one element by its draw.io cell id (`None` if absent)                                 |
 |  [04]   | `ParsedDiagram.element_count` (prop) | query   | `len(shapes) + len(edges)`                                                            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import drawpyo` at egress scope only; the mxGraph object model never leaks into domain code — the domain holds the `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph` grammar and lowers it here.
@@ -184,8 +176,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `drawpyo` as the sole editable-`.drawio` author/serialize/ingest owner on the diagram rail; a second `.drawio` emitter or XML parser is rejected.
-
-[RAIL_LAW]:
-- Package: `drawpyo`
-- Owns: editable-`.drawio` (mxGraph XML) author/serialize/ingest via the `File`/`Page`/`XMLBase` spine, the `Object`/`Edge`/`Group`/`Point`/`TextFormat` vocabulary with TOML-validated style axes, the `object_from_library` shape factory, the Edit-Style round-trip, container parenting, the `TreeDiagram`/`BarChart`/`PieChart`/`Legend` builders, the `load_diagram` inverse parser, and the `StandardColor`/`ColorScheme`/`PageSize` value objects.
-- Reject: a hand-emitted mxGraph `style="..."` or raw `<mxCell>` XML; a free-string `waypoints`/`connection`/`pattern`/`jumpStyle`; a per-shape `Object` subtype family; a raster op `resvg-py`/`vl-convert`/`pyvips` owns; a second SVG emitter where the `visualization/diagram/draw#DRAW` `drawsvg` arm renders the same grammar; a re-implemented graph layout `rustworkx`/`pyelk`/`fast-sugiyama`/`libavoid` route; a second `.drawio` parser where `load_diagram` ingests; identity minting the runtime owns.

@@ -2,15 +2,7 @@
 
 `pandera` mints dataframe and series contracts and enforces them across pandas, polars, pyspark, and geopandas backends, the engine bound by the imported namespace rather than a runtime branch. Object schemas (`DataFrameSchema` over `Column`/`Index`) and class schemas (`DataFrameModel` with `Field`) share one vocabulary — `to_schema()` lowers the class form to the object form. `validate` runs eager or `lazy`, raising `SchemaError`/`SchemaErrors` whose `.failure_cases` is a foldable frame; schemas round-trip through YAML/JSON and `infer_schema` bootstraps one from data.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pandera`
-- package: `pandera` (MIT)
-- module: `pandera`
-- namespaces: `pandera.pandas`, `pandera.polars`, `pandera.pyspark`, `pandera.geopandas`
-- rail: dataframe contract validation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: schema, component, and check types
 
@@ -50,7 +42,7 @@
 |  [10]   | `Decimal`                     | decimal dtype  | fixed-precision decimal dtype  |
 |  [11]   | `Object`                      | object dtype   | opaque Python-object dtype     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema construction and validation
 
@@ -90,7 +82,7 @@
 
 - `Check.gt`/`ge`/`lt`/`le`/`eq`/`ne` are short forms of `greater_than`/`greater_than_or_equal_to`/`less_than`/`less_than_or_equal_to`/`equal_to`/`not_equal_to`; both spellings resolve.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Namespace selects the engine: `pandera.pandas` validates pandas frames, `pandera.polars` the polars scan natively, `pandera.pyspark` distributed Spark frames, `pandera.geopandas` geometry-aware columns — one `Column`/`Check`/`Field` vocabulary, one backend binding, no runtime branch.
@@ -115,9 +107,3 @@
 - Gate a function boundary with `@check_types` (or `@check_input`/`@check_output`/`@check_io`) so a typed `Series`/`DataFrame` annotation enforces at call time.
 - Use `lazy=True` and fold native `SchemaErrors.failure_cases` into the profile grade; use `coerce=True` and `Parser` to normalize before validation.
 - On the polars plane, define `pandera.polars` schemas so validation runs on the polars frame natively; collect a `pl.LazyFrame` to a `pl.DataFrame` at the gate so `SchemaError`/`SchemaErrors` fires. Round-trip through `to_yaml`/`from_yaml` for a versioned contract; `infer_schema` and `to_script` bootstrap, never the final contract.
-
-[RAIL_LAW]:
-- Package: `pandera`
-- Owns: declarative dataframe/series contracts across pandas/polars/pyspark/geopandas backends, validation execution, and function-boundary enforcement.
-- Accept: backend frames and series via the matching namespace, typed `pandera.typing` annotations, and serialized schema definitions.
-- Reject: an `assert`-based column check, a manual dtype/range validation loop, an untyped boundary function skipping schema enforcement, and collecting a `LazyFrame` to pandas solely to validate where `pandera.polars` validates the scan in place.

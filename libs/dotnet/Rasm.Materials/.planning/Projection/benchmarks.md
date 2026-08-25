@@ -2,7 +2,7 @@
 
 KERNEL benchmark identity is a `BenchKernel` row with a `BenchInput` pin and its resolved content key. `Suite` derives as `rasm.materials.<kernel>`, and `Case` carries both the pin token and content key, so catalogue or library content changes fork claim lineage without requiring a new row spelling.
 
-Settled composition: Materials owns workload vocabulary and content-bound identity. `Benchmark`, `BenchMeasurement`, `BenchmarkFault`, `GatePolicy`, and `BenchmarkGate` arrive settled from `Rasm.AppHost/Observability/benchmarks#BENCHMARK` under the branch benchmark-peer up-reference ruling, `BenchMeasurement.Of` already folding the harness sample into one `Distribution<Elapsed>`; `InstrumentSet` arrives from the kernel signal capsule. BenchmarkDotNet binds in the branch bench project and never this package's csproj.
+Settled composition: Materials owns workload vocabulary and content-bound identity. `Benchmark`, `BenchMeasurement`, `BenchmarkFault`, `GatePolicy`, and `BenchmarkGate` arrive settled from `Rasm.AppHost/Observability/benchmarks#BENCHMARK` under the branch benchmark-peer up-reference ruling, `BenchMeasurement.Of` already folding the harness sample into one `Distribution<Elapsed>`; `InstrumentSet` arrives from the kernel signal capsule.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ Settled composition: Materials owns workload vocabulary and content-bound identi
 - Boundary: workload rows pin inputs and derive identity — kernel bodies stay on their owning pages and a workload never re-implements the kernel it measures. `PressGpuParity` is the one workload whose INTEREST is not its own duration: it presses one plan on both lanes and COMPOSES `press#PRESS_PRODUCT` `PressProduct.Parity`, which the gate reads as evidence and NEVER as a content input — persisted plane bytes are CPU-minted by structure, so grading that divergence against a tolerance proposes exactly the equivalence the content-identity veto denies.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rasm.AppHost.Observability;
@@ -56,7 +56,7 @@ public sealed partial class BenchKernel {
     public static readonly BenchKernel Convolve = new("texture.convolve.separable");
     public static readonly BenchKernel ConvolveSquare = new("texture.convolve.square");
     public static readonly BenchKernel MipFold = new("texture.mip-fold");
-    public static readonly BenchKernel GoldenProve = new("gpu.golden-prove");
+    public static readonly BenchKernel OracleProve = new("gpu.oracle-prove");
     public static readonly BenchKernel HeightSolve = new("texture.height-solve");
     public static readonly BenchKernel PlaneCodec = new("texture.codec");
     public static readonly BenchKernel IblPrefilter = new("environment.prefilter");
@@ -117,10 +117,10 @@ public static class BenchPin {
     public static Fin<Seq<BrdfSample>> SyntheticGrid(BenchInput.Synthetic pin, Op key) =>
         Acquisition.SyntheticGrid(pin.Seed, pin.Count, key);
 
-    public static Fin<Seq<GoldenVector>> Golden(Op key) =>
-        Raster.Golden.All is { IsEmpty: false } fixtures
+    public static Fin<Seq<OracleVector>> Oracle(Op key) =>
+        Raster.Oracle.All is { IsEmpty: false } fixtures
             ? Fin.Succ(fixtures)
-            : new ProjectionFault.Unresolved(key, "<bench-golden-roster-empty>");
+            : new ProjectionFault.Unresolved(key, "<bench-oracle-roster-empty>");
 
     public static Fin<ProgramPin> Program(ProgramPin program, Func<string, Op, Fin<Unit>> library, Op key) =>
         program.Switch(
@@ -139,10 +139,10 @@ public static class BenchPin {
 - Law: identity columns are this folder's and measurement columns are the harness's — the host fingerprint, verdict, and artifact key belong to the AppHost mint, and spelling any of them here forks the gate's own truth. Materials claims no relative lane, so `Reference` stays absent and `GatePolicy.SpeedupFloor` stays `None`.
 - Packages: LanguageExt.Core, BCL inbox.
 - Growth: a new corpus entry is one logical pin row; a new measured benchmark axis remains an AppHost owner change threading `BenchMeasurement`; harness residence and claim residence arrive as functions, so the bench project moves either without touching this page.
-- Boundary: raw BenchmarkDotNet artifacts stay at the bench-project edge, which supplies `harness` and `claim` — this page composes the gate and never opens a measurement session, a durable claim store, or an `ActivitySource`. No statistical fold lands here: `BenchMeasurement.Of` already admits the harness sample into exact order statistics over one `Distribution<Elapsed>`, so a folder-local moment mint states a second answer to a measurement the AppHost carrier owns.
+- Boundary: this page composes the gate and never opens a measurement session, a durable claim store, or an `ActivitySource`. No statistical fold lands here: `BenchMeasurement.Of` already admits the harness sample into exact order statistics over one `Distribution<Elapsed>`, so a folder-local moment mint states a second answer to a measurement the AppHost carrier owns.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using LanguageExt;
@@ -177,7 +177,7 @@ public static class MaterialsBench {
             (BenchKernel.Convolve, new BenchInput.Extent(4096, 4096, CarMetallic)),
             (BenchKernel.ConvolveSquare, new BenchInput.Extent(4096, 4096, CarMetallic)),
             (BenchKernel.MipFold, new BenchInput.Extent(4096, 4096, CarMetallic)),
-            (BenchKernel.GoldenProve, new BenchInput.Roster()),
+            (BenchKernel.OracleProve, new BenchInput.Roster()),
             (BenchKernel.HeightSolve, new BenchInput.Extent(2048, 2048, new ProgramPin.Height(HeightSolver.Poisson))),
             (BenchKernel.HeightSolve, new BenchInput.Extent(4096, 4096, new ProgramPin.Height(HeightSolver.Poisson))),
             (BenchKernel.IblPrefilter, new BenchInput.Extent(2048, 1024, CarMetallic)))

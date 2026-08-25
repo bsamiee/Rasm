@@ -1009,7 +1009,7 @@ The delivery table routes each change-set operator to the ONE owner that compose
 | :-----: | :-------------------- | :---------------------- | :------------------------------------------------------------------------- |
 |  [01]   | dynamic-filter        | Filter                  | `PipelineFolds.Shape`; predicate stream, pushed value, no resubscribe      |
 |  [02]   | comparative-sort      | Sort                    | `PipelineFolds.Shape`; comparer stream for mid-pipeline order              |
-|  [03]   | projection            | Transform               | consuming surface; row models projected from domain sources                 |
+|  [03]   | projection            | Transform               | consuming surface; row models projected from domain sources                |
 |  [04]   | flat-map              | TransformMany           | consuming surface; one host fact expands to N child rows                   |
 |  [05]   | live-grouping         | Group                   | `OptionSet.Readings`; per-option KPI slices off one subscription           |
 |  [06]   | stable-grouping       | GroupWithImmutableState | `Shell/virtualization#HIERARCHY_FLATTEN`; paged and windowed bands         |

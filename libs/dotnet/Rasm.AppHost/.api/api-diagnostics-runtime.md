@@ -2,16 +2,7 @@
 
 `Microsoft.Diagnostics.Runtime` (ClrMD) owns post-capture managed triage: it reads a captured minidump back into a live CLR view and walks the GC heap, managed threads, stack traces, and in-flight exceptions. It is the categorical owner of dump heap/thread/stack analysis, admitting a `Microsoft.Diagnostics.NETCore.Client` dump artifact and projecting it into structured support-bundle artifacts, never a hand-rolled minidump parser.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Diagnostics.Runtime`
-- package: `Microsoft.Diagnostics.Runtime` (MIT)
-- assembly: `Microsoft.Diagnostics.Runtime`
-- namespace: `Microsoft.Diagnostics.Runtime`
-- asset: managed runtime library; the matching DAC resolves through `DataTargetOptions.SymbolPaths`
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: target and runtime roots
 
@@ -52,7 +43,7 @@
 |  [05]   | `ClrRootKind`       | enum          | stack, handle, and finalizer-queue root provenance                             |
 |  [06]   | `GCSegmentKind`     | enum          | `Generation0/1/2`/`Large`/`Pinned`/`Frozen`/`Ephemeral` segment classification |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: target construction — each surface returns a `DataTarget` root
 
@@ -97,7 +88,7 @@
 
 [STACK_WALK_LAW]: `ClrThread.EnumerateStackTrace` bounds the walk by `maxFrames`, defaulting to `DataTargetOptions.Limits.MaxStackFrames`; `ClrStackFrame.Kind` discriminates a managed frame (carrying a `ClrMethod`) from a runtime frame (carrying only a `FrameName`), so the projection reads `Method` only on a managed `Kind`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Triage passes open the minidump read-only through `DataTarget.LoadDump`, then `ClrInfo.CreateRuntime()` binds the matching DAC to a live `ClrRuntime` view.
@@ -114,9 +105,3 @@
 - DAC-resolution and corruption faults (`ClrDiagnosticsException`, a missing or mismatched DAC, `ClrHeap.CanWalkHeap == false`, `IsObjectCorrupted`) fold to typed `SupportFault` manifest entries for the failed summary, never a thrown exception aborting the bundle.
 - Triage binds captured artifacts and the host/companion process tree the AppHost owns, self-attaching through `AttachToProcess`/`CreateSnapshotAndAttach` only for live escalation, never a general remote-process attach, and rides `DeadlineClass` bounds so a slow symbol fetch degrades one summary row.
 - Every triage summary is a `SupportManifest` entry carrying a `Rasm.Domain.ContentHash.Of` hash over the payload; the source dump path is recorded, never the dump bytes crossing the wire.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Diagnostics.Runtime`
-- Owns: post-capture heap/thread/stack/exception triage over a captured dump or an escalation self-attach on the host/companion process tree
-- Accept: `DataTarget.LoadDump` over a `NETCore.Client` dump, `CreateRuntime()` DAC binding, bounded heap/thread projection as row policy, and disposal inside the window
-- Reject: a hand-rolled minidump parser, an unbounded full-heap census on a routine window, a general remote-process attach, or a thrown DAC/corruption fault crossing the bundle pipeline

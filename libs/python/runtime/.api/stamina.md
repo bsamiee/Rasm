@@ -2,16 +2,7 @@
 
 `stamina` mints the production retry layer over `tenacity`: a `@retry` decorator and a `retry_context` iterator share one keyword policy schema, reusable sync/async callers bind the retryable exception set through `.on(...)`, exponential backoff with jitter and a wait cap schedules every attempt, and a context-manager-capable on-retry hook surface feeds the observability rail. It is the resilience rail's sole owner — every transient-failure boundary folds through it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `stamina`
-- package: `stamina` (MIT)
-- module: `stamina`
-- namespaces: `stamina` (callers, `retry`/`retry_context`, active/test toggles), `stamina.instrumentation` (hook protocol/factory/data, shipped emitters, register/read), `stamina.typing` (type-only `RetryDetails`/`RetryHook` re-export)
-- rail: resilience
-- depends: `tenacity` (scheduling engine)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: retry-caller family
 - `RetryingCaller`/`AsyncRetryingCaller` subclass `BaseRetryingCaller`; sync/async is the runtime axis, bound/unbound the exception-binding axis. `.on(exc_or_hook)` returns a `Bound*` caller — a distinct class, never a `functools.partial`, so the `(callable, *args, **kw)` signature stays precisely typed. Every caller is reusable: each `__call__` opens a fresh `retry_context`.
@@ -57,7 +48,7 @@
 |  [06]   | `waited_so_far` | `float`              | cumulative seconds waited across prior attempts       |
 |  [07]   | `caused_by`     | `Exception`          | the exception that triggered this retry               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: retry operations
 - schema carry: `on` (required), `attempts=10`, `timeout=45.0`, `wait_initial=0.1`, `wait_max=5.0`, `wait_jitter=1.0`, `wait_exp_base=2`; `timeout`/`wait_*` accept `float | timedelta`.
@@ -84,7 +75,7 @@
 |  [02]   | `instrumentation.get_on_retry_hooks()`      | instrumentation | read active `tuple[RetryHook, ...]`                   |
 |  [03]   | `instrumentation.get_prometheus_counter()`  | instrumentation | the `Counter \| None` backing `PrometheusOnRetryHook` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every transient-failure boundary folds through `@retry` (whole callable) or a `retry_context` block (inline); a hand-rolled `sleep` loop is the deleted form.
@@ -100,9 +91,3 @@
 [LOCAL_ADMISSION]:
 - Every fallible I/O boundary in the lane and transport surfaces composes `retry`/`retry_context`; no sibling stands up a second retry loop.
 - Deterministic specs call `set_testing(True)` to collapse backoff and cap attempts; production code never branches on test mode.
-
-[RAIL_LAW]:
-- Package: `stamina`
-- Owns: retry policy, exponential-backoff scheduling with jitter/cap, custom per-error backoff, reusable retrying callers with exception binding, context-manager-capable on-retry instrumentation
-- Accept: `@retry`/`retry_context` boundaries sharing the keyword schema, reusable `*RetryingCaller` with `.on(...)` binding, `ExcOrBackoffHook` targets, registered `RetryHook`/`RetryHookFactory` hooks, `set_testing` in specs
-- Reject: manual retry loops, hand-coded backoff delays, blanket exception retrying, unbounded loops (`attempts` and `timeout` both `None`), duplicated retry logging, a second retry or backoff implementation

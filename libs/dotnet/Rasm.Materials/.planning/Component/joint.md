@@ -18,7 +18,7 @@ THE JOINT SEED PAGE — the `joint` `ComponentFamily` row (`ComponentClass.Minor
 - Boundary: `StudClass.SteelShearKn` takes its `StudGroup` and has no default. AISC Eq I8-1 caps the stud at `Rg·Rp·Asa·Fu`, where `Rg` falls to 0.85 at two studs per rib and 0.70 at three, and `Rp` falls from 0.75 to 0.60 the moment the stud sits in the weak position — a stud group frozen at `1.0`/`0.75` reports a strong-position, directly-welded connector's capacity for a three-per-rib weak-position one and over-states it by more than half. The deck relation, the studs-per-rib count, and the rib position are PLACEMENT facts, so they arrive as the placement's own `StudGroup` and the vocabulary carries the published pair for each.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

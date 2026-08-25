@@ -2,16 +2,7 @@
 
 `cmdk` owns the command-palette machine the `view/overlay` plane mounts: one compound `Command` drives the search input, scored-and-filtered item list, keyboard navigation, and an internal store, exposed as a slot namespace with flat `Command*` aliases. Every primitive takes `asChild` to merge onto the folder's react-aria pressable spine, the `filter` scorer swaps, and `useCommandState` selects the store for empty and loading rows — cmdk owns list, filter, and keyboard while styling, glyphs, async sources, and the host modal are sibling rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cmdk`
-- package: `cmdk` (MIT)
-- module: `.` only — `Command` compound + `Command*` flat aliases, `useCommandState`, `defaultFilter`; `command-score` is not a public subpath
-- runtime: React client component — DOM + focus management, not universal
-- depends: `@radix-ui/react-dialog` (portal Dialog host), `@radix-ui/react-primitive` (`asChild` Slot), `@radix-ui/react-id` (SSR-safe ids), `@radix-ui/react-compose-refs`
-- rail: view/command-palette
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the filter scorer and store shape — the seam a design page composes a custom scorer and store selector against, reached through the `filter` prop and the `useCommandState` selector rather than name-imported
 
@@ -24,7 +15,7 @@
 |  [02]   | `State`         | store snapshot | the shape `useCommandState` selects over                     |
 |  [03]   | `defaultFilter` | default scorer | command-score fuzzy ranking; wrap or replace it via `filter` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the compound component and its store hook
 
@@ -53,7 +44,7 @@
 - [09]-[DIALOG]: `RadixDialog.DialogProps` + `overlayClassName`, `contentClassName`, `container` + all root props.
 - [10]-[STATE]: `useCommandState<T>(selector: (state: State) => T): T`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - filtering is automatic and scored: `filter` (default `defaultFilter`, command-score fuzzy) ranks each item against `search` over its `value`, `children` text, and `keywords`; a 0 score hides it and `Command.Empty` renders when `filtered.count` is 0. `shouldFilter={false}` hands matching to the caller, who renders only the items it computed.
@@ -69,9 +60,3 @@
 [LOCAL_ADMISSION]:
 - admit only the command-palette list+filter+keyboard machine; `cva`/`cn` styles it, `lucide-react` supplies glyphs, `@effect-atom` drives async data, and `vaul`/`@floating-ui/react` hosts the surrounding modal or sheet unless `CommandDialog` is the deliberate host.
 - one `Command` root per palette; a command family is a `Command.Group` row, a command is a `Command.Item` row keyed by a stable `value`.
-
-[RAIL_LAW]:
-- Package: `cmdk`
-- Owns: the palette search input, scored+filtered item list, keyboard navigation, internal store, and the `Command.Dialog` Radix-portal host
-- Accept: the compound `Command` with slot children, `asChild` bridging to react-aria, a swapped `filter` composing `defaultFilter`, `shouldFilter={false}` + `@effect-atom` for async sources, `useCommandState` for empty/count/loading rows, stable item `value` + `keywords`, `cva`/`cn` styling and `lucide-react` glyphs
-- Reject: a hand-rolled search-filter or keyboard loop, re-implemented fuzzy scoring instead of `filter`/`defaultFilter`, `commandScore`/`cmdk/command-score` imported as a subpath, unstable item `value`, `CommandDialog` double-wrapped inside another `vaul`/floating host, `@floating-ui/react`'s `useListNavigation`/`useTypeahead` layered over a cmdk list, react-aria focus machinery duplicated instead of `asChild`

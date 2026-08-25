@@ -26,7 +26,7 @@ Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSp
 - Growth: a host layer addition is one `PaintPhase` row; a new mount payload is one `TFacts` instantiation — attachment, containment, and release stay one gate.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -153,7 +153,7 @@ public static class PaintAnchor {
 - Growth: a new host-drawn species is one `GhMark` case with one draw arm and one cull arm; every kernel-expressible addition is the kernel's one case and costs this band nothing.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -208,7 +208,7 @@ public static class GhPaint {
 - Growth: a new decoration species is one `OverlayNode` case with its projection arm; a new motion modality is a `GlidePlan` case at its Platform owner.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CoreAnimation;
 using CoreGraphics;
 using Rasm.Domain;

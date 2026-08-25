@@ -2,16 +2,7 @@
 
 `ibis` mints a portable relational expression IR: a fluent `Table`/`Column`/`Scalar` algebra builds a lazy expression tree, `sqlglot` compiles it to dialect SQL, and pluggable `BaseBackend` adapters execute it — DuckDB in-process by default. Deferred `ibis._` and `ibis.selectors` drive column-set programming, top-level constructors mint literals and multi-branch conditionals, and a result materializes to pandas/PyArrow/Polars or streams a `RecordBatchReader`. `ibis.connect` is the sole connection entry; `Schema` bridges pandas, Polars, PyArrow, and NumPy at the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ibis-framework`
-- package: `ibis-framework`
-- module: `ibis`
-- owner: `data`
-- rail: query
-- asset: pure Python; SQL compiled through `sqlglot`; a per-backend extra pulls the native driver
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: expression types
 
@@ -35,7 +26,7 @@
 
 [DTYPE_DISCRIMINATED]: `IntegerColumn` `IntegerScalar` `StringColumn` `TimestampColumn` `ArrayValue` `StructValue` `MapValue` `JSONColumn` `DecimalColumn` `GeoSpatialColumn` — each typed expression in `ibis.expr.types` carries its own dtype-specific method namespace; the typed error hierarchy roots at `IbisError` in `ibis.common.exceptions`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection and table intake
 
@@ -217,7 +208,7 @@ Execution and export methods on `Expr`/`Table`, delegating to the bound backend.
 |  [09]   | `ibis.duckdb.connect(database=':memory:', *, ...)`        | in-memory DuckDB backend accessor (no required args) |
 |  [10]   | `disconnect()`                                            | close the connection (`-> None`), releasing `con`    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace `ibis`; expression types in `ibis.expr.types` (alias `ibis.ir`), operations in `ibis.expr.operations` (alias `ibis.ops`)
@@ -235,9 +226,3 @@ Execution and export methods on `Expr`/`Table`, delegating to the bound backend.
 
 [LOCAL_ADMISSION]:
 - import `ibis` at boundary scope; the branch admits it as the portable relational expression IR and multi-backend query frontend over the shared columnar rail
-
-[RAIL_LAW]:
-- Package: `ibis-framework`
-- Owns: the portable relational expression IR, the fluent `Table`/`Column` algebra, deferred/selector column programming, SQL compile/decompile/parse round-trips, and the multi-backend execution and IO surface
-- Accept: any `BaseBackend` connection via `ibis.connect(uri)`, Python/Arrow/Polars data via `memtable`, `ibis._`/`ibis.selectors` for column sets, `to_pyarrow`/`to_pyarrow_batches`/`to_polars` as the columnar hand-off, the typed `ibis.common.exceptions` rail
-- Reject: a backend-specific SQL string inside an expression pipeline (use `to_sql(dialect=...)` or `BaseBackend.sql`), a direct backend-driver import bypassing `ibis.connect`, an `ibis.col` accessor (reference columns via `t.col`/`t["col"]`/`_.col`), a `Schema` built from raw format strings, and a re-implemented `sqlglot` compiler ibis already drives

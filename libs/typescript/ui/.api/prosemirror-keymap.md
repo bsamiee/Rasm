@@ -2,16 +2,7 @@
 
 `prosemirror-keymap` owns key-to-command binding: `keymap(bindings)` turns one plain record of key names to `Command` values into a `Plugin` whose `handleKeyDown` dispatches them, and `keydownHandler(bindings)` exposes the same matcher for a caller that owns its own handler. Key names normalize modifiers and resolve `Mod-` per platform, so one binding table serves every host.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-keymap`
-- package: `prosemirror-keymap` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: browser input — matches against `KeyboardEvent.key` and `keyCode`, and reads the platform to resolve `Mod-`
-- depends: `prosemirror-state` for `Plugin`/`Command`, `w3c-keyname` for the key-name normalization table
-- rail: `view/content` — the key-binding plane over the command roster
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: this package exports no type of its own; both surfaces take one structural binding record whose values are the `Command` alias `prosemirror-state`(`.api/prosemirror-state.md`) declares.
 
@@ -19,7 +10,7 @@
 | :-----: | :------------------------- | :------------ | :----------------------------------------------- |
 |  [01]   | `{[key: string]: Command}` | interface     | the binding table; keys are normalized key names |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the two surfaces — one plugin, one bare handler.
 
@@ -31,7 +22,7 @@
 - Every binding receives `(state, dispatch, view)` — the view rides along outside the command protocol, which is what lets a binding reach the DOM directly.
 - Both surfaces return `true` when a binding claimed the key, which is what stops the event from reaching lower-precedence plugins and the browser.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Key names are a normalized grammar: zero or more modifier prefixes followed by one key identifier drawn from `KeyboardEvent.key`. Modifiers are `Shift-`/`s-`, `Alt-`/`a-`, `Ctrl-`/`c-`/`Control-`, and `Cmd-`/`m-`/`Meta-`, given in any order; `Mod-` resolves to `Cmd-` on Mac and `Ctrl-` elsewhere, and `Space` aliases `" "`. Lowercase letters name the bare key and uppercase letters imply shift, so a shift-produced character never takes an explicit `Shift-` prefix.
@@ -54,9 +45,3 @@
 - Write `Mod-` for the primary modifier so one table serves both platforms.
 - Cover a key's several document shapes with `chainCommands` inside one binding rather than by splitting the binding across keymaps.
 - Reach for `keydownHandler` only inside DOM the editor view does not own.
-
-[RAIL_LAW]:
-- Package: `prosemirror-keymap`
-- Owns: key-to-command binding — the normalized key-name grammar with its modifier aliases and platform-resolved `Mod-`, `keymap(bindings)` producing a stateless `handleKeyDown` plugin, and `keydownHandler(bindings)` exposing the matcher for foreign DOM
-- Accept: one binding record per document class mounted as an ordered `keymap` plugin, `Mod-` for the primary modifier, `chainCommands` inside a binding for per-key fallback, `keymap(baseKeymap)` at the lowest precedence, and `keydownHandler` inside a node view's own listener
-- Reject: a hand-written key-comparison ladder in `handleKeyDown`, a platform branch where `Mod-` resolves, an explicit `Shift-` on a shift-produced character, a binding that duplicates a command body instead of naming the command value, and a second keymap minted to hold what a `chainCommands` fallback covers

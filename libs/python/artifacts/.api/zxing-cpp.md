@@ -2,18 +2,7 @@
 
 `zxing-cpp` (import `zxingcpp`) owns the 2D-matrix encoded-mark surface (DataMatrix/PDF417/Aztec/MaxiCode) AND the sole decode inverse across the `graphic/marks` rail: it is the `matrix` `EncodeArm` of `graphic/marks/encode#MARK` — the symbologies the segno `qr` and python-barcode `linear` arms drop — and the only owner of `graphic/marks/decode#DECODE`, closing the encode/decode round-trip neither generation-only arm expresses.
 
-
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `zxing-cpp`
-- package: `zxing-cpp` (Apache-2.0)
-- import: `zxingcpp`
-- owner: `artifacts`
-- rail: imaging — the `graphic/marks/encode#MARK` `matrix` `EncodeArm` arm AND the `graphic/marks/decode#DECODE` owner, the one owner spanning both rail directions
-- asset: compiled C++20 extension (not pure-Python, not abi3), so a per-interpreter build binds; `Barcode.to_svg` is dependency-free, `Barcode.to_image` yields an 8-bit grayscale `Image` exporting the buffer protocol for zero-copy `numpy.array`, and decode admits a numpy BGR/grayscale array, a PIL image, a `collections.abc.Buffer`, or an `ImageView`
-- entry points: import-only; module-level functions and the types in [02]/[03]
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: barcode value and symbology enum
 
@@ -41,7 +30,7 @@
 |  [05]   | `Binarizer`      | `LocalAverage`/`GlobalHistogram`/`FixedThreshold`/`BoolCast` — frame thresholding         |
 |  [06]   | `EanAddOnSymbol` | `Ignore`/`Read`/`Require` — EAN add-on handling                                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: encode (create + serialize)
 - every serializer (`to_svg`/`to_image`/`write_barcode_to_*`) carries `(scale=1, add_hrt=False, add_quiet_zones=True)`, elided below
@@ -69,7 +58,7 @@
 |  [04]   | `barcode_formats_list(filter=BarcodeFormats()) -> list[BarcodeFormat]` | supported-format roster (filtered); capability probe     |
 |  [05]   | `ImageView(buffer, width, height, format, row_stride=0, pix_stride=0)` | raw frame + declared channel order + custom stride       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - format axis: one `BarcodeFormat` enum keys symbology selection on both encode and decode. `str(format)` is the human display name with separators (`'Data Matrix'`/`'QR Code'`/`'Code 128'`/`'EAN-13'`) while `.name` is separatorless (`'DataMatrix'`/`'QRCode'`); resolve a format through the enum attribute or `barcode_format_from_str` (which accepts both `'EAN13'` and `'EAN-13'`), never by formatting the enum and re-parsing the separatorless name. `Barcode.format` (precise) and `Barcode.symbology` (rolled-up family, `EAN13 -> EANUPC`, `MicroQRCode -> QRCode`) are distinct facts the decode owner records separately.
@@ -91,9 +80,3 @@
 [LOCAL_ADMISSION]:
 - lazy `import zxingcpp` at the `graphic/marks/encode#MARK` / `graphic/marks/decode#DECODE` boundary; module-level import violates the manifest import policy, and the annotation-only type imports ride the `if TYPE_CHECKING` block.
 - zxing-cpp is the 2D-matrix `matrix` arm and the sole decode owner — QR/Micro-QR encode routes to segno and the linear symbologies to python-barcode; the dependency-free SVG bytes feed the `svgelements`/document figure owners with no rasterization, and the decode body is the round-trip proof across all three arms.
-
-[RAIL_LAW]:
-- Package: `zxing-cpp`
-- Owns: 2D-matrix DataMatrix/PDF417/Compact-PDF417/Aztec/MaxiCode (with QR/Micro-QR/rMQR and the linear set) encode through `create_barcode` (`str` or `bytes` content), dependency-free SVG via `Barcode.to_svg`, 8-bit grayscale raster via `Barcode.to_image` (buffer-protocol numpy zero-copy), multi-symbol decode via `read_barcodes` with full per-symbol metadata (`text`/`bytes`/`format`/`symbology`/`valid`/`position`/`orientation`/`error`/`content_type`/`symbology_identifier`/`ec_level`/`extra`), set-valued `BarcodeFormat` family scopes and the `barcode_formats_list` roster, the `ImageView` custom-channel-order + custom-stride frame intake, and the encode/decode round-trip generation-correctness proof
-- Accept: `create_barcode(content, format, **kwargs)` with `ec_level` key-filtered against the admitted band; `barcode_format_from_str`/`barcode_formats_from_str` resolution over both separator spellings; `read_barcodes(frame, formats=, ..., return_errors=True)` with the detector axis collapsed to one frozen `DecodeScope`; the eight `All*` set members as format scopes; an `ImageView` carrying the declared channel order; `Error.type`/`Error.message` and `ContentType` mapped onto closed fault/content vocabularies; `to_svg().encode()` / `to_image()` bytes folding to `RasterFact`, feeding the `svgelements`/document figure owners and the `stream-zip` bundle sink; the off-loop `to_thread`/`to_process` worker seam under the `_MARK_LANE` `CapacityLimiter`
-- Reject: wrapper-renames of `create_barcode`/`read_barcodes`; conflating `Barcode.format` (precise) with `Barcode.symbology` (family); formatting `BarcodeFormat` to a string and re-parsing the separatorless name; a `read_barcode`/`read_barcodes` sibling pair where the decode is plural and "first" is the `[0]` projection; `return_errors=False` dropping invalid symbols where a typed per-symbol fault is wanted; a shape-inferred BGR/grayscale guess where the frame's channel order is a declared `ImageView` `ImageFormat`; asserting an `ec_level` on a format that returns `''`; a `text|format|valid|position` score cram dropping `bytes`/`content_type`/`orientation`/`symbology_identifier`/`extra`; a hand-rolled 2D-matrix encoder/decoder where zxing owns the symbology; a forced PNG-bytes round-trip where the grayscale `Image` buffer is numpy-zero-copy; a claimed QR-only or linear-only ownership displacing the segno `qr` and python-barcode `linear` arms; identity minting the runtime owns

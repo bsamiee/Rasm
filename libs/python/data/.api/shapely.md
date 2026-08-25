@@ -2,16 +2,7 @@
 
 `shapely` owns GEOS-backed planar geometry for the data geospatial rail: an immutable `Geometry` hierarchy and a NumPy-vectorized top-level namespace where every predicate, measurement, set, and constructive op is a broadcasting ufunc over scalar geometries or geometry arrays. `STRtree` bulk-indexes with a predicate-filtered `query`, `prepare` accelerates repeated predicates, and `from_ragged_array`/`to_ragged_array` are the zero-copy GeoArrow bridge into the `pyarrow`/`geopandas`/`polars-st` siblings.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `shapely`
-- package: `shapely` (BSD-3-Clause)
-- module: `import shapely`
-- owner: `data`
-- rail: geospatial
-- asset: native GEOS C-API extension built against the Parametric_Forge GEOS toolchain; `shapely.geos_version` reports the linked core
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: immutable geometry hierarchy, spatial index, and styling enums
 
@@ -29,7 +20,7 @@
 
 [ERRORS]: `GEOSException` (GEOS op failure) `ShapelyError` (base) `GeometryTypeError` `DimensionError` `TopologicalError` — under `shapely.errors`, `GEOSException` re-exported top-level.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: top-level GEOS ufuncs, `STRtree` indexing, prepared geometry, and WKT/WKB/GeoJSON/ragged-array interchange
 
@@ -50,7 +41,7 @@
 
 [COLLECTION_OPS] (`shapely.ops`, no top-level vectorized mirror): `split(geom,splitter)` `substring(geom,start_dist,end_dist,normalized)` `nearest_points` `polylabel(polygon,tolerance)` `triangulate(geom,tolerance,edges)` `voronoi_diagram(geom,envelope,tolerance,edges)` `linemerge(lines,directed)` `unary_union` `snap` `shared_paths` `clip_by_rect` `transform(func,geom)` `prep` `orient(polygon,sign)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Geometries are immutable; constructive ops return new geometries. Top-level functions broadcast over scalar geometries or geometry arrays — drive the array form, never a Python loop over instance `.intersects`/`.buffer`.
@@ -69,9 +60,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `shapely` as the planar-geometry and GEOS-ufunc owner on the data geospatial rail, composing the vectorized array form and `STRtree` rather than looping instance predicate methods.
-
-[RAIL_LAW]:
-- Package: `shapely`
-- Owns: immutable planar geometry construction; NumPy-vectorized predicates, set/constructive ops, and measurement; linear referencing; coverage operations; `STRtree` predicate-filtered bulk indexing; `prepare` acceleration; WKT/WKB/GeoJSON/ragged-array interchange; affine transforms; the `shapely.ops` collection operators
-- Accept: vectorized top-level functions over geometry arrays; `prepare` before repeated predicates; `STRtree.query(predicate=...)` for spatial joins and `query_nearest` for nearest joins; `set_precision`/`make_valid` for robust set operations; `coverage_union_all` under a `coverage_is_valid` guard; `from_ragged_array`/`to_ragged_array` for Arrow/GeoArrow interchange; `shapely.transform` fed by a `pyproj` transformer for reprojection
-- Reject: Python loops over instance predicates where the vectorized form applies; hand-rolled point-in-polygon, distance, or pole-of-inaccessibility math; bbox-only joins skipping the topological `predicate`; per-row WKB round-trips where the ragged-array seam applies; re-implementing CRS reprojection that `pyproj` owns

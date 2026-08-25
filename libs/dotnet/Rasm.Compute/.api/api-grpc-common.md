@@ -2,18 +2,7 @@
 
 `Grpc.Net.Common` owns the shared gRPC compression-provider contracts, the channel-connectivity vocabulary, and the client-side stream-reader drain. Compression registers at channel and service composition, never the call site, and the surface feeds the remote-wire rail under the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts that own transport and channel construction.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.Net.Common`
-- package: `Grpc.Net.Common` (Apache-2.0)
-- assembly: `Grpc.Net.Common`
-- namespace: `Grpc.Net.Compression`, `Grpc.Core`
-- asset: pure-managed library; no native asset, no RID burden
-- rail: remote-wire
-
-- Registers the call surface(`libs/dotnet/.api/api-grpc-core-api.md`): `ServerCallContext`, the stream writers, `WriteOptions`, `Metadata`, and the marshaller and service-definition rows are `Grpc.Core.Api`'s and resolve at the branch catalogue; this folder holds the compression and connectivity half alone.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compression and connectivity contracts
 
@@ -27,7 +16,7 @@
 
 - `ConnectivityState`: `Idle` `Connecting` `Ready` `TransientFailure` `Shutdown`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compression providers and the stream-reader drain
 
@@ -42,7 +31,7 @@
 
 - `ReadAllAsync<T>`: extends the `Grpc.Core.AsyncStreamReaderExtensions` static class name `Grpc.Core.Api` also contributes to; the `MoveNext<T>` pump over the same name is that assembly's half.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Compression providers register on `GrpcChannelOptions.CompressionProviders` (client) and `GrpcServiceOptions.CompressionProviders` (server, transitive `Grpc.AspNetCore.Server`), never the call site; each provider's `EncodingName` flows into the `grpc-encoding` and `grpc-accept-encoding` request and response headers.
@@ -57,9 +46,3 @@
 [LOCAL_ADMISSION]:
 - Compression-provider registration stays explicit at channel (`GrpcChannelOptions.CompressionProviders`) and service (`GrpcServiceOptions.CompressionProviders`) composition; a per-call provider mint is the deleted form.
 - `ConnectivityState` is read-only channel evidence, not a client-driven state machine.
-
-[RAIL_LAW]:
-- Package: `Grpc.Net.Common`
-- Owns: the gRPC compression-provider contracts, the `ConnectivityState` vocabulary, and the `ReadAllAsync<T>` stream-reader drain
-- Accept: compression registration at channel and service composition, and connectivity reads folded to a typed transition
-- Reject: managed transport hosting, client-channel construction, gRPC-Web translation, and a second compression list beside the registered one

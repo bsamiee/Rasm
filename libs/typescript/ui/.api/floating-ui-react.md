@@ -4,16 +4,7 @@
 
 It owns placement and the interaction primitives react-aria leaves headless; react-aria owns the ARIA semantics, and one element never binds both positioners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@floating-ui/react`
-- package: `@floating-ui/react` (MIT)
-- module: ESM + UMD, `sideEffects: false`; subpaths `.` and `./utils` (focus-order and environment probes — `getNextTabbable`, `getGridNavigatedIndex`, `isMac`)
-- runtime: React DOM browser — the interaction layer binds pointer/keyboard events and the DOM focus model
-- depends: `@floating-ui/react-dom`, `@floating-ui/utils`, `tabbable` (focus-order enumeration for `FloatingFocusManager`); peers `react`, `react-dom`
-- rail: position + interaction — the `view/overlay` anchor-host, sheet, palette, and presence-cohort rows
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and open-state family — the open-state thread through interaction hooks
 - `OpenChangeReason` = `'click' \| 'hover' \| 'focus' \| 'focus-out' \| 'escape-key' \| 'outside-press' \| 'reference-press' \| 'ancestor-scroll' \| 'list-navigation' \| 'safe-polygon'`.
@@ -65,7 +56,7 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 |  [13]   | `Coords` / `Rect` / `SideObject`                       | box geometry       | re-exported box types                                  |
 |  [14]   | `Dimensions` / `Padding` / `Boundary`                  | box geometry       | re-exported box types                                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: positioning + interaction hooks — every hook takes `(context, props?)` where `context` is the `FloatingRootContext`, the fuller `FloatingContext` from `useFloating` satisfying it as a superset
 
@@ -116,7 +107,7 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 |  [04]   | `autoUpdate` / `computePosition` / `detectOverflow` | static            | `autoUpdate` is the required `whileElementsMounted`         |
 |  [05]   | `getOverflowAncestors` / `platform`                 | static / property | the imperative overflow probes + default platform           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Interaction and focus hooks read the `FloatingRootContext` — open-state, events, elements — so dismiss, ARIA role, and focus trap wire from that root with no geometry; `useFloating`'s `context` is that root extended with position and satisfies every hook as a superset.
@@ -141,9 +132,3 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 - Bind external open-state through an atom via `useFloatingRootContext` when the reference and float live in different subtrees, never a mirrored `useState`.
 - Use `FloatingFocusManager` `modal` for dialogs and non-modal + `preserveTabOrder` for menus and comboboxes; reach for `FloatingTree` only for communicating nested floats.
 - Pick the semantic owner once — react-aria overlay hooks OR floating-ui `useRole`/`useDismiss`/`FloatingFocusManager` — and when react-aria owns semantics let floating-ui own only geometry.
-
-[RAIL_LAW]:
-- Package: `@floating-ui/react`
-- Owns: the React interaction, focus, portal, overlay, tree, composite-nav, delay-group, and transition layers over the re-exported `@floating-ui/react-dom` positioning engine, with `useInteractions` prop-getter merging and `safePolygon` hover intent
-- Accept: `FloatingContext`/`FloatingRootContext` as the single interaction thread, external open-state via `useFloatingRootContext`, `autoUpdate` as `whileElementsMounted`, `useFloating` + `offset`/`flip`/`shift`/`size` supplanting `useOverlayPosition`, `useMergeRefs` and react-aria's `mergeProps` folding the aria bundle with `floatingStyles` at the overlay node
-- Reject: a manual handler where an interaction hook exists, a hand-spread `ElementProps` bypassing `useInteractions`, a float without `autoUpdate`, both positioners on one element, local `useState` open-state where an atom is the store

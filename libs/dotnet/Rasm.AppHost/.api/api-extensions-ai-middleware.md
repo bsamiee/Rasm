@@ -2,15 +2,7 @@
 
 `Microsoft.Extensions.AI` mints the concrete middleware pipeline over the abstractions contracts: a `ChatClientBuilder`/`EmbeddingGeneratorBuilder` folds provider-agnostic decorators into one `DelegatingChatClient` chain the capability-agent governance fold composes once, so every model call is metered, content-cached, traced, and context-bounded without provider coupling. Abstractions live at `libs/dotnet/.api/api-extensions-ai.md`; this catalog carries the concrete builder, decorator, reducer, and registration surface alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.AI`
-- package: `Microsoft.Extensions.AI`
-- assembly: `Microsoft.Extensions.AI`
-- namespace: `Microsoft.Extensions.AI`, `Microsoft.Extensions.DependencyInjection`
-- rail: capability-agent
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: chat-client builder, decorators, and reducers
 
@@ -44,7 +36,7 @@
 |  [05]   | `LoggingEmbeddingGenerator<TIn,TE>`            | delegating client | structured embedding logs                |
 |  [06]   | `ConfigureOptionsEmbeddingGenerator<TIn,TE>`   | delegating client | per-request `EmbeddingGenerationOptions` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder composition, DI registration, and typed reads
 
@@ -110,7 +102,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 - `FunctionInvocationContext`: carries the mutable `Function`, `Arguments`, `CallContent`, and `Messages` for the in-flight call, exposed ambiently through `CurrentContext`.
 - `FunctionInvocationResult`: `Status` (`FunctionInvocationStatus.RanToCompletion`/`NotFound`/`Exception`), `CallContent`, `Result`, `Exception`, `Terminate`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every decorator is a `DelegatingChatClient` wrapping the inner `IChatClient`; `Build` composes them outermost-last, so `UseOpenTelemetry().UseDistributedCache().UseFunctionInvocation()` nests the span over the cache lookup over the tool-call loop.
@@ -130,9 +122,3 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 [LOCAL_ADMISSION]:
 - `MaximumIterationsPerRequest`, `MaximumConsecutiveErrorsPerRequest`, the `IChatReducer` target count, and `EnableSensitiveData` are agent-options policy values, never literals; sensitive-data capture is opt-in per agent, never global.
 - `DistributedCachingChatClient` binds the one resources-lane store, and the decorator stack is the one model-governance owner.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.AI`
-- Owns: the provider-agnostic chat and embedding middleware pipeline — function invocation, response caching, GenAI telemetry, logging, option configuration, history reduction, and DI registration.
-- Accept: decorators composed through `ChatClientBuilder`/`EmbeddingGeneratorBuilder`, each `Build` product handed to the composition root as the one client or generator a consumer resolves.
-- Reject: a hand-rolled retry loop, a per-call OTel span, a hand-rolled history trim, or a second response cache beside the decorators.

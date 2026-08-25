@@ -2,15 +2,7 @@
 
 `mpmath` owns arbitrary-precision real, complex, and interval arithmetic with a broad special-function, calculus, linear-algebra, and number-theory library for the compute exact-arithmetic rail. Its precision-oracle role certifies a fast-path JAX/numba result against a guaranteed-correct high-`dps` evaluation, and `iv` interval arithmetic bounds the enclosure rigorously.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `mpmath`
-- package: `mpmath` (BSD-3-Clause)
-- module: `mpmath`
-- rail: exact-arithmetic
-- asset: pure-Python; the `gmpy2` backend accelerates the `mp` context transparently when installed
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and numeric types
 
@@ -57,7 +49,7 @@
 |  [03]   | `mp.inf`  | constant | positive infinity as `mpf`   |
 |  [04]   | `mp.j`    | constant | imaginary unit as `mpc`      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: precision management
 
@@ -170,7 +162,7 @@
 |  [10]   | `identify(x, tol=None, **kwargs)`                        | recognition    | constant identification      |
 |  [11]   | `pslq(x, tol=None, **kwargs)`                            | recognition    | PSLQ integer relation        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - three global contexts carry identical function names: `mp` (arbitrary-precision via `MPContext`), `fp` (double-precision via `FPContext`), `iv` (interval via `MPIntervalContext`); every elementary and special function is a bound method on each context.
@@ -188,9 +180,3 @@
 [LOCAL_ADMISSION]:
 - `mp.dps` sets before any high-accuracy evaluation; the 15-digit default is never raised implicitly, and `autoprec(f, ...)` calibrates when the needed precision is unknown a priori.
 - `identify`/`pslq`/`findpoly` recognize constants as study evidence, never a production numeric path.
-
-[RAIL_LAW]:
-- Package: `mpmath`
-- Owns: arbitrary-precision real/complex/interval arithmetic, a broad special-function/calculus/linear-algebra library, and the precision-oracle role for fast-path validation
-- Accept: `mp.dps`-scoped evaluation through the `workdps`/`extradps` context managers; `fsum`/`fdot`/`fprod` accumulation; certified `Enclosure` values carrying their precision floor
-- Reject: fixed-precision reimplementations of functions mpmath owns; performance-critical production evaluation through mpmath; Python `sum`/dot accumulation where cancellation matters

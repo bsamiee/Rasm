@@ -2,15 +2,7 @@
 
 `@effect-atom/atom-react` binds the `@effect-atom/atom` store into the React render tree: it re-exports the whole atom algebra and adds the hooks and providers a `view` row reads and drives the one `ONE_FOLD_ONE_BINDING` store through. Reads are dependency-tracked and slice-scoped, writes carry a `mode`, and `useAtomSuspense` folds a `Result` atom into Suspense and an error boundary; react-compiler owns memoization.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect-atom/atom-react`
-- package: `@effect-atom/atom-react` (MIT)
-- module: pure-TypeScript, ESM + CJS dual (`.d.ts` under `dist/dts`), `sideEffects: []`; per-namespace subpath exports with the barrel re-export of every `@effect-atom/atom` namespace
-- runtime: React client + server; peers `effect`, `react`, `scheduler`, dep `@effect-atom/atom`; SSR rehydrates through `HydrationBoundary`, `scheduler` drives concurrent scheduling, and react-compiler owns memoization
-- rail: state binding — the React-facing edge of `ONE_FOLD_ONE_BINDING`; every `view` row reads it, `atom/binding` owns the registry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the barrel re-exports every `@effect-atom/atom` namespace — the algebra every hook consumes, owned in `effect-atom-atom.md`:
 [RE_EXPORT]: `Atom` `Registry` `Result` `AtomRef` `AtomHttpApi` `AtomRpc` `Hydration`
@@ -23,7 +15,7 @@
 |  [02]   | `HydrationBoundaryProps` | interface     | `{ state?: Iterable<DehydratedAtom>, children? }` — SSR rehydrate props     |
 |  [03]   | write `mode` union       | union         | `"value" \| "promise" \| "promiseExit"` — the setter discriminant           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: reading atoms — dependency-tracked, slice-scoped
 
@@ -59,7 +51,7 @@
 |  [02]   | `ScopedAtom.make((input?) => atom)`           | factory  | `.Provider`/`.use()`/`.Context` — per-instance subtree atom         |
 |  [03]   | `HydrationBoundary({ state, children })`      | provider | rehydrates the server `dehydrate` output before children read       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every hook resolves the ambient `Registry` from `RegistryContext` and subscribes through `useSyncExternalStore` — the store is React context, the reactivity is the atom graph, and the render is only the projection.
@@ -83,9 +75,3 @@
 - Choose the write `mode` by handler: `"value"` for UI state, `"promise"`/`"promiseExit"` where a handler awaits completion — the mode signals a finished mutation, read directly rather than polled.
 - One `RegistryProvider` at the app root; a nested provider isolates a story, test, or preview. `ScopedAtom` owns per-instance component state, scoping a subtree atom where a global keyed atom leaks.
 - `HydrationBoundary` with the server's `dehydrate` output rehydrates SSR data the server already computed, rendering it without a mount refetch.
-
-[RAIL_LAW]:
-- Package: `@effect-atom/atom-react`
-- Owns: the React hook surface over the atom `Registry` via `useSyncExternalStore` — read, write, suspense, refresh, subscribe, and mount hooks, the `AtomRef` cursor hooks, `RegistryProvider`/`RegistryContext`, `ScopedAtom`, and the `HydrationBoundary` SSR row; re-exports the whole `@effect-atom/atom` algebra
-- Accept: `Atom`/`Writable`/`Result` values from `atom/binding`, a selector on reads, a `mode` on writes, one root `RegistryProvider`, `ScopedAtom` for per-instance state, `HydrationBoundary` for SSR
-- Reject: manual `isLoading`/`error` state pairs that `useAtomSuspense`/`Result.match` fold, `useMemo`/`useCallback` around hook results under react-compiler, a global keyed atom where `ScopedAtom` scopes to a subtree, a client refetch of server-dehydrated data, a data-fetching library beside the `AtomHttpApi`/`AtomRpc` binding

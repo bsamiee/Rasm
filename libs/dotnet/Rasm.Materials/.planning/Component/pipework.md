@@ -22,7 +22,7 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 - Boundary: `Attestation` qualifies the TRANSCRIPTION, `EvidenceGrade` the PRODUCER — a value lands standards-published yet single-posted, and the two axes cross the seam as independent bag rows so a downstream reader never mistakes a primary-single cell for a corroborated one.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;
 using LanguageExt;

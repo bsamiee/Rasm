@@ -2,16 +2,7 @@
 
 `@msgpack/msgpack` is the MessagePack codec `interchange/codec` uses for the explicit thirteen-slot `OpLogEntry` envelope and the remaining producer-owned MessagePack families. The seventh position (`Payload`, index 6) stays opaque bytes; a `crdt` row passes those bytes to generated protobuf. One configured-once `Decoder` also carries the standalone 16-byte `Hlc` extension into the kernel `Hlc`, and the `context` thread rides the `value/identity` interner through every ext decode so the mint stays decode-once.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@msgpack/msgpack`
-- package: `@msgpack/msgpack` (ISC)
-- rail: MessagePack decode of the positional `OpLogEntry` envelope and the remaining descriptor-free families — the MessagePack arm of the multi-codec interchange plane
-- runtime: isomorphic, `sideEffects:false`, zero runtime deps; dual `dist.esm/index.mjs` ESM + `dist.cjs/index.cjs`
-- effect-peer: none — decode output crosses `effect` `Schema.decodeUnknown` and `Stream.fromAsyncIterable` at the `interchange/codec` seam (`.api/effect.md`)
-- modules: `decode`/`decodeMulti`, `decodeAsync`/`decodeArrayStream`/`decodeMultiStream`, `Decoder`/`DecoderOptions`, `Encoder`/`EncoderOptions`, `ExtensionCodec`/`ExtData`, `DecodeError`, `timestamp` (`EXT_TIMESTAMP`), `context` (`ContextOf`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the codec pair, its extension registry, and the context thread
 - rail: interchange/codec
@@ -30,7 +21,7 @@
 |  [09]   | `DecodeError extends Error`               | decode fault   | malformed-frame throw caught at `Effect.try`                       |
 |  [10]   | `EXT_TIMESTAMP` (`-1`)                    | built-in ext   | `encode`/`decodeTimestampExtension` for `Date`; auto-registered    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: single-frame decode, streaming decode, and egress
 - rail: interchange/codec
@@ -47,7 +38,7 @@
 |  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | contract 16-byte `Hlc` ext → kernel `Hlc`        |
 |  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; a view onto the live buffer |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the contract 16-byte `Hlc` extension cell into the kernel `Hlc`; `OpLogEntry` decodes as the producer's explicit thirteen-slot primitive array, and its raw payload is handed to generated `CrdtOpWire` protobuf admission only after the family and content key are verified.
@@ -71,9 +62,3 @@
 - decode output crosses `Schema.decodeUnknown` before a consumer reads it; a raw MessagePack object or an `ExtData` reaching a `core/state` consumer undispatched is the leak defect.
 - raw `decodeMultiStream` never owns framed ingress because its successful EOF cannot distinguish a clean boundary from truncation.
 - `EXT_TIMESTAMP` (`-1`) stays registered for `Date` fields; domain ext type-bytes ride the contract-allocated positive range, each byte numbered once at the corpus.
-
-[RAIL_LAW]:
-- Package: `@msgpack/msgpack`
-- Owns: MessagePack decode of the explicit `OpLogEntry` envelope and descriptor-free families (`decode`/`decodeMulti`, `decodeMultiStream`/`decodeArrayStream`/`decodeAsync`, `Decoder`/`Encoder`), the `ExtensionCodec`/`ExtData` registry carrying the standalone 16-byte `Hlc` cell, the `context` interner thread, `useBigInt64` i64 fidelity, the `DecoderOptions` `max*Length` DoS ceilings, and `sortKeys` stable local egress beside the `encodeSharedRef` reused-buffer view
-- Accept: a configured decoder with the HLC extension and interner context, bigint fidelity, strict external framing, schema landing, pre-decode length limits, and `encode` wherever the bytes outlive the call
-- Reject: top-level decode without the shared extension, a second HLC mint, module-global interning, lossy int64 decode, raw `decodeMultiStream` on framed ingress, raw decoded values in domain code, an `encodeSharedRef` view retained past the next encode or transferred as a `Transferable`, and emitter loops where Effect owns streaming

@@ -2,17 +2,7 @@
 
 `pysubs2` owns the subtitle/caption DOCUMENT model for the artifacts MEDIA rail: parse and dialect-autodetect a timed-text track, edit it as an `SSAEvent`/`SSAStyle` record model, retime by constant shift or framerate rescale, and re-serialize to any registered dialect. It owns the document layer alone — the codec, mux, and container wire belong to `av`. One `SSAFile` (`MutableSequence[SSAEvent]`) is the spine feeding the `media/subtitle` owner, and only serialized subtitle bytes and projected `plaintext` frame text cross the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pysubs2`
-- package: `pysubs2` (MIT)
-- import: `pysubs2`
-- namespaces: `pysubs2`, `pysubs2.formats`, `pysubs2.formats.substation`, `pysubs2.time`
-- owner: `artifacts`
-- rail: media
-- wheel: pure-Python `py3-none-any`, no native extension
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the subtitle document spine and its event/style records
 
@@ -51,7 +41,7 @@
 |  [05]   | `formats.get_format_identifier`               | function      | extension-to-identifier `save`/`load` resolution      |
 |  [06]   | `get_file_extension`                          | function      | identifier-to-extension `save`/`load` resolution      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingest — parse and autodetect
 
@@ -122,7 +112,7 @@ Events index and slice as a list; a slice is type-checked and a non-`SSAEvent` r
 |  [06]   | `time.ms_to_frames(ms, fps) -> int`                       | static  | ms-to-frame; non-positive fps raises `ValueError` |
 |  [07]   | `formats.substation.parse_tags(text, style, styles, ...)` | static  | tagged text to override-aware styled fragments    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every subtitle production folds through one `expression.tagged_union` `SubtitleOp` dispatched by a total `match`/`case` closed by `assert_never`, returning `RuntimeRail[ContentKey]` keyed over the produced bytes — one polymorphic owner, never a `convert_srt`/`retime`/`burn` function family.
@@ -139,7 +129,3 @@ Events index and slice as a list; a slice is type-checked and a non-`SSAEvent` r
 [LOCAL_ADMISSION]:
 - `import pysubs2` at boundary scope only.
 - Parse/serialize is synchronous CPU work carried off the event loop on the `runtime/execution/lanes#LANE` `WORKER_BAND` via `LanePolicy.offload`; the `pysubs2` `cli` subprocess is never composed, the owner driving `SSAFile` directly.
-
-[RAIL_LAW]:
-- Package: `pysubs2`
-- Owns: the subtitle/caption DOCUMENT model — multi-dialect parse + autodetect + convert, the `SSAEvent`/`SSAStyle` record model, constant-shift and framerate-rescale retiming, style rename/import/merge, override-aware plaintext/styled-fragment projection, millisecond/frame time arithmetic, and the Whisper transcript bridge.

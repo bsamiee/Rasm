@@ -2,15 +2,7 @@
 
 `@tanstack/store` owns the reactive cell TanStack's own packages speak: an atom holds a value, `get` links whoever reads it, `set` propagates to every dependent, and a computed atom re-derives lazily on the next read. Zero-dependency, DOM-free, and framework-agnostic, it reaches `ui` only as the vocabulary `@tanstack/react-table`'s `options.atoms` ownership rail demands — `view/table`'s `Grid.edge` mints an atom-shaped adapter over the one `@effect-atom` fold, and nothing here owns state.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tanstack/store`
-- package: `@tanstack/store` (MIT)
-- module: `type: module`, `sideEffects: false`, dual `import`/`require` conditions; first-party bundled `.d.ts`; no runtime dependencies
-- runtime: a synchronous push/pull reactive graph (an inlined alien-signals system) over plain values — no DOM, no scheduler, no framework
-- rail: view table plane — the atom vocabulary `@tanstack/react-table` types its slice ownership against
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the atom family — one readable cell, one writable extension
 
@@ -56,7 +48,7 @@
 - [03]-[ACTION_SHAPE]: actions are plain functions of any arity keyed by name — no reducer, no dispatch, no message type.
 - [04]-[ACTION_FACTORY]: the factory receives the store's own `setState`/`get` pair, so an action closes over the cell without a circular reference to the instance.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: minting a cell
 
@@ -90,7 +82,7 @@
 - [05]-[CONTROL]: `batch` increments a depth counter and flushes on unwind, so nested batches notify once at the outermost exit; a bare `flush()` no-ops while a batch is open.
 - [06]-[UTIL]: `shallow` fast-paths `Object.is`, handles `Map`/`Set`/`Date` by content, then compares own keys and symbols one level deep; `toObserver` normalizes either `subscribe` arm into one `Observer` and binds the handlers to their host.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One primitive, two projections: `createAtom` is the whole engine, and `Store`/`ReadonlyStore` are a class facade over a single private atom. Nothing in the package composes atoms into a graph for you — a derived value is a computed `createAtom` reading other atoms, and that is the only combinator.
@@ -110,9 +102,3 @@
 - Read the fold through the registry inside `get`, never a cached snapshot field: the table calls `get()` on every derivation, and a stale mirror is a torn read no comparator can catch.
 - Let `@effect-atom` own batching and equality for anything the fold holds; reach for `batch`/`flush`/`compare`/`shallow` only inside an adapter whose peer is a genuine `@tanstack/store` cell.
 - Never call `createAtom`, `createAsyncAtom`, or `createStore` in `ui` — async work is an `Effect`, derived state is a derived `@effect-atom`, and a bare cell here is a registry the fold cannot see.
-
-[RAIL_LAW]:
-- Package: `@tanstack/store`
-- Owns: the `Atom`/`ReadonlyAtom`/`BaseAtom` cell contract, the `Observer`/`Subscription`/`Subscribable` subscription protocol, `createAtom` writable and computed overloads with `AtomOptions.compare`, `createAsyncAtom`'s `AsyncAtomState` union, the `Store`/`ReadonlyStore` class facade with its `StoreActionsFactory` surface, and the `batch`/`flush`/`shallow`/`toObserver` propagation utilities
-- Accept: the shape vocabulary `@tanstack/react-table`'s `options.atoms`, `table.atoms`, `table.baseAtoms`, `table.store`, and `SubscribeSource` are typed against; one hand-built `Grid.edge` adapter atom per owned slice, projecting the `@effect-atom` fold through `get`/`set`/`subscribe`
-- Reject: `createAtom`/`createAsyncAtom`/`createStore` calls in `ui`, a store-native state owner beside the atom registry, a `state` + `on<Slice>Change` pair bound to the same slice an adapter atom already owns, cached snapshots inside an adapter's `get`, reads or writes of the `@internal` `_snapshot`/`_update`/`ReactiveNode` surface, direct `@tanstack/react-store` hook imports where `table.state` and `table.Subscribe` already bind

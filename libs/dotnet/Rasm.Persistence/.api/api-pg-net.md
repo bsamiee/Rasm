@@ -2,14 +2,7 @@
 
 `pg_net` owns in-database asynchronous HTTP/HTTPS: a request function enqueues and hands back its `bigint` id inside the calling transaction, a `libcurl` background worker drives the transfer off that backend, and the response lands in `net._http_response` keyed by the same id. Every surface is SQL, so the outbound call fires from the database tier and no backend holds the wire.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pg_net`
-- package: `pg_net` (Apache-2.0)
-- namespace: SQL `net` schema; `pg_net.*` GUC namespace
-- rail: http-provisioning, http-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: request and response vocabulary of the `net` schema.
 
@@ -25,7 +18,7 @@
 - `net.http_response` `(status_code int, headers jsonb, body text)` rides `net.http_response_result` `(status net.request_status, message text, response net.http_response)`; `body` carries the table's `content` column.
 - `net.http_request_queue` `(id bigserial, method net.http_method, url text, headers jsonb, body bytea, timeout_milliseconds int)` drains into `net._http_response` `(id bigint, status_code int, content_type text, headers jsonb, content text, timed_out bool, error_msg text, created timestamptz)`, indexed on `created`; a failed transfer nulls every response column and states its cause in `error_msg`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: enqueue, collect, and worker control; every request function url-encodes `params` onto the url and defaults `timeout_milliseconds` to `5000`.
 
@@ -49,7 +42,7 @@
 - `net.wake` registers one commit callback per transaction, so a rollback never wakes the worker and a prepared transaction needs a manual call.
 - GUC binding: `pg_net.ttl` (`'6 hours'`) and `pg_net.batch_size` (`200`) reload on `SIGHUP`; `pg_net.database_name` (`'postgres'`) and `pg_net.username` (unset selects the bootstrap superuser) fix at backend start.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `_PG_init` hard-errors unless `pg_net` sits on `shared_preload_libraries`, so its worker registers at postmaster start and install rides the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net", PreloadGated: true)` row whose `CreateSql` the `Migrate` fold emits.
@@ -65,9 +58,3 @@
 
 [LOCAL_ADMISSION]:
 - Admission binds on a deploy image carrying `pg_net` on `shared_preload_libraries`; `FailureRank.Observational` degrades the webhook egress lane rather than failing provisioning.
-
-[RAIL_LAW]:
-- Package: `pg_net`
-- Owns: in-database asynchronous HTTP — the enqueue functions, the `libcurl` worker, and the `net._http_response` store
-- Accept: commit-scoped enqueue returning a `bigint` id with every value bound through `Npgsql`, the response read by id off `net._http_response` or `net._http_collect_response`, the `pg_net.*` GUCs verified read-only, and the worker-control probes
-- Reject: an inline-awaited HTTP call holding the calling backend, and a direct `net.http_request_queue` INSERT that never calls `net.wake`

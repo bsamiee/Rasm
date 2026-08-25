@@ -20,7 +20,7 @@ Composition arrives settled. `Projection/relations#RELATION_ALGEBRA` lowered the
 - Boundary: `SpatialStructure` derives only from seam `Compose` edges and resolves only seam `NodeId`/`Classification` values. `SpatialClass` owns containment roles, `BimZoneKind` owns grouping roles, `Relationship.Void` remains outside the traversal axis, and independent structural failures accumulate as typed `BimFault` values before the view admits. Four shapes are each deleted: a per-element spatial record, a `SpatialContainer`/`AssemblyRel` relationship type beside the neutral `Compose` edges, a flat-row spatial source, and a consumer-local `Contain`/`Aggregate` up-chain — the `Object` node IS the spatial node, the seam edge IS the relationship, and this owner IS the walk.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
 using QuikGraph;
@@ -229,7 +229,7 @@ public sealed class SpatialStructure {
 - Boundary: the reader emits SI SCALARS onto Import bags — the alignment curve, the segment start points, and the placement basis curve are geometry the inline prohibition keeps off bags and edges, content-keyed in `Representations` and resolved one-hop by `Rasm.Compute`; every row name resolves to a `PositioningRows` static, the bare IFC4.3 EXPRESS attribute names minting through the owner-blessed empty-prefix `PropertyCategory.Seam` and the two Bim-DERIVED names through `PropertyCategory.Bim`, so a call-site `PropertyName.Create` — which forks the bag key space against the query and `Rasm.AppUi` readers that key these rows by name — is the deleted form, and a name a non-referencing peer begins keying on is PROMOTED to a `Rasm.Element` owner static rather than re-declared here; the alignment↔element join is the rostered `Generic("IfcRelPositions")` edge, never a bag-row duplicate of graph topology; the synthesized bag is ingest-landed evidence the egress skips like its `PortAttributeSet`/`StructuralDefinitionSet` peers — the `IfcLinearPlacement` re-author is a NAMED bounded drop (a re-emitted infra model re-anchors placement from its content-keyed geometry, the station rows riding the `FidelityLog`), and forcing a phantom placement entity from scalar rows is the deleted form; stationing INTERPRETATION stays this page's — the segment-geometry evaluation (station→cartesian) is the kernel/Compute lane's over the content-keyed curves.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Bim.Projection;

@@ -2,16 +2,7 @@
 
 `pvlib.solarposition` owns the NREL SPA solar-ephemeris surface feeding the artifacts diagram rail: apparent and true solar position, sunrise/sunset/transit times, Earth-Sun distance, hour angle, and the analytical declination and equation-of-time closed forms, all numpy-vectorized over the input `pandas.DatetimeIndex`. It emits ephemeris data alone, so `visualization/diagram/solar#SOLAR` consumes the `azimuth`/`apparent_elevation` columns as source geometry for sun-path arcs, projection, and furniture.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pvlib`
-- package: `pvlib` (BSD-3-Clause)
-- module: `pvlib`
-- namespaces: `pvlib.solarposition`, `pvlib.location`
-- asset: pure-Python wheel, no native extension; `numpy`/`pandas` are the numeric substrate and `scipy` an optional accelerator for the vectorized SPA path
-- rail: diagram — the solar-ephemeris source under `visualization/diagram/solar#SOLAR`'s owned sun-path generator
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solar-position result frames
 
@@ -29,7 +20,7 @@
 |  [08]   | `sunset`             | rise/set frame  | tz-aware last-light `Timestamp` per day                                  |
 |  [09]   | `transit`            | rise/set frame  | tz-aware solar-noon `Timestamp` per day; date-arc bound                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SPA solar position
 
@@ -58,7 +49,7 @@ Every function vectorizes over the input `DatetimeIndex` (`time`/`times`), never
 |  [06]   | `sun_rise_set_transit_geometric(…, declination, equation_of_time)` | geometric rise/set/transit from declination + EoT (no SPA)    |
 |  [07]   | `Location(...).get_solarposition(times, …)`                        | site-bound aggregator forwarding to the module                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `get_solarposition(method=)` is the single polymorphic dispatch — `method` discriminates the SPA backend (`'nrel_numpy'`/`'nrel_numba'`/`'pyephem'`/`'ephemeris'`/`'nrel_c'`); a new accuracy tier is a `method` value, never a parallel owner, with `spa_python` the direct high-accuracy backend and `ephemeris` the scipy-free path.
@@ -77,9 +68,3 @@ Every function vectorizes over the input `DatetimeIndex` (`time`/`times`), never
 - Bind one `Location(latitude, longitude, tz, altitude)` per site and forward through `Location.get_solarposition`/`get_sun_rise_set_transit`, never bare lat/lon threaded through call sites.
 - Pass site `pressure`/`temperature`/`altitude` for a high-altitude or non-standard-atmosphere site, where the sea-level defaults bias the refraction correction.
 - Keep pvlib to the ephemeris frame; the arc geometry, projection, furniture, and labels are the solar owner's over `graphic/vector/path`/`typography/shape`, never a pvlib matplotlib plot.
-
-[RAIL_LAW]:
-- Package: `pvlib`
-- Owns: the NREL SPA solar ephemeris — apparent/true zenith, elevation, and azimuth, sunrise/sunset/solar-transit times, Earth-Sun distance, hour angle, and the analytical declination/equation-of-time closed forms, all numpy-vectorized over a `pandas.DatetimeIndex`.
-- Accept: the solar-ephemeris source feeding `visualization/diagram/solar#SOLAR`'s sun-path furniture generator over `SolarProjection`/`graphic/vector/path`, one `Location` per site sampled once over a whole date grid.
-- Reject: re-deriving the SPA the native NREL algorithm owns; a pvlib matplotlib plot where the solar owner generates the arc geometry; the PV-system/irradiance/module-model surface outside `solarposition`; the AGPL ladybug `Sunpath` (process boundary, geometry track) where this BSD-3 in-process surface serves.

@@ -4,17 +4,7 @@
 
 Admission is a roster on the IO: `registerExtensions` states which extensions this branch honors, and an extension outside the roster survives only as opaque JSON. Both compression extensions carry no codec — `EXT_meshopt_compression` and `KHR_draco_mesh_compression` declare keyed dependencies the caller installs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@gltf-transform/extensions`
-- package: `@gltf-transform/extensions` (MIT)
-- module: `exports["."]` condition-selects `dist/index.cjs` for `require` against the `dist/index.js` default; types at `dist/index.d.ts`
-- runtime: both lanes — pure graph code; the compression extensions defer every native or wasm codec to an installed dependency
-- depends: `@gltf-transform/core` for `Extension`/`ExtensionProperty`/`ReaderContext`/`WriterContext`, and `ktx-parse` for `KHR_texture_basisu` container reads
-- rail: `object` container surgery beside `@gltf-transform/core`, under the same `Effect`-lifted IO boundary
-- boundary: extension vocabulary alone; the graph is core's and the transform roster is `@gltf-transform/functions`'
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the roster constants — the ONLY admission surface
 
@@ -61,7 +51,7 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 - `Transform` exported here is the `KHR_texture_transform` PROPERTY class, and `Transform` exported by `@gltf-transform/core` is the `(doc, context?) => void` fold type — two unrelated symbols under one name, so a file importing both aliases at the import site.
 - `INSTANCE_ATTRIBUTE` names the `EXT_mesh_gpu_instancing` attribute semantics; `EXTMeshoptCompression.EncoderMethod` is `{ QUANTIZE: "quantize", FILTER: "filter" }` and `KHRDracoMeshCompression.EncoderMethod` is the Draco `EDGEBREAKER`/`SEQUENTIAL` pair.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: admission, attachment, and the codec dependency seam
 
@@ -81,7 +71,7 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 - Every extension property mints from its extension instance (`clearcoatExt.createClearcoat()`), attaches through `material.setExtension(name, property)`, and reads back through `material.getExtension(name)`.
 - `KHRTextureTransform.createTransform()` mints the per-`TextureInfo` transform carrying `getOffset`/`setOffset`, `getRotation`/`setRotation`, `getScale`/`setScale`, and `getTexCoord`/`setTexCoord`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Extensions are CLASSES on a roster, never flags: `registerExtensions` states the closed set, `EXTENSION_NAME` is each identity, and an unregistered extension round-trips as opaque JSON with no typed access — silent capability loss only when the roster is left implicit.
@@ -103,9 +93,3 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 - Every image-source extension on the roster has its `register()` static called once at layer construction, because the roster alone installs no `ImageUtils` impl and a silent `null` extent reaches policy as a missing texture.
 - `EXT_texture_webp` and `EXT_texture_avif` widen the image source for a consumer proven to support them; the KTX2 path stays the transcodable one, because a Basis payload serves every GPU and a WebP source decodes on the CPU.
 - `registerDependencies` runs with codecs already `ready`; an IO built before its decoder resolves throws on the first compressed buffer view.
-
-[RAIL_LAW]:
-- Package: `@gltf-transform/extensions`
-- Owns: the glTF extension vocabulary as typed properties — the texture-source and texture-transform extensions, the meshopt and Draco compression extensions with their keyed codec seams, the full `KHR_materials_*` set, the punctual-light, instancing, visibility, XMP, and structural-metadata families, and the two admission rosters
-- Accept: an explicitly enumerated `registerExtensions` roster, `registerDependencies` codec instances awaited to `ready`, extension properties attached through `createExtension` and read back by name, `setRequired` only where a consumer truly cannot degrade, retired vocabulary admitted for ingest and converted
-- Reject: `ALL_EXTENSIONS` as the roster, a compression extension without its dependency key, retired vocabulary on an emitted asset, a `Transform` import ambiguous between this package and core, extension JSON edited around the property classes

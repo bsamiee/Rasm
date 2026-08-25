@@ -4,16 +4,7 @@
 
 Every concrete stage implements one international category interface, so heterogeneous national phases normalize onto a single cross-national axis a consumer dispatches by `is IConstruction`; the Bim layer folds the roster into the canonical `ProjectStage` discriminant the `Planning/schedule#SCHEDULE` owner carries, stamping `IfcProject.Phase` and the COBie handover stage, each governing body's national context read off `IGovernance.Country` as the sibling `VividOrange.Countries` `ICountry`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Stages` (+ `VividOrange.IStages`)
-- package: `VividOrange.Stages` (MIT)
-- assembly: `VividOrange.Stages` + `VividOrange.IStages` — pure-managed AnyCPU IL, no native asset, ALC-safe inside the in-Rhino plugin; the `net10.0` consumer binds `lib/net8.0`
-- namespace: `VividOrange.Stages` (contracts + International stages), `.UK` (RIBA 2020), `.UK.RIBA2007` (RIBA A-L), `.Germany` (HOAI), `.Italy` (CSLP), `.Denmark` (AB89)
-- depends: `VividOrange.IStages` (interface contracts), `VividOrange.Countries` (the `ICountry` off `IGovernance.Country`), `VividOrange.ISerialization` (the `ITaxonomySerializable` marker) — all MIT, pure-managed
-- rail: `Planning/schedule#SCHEDULE` — the project-phase axis feeding the `IfcProject.Phase` model-phase label and the COBie `CobiePhase`/`CobieStageType` handover stage
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stage and governance contracts (`VividOrange.IStages`)
 
@@ -67,7 +58,7 @@ Each scale is a set of `IStage` classes mapped to their category interfaces; the
 - [05]-[CSLP]: `PFTE` `DD` `EXE` `DL` `Collaudo` — feasibility/definitive/executive/works-direction/testing.
 - [06]-[AB89]: `Ideoplaeg` `Byggeprogram` `Dispositionsforslag` `Projektforslag` `Myndighedsprojekt` `Hovedprojekt` `Projektopfoelgning` `Udfoerelse` `Aflevering` — idea through handover.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stage construction and member read
 
@@ -93,7 +84,7 @@ Category interfaces are the normalization API — a pattern-match lifts a hetero
 |  [03]   | `roster.OfType<IConstruction>()`                    | fold     | every construction-phase stage across all national scales |
 |  [04]   | `roster.Where(s => s.Governance is UK.RIBA)`        | fold     | the stage scale of one governing body                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `VividOrange.IStages` holds the contract floor: `IStage` (`Name`/`Description`/`Id`/`Governance`) is the project-phase head, `IGovernance` (`Name`/`FullBodyName`/`Country`) the defining body, and the category interfaces the international axis; `IStage`/`IGovernance` are `: ITaxonomySerializable`, each category interface is `: IStage`, and `IIdea`/`IBrief`/`ICompetition` refine `IPredesign` — itself both a leaf category Denmark's `Ideoplaeg` implements directly and their super-category
@@ -112,9 +103,3 @@ Category interfaces are the normalization API — a pattern-match lifts a hetero
 [LOCAL_ADMISSION]:
 - `VividOrange.Stages` is the project-lifecycle phase vocabulary: the Bim layer folds the `IStage` roster into the canonical `ProjectStage` discriminant once at startup, keyed by `(Governance.Name, Id)`, with the international category interface as the cross-national normalization arm
 - `IGovernance.Country` is this package's ONE national fact and it belongs to the BODY, not the project: it is read only through `Planning/schedule#SCHEDULE` `ProjectStage.Nation`, and a project nation is elected from a composed roster's national scales at `StageLabels.Nation`, never off the international baseline
-
-[RAIL_LAW]:
-- Package: `VividOrange.Stages` (MIT)
-- Owns: the AEC design/construction project-lifecycle stage taxonomy — the `IStage`/`IGovernance` contracts, the international category interfaces, and the concrete national stage rosters with their governing bodies, each carrying its `VividOrange.Countries` national context
-- Accept: the canonical project-phase vocabulary the `Planning/schedule#SCHEDULE` `ProjectStage` discriminant folds in once, cross-nationally normalized through the category interfaces, supplying the `IfcProject.Phase` model-phase label and the COBie `CobiePhase`/`CobieStageType` handover stage, resolving national context against the shared `VividOrange.Countries` owner
-- Reject: a structural-load/analysis reading — the load/case taxonomy is the sibling `VividOrange.Loads`/`VividOrange.Cases` → `Model/eurocode#EUROCODE_ALGEBRA`, and this package touches no loads, forces, or analysis; a hand-rolled RIBA/HOAI phase enum beside the taxonomy; cross-national reconciliation by parsing the scale-local `Id` or comparing `Name` instead of the category interface; a parallel country enum where `VividOrange.Countries` owns the national context; binding by a strong-name `AssemblyVersion` rather than package identity

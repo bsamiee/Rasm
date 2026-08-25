@@ -2,16 +2,7 @@
 
 `pyroscope-io` owns the native continuous-profiling push agent: one process-wide background sampler pushes CPU or wall pprof frames to a Pyroscope store, scoped by the block, thread, or process sample tags a store slices on. `pyroscope-otel` wraps the same agent to bind profile samples onto trace spans, and its `Profiles` owner drives the push directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyroscope-io`
-- package: `pyroscope-io`
-- module: `pyroscope`
-- namespaces: `pyroscope`
-- rail: observability
-- abi: native CFFI push agent behind a pure-Python `pyroscope` facade
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sampling posture
 - `LineNo` fixes which instruction a sampled frame attributes to, resolving a hot line against the profiler's frame-address convention.
@@ -22,7 +13,7 @@
 |  [02]   | `LineNo.First`           | enum          | attribute a sample to the line's first instruction              |
 |  [03]   | `LineNo.NoLine`          | enum          | drop line attribution, folding to function granularity          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: agent lifecycle — every surface is a module-level `pyroscope` function
 - `configure` carry: `application_name`, `server_address`, `sample_rate`, `oncpu`, `gil_only`, `tags`, `tenant_id`, `basic_auth_username`/`basic_auth_password`, `http_headers`, `report_pid`/`report_thread_id`/`report_thread_name`, `line_no`, `enable_logging`.
@@ -38,7 +29,7 @@
 |  [06]   | `change_name(name)`                                            | static  | retarget the application-name dimension live        |
 |  [07]   | `build_summary()` / `runtime_name()` / `runtime_version()`     | static  | agent build and interpreter identity                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - lifecycle: `configure` starts one process-wide background sampler; `shutdown`/`stop` flush and halt it.
@@ -53,9 +44,3 @@
 [LOCAL_ADMISSION]:
 - Only the profiles owner calls `configure`; worker-floor code composes `tag_wrapper` and the `add_thread_tag`/`remove_thread_tag` pair, reaching process-global `tag`/`remove_tags` only from the composition root.
 - `build_summary`/`runtime_name`/`runtime_version` feed the offline-job envelope's agent-identity fields.
-
-[RAIL_LAW]:
-- Package: `pyroscope-io`
-- Owns: the native continuous-profiling push agent — configure/shutdown lifecycle, block/thread/process sample tagging, sampling posture, and agent introspection
-- Accept: one profiles-owner `configure` at the composition root, `tag_wrapper` bracketing a kernel entry seam, `shutdown` on drain
-- Reject: a second profiling agent beside the push, a per-worker reconfigure racing the process-global sampler, hand-rolled pprof push the agent already owns

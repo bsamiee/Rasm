@@ -27,7 +27,7 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 - Boundary: dispatch carries zero domain math; `Project<TOut>` is total over the `Fin` rail, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;

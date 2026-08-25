@@ -2,17 +2,7 @@
 
 `@pulumi/cloudflare` is the Terraform-bridged Cloudflare provider — the prepared `cloudflare` dispatch row and the cert/dns/ingress source for the `selfhosted-k8s` arm. One Pulumi resource ABI governs every resource class, so a Cloudflare resource is a row on that shape and a new capability extends the row-space, never a bespoke type.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/cloudflare`
-- package: `@pulumi/cloudflare` (Apache-2.0)
-- module: `@pulumi/cloudflare` (flat resource + `getX`/`getXOutput` barrel; `config`/`types.input`/`types.output` namespaces)
-- asset: the bridged Cloudflare resource surface — DNS/zones, the Workers/KV/R2/Pages/Queues/D1/Hyperdrive edge platform, Zero-Trust tunnels + Access, load balancing/rulesets/certificates
-- runtime: `node` — the Terraform-bridged provider plugin auto-downloads on first registration; no local daemon or CLI
-- depends: `@pulumi/pulumi` — provider-schema-shaped `Input<T>` args and `Output<T>` outputs
-- rail: cloud-row / cloudflare + the selfhosted-k8s cert/dns/ingress rows
-
-## [02]-[RESOURCE_ABI]
+## [01]-[RESOURCE_ABI]
 
 [ABI_SCOPE]: the parameterized bridged-resource shape every resource class instantiates
 
@@ -25,7 +15,7 @@
 |  [03]   | `X.isInstance(obj)`                                                     | multi-SDK-safe guard `obj is X`                          |
 |  [04]   | `getX(args, InvokeOptions?)` / `getXOutput(args, InvokeOutputOptions?)` | eager `Promise<GetXResult>` / graph `Output<GetXResult>` |
 
-## [03]-[RESOURCE_FAMILIES]
+## [02]-[RESOURCE_FAMILIES]
 
 [DNS_SCOPE]: zones and records — the cert/dns rows every cloud arm binds
 
@@ -78,7 +68,7 @@
 
 - `Ruleset` args: `{ zoneId | accountId, name, kind ("zone" | "custom" | "managed" | "root"), phase, rules }`; the response-header phase is `"http_response_headers_transform"`, each rule `{ expression, action, actionParameters }` with `action: "rewrite"` and `actionParameters.headers: { [name]: { operation ("add" | "set" | "remove"), value } }`; expressions read `http.request.uri.path` through `starts_with`/`ends_with`, and EVERY matching header-transform rule in the phase applies — first-match narrowing belongs to the CDN dialects, never here.
 
-## [04]-[PROVIDER]
+## [03]-[PROVIDER]
 
 [PROVIDER_SCOPE]: the API credential — the cloudflare arm seam
 
@@ -90,7 +80,7 @@ One `Provider` per arm carries the credential and threads through `opts.provider
 |  [02]   | `apiKey` / `email`              | `Input<string>` | global API key + account email; mutually exclusive with `apiToken` |
 |  [03]   | `apiUserServiceKey` / `baseUrl` | `Input<string>` | restricted-endpoint service key, HTTP base override                |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every Cloudflare resource constructs as `new X(name, XArgs, opts?)` on the one ABI, so a new capability lands as a row on a seeded family.
@@ -108,9 +98,3 @@ One `Provider` per arm carries the credential and threads through `opts.provider
 - `Provider.apiToken` binds the Doppler secret `Output`, never a literal.
 - `DnsRecord`/`CustomHostname` + `OriginCaCertificate` pair the cert/dns rows with the in-cluster ingress at `kube/traffic`.
 - `R2Bucket` is the object-store equivalent and `WorkersScript`/`PagesProject` the compute/hosting equivalents in the service-equivalence map (`provider/surface`); an app finalizes the row with a `StackSpec` value — zone, token ref — never a lib edit.
-
-[RAIL_LAW]:
-- Package: `@pulumi/cloudflare`
-- Owns: DNS/zones, the Workers/KV/R2/Pages/Queues/D1/Hyperdrive edge platform, Zero-Trust tunnels + Access, load balancing/rulesets/certificates — the prepared `cloudflare` row and the selfhosted-k8s cert/dns/ingress rows
-- Accept: current-spelling resources on the one ABI under an arm-scoped `Provider`, `ZeroTrustTunnelCloudflared` ingress, `R2Bucket`/`WorkersScript` service-equivalence rows, `getXOutput` reads, a Doppler-bound `apiToken`
-- Reject: per-resource providers, a literal API token, roster enumeration over the ABI pattern, out-of-band state reads

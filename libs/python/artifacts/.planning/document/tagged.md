@@ -18,7 +18,7 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 - Boundary: born-PDF/A authoring stays at `document/emit#DOCUMENT` — ARCHIVE upgrades an ALREADY-emitted PDF in place; `pdf_oxide.DocumentBuilder.tagged_pdf_ua1()` is the from-scratch born-tagged author reserved for emit, never a second structure author over an existing PDF here; signing stays at `exchange/conformance#CONFORMANCE`, security finishing at `document/egress#FINISH`, OCG authoring at `export/layered#LAYERED`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum

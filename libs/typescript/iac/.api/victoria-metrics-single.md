@@ -2,16 +2,7 @@
 
 `victoria-metrics-single` is the metrics store's resource-pressure escape: one lean binary where the reference row's footprint is the constraint. Its whole surface hangs off a `server` block, and its two override keys behave DIFFERENTLY — the top-level pin renders `<pin>-server` while the nested one renders the bare pin, so which key a fence sets decides whether the `-server` tail is in the address.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `victoria-metrics-single`
-- chart: `victoria-metrics-single` from `https://victoriametrics.github.io/helm-charts` (Apache-2.0), chart and `appVersion` versioned independently
-- asset: the server StatefulSet or Deployment with its Service, ServiceAccount, RBAC cell, and persistent volume, beside an optional PDB, Ingress, Route, ServiceMonitor, and the `vmbackupmanager` sidecar
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / metrics store escape
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                             | [CAPABILITY]                                                                       |
 | :-----: | :-------------------------------- | :--------------------------------------------------------------------------------- |
@@ -37,7 +28,7 @@
 [FULLNAME]: two live keys with different results; see `[OVERRIDE_DUALITY]`.
 [SERVICE_NAME]: `<top-level pin>-server` or `<nested pin>`, serving the primary listen address on 8428 — the write path at `/opentelemetry` and the read path at the bare origin. The default `clusterIP: None` makes it headless, which is what the StatefulSet mode expects.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - This row is the footprint escape, and its degradation is stated rather than discovered: no native histograms, no exemplar storage, no type or unit suffixes, and no in-store rule evaluator — so click-through degrades to trace search, series carry the bare dotted name, and every burn numerator renders inline per alert evaluation rather than resolving against a recorded series.
@@ -56,9 +47,3 @@
 - Set the OTLP naming flag explicitly rather than inheriting the binary's default, so the row's `translation` column and the ingest behavior agree.
 - State `server.persistentVolume.size`; the claim already ships armed, so what a row records here is the size, and the `emptyDir` alternative the same block gates loses the whole TSDB on reschedule.
 - Never render a quantile or fraction panel against this row assuming native histograms — the engine stores buckets and the row's `histogram` column says `classic`.
-
-[RAIL_LAW]:
-- Contract: `victoria-metrics-single` chart values
-- Owns: the lean single-binary metrics store — its listen addresses, retention, data claim, workload mode, binary flags, and the backup sidecar
-- Accept: one override key stated explicitly with the address derived from it; a unit-carrying `retentionPeriod`; `opentelemetry.usePrometheusNaming: "false"` matching the row's `NoTranslation` column; an explicitly sized `server.persistentVolume`; the `/opentelemetry` write path on 8428
-- Reject: an address derived from the other override key; a bare-integer retention read as anything but months; an implicit naming posture; an inherited claim size; `emptyDir` where the series must survive; native-histogram or exemplar assumptions the engine cannot answer; an org-tenancy assumption on a label-tenancy row

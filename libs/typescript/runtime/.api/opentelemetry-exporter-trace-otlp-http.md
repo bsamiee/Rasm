@@ -2,16 +2,7 @@
 
 `@opentelemetry/exporter-trace-otlp-http` is the concrete `SpanExporter` POSTing a `ReadableSpan[]` batch to an OTLP/HTTP collector as JSON — both platform builds hard-bind `JsonTraceSerializer`, and protobuf framing is the separate `-proto` sibling package, never a toggle here. A `BatchSpanProcessor`/`SimpleSpanProcessor` wraps it and `NodeSdk`/`WebSdk` `Configuration.spanProcessor` sinks it — `otel/emit`'s SDK-bridge trace leg, an `[OTEL_PIN_BLOCK]`-collapse member reached only for SDK-only processor or exporter capability.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/exporter-trace-otlp-http`
-- package: `@opentelemetry/exporter-trace-otlp-http` (Apache-2.0)
-- module: dual platform export — `platform/node` (`http`/`https`, config `OTLPExporterNodeConfigBase`) or `platform/browser` (fetch-only transport, config `OTLPExporterConfigBase`; no `XMLHttpRequest` path, `sendBeacon` a deprecated fetch alias); one `OTLPTraceExporter` selected at build time by the export condition
-- runtime: node/bun or browser; peers `@opentelemetry/sdk-trace-base` (`SpanExporter`/`ReadableSpan` + the wrapping `BatchSpanProcessor`), `@opentelemetry/core` (`ExportResult` rail), `@opentelemetry/api`, config types from `@opentelemetry/otlp-exporter-base`
-- rail: observability/export/trace — the SDK-bridge trace leg
-- consumed-by: `otel/emit` via `NodeSdk`/`WebSdk` `Configuration.spanProcessor`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `SpanExporter` class and its transport config
 
@@ -24,7 +15,7 @@
 - config knobs — `OTLPExporterConfigBase`: `url` `headers` `concurrencyLimit` `timeoutMillis`; `OTLPExporterNodeConfigBase` adds `keepAlive` `compression` `httpAgentOptions` `userAgent`
 - `OTLPTraceExporter`: wrapping processor and SDK provider drive its `SpanExporter` members `export` (terminal disposition via core's `ExportResult`), `forceFlush`, and `shutdown`; design code never calls them
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge trace export composition — construct, wrap in a processor, hand to the facade
 
@@ -34,7 +25,7 @@
 |  [02]   | `new OTLPTraceExporter(OTLPExporterConfigBase?)`                  | ctor    | browser exporter, RUM egress leg   |
 |  [03]   | `new BatchSpanProcessor(exporter) -> Configuration.spanProcessor` | fold    | exporter → processor → facade sink |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Endpoint and runtime are config, never a fork: node vs browser transport resolves at the package's platform export condition and a backend change is a `url`/`headers` value at the composition root — but FRAMING is a package boundary, not a config value: this exporter serializes JSON alone and the protobuf leg is the `-proto` sibling admitted beside it.
@@ -50,9 +41,3 @@
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits ONLY inside `scope:runtime` (edge-ledger), constructed at the composition root; instrumentation code emits through Effect's `Effect.withSpan` and never imports this package.
 - This exporter admits as an `[OTEL_PIN_BLOCK]`-collapse dependency, selected only for SDK-only processor or exporter capability.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/exporter-trace-otlp-http`
-- Owns: OTLP/HTTP span serialization — one `OTLPTraceExporter` (`SpanExporter`) over a node or browser transport, configured by endpoint, headers, compression, timeout
-- Accept: `new OTLPTraceExporter(cfg)` wrapped in a `BatchSpanProcessor`/`SimpleSpanProcessor` and fed to `NodeSdk`/`WebSdk` `Configuration.spanProcessor`; endpoint and runtime as config + platform-export selection; the one `AppIdentity`-derived `Resource`; core's `ExportResult` rail
-- Reject: `@opentelemetry/*` outside `scope:runtime`, this SDK exporter where the native `OtlpTracer` suffices, a subclass per backend or compression (config owns it), treating the platform export as a fork, an unwrapped exporter handed straight to the facade

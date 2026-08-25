@@ -2,19 +2,7 @@
 
 `LoroCs` is the UniFFI-generated C# binding over the Rust `loro` CRDT engine — the Eg-walker/Fugue sequence, map, text, movable-list, tree, and counter runtime backing the Shell/Editing collaboration op-log, presence, and time-travel. One `LoroDoc` owns nested containers, imports and exports snapshots or delta updates, checks out, forks, or reverts to historical `Frontiers`, and streams typed `Diff` records. It replaces the bespoke `NotebookCrdt` LWW algebra: `LoroDoc` owns merge, `Cursor` survives concurrent edits, `EphemeralStore`/`Awareness` carry presence, and `UndoManager` isolates local undo. Every container, cursor, frontier, and version-vector handle is `IDisposable` over a Rust pointer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `LoroCs`
-- package: `LoroCs` (MIT)
-- assembly: `LoroCs` (single shipped managed assembly)
-- namespace: `LoroCs` (one flat namespace — containers, value/diff unions, FFI plumbing, and exceptions all live here)
-- build-floor: ships only `lib/netstandard2.0` (no `net8.0`+ asset); the `net10.0` consumer binds `netstandard2.0` forward — the documented surface
-- native asset: the loro Rust core ships as `runtimes/osx-arm64/native/loro.dylib` (UniFFI P/Invoke `_UniFFILib` over the native lib); outside-Rhino / companion only — the native dylib firebreaks it out of any in-Rhino plugin ALC, the same posture as the other native AppUi rows
-- xml-doc: none shipped (no `.xml` beside the assembly; member intent is the UniFFI-generated signature)
-- dependencies: zero managed NuGet deps (`netstandard2.0` group is empty; the binding self-contains its FFI marshalling)
-- rail: collaboration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DOCUMENT_AND_CONTAINERS]: the document root and its six container kinds
 - rail: collaboration
@@ -119,7 +107,7 @@
 - [06]-[EPHEMERAL_EVENT_TRIGGER]: Identifies local, imported, and timed-out ephemeral-store changes.
 - [07]-[ORDERING]: Carries the `CmpWithFrontiers` result.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DOC_LIFECYCLE]: import / export / commit / time-travel on `LoroDoc`
 - rail: collaboration
@@ -258,7 +246,7 @@
 - State: `Awareness(ulong peer, long).SetLocalState(value)` owns per-peer user and color state on a separate channel.
 - Wire: `Encode(peers)` and `Apply(byte[])` exchange state as `AwarenessPeerUpdate`.
 
-## [04]-[ERROR_TAXONOMY]
+## [03]-[ERROR_TAXONOMY]
 
 [BOUNDARY_FAULTS]: the `LoroException` hierarchy lifted at the collaboration edge
 - rail: collaboration
@@ -286,7 +274,7 @@
 - [08]-[TRANSACTION]: `LockException`, `ImportWhenInTxn`, `AutoCommitNotStarted`, and `TransactionException` reject concurrent access and transaction-state misuse.
 - [09]-[UPDATE]: `UpdateTimeoutException` branches to `Timeout` when `Update` or `UpdateByLine` exceeds `UpdateOptions.TimeoutMs`.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 
@@ -322,9 +310,3 @@
 - Inspector: One tree-and-map projection backs inspector and outline surfaces.
 - Table: `LoroMovableList.Mov` reorders DataGrid rows without delete-and-insert identity loss.
 - Aggregate: `LoroCounter` carries conflict-free aggregate tiles.
-
-[RAIL_LAW]:
-- Packages: `LoroCs` (zero managed deps; native `loro.dylib`, outside-Rhino only)
-- Owns: the Shell/Editing collaboration op-log, presence, time-travel, and local undo — the document merge authority for notebook/annotation/table/live-data
-- Accept: one long-lived `LoroDoc` per collaborative document; `Get<Kind>(name)` to attach named root containers; `SubscribeLocalUpdate` → broadcast / `Import` → merge as the only sync path; `Export(Snapshot)` as the persisted content-keyed blob; `Cursor` via `EphemeralStore`/`Awareness` for presence; `UndoManager` with origin-exclusion for local undo; the `LoroValue`/`Diff`/`ExportMode` unions pattern-matched at their leaf
-- Reject: a hand-rolled LWW/merge algebra beside the document (the CRDT IS the merge); a presence cursor stored in the durable op-log (use the ephemeral channel); an und/redo stack that ignores remote-op origins; treating any `Loro*`/`Cursor`/`Frontiers`/`VersionVector` handle as managed-GC'd (all are `IDisposable` Rust-pointer wrappers); referencing `LoroCs` from an in-Rhino plugin assembly (the native dylib is companion-only)

@@ -2,17 +2,7 @@
 
 `Unofficial.laszip.netstandard` owns the managed LASzip C-API codec — ASPRS LAS point-format read and write with arithmetic-coded LAZ compression and decompression. One `laszip` object opens a `.las` or `.laz` stream and reports `is_compressed`, so a single reader decodes both, carrying the differentiators a BCL-managed reader lacks: selective per-channel decompression and the `.lax` spatial-index bbox query. Two branch rails compose it and neither re-mints a codec: `Rasm.Bim` `Exchange/reconstruct#LAS_INGEST` `LasIngest.Decode` folds it as the compressed-stream PEER of the uncompressed `Themis.Las` reader (`Rasm.Bim/.api/api-themis-las.md`) dispatched by `LasCompression.Sniff`, and `Rasm.Persistence` `Ingest/pointcloud#SCAN_SOURCE` composes it as the ONE engine for both `.las` and `.laz` on the durable-residence leg.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Unofficial.laszip.netstandard`
-- package: `Unofficial.laszip.netstandard` (LGPL-2.1)
-- assembly: `Unofficial.laszip.netstandard` → the `net10.0` consumer binds `lib/netstandard2.0/Unofficial.laszip.netstandard.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
-- namespace: `LASzip.Net`
-- depends: none — zero managed dependencies
-- scope: ASPRS LAS point formats 0-10 read and write, LAZ arithmetic-coded compression/decompression, selective-channel decompression, the `.lax` spatial-index bbox query, and the full header/VLR/EVLR/geokey model
-- rail: `Rasm.Bim/Exchange/reconstruct#LAS_INGEST` (the scan-to-BIM LAZ-capable decode leg), `Rasm.Persistence/Ingest/pointcloud#SCAN_SOURCE` (the durable-residence LAS/LAZ leg)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec root and channel-select vocabulary
 
@@ -37,7 +27,7 @@
 
 - [02]-[POINT_FIELDS]: `laszip_point` decodes in place — `X`/`Y`/`Z` int (`X * scale + offset` → real-world XYZ), `intensity`, `gps_time`, `rgb` (`ushort[4]` = RGB+NIR), `wave_packet`, `extra_bytes`; the class byte reads `classification` (format 0-5) or `extended_classification` (format 6-10, selected by `extended_point_type`).
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open and stream-decode a LAS/LAZ source
 - note: `create()` mints the codec, `open_reader`/`open_reader_stream` opens a file or `ReadOnlyMemory<byte>`-backed stream and reports `is_compressed`, the forward loop calls `read_point()` filling `point`, and `get_coordinates` lifts real-world XYZ. Every method returns an `int` status (0 = success); a nonzero status admits `get_error()` as the owner's codec-refusal detail, while `get_warning()` remains provider diagnostics alongside success.
@@ -87,7 +77,7 @@
 |  [11]   | `update_inventory()`                                                                | instance | finalize header counts/extrema |
 |  [12]   | `close_writer()`                                                                    | instance | flush and close                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `laszip` is the one C-API codec object: `create()` mints it, `open_reader`/`open_reader_stream` reports `is_compressed` so ONE reader decodes both `.las` and `.laz` (arithmetic decoder vs raw read), never a per-format or per-compression reader family
@@ -113,9 +103,3 @@
 - tiled and windowed ingest enters through the `.lax` `inside_rectangle` + `exploit_spatial_index` path when an index exists, and the full filtered stream otherwise
 - A nonzero `int` status maps once to the consuming owner's codec refusal using `get_error()` as provider evidence — the reconstruct leg's Bim-owned refusal and `ScanFault.CodecReject` on the residence leg. `get_warning()` appends to the decode result diagnostics and never becomes a terminal fault.
 - LGPL-2.1 custody rides a SEPARATE assembly reference (`PackageReference`), never an ILMerge into a Rasm assembly; the pure-managed ns2.0 IL binds forward and the in-Rhino plugin ALC firebreak holds
-
-[RAIL_LAW]:
-- Package: `Unofficial.laszip.netstandard` (LGPL-2.1)
-- Owns: the managed LASzip C-API codec — `.las`/`.laz` arithmetic-coded read AND write (point formats 0-10), selective-channel decompression, the `.lax` spatial-index bbox query, and the full ASPRS header/point/VLR/EVLR/geokey/extra-bytes model
-- Accept: the `Rasm.Bim/Exchange/reconstruct#LAS_INGEST` LAZ-capable decode leg lifting the raw point set through the copying `Vector<double>.Build.DenseOfArray` into the kernel `MathNet.Numerics` vector, the format-correct class channel, and the CRS WKT VLR threaded onto `Semantics/georeference#GEO_PROJECTION`; the `Rasm.Persistence/Ingest/pointcloud#SCAN_SOURCE` residence leg driving both `.las` and `.laz` off one `open_reader_stream` `is_compressed` report, folding `read_point`/`get_coordinates` into the chunk-and-cell pass, masking channels through `decompress_selective`, and serving cell windows through the `.lax` `inside_rectangle`/`exploit_spatial_index`/`read_inside_point` path; on both legs every `int` status gated onto the owner's typed rail
-- Reject: a re-minted point-cloud scan/segmentation/registration engine (the kernel owns it); a second point model beside the `Themis.Las` `LasPoint`/`LasCloud` carrier and the `Ingest/pointcloud` `ScanBatch` currency; a hand-rolled LAZ arithmetic decoder or a native libLASzip binding; the format-0-5 `classification` getter on a format-6-10 record or a wrapping `Dense(double[])` lift over the reused coordinate buffer; a second hashing scheme or the upper-stratum `Rasm.Compute` `InterchangeIdentity` beside the kernel `ContentHash`/seam `CanonicalWriter` lineage; a laszip-local CRS reprojection beside `ProjNET`; decoding channels `decompress_selective` masks; a per-consumer catalogue re-tabling these members at either folder tier

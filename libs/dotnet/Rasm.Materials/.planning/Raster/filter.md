@@ -29,7 +29,7 @@ Scheduling is the page's load-bearing decision, and it exists because the ops ge
 - Boundary: this page transforms DECODED planes and decides nothing about what a plane MEANS. Channel semantics, neutrals, packing, and mip law are `set#TEXTURE_CHANNEL`'s; containers are `codec#RASTER_CODEC`'s; the mip chain is `plane#TEXTURE_PYRAMID`'s and `Resize` is deliberately NOT its alias — a level is the grid's own `Coarsen` step under a declared policy, so a resize can never produce a level a sampler then trilinearly blends against a different filter's neighbours.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
 using Rasm.Domain;
@@ -327,7 +327,7 @@ public abstract partial record PlaneOp {
 - Boundary: every loop-bearing member states its own KERNEL-EXEMPTION at the loop and each names the shape no span operator reaches — a strided gather, a clamped 2-D window, a data-dependent selection, a generator, or a side-effecting row rail — while every whole-run elementwise crossing folds onto `TensorPrimitives` instead. Every admission, plan, schedule, and trace surface is expression-bodied; statements stop at the row kernel.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Threading;
@@ -1062,7 +1062,7 @@ internal static class PlaneKernel {
 - Boundary: this section derives fields from a height plane and never SOURCES one. Height planes arrive from an ingest classification, a press bake, or the `HeightNormal` inverse over an acquired normal plane under a depth prior — and no inference stage emits height, because integration under a prior is pure mathematics the estate owns rather than a model it would have to license.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;

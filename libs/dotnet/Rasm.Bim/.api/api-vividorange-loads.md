@@ -2,17 +2,7 @@
 
 `VividOrange.Loads` over the `VividOrange.ILoads` contract mints the host-neutral structural-load value taxonomy: the closed family of idealized member actions — point force, moment, displacement, line force, area force, column load, gravity — each an immutable `ILoad` whose components are `UnitsNet` dimensioned quantities rather than bare `double`. `ILoad.Factor(Ratio)` is the one scaling combinator every partial-safety and combination multiplier folds through, so factoring rebuilds the typed load and preserves its `Label`, never hand-multiplying a force scalar.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.Loads`
-- package: `VividOrange.Loads` (impl) over `VividOrange.ILoads` (contracts + enum) (MIT)
-- assembly: `VividOrange.Loads`, `VividOrange.ILoads`
-- namespace: `VividOrange.Loads` (one namespace spans both the contract and impl assemblies)
-- asset: pure-managed AnyCPU IL binding the `net8.0` lib asset; no native binaries, ALC-safe inside the in-Rhino plugin
-- depends: `VividOrange.ILoads` → `UnitsNet` (quantity payload) + `VividOrange.ISerialization` (`ITaxonomySerializable`); `VividOrange.Loads` → `VividOrange.ILoads`
-- rail: structural-load
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: load contract family (`VividOrange.ILoads`); the 3D interface derives its 2D base and adds the out-of-plane component
 
@@ -45,7 +35,7 @@
 |  [06]   | `ColumnLoad`                              | class         | `Force` axial + top/bottom `IPointMoment2d`   |
 |  [07]   | `Gravity2d`/`Gravity`                     | class         | `Ratio` g-multiplier components               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: typed construction and scaling
 
@@ -64,7 +54,7 @@
 |  [11]   | `AreaForce(Pressure)` + `X`/`Y`/`Z`/`Application` setters | ctor     | Z-form ctor, the other axes set after              |
 |  [12]   | `Gravity()` / `Gravity(Ratio)`                            | ctor     | g-multiplier field, empty or Z-stated              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - base contract: `ILoad: ITaxonomySerializable` with `string Label { get; }` and `ILoad Factor(Ratio)`; every load folds through this one surface
@@ -83,9 +73,3 @@
 - `Model/eurocode#EUROCODE_ALGEBRA` mints one carrier per `IfcStructuralLoad` subtype and lowers the neutral component rows beside it; the group topology rides the seam's own edges, so the typed load carries the action quantity alone
 - carrier components are minted FROM already-coerced SI magnitudes (`Force.FromNewtons`, `ForcePerLength.FromNewtonsPerMeter`, `Pressure.FromPascals`, `Torque.FromNewtonMeters`) and read back through the matching SI accessor; the `ToUnit(UnitSystem.SI)` registry path throws for every quantity whose SI unit-info walk is empty, so it never enters this lane
 - `PointForce`/`LineForce`/… concrete classes are mutable settable-property carriers; they live inside the fold that mints them and the projection that leaves is the neutral row set, never a settable carrier crossing a seam signature
-
-[RAIL_LAW]:
-- Package: `VividOrange.Loads` over `VividOrange.ILoads`
-- Owns: the typed structural-load value taxonomy and the `Factor(Ratio)` scaling combinator
-- Accept: load components as `UnitsNet` quantities; combination scaling through `ILoad.Factor`; serialization through `ITaxonomySerializable`
-- Reject: bare-`double` components, hand-multiplied partial-factor scaling, a per-load-type parallel record family on the Bim graph (the seam carries neutral rows on its own edges), a SAF round-trip reinterpreting a scalar instead of mapping the typed unit

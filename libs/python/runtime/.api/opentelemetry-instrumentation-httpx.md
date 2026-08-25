@@ -2,16 +2,7 @@
 
 `opentelemetry-instrumentation-httpx` traces the httpx client legs: one `HTTPXClientInstrumentor` patches the sync and async clients at the transport seam so every request emits an HTTP client span and injects W3C trace context onto the wire, with sync and async request/response hooks enriching the active span.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-instrumentation-httpx`
-- package: `opentelemetry-instrumentation-httpx`
-- module: `opentelemetry.instrumentation.httpx`
-- namespaces: `opentelemetry.instrumentation.httpx`
-- rail: observability
-- abi: pure-Python runtime library
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumentor
 
@@ -19,7 +10,7 @@
 | :-----: | :------------------------ | :------------ | :------------------------------------------- |
 |  [01]   | `HTTPXClientInstrumentor` | instrumentor  | sync + async httpx client spans, propagation |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instrumentor lifecycle
 - `instrument` kwargs: `tracer_provider`, `request_hook`, `response_hook`, `async_request_hook`, `async_response_hook`.
@@ -31,7 +22,7 @@
 |  [03]   | `HTTPXClientInstrumentor.instrument_client(client, ...)` | static   | instrument one built `Client`/`AsyncClient` |
 |  [04]   | `HTTPXClientInstrumentor.uninstrument_client(client)`    | static   | strip one built client                      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - activation: one `instrument()` at the composition root patches both client classes; pooled `transport/roots` clients built before activation re-enter through `instrument_client`.
@@ -44,9 +35,3 @@
 
 [LOCAL_ADMISSION]:
 - one `instrument()` at the composition root; pre-built `transport/roots` clients re-enter via `instrument_client`, and no second HTTP-client instrumentation binds the same clients.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-instrumentation-httpx`
-- Owns: HTTP client spans and W3C context injection on every httpx request
-- Accept: one `instrument()` at the composition root, `instrument_client` for pre-built clients, sync/async request/response hooks for span enrichment
-- Reject: activation inside a library module, hand-rolled `traceparent` writes on an httpx leg, a second HTTP-client instrumentation over the same clients

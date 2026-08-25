@@ -2,18 +2,7 @@
 
 `pdfimpose` is the press-imposition schema engine for the artifacts composition rail: it re-orders, rotates, scales, and grids an emitted PDF onto larger press-ready sheets for the bindery, one `AbstractImpositor` subclass per binding schema. It composes the native MuPDF page-placement core the `pymupdf` owner already drives and never re-implements the affine `Matrix`, the page-copy primitive, or the PDF write. Behind `composition/imposition#IMPOSE` it is the provider-contained `ImpositionEngine.PDFIMPOSE` arm, selected against the local `pymupdf.Page.show_pdf_page` placement arm.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pdfimpose`
-- package: `pdfimpose` (AGPL-3.0-or-later)
-- import: `pdfimpose` (schemas under `pdfimpose.schema.<name>`)
-- owner: `composition`
-- rail: imposition
-- runtime deps: `pymupdf` (page-placement + PDF-write core), `papersize` (`parse_papersize`/`parse_length` sizing), `pyxdg` + `argdispatch` (CLI-only, unused in-process)
-- entry points: console script `pdfimpose` (CLI); the in-process owner composes the library `impose` functions, never the console script or its `apply` config rail
-- capability: press imposition of a source PDF onto larger imposed sheets across the binding-schema family — per-schema destination page-order matrix, recto/verso bind-edge rotation, per-sheet `creep` compensation, n-across×n-down `signature` layout, inner/outer margins, crop-mark overlay, `last`-page tail preservation, `group`-before-fold batching, and `BytesIO`-to-`BytesIO` in-memory operation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the impositor base and the schema family
 
@@ -63,7 +52,7 @@ Creep is a `Callable[[int], float]` returning the per-sheet inward shift in pt f
 | :-----: | :---------- | :------------- | :------------------------------------------------------------------------------- |
 |  [01]   | `UserError` | user fault     | invalid imposition request: bad page count, unparseable size, conflicting sizing |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the per-schema `impose` convenience functions
 
@@ -133,7 +122,7 @@ Impositor method call shapes:
 |  [07]   | `AbstractImpositor.blank_page_number`         | count of blank pages padded to fill the final signature                                |
 |  [08]   | `pdf.readpdf` / `pdf.Reader` / `pdf.Writer`   | the `pymupdf.Document` read/write boundary the impositor uses                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [IMPOSITION_PROVIDER]:
 - import: `lazy from pdfimpose.schema import saddle, cutstackfold, copycutfold` (with `hardcover`/`cards`/`wire`/`onepagezine` where admitted) and `lazy from pdfimpose import UserError as PdfImposeUserError`, at boundary scope through a module-scope lazy import so the native MuPDF dependency loads on first impose.
@@ -148,8 +137,3 @@ Impositor method call shapes:
 - boundary axis: only imposed PDF bytes with local `Composed`/`ImposedPlan` facts cross the owner boundary — `Matrix`, `Page`, `Margins`, impositor instances, and schema names never do; the owner projects the layout as `Imposition.layers -> tuple[Layer, ...]` to `export/layered#LAYERED` and contributes one `core/hooks#POINTS` case selected by `Composed.kind`.
 - license boundary: AGPL-3.0, co-extensive with `pymupdf` — a closed distributed/network imposition service triggers source disclosure, so the rail admits only an internal/permissively-licensed pipeline or an AGPL-compliant deployment; no permissive imposition substitute exists in the roster.
 - evidence: the provider returns imposed bytes; the owner reopens them and returns `Composed(data=..., pages=Document.page_count)`.
-
-[RAIL_LAW]:
-- Package: `pdfimpose`
-- Owns: press imposition of a source PDF onto larger imposed sheets across the binding-schema family — per-schema destination page-order matrix, recto/verso rotation, and creep over a `pymupdf` document, behind `composition/imposition#IMPOSE`'s `ImpositionEngine.PDFIMPOSE` provider row
-- Reject: a second imposition owner where `composition/imposition#IMPOSE` owns the concern; instantiating `AbstractImpositor` subclasses directly; letting `Matrix`/`Page`/`Margins`/impositor handles cross the boundary; mixing `folds`/`size` with `signature`; expecting any mark beyond `['crop']` from the provider; routing `PERFECT_BIND` through `pdfimpose`; the CLI console-script/`apply` rail in-process; a second page-count formula drifting from the imposed `Document.page_count`; the MuPDF fold on the event loop; the AGPL path inside a distributed closed service

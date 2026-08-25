@@ -2,18 +2,7 @@
 
 `@effect/sql-sqlite-node` binds the neutral `@effect/sql` `SqlClient` to a synchronous in-process `better-sqlite3` connection — the server-runtime sqlite dialect lane. `SqliteClient` extends `SqlClient`, adding only the driver-distinct capability the neutral surface lacks, and marks `updateValues: never`, the one dialect degradation the pg spine does not carry.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/sql-sqlite-node`
-- package: `@effect/sql-sqlite-node` (MIT)
-- effect-peer: `effect`, `@effect/platform`, `@effect/experimental` (`Reactivity`), `@effect/sql` (the `SqlClient` core this extends)
-- backing: `better-sqlite3` (bundled synchronous in-process N-API sqlite, prebuilt binaries)
-- module: ESM + CJS dual (`dist/dts` typings), `sideEffects: []`; subpaths `@effect/sql-sqlite-node/SqliteClient`, `/SqliteMigrator`
-- runtime: node/bun server only — native synchronous binding, never the browser/wasm plane
-- rail: the `data` `lane/sqlite` node dialect — pg-spine journal/projection contracts under the sqlite degradation table
-- modules: `SqliteClient`, `SqliteMigrator` (banned re-export)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the sqlite client extension over the neutral `SqlClient`
 
@@ -38,7 +27,7 @@
 |  [05]   | `spanAttributes?`                              | telemetry       | per-query OTel span attributes               |
 |  [06]   | `transformResultNames?`/`transformQueryNames?` | name transform  | snake_case ⇄ camelCase; match the PG spine   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing and providing the sqlite lane Layer
 - `layer`/`layerConfig` both yield `SqliteClient | SqlClient` in one Layer (error `ConfigError`), so a neutral-`SqlClient` row and a `backup`/`loadExtension` row share one binding; `make` returns `Effect<SqliteClient, never, Scope | Reactivity>`, and `layerConfig` sources `filename` and cache knobs from `Config` behind the composition root's `Config`.
@@ -49,7 +38,7 @@
 |  [02]   | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` | provide lane   | filename/cache/WAL from `Config`; no hardcoded path |
 |  [03]   | `SqliteClient.make(config)`                                 | build client   | scoped; requires `Reactivity` for `sql.reactive`    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SqliteClient extends SqlClient`, so `layer`/`layerConfig` bind both Tags: every journal/projection/capability/retrieve row keeps yielding the abstract `SqlClient` and stays driver-agnostic, and only a snapshot or extension-load row yields the concrete `SqliteClient`. Swapping to the bun lane or the pg spine is a `Layer` selection at the app root.
@@ -69,9 +58,3 @@
 - Provide `SqliteClient.layerConfig` on the `./server` subpath at the app root; yield the concrete `SqliteClient` only where `export`/`backup`/`loadExtension` are genuinely needed, `SqlClient` everywhere else to stay dialect-portable.
 - Source `filename` from `Config` and keep WAL on unless a read-only replica sets `disableWAL`; express every dialect gap through `sql.onDialect`, never a per-driver journal or projection fork.
 - `SqliteMigrator` re-export is banned — no migration run; schema is `iac` declarative ensure verified at `data` startup.
-
-[RAIL_LAW]:
-- Package: `@effect/sql-sqlite-node`
-- Owns: the node/bun-server `SqliteClient` Layer over `better-sqlite3` behind the neutral `SqlClient` Tag, and the driver-distinct capability — whole-db `export`, online `backup`/`BackupMetadata`, runtime `loadExtension`, the `SqliteClientConfig` prepared-statement cache and WAL control, and the `updateValues: never` degradation marker
-- Accept: `layerConfig` on `./server` sourcing `filename`/cache from `Config`, the neutral `SqlClient` yielded by every dialect-agnostic row, `sql.onDialect` for the sqlite/pg gaps, `export`/`backup`/`loadExtension` where the concrete lane is in scope, `Reactivity` for `sql.reactive`
-- Reject: a driver import in a neutral row, a per-driver journal/projection fork, a hardcoded filename, `SqliteMigrator`/migration use, reliance on `updateValues`

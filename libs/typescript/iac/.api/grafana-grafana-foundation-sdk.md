@@ -2,15 +2,7 @@
 
 Typed dashboard, panel, and query construction: every builder is a fluent `cog.Builder<T>` whose `.build()` emits the plain Grafana JSON model, and that JSON is the sole boundary the `@pulumiverse/grafana` apply consumes.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `@grafana/grafana-foundation-sdk` (Apache-2.0)
-- module: exports-map subpaths, one module per builder domain; each resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and per-builder `*Builder.gen`
-- runtime: isomorphic — builders emit plain JSON, no runtime peer
-- plane: `plane:deploy` — folded only by `operate/observe.md`'s `_compiled`; no runtime module resolves it
-- rail: deployment / dashboard-compile
-
-## [02]-[DASHBOARD_MODULE]
+## [01]-[DASHBOARD_MODULE]
 
 [DASHBOARD_TYPE_SCOPE]: `./dashboard` owns `DashboardBuilder` (root) beside the companion builders `RowBuilder`, the variable-builder family, `ThresholdsConfigBuilder`, `TimePickerBuilder`, `DashboardLinkBuilder`, `AnnotationQueryBuilder`. Every member is a fluent instance setter terminating at `.build()`.
 
@@ -28,7 +20,7 @@ Typed dashboard, panel, and query construction: every builder is a fluent `cog.B
 [AnnotationQueryBuilder]: `.name(string)` `.iconColor(string)` `.enable(boolean)`
 [DashboardLinkBuilder]: `.title(string)` `.type(DashboardLinkType)` `.icon(string)` `.tooltip(string)` `.url(string)` `.tags(string[])` `.asDropdown(boolean)` `.placement(DashboardLinkPlacement.InControlsMenu)` `.targetBlank(boolean)` `.includeVars(boolean)` `.keepTime(boolean)` — `DashboardLinkType = Link | Dashboards`; panel `.links(...)` takes `cog.Builder<dashboard.DashboardLink>[]`, so links stay typed through emission.
 
-## [03]-[PANEL_MODULES]
+## [02]-[PANEL_MODULES]
 
 [PANEL_ENTRY_SCOPE]: one `PanelBuilder` per visualization subpath; the shared members below ride every panel module (verified on `timeseries`) and map onto the core panel family's `_PanelFields`. Every member is a fluent instance setter.
 
@@ -51,7 +43,7 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 [ENUM_HOME]: every enum a builder member takes ships from the module that owns the shape, never from the panel subpath that consumes it — `./common` declares `AxisPlacement` (`Auto|Top|Right|Bottom|Left|Hidden`), `AxisColorMode` (`Text|Series`), `ScaleDistribution` (`Linear|Log|Ordinal|Symlog`), `TooltipDisplayMode` (`Single|Multi|None`), `SortOrder`, `FrameGeometrySourceMode` (`Auto|Geohash|Coords|Lookup`), `LogsSortOrder`, and `LogsDedupStrategy`, while `./dashboard` declares `DashboardLinkType` (`Link|Dashboards`), `DashboardLinkPlacement`, and `ThresholdsMode`; importing one from its consuming panel subpath resolves nothing.
 [logs.PanelBuilder]: `.showTime(boolean)` `.wrapLogMessage(boolean)` `.sortOrder(LogsSortOrder)` `.dedupStrategy(LogsDedupStrategy)` — `LogsSortOrder = Descending | Ascending`; `LogsDedupStrategy = none | exact | numbers | signature`.
 
-### [03.1]-[GEOMAP]
+### [02.1]-[GEOMAP]
 
 `./geomap` carries `PanelBuilder`, `MapViewConfigBuilder`, and `ControlsOptionsBuilder`; map-layer and geometry-source builders live in `./common`. Every companion constructor is zero-argument and `.build()` returns its plain model.
 
@@ -62,24 +54,24 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 [FrameGeometrySourceBuilder]: `.mode(Auto | Geohash | Coords | Lookup)` `.geohash` `.latitude` `.longitude` `.wkt` `.lookup` `.gazetteer`
 [DIMENSION_BUILDERS]: `./common` ships the typed field-binding builders every geomap style slot compiles through — `ColorDimensionConfigBuilder` (`.field` `.fixed`), `TextDimensionConfigBuilder` (`.mode(TextDimensionMode)` REQUIRED for a field-driven label, `.field`, `.fixed`; `TextDimensionMode = Fixed | Field | Template`), `ScaleDimensionConfigBuilder` (`.field` `.fixed` `.min` `.max` both REQUIRED, `.mode(ScaleDimensionMode)`; `ScaleDimensionMode = Linear | Quad`), `ScalarDimensionConfigBuilder`, `ResourceDimensionConfigBuilder` — so the `.field` spellings type-check even though the enclosing `config` envelope does not
 
-### [03.2]-[TABLE]
+### [02.2]-[TABLE]
 
 [table.PanelBuilder]: `.frameIndex(number)` `.showHeader(boolean)` `.showTypeIcons(boolean)` `.sortBy(cog.Builder<TableSortByFieldState>[])` `.footer(cog.Builder<TableFooterOptions>)`
 [TableSortByFieldStateBuilder]: `.displayName(string)` `.desc(boolean)`
 [TableFooterOptionsBuilder]: `.show(boolean)` `.reducer(string[])` `.fields(string[])` `.enablePagination(boolean)` `.countRows(boolean)`
 
-### [03.3]-[NODEGRAPH]
+### [02.3]-[NODEGRAPH]
 
 [nodegraph.PanelBuilder]: `.nodes(cog.Builder<NodeOptions>)` `.edges(cog.Builder<EdgeOptions>)` `.zoomMode(ZoomMode)` — `ZoomMode = Cooperative | Greedy`, greedy taking the wheel outright and cooperative demanding a modifier; `NodeOptions` carries `mainStatUnit`/`secondaryStatUnit`/`arcs`, `EdgeOptions` the two stat units. Node and edge IDENTITY is frame-column convention, never a builder member, so an identity mapping lands as a rename transformation.
 [NODEGRAPH_FRAMES]: frame ADMISSION requires one of `meta.preferredVisualisationType === "nodeGraph"`, a frame `name`/`refId` of `nodes`/`edges`, or a field named exactly `id`; the nodes-vs-edges SPLIT keys on `name === "edges"` or a field named exactly `source` — both lookups CASE-SENSITIVE even though later column reads lowercase. Node columns: `id` (required), `title`/`subtitle`, `mainstat`/`secondarystat` (first numeric field is the `mainstat` fallback), `color` XOR `arc__<suffix>` (sum to 1), `detail__<suffix>`, `noderadius` (pixels), `highlighted`, `icon`, `fixedx`/`fixedy`. Edge columns: `id` (REQUIRED), `source`, `target`, `mainstat`/`secondarystat`, `thickness`, `color`, `strokedasharray`. No "weight" column exists on either frame — a stat magnitude lands on `mainstat`.
 
-### [03.4]-[TIMESERIES]
+### [02.4]-[TIMESERIES]
 
 [timeseries.PanelBuilder]: `.axisPlacement(AxisPlacement)` `.axisColorMode(AxisColorMode)` `.axisLabel(string)` `.axisWidth(number)` `.axisSoftMin(number)` `.axisSoftMax(number)` `.axisGridShow(boolean)` `.scaleDistribution(cog.Builder<ScaleDistributionConfig>)` `.axisCenteredZero(boolean)` `.axisBorderShow(boolean)` — `AxisPlacement = Auto | Top | Right | Bottom | Left | Hidden`; `AxisColorMode = Text | Series`.
 [ScaleDistributionConfigBuilder]: `.type(Linear | Log | Ordinal | Symlog)` `.log(number)` `.linearThreshold(number)`
 [VizTooltipOptionsBuilder]: `.mode(Single | Multi | None)` `.sort(Ascending | Descending | None)` `.maxWidth(number)` `.maxHeight(number)` `.hideZeros(boolean)` — consumed by `PanelBuilder.tooltip`.
 
-## [04]-[QUERY_MODULES]
+## [03]-[QUERY_MODULES]
 
 [prometheus.DataqueryBuilder]: `.expr(expr)` `.refId(id)` `.exemplar(boolean)` `.legendFormat(f)` `.instant()` `.range()` `.datasource(ref)` `.format(PromQueryFormat)` `.hide(boolean)` — `PromQueryFormat = TimeSeries | Table | Heatmap`; `.instant()`/`.range()` are zero-argument mode selectors.
 [loki.DataqueryBuilder]: `.expr(expr)` `.refId(id)` `.legendFormat(f)` `.maxLines(number)` `.instant(boolean)` `.range(boolean)` `.datasource(ref)`
@@ -92,7 +84,7 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 [CLICKHOUSE_ABSENCE]: `grafana-clickhouse-datasource` is a third-party plugin, so no `./clickhouse` module ships and the residence dataquery is branch-owned at `operate/observe#BOARD_APPLY` under `[TARGET_CONTRACT]`, transcribing the plugin's own `CHSqlQuery` off `.api/clickhouse.md` `[QUERY_CONTRACT]`. No bump reaches it: the plugin is not Grafana-bundled at any line.
 [PIN_DIRECTION]: the `latest` dist-tag is the SUPERSET and every per-Grafana-version tag is a subset, so a bump onto one is a REGRESSION — the resource-model modules (dashboard v2, folder v1, playlist, preferences, stars) drop whole and one panel module arrives in trade. Pin `latest`; a per-version tag is admissible only when a consumer needs a panel model that line alone carries, and it lands as a stated capability loss.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DashboardModel` is the authority and the builder the emitter: `_compiled` reads `typeof DashboardModel.Encoded` and maps every model field onto one builder member — `laid` positions become `gridPos`, rendered `Query` strings become `expr`, `links` become `DashboardLinkBuilder` rows, `axes` and `interaction.tooltip` reach the Timeseries axis and tooltip members, `interaction.zoom` reaches the Geomap controls pair and the Nodes zoom mode, `Table.sort` reaches `sortBy`, `panel.source` reaches `datasource`, and `Geomap.mapping` reaches one `Coords`-mode `location` layer — so a model field with no builder member fails the fold at compile time and none survives as an inert emission fact.
@@ -105,9 +97,3 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 
 [LOCAL_ADMISSION]:
 - builders resolve only inside the `_compiled` fold on the deploy plane; `.build()` is the single emission seam.
-
-[RAIL_LAW]:
-- Package: `@grafana/grafana-foundation-sdk`
-- Owns: typed dashboard construction — panel and query typing survive through to emission
-- Accept: one builder row per core panel tag; `.build()` as the single JSON seam
-- Reject: hand-authored dashboard JSON where a builder subpath exists; a second model authority beside `DashboardModel`; a bump onto a per-Grafana-version dist-tag, which trades the resource-model modules away; `datasource.DataqueryBuilder` as the base for a foreign plugin's query, which ships `panelId` and `withTransforms` that plugin never declares

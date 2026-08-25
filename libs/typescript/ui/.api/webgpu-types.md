@@ -2,16 +2,7 @@
 
 `@webgpu/types` declares the ambient WebGPU IDL as TypeScript and augments `navigator.gpu` and `canvas.getContext("webgpu")` globally at compile time, shipping zero runtime bytes. It is the type floor under `three`'s `three/webgpu` renderer, admitted `scope:viewer` by a tsconfig `types` entry, never an `import` — `three` owns the WebGPU runtime, this owns the types.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@webgpu/types`
-- package: `@webgpu/types` (BSD-3-Clause)
-- module: type-only ambient declarations (`types: dist/index.d.ts`), no `main`/`module` and no runtime value; declares `global`-scope interfaces and augments `Navigator`/`WorkerNavigator`/`HTMLCanvasElement`/`OffscreenCanvas`
-- runtime: none — the browser's own WebGPU implementation backs the types; the package ships zero bytes
-- scope: `scope:viewer`, referenced only by the `ui/viewer` Nx project tsconfig, compile-time absent from non-spatial apps
-- rail: type substrate under `three`'s WebGPU backend and any raw-WebGPU compute path
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: adapter and device negotiation — the boot capability probe
 
@@ -123,7 +114,7 @@ Bounded string-literal unions carry the format, topology, and op axes; `declare 
 - `GPUCanvasConfiguration`: `device` `format` `usage` `viewFormats` `colorSpace` `toneMapping` `alphaMode`
 - `GPUDeviceLostInfo`: `reason` `message`
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Admission binds a tsconfig `types` entry, never an `import`: the package declares `global`-scope interfaces and augments `Navigator`/`WorkerNavigator`/`HTMLCanvasElement`/`OffscreenCanvas`, so one `"@webgpu/types"` entry in the `ui/viewer` tsconfig `compilerOptions.types` (or a `/// <reference types="@webgpu/types" />`) resolves `navigator.gpu` and `canvas.getContext("webgpu")` across the project, and no value exists to import.
@@ -141,9 +132,3 @@ Bounded string-literal unions carry the format, topology, and op axes; `declare 
 - Consume the globals `three` exposes and reach raw `GPUDevice` only on the worker compute path, where the device graph, descriptors, enum vocabularies, and flag namespaces are all keyed by the parameterized unions.
 - Handle `device.lost` and error scopes through the folder's Effect rail; treat `GPUValidationError`/`GPUDeviceLostInfo` as typed values.
 - Bump the package for a missing member; never hand-declare a `GPU*` interface.
-
-[RAIL_LAW]:
-- Package: `@webgpu/types`
-- Owns: the ambient WebGPU IDL — the `navigator.gpu`/`getContext("webgpu")` global augmentation, the `GPU`→`GPUAdapter`→`GPUDevice` object graph, every resource/pipeline/encoder interface, the descriptor family, the enum vocabularies and flag namespaces, and the error/device-loss surface
-- Accept: a tsconfig `types` entry (or triple-slash reference) in `ui/viewer` only, consumption through `three`'s WebGPU backend, raw use on the worker compute path, `GPUFeatureName`/`requiredLimits` negotiation, and `device.lost`/error-scope handling through the Effect rail
-- Reject: an `import` of the package, admission outside `scope:viewer`, a hand-declared `GPU*` interface patching a spec gap, and a per-feature branch where the `GPUFeatureName[]` negotiation is data

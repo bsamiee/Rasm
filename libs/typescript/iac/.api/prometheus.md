@@ -2,17 +2,7 @@
 
 `prometheus` is the reference metrics store — one server, native exemplars, and the click-through plane every board links on. Two facts rule every fence against it: the override key that renames the rendered Service is `server.fullnameOverride` and NOT the top-level one, and the rendered config is SYNTHESIZED from dedicated values beside a verbatim `serverFiles` dump, so a key spelled in both seats emits twice into one YAML document.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prometheus`
-- chart: `prometheus` from `https://prometheus-community.github.io/helm-charts` (Apache-2.0), source `charts/prometheus`, `kubeVersion >= 1.19.0-0`
-- asset: the server ConfigMap, a Deployment or StatefulSet with its Service, ServiceAccount, RBAC cell, and PVC, beside an off-by-default PDB, NetworkPolicy, Ingress, HTTPRoute, and VPA — and four subcharts that ship DEFAULT-ON
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / metrics store
-- subcharts: `alertmanager` (9093), `kube-state-metrics` (8080), `prometheus-node-exporter` (9100), `prometheus-pushgateway` (9091) — every one enabled by default
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                     | [CAPABILITY]                                                                     |
 | :-----: | :---------------------------------------- | :------------------------------------------------------------------------------- |
@@ -42,7 +32,7 @@
 [SERVICE_NAME]: the server Service is `<server.fullname>` — which carries the `-server` tail only when the override is ABSENT — on port 80 onto container 9090, named `http`, ClusterIP, gated `server.service.enabled`. A release named `prometheus` renders `prometheus-server`; a release named `mon` renders `mon-prometheus-server`; an override renders exactly the override. The four subcharts render `<release>-alertmanager`, `<release>-kube-state-metrics`, `<release>-prometheus-node-exporter`, and `<release>-prometheus-pushgateway`, the doubled names correct under the collapse rule, and the parent's helpers REPRODUCE those names in the default scrape config even where the subchart is disabled.
 [MERGE_SEMANTICS]: the ConfigMap template synthesizes `prometheus.yml` by concatenating `global`, `remote_write`, `remote_read`, `storage`, `otlp`, `scrape_config_files`, and `scrape_configs`, then dumping the REMAINDER of `serverFiles."prometheus.yml"`, then `alerting`. Helm never merges lists, so supplying `rule_files` under `serverFiles` REPLACES the default `[/etc/config/recording_rules.yml, /etc/config/alerting_rules.yml]` pair and the rule content then mounts at a path nothing reads. Setting one SUB-KEY merges into the default map and leaves that list intact.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One store per stack answers health and alerting; the residence answers evidence and history. This row is the reference posture on that axis — single server, exemplars on, tenant as a LABEL rather than an isolation boundary, and that degradation stated on the row rather than discovered on an empty query.
@@ -63,9 +53,3 @@
 - Size the exemplar ring at `server.exemplars.max_exemplars` whenever the flag is armed — an empty seat renders no block and the decisive capability then rides a server default. Its `storage` sibling under `serverFiles` is the duplicate-key trap, never the alternative.
 - State `server.persistentVolume.size` rather than inheriting it; the claim is already armed, so what a row records here is the SIZE.
 - Land rule CONTENT as a `serverFiles` sub-key, never as a replacement of the whole `prometheus.yml` map.
-
-[RAIL_LAW]:
-- Contract: `prometheus` chart values + the synthesized `prometheus.yml` document
-- Owns: the reference metrics store — server placement and retention, the OTLP receiver and its translation strategy, exemplar storage, the recording-rule files, and the scrape-config surface
-- Accept: `server.fullnameOverride` as the one name pin; `server.retention` as the retention coordinate; `extraFlags` for `exemplar-storage` and `web.enable-otlp-receiver`; `server.otlp` as the sole OTLP seat; `server.exemplars.max_exemplars` sizing the ring the flag opened; an explicitly sized `server.persistentVolume`; recording groups as a `serverFiles` sub-key; all four subcharts explicitly off
-- Reject: the top-level `fullnameOverride`; a leading `--` in `extraFlags`; `enable-feature=native-histograms`, which no-ops; the same config key in both a dedicated seat and `serverFiles`; an armed exemplar flag beside an unstated `server.exemplars` seat; an inherited claim size; a whole-map `serverFiles."prometheus.yml"` replacement that drops the default `rule_files`; an address carrying `:9090`, which the Service does not answer

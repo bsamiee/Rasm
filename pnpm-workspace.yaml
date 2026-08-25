@@ -8,11 +8,10 @@ cacheDir: .cache/pnpm/cache
 
 storeDir: .cache/pnpm/store
 
-# supply-chain quarantine — a release younger than 24h resolves to its predecessor
 minimumReleaseAge: 1440
 
 catalog:
-  # substrate — the Effect core family; moves as one peer-locked wave
+  # substrate
   effect: 3.22.1
   '@effect/platform': 0.97.1
   '@effect/platform-node': 0.108.1
@@ -20,7 +19,7 @@ catalog:
   '@effect/platform-browser': 0.77.1
   '@effect/experimental': 0.61.1
   '@effect/opentelemetry': 0.64.0
-  # core — value, interchange, state substrate
+  # core
   hash-wasm: 4.12.0
   '@bufbuild/protobuf': 2.14.0
   '@bufbuild/protovalidate': 1.2.0
@@ -35,7 +34,6 @@ catalog:
   '@electric-sql/d2ts': 0.1.8
   '@effect/typeclass': 0.41.0
   '@opentelemetry/semantic-conventions': 1.43.0
-  mitata: 1.0.34
   # security
   jose: 6.2.8
   openid-client: 6.8.5
@@ -47,7 +45,7 @@ catalog:
   '@noble/hashes': 2.2.0
   '@oslojs/encoding': 1.1.0
   '@dopplerhq/node-sdk': 1.3.0
-  # data — journal, lanes, object store, analytics, fanout, asset pipeline
+  # data
   '@effect/sql': 0.52.1
   '@effect/sql-pg': 0.53.0
   '@effect/sql-sqlite-node': 0.53.0
@@ -73,14 +71,14 @@ catalog:
   '@gltf-transform/core': 4.4.2
   '@gltf-transform/extensions': 4.4.2
   '@gltf-transform/functions': 4.4.2
-  ktx-parse: 1.1.0 # reads what the one provisioned ktx CLI writes; lineage peer: pyproject.toml pyktx over the Forge libktx
+  ktx-parse: 1.1.0
   meshoptimizer: 1.2.0
   watlas: 1.0.1
   ssh2: 1.17.0
   webdav: 5.10.0
   basic-ftp: 6.2.0
   chokidar: 5.0.0
-  # runtime — work, ai, edge, browser, telemetry
+  # runtime
   '@effect/cluster': 0.60.2
   '@effect/workflow': 0.19.1
   '@nats-io/nats-core': 3.4.0
@@ -212,7 +210,7 @@ catalog:
   '@perspective-dev/viewer-datagrid': 5.2.0
   '@perspective-dev/viewer-charts': 5.2.0
   web-vitals: 6.1.0
-  # ui/viewer — the nested viewer Nx project spatial tier
+  # ui/viewer
   three: 0.185.1
   '@types/three': 0.185.4
   three-mesh-bvh: 0.9.14
@@ -234,7 +232,7 @@ catalog:
   '@types/geojson': 7946.0.16
   '@webgpu/types': 0.1.71
   typegpu: 0.11.9
-  # iac — the deploy plane
+  # iac
   '@pulumi/pulumi': 3.256.0
   '@pulumi/kubernetes': 4.33.0
   '@pulumi/aws': 7.41.0
@@ -258,22 +256,14 @@ catalog:
   '@pulumi/esc-sdk': 0.14.0
   '@pulumi/pulumiservice': 1.3.0
   '@pulumiverse/acme': 0.16.3
-  # dev — the proof plane
-  '@axe-core/playwright': 4.13.0
+  # dev
   vitest: 4.1.10
   '@effect/vitest': 0.30.0
-  '@vitest/browser-playwright': 4.1.10
   '@vitest/coverage-v8': 4.1.10
-  '@vitest/ui': 4.1.10
-  testcontainers: 12.1.0
-  '@playwright/test': 1.62.1
   '@stryker-mutator/core': 9.6.1
   '@stryker-mutator/vitest-runner': 9.6.1
-  '@types/k6': 2.0.1
-  happy-dom: 20.11.2
-  jsdom: 30.0.1
   '@mermaid-js/mermaid-cli': 11.16.0
-  # tooling — compilers, workspace, build, lint, codegen
+  # tooling
   typescript: 7.0.2
   '@effect/language-service': 0.87.2
   '@effect/build-utils': 0.8.9
@@ -283,7 +273,6 @@ catalog:
   '@nx/dotnet': 23.1.1
   '@nx/js': 23.1.1
   '@nx/node': 23.1.1
-  '@nx/playwright': 23.1.1
   '@nx/plugin': 23.1.1
   '@nx/react': 23.1.1
   '@nx/vite': 23.1.1
@@ -309,7 +298,7 @@ catalog:
   vite-plugin-csp-guard: 4.0.1
   vite-plugin-image-optimizer: 2.0.3
   vite-plugin-inspect: 12.0.2
-  '@vitejs/devtools': 0.4.12 # vite-plugin-inspect 12.x companion; also serves the top-level devtools dial
+  '@vitejs/devtools': 0.4.12
   vite-plugin-svgr: 5.2.0
   vite-plugin-webfont-dl: 3.12.0
   '@octokit/rest': 22.0.1
@@ -331,24 +320,18 @@ overrides:
   jiti: 2.7.0
   minimatch: 10.2.5
   rollup: 4.62.2
-  # ndarray-pixels declares sharp ^0.34; @gltf-transform/functions imports it eagerly on node, so the
-  # unpinned resolution loads a SECOND libvips native beside the catalog sharp. One lineage, one binary.
-  # Branch-local lineage: python's pyvips builds against the Forge vips, an independent native — no
-  # cross-branch pin couples the two, and either side bumps alone.
   sharp: 0.35.3
   svgo: 4.0.2
   tar: 7.5.21
 
 peerDependencyRules:
   allowedVersions:
-    # Ahead-of-peer pins the workspace vetted: the one installed version leads the dependent's declared range.
     '@effect/experimental': 0.61.1
     '@effect/platform': 0.97.1
     '@effect/rpc': 0.76.2
     '@nx/devkit': 23.1.1
     three: 0.185.1
     typescript: 7.0.2
-    # @effect/vitest 0.30.x declares peer vitest ^3.2; suites are written v4-forward against installed 4.1.x.
     vitest: 4.1.10
 
 allowBuilds:

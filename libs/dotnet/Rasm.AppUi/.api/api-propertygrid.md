@@ -2,25 +2,7 @@
 
 `bodong.Avalonia.PropertyGrid` owns the Avalonia property-inspector control: the editor-factory registry, routed inspector events, and the cell and filter contracts that project a live object bound through `DataContext` as typed editor rows. `bodong.PropertyModels` owns the host-neutral model substrate the grid and every inspected view-model bind against — reactive bases, the cancelable command/undo recorder, the selection collections, the editor-hint and data-annotation attribute vocabulary, and the localization contracts. Both packages serve the inspector rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bodong.PropertyModels`
-- package: `bodong.PropertyModels` (MIT)
-- assembly: `PropertyModels`
-- namespace: `PropertyModels.Collections`, `.ComponentModel`, `.ComponentModel.DataAnnotations`, `.Extensions`, `.Localization`, `.Utils`
-- target: `lib/net10.0`
-- asset: runtime library
-- rail: inspectors
-
-[PACKAGE_SURFACE]: `bodong.Avalonia.PropertyGrid`
-- package: `bodong.Avalonia.PropertyGrid` (MIT)
-- assembly: `Avalonia.PropertyGrid`
-- namespace: `Avalonia.PropertyGrid.Controls`, `.Controls.Factories`, `.Services`, `.ViewModels`
-- target: `lib/net10.0`
-- asset: runtime library
-- rail: inspectors
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [REACTIVE_TYPES]: reactive base objects — `PropertyModels.ComponentModel`
 
@@ -184,7 +166,7 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 - `SetValue(object?, object?)` fans one write across every child descriptor (cloning the value first when it is `ICloneable`), so an apply-to-all is ONE call through the factory write path rather than a per-target loop; `ResetValue` fans the same way and `SetValues(object components, object values)` pairs two equal-length arrays or throws `ArgumentOutOfRangeException`.
 - The component argument's shape is asymmetric: `GetValue` accepts any `IEnumerable` while `SetValue`, `ResetValue`, and `SetValues` hard-cast to `object[]`, and `GetValues` allocates over `components.Length` while looping `Descriptors.Length` — so the bound multi-target instance crosses as an `object[]` whose length equals the descriptor count.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [REACTIVE_ENTRYPOINTS]: reactive base, command, and recorder surfaces — `PropertyModels.ComponentModel`
 
@@ -339,7 +321,7 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 |  [03]   | `PreviewableColorPicker.ColorChanged` / `PreviewColorChanged` | committed / preview color        |
 |  [04]   | `PreviewableSlider.RealValueChanged` / `PreviewValueChanged`  | committed / preview slider value |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PropertyModels` is the host-neutral model substrate; `Avalonia.PropertyGrid` projects the object bound through `DataContext` as typed editor rows, selecting each editor by `ICellEditFactory.Accept(object accessToken)` match ranked by `ImportPriority` (higher first) through `CellEditFactoryService.Default : ICellEditFactoryCollection`.
@@ -358,13 +340,3 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 - Editor-hint attributes live in `PropertyModels.ComponentModel`, validation/condition/enum-filter attributes in `PropertyModels.ComponentModel.DataAnnotations`; each attribute routes to its real namespace and is never re-declared locally.
 - Chrome restyling routes by target: grid parts take a descendant-plus-name `Style`, a per-row editor takes `[ControlClasses]` with a class `Style`, a category header or body takes an `Expander` `ControlTheme`, and a whole name or operation cell takes the `CustomNameBlock`/`CustomPropertyOperationControl` handler returning a replacement `Control`.
 - Recoloring the grid sets the ambient theme keys the host already owns — `SystemAccentColor`, `SystemControlPageTextBaseMediumBrush`, `ColorControlDarkSelectorBrush` — never a package-local brush override.
-
-[RAIL_LAW]:
-- Package: `bodong.PropertyModels`
-- Owns: reactive base objects, the cancelable command/undo recorder, checked/selectable/checked-mask collections, editor-hint and data-annotation attributes, localization contracts, and descriptor extensions.
-- Accept: view-models inherit `ReactiveObject`/`MiniReactiveObject`; command pipelines route through `CancelableCommandRecorder`, which owns pop-and-apply — a revert resolving an op without driving `Undo()`/`Redo()` leaves the inverse unapplied.
-- Reject: hand-rolled `INotifyPropertyChanged`, per-screen undo stacks, string-keyed property registries.
-- Package: `bodong.Avalonia.PropertyGrid`
-- Owns: typed property inspection, the editor-factory registry, property operations, list editing, localization services, and routed inspector events.
-- Accept: every inspecting surface binds its object through the control's `DataContext` and projects state through typed rows, factories, filters, commands, and routed events; layout, order, and visibility drive off the `PropertyGridLayoutStyle`/`PropertyGridOrderStyle`/`PropertyVisibility`/`CellEditAlignmentType` enums.
-- Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or `CellEditFactoryCollection` instead of `IPropertyGridFilterContext` and `ICellEditFactoryCollection`; assuming a public `ViewModel` property where the binding is `DataContext`; a `Style` or `ControlTheme` setter aimed at the category `Expander`'s pinned `Background`/`Margin`/`Padding`/`HeaderTemplate`; a package-local brush key where the grid reads ambient theme resources.

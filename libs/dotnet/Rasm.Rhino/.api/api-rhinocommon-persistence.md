@@ -2,15 +2,7 @@
 
 `ArchivableDictionary` is the string-keyed serializable value store, `PersistentSettings` the per-plugin/app settings tree, `UserData` the attach-to-object custody family, and `StringTable` with `ObjectAttributes` the document and per-object user text. Value writes admit a wider type vocabulary than typed reads, so every value lacking a typed getter reads back as a boxed `object` through the untyped indexer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon persistence surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` — in-process managed host runtime
-- namespaces: `Rhino`, `Rhino.Collections`, `Rhino.DocObjects`, `Rhino.DocObjects.Custom`, `Rhino.DocObjects.Tables`
-- rail: custody-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: serialization dictionary and settings tree
 
@@ -43,7 +35,7 @@
 
 `ArchivableDictionary.ItemType` (value discriminant) and `ArchivableDictionary.DictionaryItem` (item carrier) are `private`; the Rasm value union reconstructs the discriminant from the public `Set`/`Get` overload roster. `SharedUserDictionary` is `internal` and never crosses the SDK boundary.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DICTIONARY_VALUE_WRITE]:
 - `ArchivableDictionary.Set(string, T) -> bool` over primitives {`bool`, `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `float`, `double`, `Guid`, `string`} — upsert; false on null/empty key, null value, or undefined type.
@@ -131,7 +123,7 @@
 - `Rhino.DocObjects.Tables.ObjectTable.FindByUserString(string key, string value, bool caseSensitive) -> RhinoObject[]` with `(..., bool searchGeometry, bool searchAttributes, ObjectType filter)` and `(..., ObjectEnumeratorSettings filter)` overloads — null when none found; key and value admit `?`/`*` wildcards, and the two search flags address the two distinct stores.
 - `Rhino.RhinoDoc.UserStringChangedArgs` — nested event-args type carrying `Document -> RhinoDoc` + `Key -> string` behind `RhinoDoc.UserStringChanged`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ArchivableDictionary` is the serialization primitive — a string-to-boxed-value store keyed by the private `ItemType` discriminant; the Rasm value union reconstructs that discriminant as a closed generated case set from the typed `Set` overloads, and the typed `Get` families and the boxed indexer read it back, so the write vocabulary is deliberately wider than the typed read.
@@ -147,9 +139,3 @@
 [LOCAL_ADMISSION]:
 - a dictionary value enters through `Set`; a settings value through a typed `Set<Kind>` writer or `SetDefault`; attached custody through a `UserData` subclass or `UserData.Move*`; settings custody through `FromPlugInId`/`RhinoAppSettings`.
 - live `UserData`, `UserDictionary`, and `ObjectAttributes` values remain inside the document grant; downstream code receives detached `ArchivableDictionary` snapshots, decoded typed values, or detached facts.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: typed serialization values, per-plugin/app settings custody, attached custom-data, and document with per-object user text.
-- Accept: typed value write and read, settings tree navigation with defaults and validators, user-data custody transfer, and user-text mutation projected onto `Fin`/`Option` rails.
-- Reject: boxed values escaping without a typed decode, exception-style dictionary and settings outcomes, `internal` custody types, and live document-bound custody objects crossing the session boundary.

@@ -2,16 +2,7 @@
 
 `opentelemetry-ebpf-instrumentation` is the RED-metric and trace source for workloads carrying no SDK: a privileged DaemonSet whose eBPF probes read HTTP, gRPC, and SQL traffic off the host kernel and push OTLP at the collector door. One chart row carries two contracts: CHART values decide privilege, scheduling, and the ConfigMap, and the AGENT document the chart plants under `config.data` configures the probes. Both resolve as wire data a fence spells rather than imports.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-ebpf-instrumentation`
-- chart: `opentelemetry-ebpf-instrumentation` (Apache-2.0)
-- distribution: `open-telemetry/opentelemetry-ebpf-instrumentation/ebpf-instrument` on `ghcr.io`, beside the optional `opentelemetry-ebpf-k8s-cache` image
-- asset: one DaemonSet, its ConfigMap and ServiceAccount, the ClusterRole the k8s attribute reader earns, and the optional metadata-cache Deployment and Service
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / SDK-less instrumentation
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 `privileged` carries the admission decision — host privilege a workload cannot grant itself — and every other key places the DaemonSet.
 
@@ -44,7 +35,7 @@
 
 [PRIVILEGE]: `privileged: true` is the shipped posture and `securityContext.privileged` mirrors it; dropping to the capability path means naming each capability the probes need — `SYS_ADMIN` for Go trace-context propagation and for Debian kernels at `perf_event_paranoid >= 3`, `NET_ADMIN` whenever `contextPropagation` holds, `SYS_RESOURCE` only below kernel 5.11 where locked-memory limits still bind. Spec data carries the toggle, never a chart default.
 
-## [03]-[AGENT_CONFIG]
+## [02]-[AGENT_CONFIG]
 
 One document under `config.data`, written verbatim into the ConfigMap and overridable key-by-key through `env`.
 
@@ -60,7 +51,7 @@ One document under `config.data`, written verbatim into the ConfigMap and overri
 - `routes.unmatched`: route-name policy for paths the heuristics do not resolve
 - `open_port`, `log_level`, `profile_port`: process selection, verbosity, and the agent's own pprof door
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Agent produces at the collector's door holding no queue, no backend address, and no store opinion, so every posture question past the export endpoint answers at the collector.
@@ -73,9 +64,3 @@ One document under `config.data`, written verbatim into the ConfigMap and overri
 [LOCAL_ADMISSION]:
 - Deploy targets granting privileged host access admit this row; absent that grant the toggle stays off and SDK-ful workloads carry the RED series alone.
 - `preset: network` and `config.data.network.enable` both demand host networking, which breaks cluster DNS for the agent — a collector reached by service DNS needs the `application` preset.
-
-[RAIL_LAW]:
-- Contract: `opentelemetry-ebpf-instrumentation` chart values + agent config document
-- Owns: RED traces and metrics for workloads carrying no SDK, and the optional network-flow signal
-- Accept: the `application` preset with both export endpoints bound to the tier's collector endpoint; privilege declared as spec data; `env` for any value a fence must override per-target
-- Reject: a backend address in either export endpoint; a host-networking preset while the collector resolves by service DNS; a second scrape path around the collector for the agent's own Prometheus listener

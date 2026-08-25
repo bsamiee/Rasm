@@ -2,19 +2,7 @@
 
 `Microsoft.ML.OnnxRuntimeGenAI` owns the Compute model rail's generative token-streaming runtime over a LIFO native-handle chain, and `Microsoft.Extensions.AI.Abstractions` supplies the `IChatClient` contract the built-in `OnnxRuntimeGenAIChatClient` composes over that same chain for the M.E.AI streaming consumer. Structured output constrains in the native layer through `SetGuidance` rather than managed-side, generated token buffers stage through the `api-recyclable-stream` pool, and both feed the model rail's `GENERATIVE_RUN` cluster. This page is HOST-LOCAL and carries no TS_PROJECTION.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntimeGenAI`
-- package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT)
-- assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed`; the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll`
-- namespace: `Microsoft.ML.OnnxRuntimeGenAI`
-- asset: native-only meta-package (`build/native` props/targets, `ort_genai.h`) with the managed facade
-- depends: `Microsoft.ML.OnnxRuntime` — the genai native payload co-locates per-RID beside the base `libonnxruntime` payload; `api-onnxruntime` owns the base ABI matrix and EP roster
-- depends: `Microsoft.Extensions.AI.Abstractions` — the managed facade's `OnnxRuntimeGenAIChatClient` implements its `IChatClient`; `libs/dotnet/.api/api-extensions-ai.md` owns that contract surface whole
-- rail: model
-- verification: the package resolves NO assay `--key` (probe: `api query Generator` returns `status:unsupported`), exactly as the base `api-onnxruntime` key does. The MANAGED surface verifies by IL decompile of `Microsoft.ML.OnnxRuntimeGenAI.dll`; the managed layer holds no vocabulary at all — every `SetSearchOption` and `SetGuidance` string marshals straight through — so the NATIVE vocabularies verify only against the shipped `libonnxruntime-genai` payload's own parser, disassembled, and the string-typed key and guidance rosters below carry that evidence per table
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handle chain and generation contracts
 
@@ -47,7 +35,7 @@
 |  [01]   | `OnnxRuntimeGenAIChatClient`        | class         | `sealed : IChatClient`; streaming chat over an owned `Model` |
 |  [02]   | `OnnxRuntimeGenAIChatClientOptions` | class         | `StopSequences`, `PromptFormatter`, `EnableCaching` policy   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process and model lifecycle
 
@@ -262,7 +250,7 @@
 |  [02]   | `PromptFormatter` | property | overrides the default chat-template assembly |
 |  [03]   | `EnableCaching`   | property | reuses generator state across turns          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every GenAI type wraps a native handle and disposes; `using` order is LIFO with `OgaHandle` outermost for process-global init/teardown. `Adapters : SafeHandle` releases through `OgaDestroyAdapters` at the GC boundary AND answers `Dispose()`, so an adapter set is released deterministically with the model it was created against rather than left to finalization.
@@ -299,9 +287,3 @@
 [LOCAL_ADMISSION]:
 - Token streaming is a run mode on the owned model lane, and grammar-constrained structured output is enforced at generation through `SetGuidance`; a `GenerativeService`/`ChatClient`/`Conversation`/`PromptService` wrapper or a managed JSON-schema output validator is the rejected form.
 - `OnnxRuntimeGenAIChatClient : IChatClient` is the admitted M.E.AI projection over the shared handle chain, never a hand-rolled one.
-
-[RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntimeGenAI`
-- Owns: generative token-streaming runtime, multimodal encoding, streaming audio, `Utils` GPU-device/native-log control, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
-- Accept: model-dir generative runs over the LIFO handle chain; `Images`/`Audios` + `MultiModalProcessor` multimodal pipelines; incremental `StreamingProcessor` audio; M.E.AI streaming through the three admitted ctors staged onto the `api-recyclable-stream` pool
-- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with the GenAI `Tensor`; a model run with no matching native RID payload; a search-option key or guidance type outside `[03]`'s verified rosters, and a `strings`-only re-derivation of either (half the key roster carries no literal)

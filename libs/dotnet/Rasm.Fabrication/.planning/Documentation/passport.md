@@ -21,7 +21,7 @@ Every signed artifact is keyed and signed over a `CanonicalWriter` BINARY preima
 - Boundary: this page authors no measurement. Every quantity it carries arrived on a record its own owner already admitted, so the passport states provenance and period beside a value and re-derives nothing.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;

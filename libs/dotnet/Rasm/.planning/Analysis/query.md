@@ -23,7 +23,7 @@
 - Boundary: the row's type gate rejects onto `KernelFault.Unsupported`, the host binding's probe discriminant, while spatial value defects reject `KernelFault.InvalidInput` at build; the geometry band composes the `Domain/normalization` coercion lattice and the `Domain/evaluation` `Evaluate` verb union rather than re-implementing either locally; the spatial band rides one service spine forwarding to the `Spatial/neighbors` owner's `NeighborIndex.Query` and projecting its `NeighborAnswer` through the substrate's own total `Switch`, the `Graph` arm refusing `Unsupported` by name because this spine publishes element sequences — pair-probe admission is the substrate's law, so a query-side probe whitelist, RTree wrapper, or second answer vocabulary is the deleted parallel rail.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -403,7 +403,7 @@ public abstract partial record AnalysisQuery {
 - Boundary: `Analyze.From(RhinoDoc)` is the one document-coupled adapter in the folder, so a second `RhinoDoc` reach anywhere in the analysis surface is the seam violation; a folder-local `ValidityOf` switch re-declaring result arms beside `Op.AcceptValue` is the killed parallel oracle; `Build` and `Service` evaluators receive state by value through `static` lambdas over an explicit state record, keeping operations allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge, rejecting onto `KernelFault.Unsupported` rather than casting unsafely; `OperationLift` is the one host for the rail bridges C# cannot declare inside a generic owner, and host machinery that throws is wrapped at its owning boundary through `Op.Catch`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Diagnostics.Metrics;
 using System.Runtime.InteropServices;

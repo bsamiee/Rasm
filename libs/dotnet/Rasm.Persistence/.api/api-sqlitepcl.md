@@ -2,22 +2,7 @@
 
 `SQLitePCLRaw.bundle_e_sqlite3` binds the `e_sqlite3` native SQLite engine to the process and opens `SQLitePCL.raw`, the 1:1 P/Invoke surface carrying every engine call the ADO transport omits. Every call takes the `sqlite3` handle `SqliteConnection.Handle` exposes, so the managed transport and the raw rail share one native connection and one transaction state. Provider binding is a process-wide act the embedded store profile owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3`
-- package: `SQLitePCLRaw.bundle_e_sqlite3` (Apache-2.0)
-- assembly: none — a native-asset and initializer graph resolving with no managed `lib` DLL; `SQLitePCLRaw.core` carries `raw` at runtime
-- namespace: `SQLitePCL`
-- asset: derive native coverage from the restored `SourceGear.sqlite3` `runtimes/<RID>/native/` asset graph
-- rail: store-provider
-- depends:
-  - `SQLitePCLRaw.config.e_sqlite3`: carries `Batteries`/`Batteries_V2` in assembly `SQLitePCLRaw.batteries_v2`
-  - `SQLitePCLRaw.provider.e_sqlite3`: implements `SQLite3Provider_e_sqlite3 : ISQLite3Provider`, the bundled P/Invoke arm
-  - `SQLitePCLRaw.core`: carries `SQLitePCL.raw` and the `sqlite3*` handle types
-  - `SourceGear.sqlite3`: ships the `e_sqlite3` native engine binaries
-
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PROVIDER_TYPES]: binding graph — one provider implementation binds per process.
 
@@ -50,7 +35,7 @@
 [HOOK_DELEGATES]: `delegate_update` `delegate_commit` `delegate_rollback` `delegate_authorizer` `delegate_progress`
 - `delegate_update`, `delegate_authorizer`: each carries a `strdelegate_*` twin marshalling `string` where the `utf8z` form hands raw engine spans.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider binding, before any `sqlite3_*` call on the process.
 
@@ -169,7 +154,7 @@
 [ACTION_CODES]: `SQLITE_SELECT` `SQLITE_READ` `SQLITE_INSERT` `SQLITE_UPDATE` `SQLITE_DELETE` `SQLITE_PRAGMA` `SQLITE_ATTACH`
 - `raw.sqlite3_update_hook`: `sqlite3` roots every hook delegate and its `user_data` in the connection's extra-state slot for the connection's life.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `raw` dispatches every member through the one `ISQLite3Provider` bound at init, so provider selection is a process fact and never a per-connection knob.
@@ -190,9 +175,3 @@
 - Deployment copies only the native asset matching the selected runtime identifier, and the bridge target trims to the single consumer RID.
 - Extension loading arms per deployment through an explicit `sqlite3_db_config` op absent from the open ritual's set.
 - Provider-bundle facts stay on the store-profile rail and never define public Persistence vocabulary.
-
-[RAIL_LAW]:
-- Package: `SQLitePCLRaw.bundle_e_sqlite3`
-- Owns: native provider admission and the `SQLitePCL.raw` engine calls the ADO transport omits
-- Accept: backup, snapshot, checkpoint, `db_config`, limit, serialize, blob-cursor, status, hook, and authorizer calls over `SqliteConnection.Handle`
-- Reject: a hand-rolled P/Invoke or second native binding beside the bundled provider; a whole-file copy where the paged backup session carries progress

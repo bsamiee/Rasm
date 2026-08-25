@@ -2,16 +2,7 @@
 
 `HyperJet` owns forward-mode hyper-dual automatic differentiation: a smooth scalar function written once in generic math carries its own exact first and second derivatives on the value, so one evaluation yields `f`, `∂f`, and `∂²f` with no finite-difference stencil. Three models span the size and allocation axis — compile-time `DDScalar1<T>`..`DDScalar15<T>` structs, the zero-alloc ref-struct `DDScalarSpan`, and the dynamic-heap `DDScalar` — each reading out a plain `T[]` gradient and `T[,]` Hessian for the branch `Sensitivity`/`Chain` autodiff rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HyperJet`
-- package: `HyperJet` (ISC)
-- assembly: `HyperJet`
-- namespace: `HyperJet` (`DDScalar`, `DDScalar1<T>`..`DDScalar15<T>`, `DDScalarSpan`, `Vector3D<T>`, `Kernel`, `static HyperJetMath`)
-- target: single managed AnyCPU IL assembly binding the net10 generic-math and hardware-intrinsics ABI; hardware-accelerated `Vector512`/`Vector256`/`Vector128` kernels
-- rail: autodiff
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hyper-dual scalar models; each carries `Value`, `G(i)` first derivative, and `H(i, j)` second derivative
 
@@ -24,7 +15,7 @@
 |  [05]   | `Vector3D<T>`                   | struct        | generic 3D vector; `Dot`/`Cross`/`Length`/`Normalize`, `+`/`-` operators         |
 |  [06]   | `HyperJetMath`                  | class         | static transcendental surface over `DDScalar` and `DDScalar2<double>`            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: seed active variables, read derivatives, export the gradient and Hessian
 
@@ -41,7 +32,7 @@
 - `DDScalarSpan` sizes its buffer with `Kernel.GetDataLength(size, order)`.
 - `f.GetGradient(Span<double>)` writes the gradient in place, zero-alloc.
 
-## [04]-[OPERATOR_SURFACE]
+## [03]-[OPERATOR_SURFACE]
 
 [OPERATOR_SCOPE]: `DDScalar`'s own arithmetic — the dynamic model publishes a complete `in`-taking operator set, so a wrapper struct forwards rather than reconstructing the derivative algebra
 
@@ -53,8 +44,6 @@
 |  [04]   | `==`/`!=`/`<`/`>`/`<=`/`>=` `(DDScalar, DDScalar)`                        | operator | value-plane ordering         |
 |  [05]   | `==`/`!=`/`<`/`>`/`<=`/`>=` `(DDScalar, double)` and `(double, DDScalar)` | operator | mixed-operand ordering       |
 
-[HYPERJET_MATH_ROSTER]: verified against the installed `HyperJet` `0.2.0` `net10.0` assembly on the assay decompile rail — every member is published TWICE, once over `DDScalar2<double>` and once over `DDScalar`, except the four the dynamic model alone carries.
-
 | [INDEX] | [SURFACE]                                            | [SHAPE] | [CAPABILITY]                                                   |
 | :-----: | :--------------------------------------------------- | :------ | :------------------------------------------------------------- |
 |  [01]   | `Sin` `Cos` `Tan` `Asin` `Acos` `Atan` `Atan2(y, x)` | static  | trigonometric, both models                                     |
@@ -65,7 +54,7 @@
 
 - Every member takes its operand `in` and returns by value; a fixed-iteration hand root over these operators is a `FORGED_ZERO`-shaped claim, because it reports convergence without testing a residual while an exact member stands one call away.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `HyperJet` is the hyperdual leg of the one `Sensitivity`/`Chain` family, beside the `Tensor/dispatch` geometry-adjoint tape and the `Symbolic/lowering` symbolic tape; a general smooth scalar objective folds here.
@@ -79,9 +68,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `HyperJet` for any exact gradient or Hessian of a smooth scalar objective or residual expressed in generic math; a caller-supplied black-box objective stays on the finite-difference row.
-
-[RAIL_LAW]:
-- Package: `HyperJet` (ISC)
-- Owns: forward-mode hyper-dual first- and second-order AD of smooth scalar functions — `DDScalar1<T>`..`DDScalar15<T>`, `DDScalarSpan`, `DDScalar`, `Vector3D<T>`, and the `GetGradient()`/`GetHessian()` array exports
-- Accept: an exact gradient or Hessian of a smooth scalar objective or residual in generic math — the scalar-AD leg of `Sensitivity`/`Chain`, estimator MLE Jacobians, the FORM/SORM limit-state gradient, the LM Jacobian
-- Reject: a fourth parallel gradient mechanism beside the geometry, symbolic, and hyperdual legs; a finite-difference stencil where the smooth objective admits exact AD; reverse-mode large-scale tape adjoints the geometry-DEC adjoint tape owns

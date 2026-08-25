@@ -2,17 +2,7 @@
 
 `Microsoft.Extensions.Telemetry` governs log volume, buffering, enrichment, and redaction activation over the one `ILogger` seam, and mints the pooled latency ledger that times in-flight phases without a child span. Every verb it ships extends `ILoggingBuilder` or `IServiceCollection` and binds one policy row, so no governance decision rides a log call site. Its contract half — the emission grammar, the enricher, buffer, and sampler contracts, and the latency tokens an instrumented library binds — ships in `Microsoft.Extensions.Telemetry.Abstractions` and homes at the branch tier.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Telemetry`
-- package: `Microsoft.Extensions.Telemetry` (MIT)
-- assembly: `Microsoft.Extensions.Telemetry.dll`
-- contract assembly: `Microsoft.Extensions.Telemetry.Abstractions` (`libs/dotnet/.api/api-telemetry-abstractions.md`)
-- namespace: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Buffering`, `Microsoft.Extensions.Diagnostics.Enrichment`, `Microsoft.Extensions.Diagnostics.Latency`, `Microsoft.Extensions.Diagnostics.Sampling`
-- asset: runtime library
-- rail: composition-root log governance and the latency ledger
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [POLICY_OPTIONS]: the option rows every activation verb binds
 
@@ -47,7 +37,7 @@
 - `ApplicationEnricherTags` values are semconv-spelled — `service.name`, `deployment.environment`, `service.version` — beside the non-semconv `DeploymentRing`; `ProcessEnricherTagNames` writes `process.pid` and `thread.id`.
 - Each set exposes `DimensionNames` as an `IReadOnlyList<string>`, so a governance table censuses the emitted vocabulary off the package rather than a hand-copied literal.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every options-bearing verb carries a parameterless overload, an `Action<TOptions>` overload, and a configuration overload — `IConfiguration` on the two `ILoggingBuilder` verbs that take one, `IConfigurationSection` elsewhere.
 
@@ -80,7 +70,7 @@ Every options-bearing verb carries a parameterless overload, an `Action<TOptions
 
 - Enricher registration by type or instance, latency-name registration, and the no-op ledger are contract-assembly verbs and home at the branch catalogue.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every activation verb seats one `ExtendedLoggerFactory`, so governance applies once and every registered provider observes the same record.
@@ -101,9 +91,3 @@ Every options-bearing verb carries a parameterless overload, an `Action<TOptions
 - Audit-grade categories exclude from sampler and buffer rules by rule construction, never a runtime check.
 - Enrichers project purely to bounded tags, and a dimension needing I/O is a design error at the row.
 - Buffer capacity is a loss posture, not a durability claim — an unflushed record dies with the process.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Telemetry`
-- Owns: log volume governance, buffering, enrichment rows, redaction activation, and the latency ledger
-- Accept: declaration-time rule rows and registered vocabularies over the one `ILogger` seam
-- Reject: per-signal sampling probabilities beside the trace verdict; hand-rolled trace-id enrichers where the record carries typed ids natively; a `Stopwatch` timing a phase an issued token records

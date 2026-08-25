@@ -2,17 +2,7 @@
 
 `ruamel-yaml` owns the round-trip YAML surface of the artifacts structured-documents rail: one configured `YAML` engine driving typ-selected load/dump, the comment-and-order-preserving `CommentedMap`/`CommentedSeq` containers, the styled-scalar family that fixes emission style, and tag/class registration. It preserves comments, key order, anchors/aliases, tags, and per-node styling across a load-edit-dump cycle; YAML routes here, XML to `lxml`, TOML to `tomlkit`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ruamel-yaml`
-- package: `ruamel-yaml` (MIT)
-- import: `from ruamel.yaml import YAML`
-- owner: `artifacts`
-- rail: structured documents
-- entry points: none (library only)
-- capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, tags, and per-node block/flow/quote styling; `rt`/`safe`/`full`/`base` typ variants; multi-document streams; styled-scalar construction; programmatic comment/anchor attach; class registration (`@yaml_object`) and the low-level tag/resolver/representer hooks (`add_representer`/`add_constructor`/`add_implicit_resolver`/`add_path_resolver`); low-level compose/serialize/parse/emit event and node rails
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine and container roots
 - rail: structured documents
@@ -64,7 +54,7 @@ Construct these in place of plain `str`/`int` to force emission style on dump; o
 |  [03]   | `error.YAMLStreamError`         | stream fault      | bad/missing stream target on dump                          |
 |  [04]   | `constructor.DuplicateKeyError` | constructor fault | raised when `allow_duplicate_keys=False` (default) on load |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction and configuration
 - rail: structured documents
@@ -141,7 +131,7 @@ Attach comments and anchors to an in-memory tree before dump, or read source pos
 |  [03]   | `YAML.serialize` / `serialize_all` | `serialize(node, stream)`          | node tree back to event/text                    |
 |  [04]   | `YAML.emit`                        | `emit(events, stream)`             | event stream to text (emitter stage)            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [YAML_ROUNDTRIP]:
 - import: `from ruamel.yaml import YAML` at boundary scope only; module-level import is banned by the manifest import policy (the emit/lens owners declare `lazy from ruamel.yaml import YAML`).
@@ -163,9 +153,3 @@ Attach comments and anchors to an in-memory tree before dump, or read source pos
 
 [LOCAL_ADMISSION]:
 - fidelity-preserving YAML processing feeding the structured-documents owner; a load->edit->dump cycle that must keep comments, order, anchors, or styling admits here, never `pyyaml`.
-
-[RAIL_LAW]:
-- Package: `ruamel-yaml`
-- Owns: round-trip YAML 1.1/1.2 load/dump preserving comments/order/anchors/tags/styling, the `typ` codec variants, styled-scalar construction, programmatic comment/anchor attach, multi-document streams, class registration and the low-level tag/resolver/representer hooks, and the compose/serialize/parse/emit rails
-- Accept: fidelity-preserving YAML feeding the structured-documents emit/lens seam; validate-then-mutate config rewrite over a loaded `CommentedMap`
-- Reject: wrapper-renames of `load`/`dump`; the deprecated module-level `safe_load`/`round_trip_*` functions where a `YAML` instance applies; a `pyyaml` fallback where ruamel is admitted (it destroys comments/order/styling); a per-`typ` engine class where a `typ` row suffices; a manual pre/post tree walk or `str()` of a custom type where `register_class`/`add_representer` owns the tag codec; string-munging emitted text where a styled-scalar type or engine attribute owns the style; cross-parsing YAML through the XML/TOML owners; identity minting the runtime owns

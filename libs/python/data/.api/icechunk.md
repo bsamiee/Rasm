@@ -2,15 +2,7 @@
 
 `icechunk` owns a transactional, versioned Zarr store — Git-like branch, tag, and snapshot history over any object-store backend. `Repository` owns lifecycle, branches, tags, ancestry, and garbage collection; `Session` owns read, write, commit, rebase, fork, and merge; `IcechunkStore`, reached through `session.store`, is the Zarr-compatible handle every array consumer binds. Module-level factories build storage descriptors and credentials, and the synchronous surface mirrors onto an async rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `icechunk`
-- package: `icechunk` (Apache-2.0)
-- module: `icechunk`
-- owner: data
-- rail: versioned-store
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core lifecycle types
 
@@ -95,7 +87,7 @@
 |  [14]   | `FormatError`             | format        | on-disk format mismatch                                       |
 |  [15]   | `InternalError`           | internal      | core invariant breach                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: storage and credential factories (`icechunk`)
 
@@ -204,7 +196,7 @@ Store operations run on `IcechunkStore` (leading `IcechunkStore.` elided).
 |  [03]   | `set_virtual_ref(key, location, *, offset, length, checksum, validate_container=True)`     | register one external chunk ref   |
 |  [04]   | `set_virtual_refs(array_path, chunks, *, validate_containers=True)`                        | register many external chunk refs |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `icechunk` is one module; storage and credential factories are module-level functions.
@@ -226,9 +218,3 @@ Store operations run on `IcechunkStore` (leading `IcechunkStore.` elided).
 - Construct `Storage` through the module-level factories and credentials through the matching `*_credentials` factory or `containers_credentials` for virtual containers.
 - Pass conflict solvers at commit time as `rebase_with=`; never run `rebase` out of band when auto-rebase is configured.
 - Choose the sync or the async method for one operation; never run parallel sync/async call sites for the same write.
-
-[RAIL_LAW]:
-- Package: `icechunk`
-- Owns: transactional Zarr store, branch/tag/snapshot version control, multi-backend storage, conflict detection and rebase, garbage collection, and virtual chunk addressing
-- Accept: one `RepositoryConfig` value passed at `create`/`open`/`open_or_create` carrying the caller's storage retry, timeout, concurrency, cache, and manifest-splitting policy, `Repository` as the lifecycle owner, `Session` as the write unit, `session.store` as the Zarr handle handed to `zarr`/`xarray`/`tensorstore`, module-level storage/credential factories, `rebase_with` solvers at commit time, and `IcechunkError`/`ConflictError`/`RebaseFailedError` mapped to the data tier's typed error
-- Reject: an `open_or_create` binding no `config`, which runs the built-in storage envelope beside a caller's own; a branch-local mirror of the nested config types, which renames a surface the package already owns; a mapping handed to `split_sizes`; direct `Storage.new_*` call sites in domain code, out-of-band rebase under auto-rebase, parallel async/sync call sites for one operation, imperative chunk iteration outside the `IcechunkStore` protocol, and a parallel array/dataset container that re-owns the zarr/xarray semantics layered over `session.store`

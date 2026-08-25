@@ -2,17 +2,7 @@
 
 `Microsoft.Extensions.Diagnostics.HealthChecks` mints the capability-health surface every Rasm.AppHost process reads: an `IHealthCheck` contributor that `HealthCheckService` evaluates under `HealthCheckRegistration` policy, aggregates into a `HealthReport`, and pushes on cadence through `IHealthCheckPublisher`. Failure status, tags, and timeout ride the registration, so a faulted capability returns a typed `HealthCheckResult` rather than a thrown exception. Rasm.AppHost adapts every probe into one `HealthContributorRow` fold, and this package is the probe mechanic that fold consumes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.HealthChecks`
-- package: `Microsoft.Extensions.Diagnostics.HealthChecks`
-- assembly: `Microsoft.Extensions.Diagnostics.HealthChecks`
-- assembly: `Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions` (contract types)
-- namespace: `Microsoft.Extensions.Diagnostics.HealthChecks`
-- asset: runtime library
-- rail: health
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: health runtime family
 
@@ -36,7 +26,7 @@
 |  [07]   | `HealthStatus`            | status enum          | healthy/degraded/unhealthy |
 |  [08]   | `IHealthCheckPublisher`   | publisher contract   | report projection          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
 
@@ -65,7 +55,7 @@
 - Row [02] is the one abstract member; row [01] is a concrete forward passing a null predicate, so a filtered evaluation and a full one share one drain token path and a keyed liveness or readiness projection carries its cancellation whole.
 - `CheckHealthAsync(tagFilter, token)` takes a nullable predicate and an optional token, so the call site needs no overload-selection ceremony.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every probe folds through `IHealthCheck.CheckHealthAsync`, returning one `HealthCheckResult` of `Healthy`/`Degraded`/`Unhealthy` carrying description, duration, exception, data, and tags.
@@ -81,9 +71,3 @@
 - Every check enters through the one `HealthContributorRow` adapter carrying its tag for filtered projection, never a parallel `Add*` face.
 - Degraded maps to a usable-capability outcome, so a faulted dependency degrades the host rather than failing it.
 - `IHealthCheckPublisher` is the projection seam and `DegradationCell` the one publisher, never a second health store.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Diagnostics.HealthChecks`
-- Owns: capability-health projection — probe evaluation, report aggregation, publisher cadence
-- Accept: an `IHealthCheck` folded into a `HealthContributorRow` and graded by typed `HealthCheckResult`
-- Reject: a string status probe or a thrown probe failure crossing the health fold

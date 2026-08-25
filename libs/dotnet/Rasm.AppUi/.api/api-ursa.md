@@ -2,30 +2,7 @@
 
 `Irihi.Ursa` is the extended-control suite (assembly `Ursa.dll`, xmlns `https://irihi.tech/ursa`) filling the control families the curated Avalonia roster lacks. Control visuals live in the sibling `Irihi.Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`) under the `Semi.Avalonia` token system, and `Irihi.Ursa.ReactiveUIExtension` binds the Ursa view bases onto the admitted ReactiveUI rail. Every overlay — dialog, drawer, message box — is raised vm-first through a static dispatcher against a registered host id, the in-canvas counterpart to `DialogHost.Avalonia`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Irihi.Ursa`
-- package: `Irihi.Ursa` (MIT)
-- assembly: `Ursa`
-- namespace: `Ursa.Controls`, `Ursa.Controls.Options`, `Ursa.Controls.Layout`, `Ursa.Controls.OverlayShared`, `Ursa.Common`, `Ursa.Converters`, `Ursa.EventArgs`, `Ursa.Helpers`
-- depends: `Avalonia`, `Irihi.Avalonia.Shared`, `Irihi.Avalonia.Shared.Contracts` (the shared primitive closure `Semi.Avalonia` also floors on); `QRCode` vendors `Gma.QrCodeNet` internally, so no QR dependency surfaces
-- rail: controls
-
-[PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi`
-- package: `Irihi.Ursa.Themes.Semi` (MIT)
-- assembly: `Ursa.Themes.Semi`
-- namespace: `Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`), `Ursa.Themes.Semi.Converters`, `Ursa.Themes.Semi.Locale`, `Ursa.Themes.Semi.SizeAnimations`
-- depends: `Ursa`, `Semi.Avalonia`; publishes control themes under the `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` shares
-- rail: theme
-
-[PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension`
-- package: `Irihi.Ursa.ReactiveUIExtension` (MIT)
-- assembly: `Ursa.ReactiveUIExtension`
-- namespace: `Ursa.ReactiveUIExtension`
-- depends: `Ursa`, `ReactiveUI.Avalonia`
-- rail: mvvm-bridge
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [NAVIGATION_CONTROLS]: navigation and wayfinding — `Ursa.Controls`
 
@@ -287,7 +264,7 @@
 |  [09]   | `NavMenuMarginConverter`                | class         | nav-menu margin converter                                   |
 |  [10]   | `TreeLevelToPaddingConverter`           | class         | tree-level to padding multi-value converter                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DIALOG_DISPATCH]: `Dialog` (windowed, owner `Window?`) and `OverlayDialog` (in-canvas, `string? hostId`, threading a `CancellationToken?`) dispatch vm-first through `<TView,TViewModel>` generic overloads (custom overloads add `,TResult>`); each also carries `(Control view, object? vm, …)` and bare `(object? vm, …)` shapes
 
@@ -510,7 +487,7 @@
 - named part themes: `ButtonPathPicker` `ListPathPicker` `TinyPagination` `PrimaryScrollToButton` `CloseButton` `OverlayCloseButton` `TagInputTextBoxTheme` `ToolBarExpandToggleButton` `DefaultNavMenuItemTemplate`
 - Every Ursa brush resolves from the shared `SemiColor*` palette slots (`SemiColorPrimary`, `SemiColorDanger`, `SemiColorText0`, `SemiColorFill1`, …) and the `Semi*` ramp colors, so a palette override in `Application.Resources` re-tints every Ursa control without touching a control theme.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every overlay — dialog, drawer, confirm — is raised vm-first through the static `OverlayDialog`/`OverlayDrawer`/`MessageBox.ShowOverlayAsync` dispatch against a registered host id; one `OverlayDialogHost` per shell region carries its `HostId` before it attaches, the host registers and unregisters itself, and no code instantiates a popup or mutates the visual tree.
@@ -528,9 +505,3 @@
 - `Shell/Controls` composes Ursa for the families the curated Avalonia + `bodong.PropertyGrid` + `Dock` + `DataGrid` roster lacks, reusing `Ursa.Common` placement (`Position`/`ItemAlignment`/`CornerPosition`) and the per-control enums as policy vocabulary; the typed `Numeric<T>UpDown` matching the bound CLR type carries numeric entry, and shell views derive from the `ReactiveUrsa` bases.
 - `DialogOptions`/`OverlayDialogOptions`/`DrawerOptions` carry button set, modality, placement, and resize policy; `Irihi.Avalonia.Shared` stays the one shared primitive closure both suites floor on.
 - Ursa ships no command palette, spotlight, or fuzzy-search control; that capability is sourced or built in the branch, never expected from this suite.
-
-[RAIL_LAW]:
-- Package: `Irihi.Ursa` + `Irihi.Ursa.Themes.Semi` + `Irihi.Ursa.ReactiveUIExtension`
-- Owns: the extended-control families (navigation, feedback, overlay, data entry, selection, display, layout panels, the date/time/range pickers), in-canvas overlay/drawer/confirm dispatch, queued transient feedback, the `UrsaSemiTheme` control-theme bridge, and the `ReactiveUrsa` MVVM bases
-- Accept: vm-first static dispatch against a host id returning `Task<DialogResult>`/`Task<TResult?>` awaited into an `Eff`/`OptionT` rail with the `CancellationToken` threaded; one installed manager per feedback family; binding-projected item graphs on `NavMenu`/`Timeline`/`ButtonGroup`; `<semi:UrsaSemiTheme/>` last in the `semi:` chain
-- Reject: binding the obsolete `Drawer` forwarder where `OverlayDrawer` is the owner; dispatching against a host id whose registration the caller has not proved, since an unregistered id is indistinguishable from a cancel; mutating a live toast payload and expecting the presented card to follow; hand-rolling a nav menu, timeline, OTP field, masked IP/time box, multi-select combo, segmented selector, or rating Ursa owns; a second overlay-host layer or per-screen feedback stack; blocking on `.Result` instead of awaiting the dispatch; declaring a parallel placement or severity enum where `Ursa.Common` or `NotificationType` names the axis; restyling a control theme wholesale where a `SemiColor*` palette override re-tints it; loading `UrsaSemiTheme` without or ahead of `SemiTheme`; deriving shell views from the non-reactive bases when the ReactiveUI bridge is admitted; re-pinning `Irihi.Avalonia.Shared` divergent from the Semi closure

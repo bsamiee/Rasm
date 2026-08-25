@@ -2,21 +2,7 @@
 
 `@pulumi/awsx` composes intent-level `ComponentResource` classes that expand one spec — an AZ+strategy, an ECS service, an ECR build — into the raw `@pulumi/aws` resource graph backing the `aws` dispatch row. Every class extends `ComponentResource`, so it carries no `id`, no `static get`, and no provider credential: the empty `ProviderArgs` marks that awsx rides the arm's `aws.Provider` via `opts.provider`, and its outputs are raw `aws` resources the arm wires further.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/awsx`
-- package: `@pulumi/awsx` (Apache-2.0)
-- import: `@pulumi/awsx` → `{ ec2, ecs, ecr, lb, cloudtrail, types, Provider }`
-- owner: `iac`
-- rail: cloud-row / aws (ComponentResource tier)
-- runtime: the `aws.Provider` credential context; `ecr.Image` build also needs a local Docker/buildx CLI on the deploy host
-- build-floor: `@pulumi/pulumi` `^catalog`
-- depends-on: `@pulumi/pulumi` (`ComponentResource`/`Output`), `@pulumi/aws` (every arg/output is a raw `aws` type), `@pulumi/docker-build` (the bundled `ecr.Image` buildx builder)
-- namespaces: `awsx.ec2` (Vpc/DefaultVpc), `awsx.ecs` (Fargate/EC2 Service+TaskDefinition), `awsx.ecr` (Repository/Image/RegistryImage), `awsx.lb` (Application/Network LB + TargetGroupAttachment), `awsx.cloudtrail` (Trail), `awsx.types`
-- capability: intent-spec compositions expanded into the raw `aws` resource graph
-- abi-note: outputs are raw `pulumiAws.*` resources (`vpc.subnets: aws.ec2.Subnet[]`, `alb.loadBalancer: aws.lb.LoadBalancer`), never scalars — a composition exposes its sub-resources for further wiring
-
-## [02]-[COMPOSITION_ABI]
+## [01]-[COMPOSITION_ABI]
 
 [ABI_SCOPE]: the parameterized ComponentResource shape every class instantiates
 
@@ -28,7 +14,7 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 |  [02]   | `X.isInstance(obj)`                    | multi-SDK-safe guard `obj is X`                                                   |
 |  [03]   | `x.<subResource>: Output<pulumiAws.*>` | the expanded raw `aws` resources — wire into the next composition's `Input`       |
 
-## [03]-[COMPOSITION_FAMILIES]
+## [02]-[COMPOSITION_FAMILIES]
 
 [NETWORK_SCOPE]: `awsx.ec2` — VPC topology
 - `Vpc(VpcArgs) -> { vpcId, publicSubnetIds, privateSubnetIds, isolatedSubnetIds, subnets, natGateways, internetGateway, vpc }`; args `cidrBlock, numberOfAvailabilityZones, natGateways, subnetSpecs, subnetStrategy, vpcEndpointSpecs`. Subnet ids feed every compute and LB composition.
@@ -68,7 +54,7 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 [AUDIT_SCOPE]: `awsx.cloudtrail`
 - `cloudtrail.Trail` composes a trail + its S3 bucket + optional CloudWatch log group in one resource.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - awsx is the ComponentResource tier of the `aws` arm: it expands INTENT (AZ count, NAT strategy, subnet spec) into the raw `aws` graph, then the arm wires the exposed sub-resources further — `vpc.privateSubnetIds` → `FargateService.networkConfiguration`, `alb.defaultTargetGroup` → `FargateService.loadBalancers`; awsx composes `@pulumi/aws`, never replaces it.
@@ -84,9 +70,3 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 [LOCAL_ADMISSION]:
 - awsx carries no provider credential of its own — the empty `ProviderArgs` marks that every composition rides the arm's single `aws.Provider` via `opts.provider`.
 - One buildx-native builder feeds both arm-specific build egresses — an `ecr.Image` push and a direct `docker-build.Image` build — and the mixed stack selects between them by dispatch arm.
-
-[RAIL_LAW]:
-- Package: `@pulumi/awsx`
-- Owns: opinionated ComponentResource compositions for the `aws` row — VPC topology, ECS Fargate/EC2 services, ECR build-and-push, load balancers, CloudTrail
-- Accept: modern-module compositions under the arm's `aws.Provider` via `opts.provider`, intent-spec inputs, raw-`aws`-resource output wiring, `ecr.Image` buildx push, `opts.parent` tiering
-- Reject: an awsx-level provider credential, re-reading a scalar output, hand-rolling the raw `aws` graph awsx already composes, mutable-tag ECR image refs

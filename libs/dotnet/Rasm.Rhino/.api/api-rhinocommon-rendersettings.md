@@ -2,17 +2,7 @@
 
 `Rhino.Render` owns the document render-settings family: `RenderSettings` aggregates the background, antialiasing, output-image, and environment configuration over its ambient and output sub-owners. Every sub-owner derives `DocumentOrFreeFloatingBase`, one internal discriminant resolving document-bound, archive-attached, or free-floating identity — the duality this catalog states as law.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon render-settings surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Render`
-- kernel: `Rasm`
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: render-settings boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: settings aggregate and duality base
 
@@ -56,7 +46,7 @@ That `IDisposable` is a DETACH, not a release. `DocumentOrFreeFloatingBase` deri
 - `RenderChannels.Modes`: `Automatic` `Custom`
 - `PostEffects.PostEffectType`: `Early` `ToneMapping` `Late` — the stage `GetSelectedPostEffect`/`SetSelectedPostEffect` key on and `PostEffectData.Type` reads back.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SETTINGS_AGGREGATE]:
 - `RenderSettings.AmbientLight -> Color` / `BackgroundColorTop -> Color` / `BackgroundColorBottom -> Color` / `BackgroundStyle -> BackgroundStyle` / `TransparentBackground -> bool` — background color and style.
@@ -110,7 +100,7 @@ That `IDisposable` is a DETACH, not a release. `DocumentOrFreeFloatingBase` deri
 - `PostEffectData.GetParameter(string param_name) -> IConvertible` (`[CLSCompliant(false)]`) / `SetParameter(string param_name, object param_value) -> bool` — the arbitrary-parameter pair; an effect that does not know the name answers null on the read and false on the write, so the read projects to `Option` and the write confirms.
 - `PostEffectData.DataCRC(uint current_remainder) -> uint` — `[CLSCompliant(false)]` state hash over the whole effect, the change-detection key a roster diff folds.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RenderSettings` is the single aggregate: it holds background, quality, output-image, and view-source configuration and exposes each sub-owner as one property — a settings value never scatters across parallel owners, and `Duplicate` detaches a full copy.
@@ -132,9 +122,3 @@ That `IDisposable` is a DETACH, not a release. `DocumentOrFreeFloatingBase` deri
 - A `RenderSettings` enters through the document or archive accessor, mutates inside the grant or a `using` window, and commits back through the same accessor; a detached value record leaves the boundary, never a live `RenderSettings` or sub-owner.
 - `DocumentOrFreeFloatingBase` origin is the discriminant a domain owner carries; a parallel document-bound-versus-free-floating type pair beside the single duality is rejected.
 - Environment usage enters through `EnvironmentUsage`/`EnvironmentPurpose`, never a stringly usage key; the render-channel set is `RenderChannels.Modes` with `CustomList`.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Render` render-settings family + the `Rhino.Render.PostEffects` settings-side container
-- Owns: the `RenderSettings` aggregate (background, quality, output image, view source, environment binding), the `DocumentOrFreeFloatingBase` duality, its ambient and output sub-owners, and the `PostEffectCollection`/`PostEffectData` roster surface.
-- Accept: settings read and mutation through the document or archive accessor with a `using` window; per-usage environment binding over bounded usage/purpose enums; sub-owner origin carried as one `DocumentOrFreeFloatingBase` discriminant; settings values projected onto kernel color/vector owners and `Fin`/`Option` rails; a post-effect row read or written through a collection-owned cursor whose failure surfaces as the throw its member access raises.
-- Reject: a live `RenderSettings` or sub-owner escaping into a domain signature, a parallel document-bound/free-floating type pair, a re-derived gamma or sun-direction beside the kernel and `Sun.SunDirection`, a stringly environment-usage or render-channel key, a null-probe on `PostEffectDataFromId` where the factory cannot answer null, a `using` or lease over a sub-owner or a `PostEffectData` whose disposal is inert, two reads of one sub-owner where a threaded window samples it once, and the `MaterialTable`/`LightTable`/georeference-`Sun` surface `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document.md` owns re-catalogued here.

@@ -2,17 +2,7 @@
 
 `Parquet.Net` is the pure-managed Parquet codec: a schema model, a row-group reader and writer over any `Stream`, and a reflection-driven object serializer, with no native library and no Arrow dependency. It reaches this folder as the codec floor beneath `Ara3D.BimOpenSchema.IO`'s Parquet-zip leg rather than as a directly-referenced writer, and the folder's own Parquet lane stays the native `ParquetSharp.Arrow` codec — the two meet at the file format, never the assembly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Parquet.Net`
-- package: `Parquet.Net` (MIT)
-- assembly: `Parquet`
-- namespace: `Parquet`, `Parquet.Schema`, `Parquet.Data`, `Parquet.Serialization`, `Parquet.Meta`, `Parquet.Encodings`, `Parquet.Extensions`
-- asset: pure-managed AnyCPU, no native RID asset and no `Apache.Arrow` reference
-- reach: a central transitive pin behind `Ara3D.BimOpenSchema.IO`; no `.csproj` in the estate references it directly
-- rail: columnar file codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file actors and their options
 
@@ -52,7 +42,7 @@
 |  [06]   | `DataColumnStatistics`      | value         | per-column min, max, null and distinct counts         |
 |  [07]   | `BigDecimal` / `NanoTime`   | value         | the two payload types no BCL primitive carries        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open, write, and drain a file — every factory also takes an optional `ParquetOptions` and a trailing `CancellationToken`, and every reader and writer is `IAsyncDisposable`
 
@@ -96,7 +86,7 @@
 
 - Both serialize verbs also take an `IReadOnlyDictionary<string, string>?` custom-metadata slot, and both deserialize verbs read the whole file when their `int? rowGroupIndex` is null.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ParquetOptions.CompressionMethod` defaults to `Snappy` and `CompressionLevel` to `SmallestSize`, so an extract written without an explicit policy carries the fast codec at the slow level — the two knobs move together or the pairing is unintentional.
@@ -116,9 +106,3 @@
 - Transitive reach is the design: `CentralPackageTransitivePinningEnabled` surfaces the `Ara3D.BimOpenSchema.IO` dependency as a central row so the estate governs the version, and a direct `PackageReference` mints a second Parquet runtime beside `ParquetSharp` in one folder.
 - Folder fences writing Parquet compose `ParquetSharp.Arrow`; this surface enters only where the payload is already a BimOpenSchema `IDataSet` crossing the Parquet-zip leg.
 - Encryption is unreachable here — this codec ships no Parquet Modular Encryption, so a sensitive extract writes through the `ParquetSharp` PME lane, never this one.
-
-[RAIL_LAW]:
-- Package: `Parquet.Net`
-- Owns: the pure-managed Parquet schema model, row-group codec, and reflection-driven object serializer beneath the BimOpenSchema Parquet-zip leg
-- Accept: the codec reached THROUGH `Ara3D.BimOpenSchema.IO`, its version governed by the central transitive pin
-- Reject: a direct `PackageReference` from this folder, a folder fence writing Parquet through this codec beside the `ParquetSharp.Arrow` lane, an encrypted extract routed here

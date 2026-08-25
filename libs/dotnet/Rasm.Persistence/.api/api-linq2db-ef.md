@@ -2,17 +2,7 @@
 
 `linq2db.EntityFrameworkCore` hands an EF Core `DbContext` to the LINQ To DB engine: it lifts an EF `DbSet`/`IQueryable` into an `ITable<T>`/`IQueryable<T>`, opens a `DataConnection`/`IDataContext` over the EF connection with optional transaction enlistment, and runs bulk COPY and value-insert over EF entities on the EF model's mapping schema. One async operator vocabulary carries a per-engine suffix naming the LINQ To DB or EF translator. Core `linq2db` executes the store moves a bridged context reaches — binary COPY, `RETURNING` upsert — feeding the PostgreSQL store profile.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `linq2db.EntityFrameworkCore`
-- package: `linq2db.EntityFrameworkCore` (MIT)
-- assembly: `linq2db.EntityFrameworkCore`
-- namespace: `LinqToDB.EntityFrameworkCore` (bridge), `LinqToDB.EntityFrameworkCore.Internal` (query provider, options extension)
-- depends: core `linq2db` (`LinqToDB`, `LinqToDB.Data`) — the COPY/merge engine this bridge hands off to
-- asset: runtime library, net10.0
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [BRIDGE_TYPES]: EF-to-LINQ-To-DB hand-off surfaces
 
@@ -39,7 +29,7 @@
 |  [02]   | `EFConnectionInfo`     | class         | carries the `DbConnection` and transaction  |
 |  [03]   | `LinqToDBProviderInfo` | class         | names the resolved LINQ To DB provider      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bulk copy on the owning `DbContext` (`where T : class`)
 
@@ -97,7 +87,7 @@ One operator vocabulary carries both engine suffixes: `*AsyncLinqToDB` forces th
 - `UseLinqToDB<TContext>` constrains `TContext : DbContextOptionsBuilder` and returns the same builder, so admission chains inline.
 - `LinqToDBContextOptionsBuilder` returns itself from every `Add*` call, chaining interceptor, mapping-schema, and `DataOptions` rewrites into one admission expression.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every bridge op opens a LINQ To DB `IDataContext`/`DataConnection` over the EF connection and reuses the EF model's mapping schema, so bulk COPY, query lift, and value-insert bind the same column mapping EF persists through.
@@ -118,9 +108,3 @@ One operator vocabulary carries both engine suffixes: `*AsyncLinqToDB` forces th
 - Bulk-copy options are profile policy and `BulkCopyRowsCopied` reports progress.
 - Interceptors and mapping schemas enter through an explicit `UseLinqToDB` `Action<LinqToDBContextOptionsBuilder>` declaration.
 - Lifted reads stay out of the EF change tracker until `EnableChangeTracker` is set, and `CreateLinqToDBConnectionDetached` is the change-tracker-free path for high-throughput reads.
-
-[RAIL_LAW]:
-- Package: `linq2db.EntityFrameworkCore`
-- Owns: the EF-to-LINQ-To-DB hand-off — bulk copy, query and table lift, value-insert entry, connection and context construction, mapping and metadata reuse, and the dual-engine async operator vocabulary
-- Accept: bridge calls on admitted EF store profiles; `UseLinqToDB` admission carrying explicit interceptor and mapping declarations; core-engine COPY and merge reached through a bridged `IDataContext` or `ITable<T>`
-- Reject: query rails standing outside the store profile; core `linq2db` COPY and merge surfaces re-declared as bridge entrypoints; change-tracked lifts where the detached or COPY path carries the load

@@ -93,7 +93,7 @@ const _overrunAxes = [
   "payload", "frames", "assembly",
   "walk-depth", "walk-fan",
 ] as const
-const _paritySubjects = ["key", "golden-bytes", "semantic", "merkle-root"] as const
+const _paritySubjects = ["key", "octets", "semantic", "merkle-root"] as const
 const _gapSubjects = ["ordinal", "total", "tail"] as const
 const _coordinate = Schema.OptionFromSelf(
   Schema.Struct({ artifact: Digest.codecs.content.wire, generation: Schema.Int.pipe(Schema.nonNegative()) }),
@@ -352,8 +352,9 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/core/Quarantine", {
 
 ## [04]-[PARITY_VERIFY]
 
-- Owner: `Wire.Parity` verifies content identity, semantic round trips, and frozen fixture bytes.
-- Law: protobuf parity is semantic; exact bytes apply only to frozen fixtures.
+- Owner: `Wire.Parity` verifies content identity, semantic round trips, and byte-exact re-encoding of the frame's own octets.
+- Law: the octet rail is an involution proof — decode then encode must reproduce the received octets, so no stored artifact is ever consulted.
+- Law: protobuf parity is semantic, because its emission is not canonical; byte equality is claimed only on an arm whose encoder is.
 
 ```typescript
 import { ArtifactId, Digest } from "../value/contentKey.ts"
@@ -392,7 +393,7 @@ const Parity = {
       if (mismatch === -1 && emitted.length === octets.length) return
       return yield* Effect.fail(_mismatch(
         family,
-        "golden-bytes",
+        "octets",
         { extent: emitted.length, offset, byte: emitted[offset] },
         { extent: octets.length, offset, byte: octets[offset] },
       ))

@@ -2,17 +2,7 @@
 
 `highspy` supplies the HiGHS linear, mixed-integer, and convex-quadratic solver for the compute mathematical-programming rail: one stateful `Highs` owning model assembly, the dual-simplex/IPX/PDLP, branch-and-bound, and active-set engines, and the `HighsSolution`/`HighsModelStatus`/`HighsInfo` result. HiGHS owns the LP/MIP/QP regime — simplex-exact bases, integrality, sensitivity ranging — where the `clarabel`/`scs` conic arms own the cones, and cvxpy selects it as the `cp.HIGHS` backend of the one convex family. Package owner composes `Highs`, the `highs_var`/`highs_linear_expression` surface, and the solve/warm-mutation rail, never re-implementing the simplex or branch-and-bound search HiGHS owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `highspy`
-- package: `highspy` (MIT)
-- import: `import highspy`
-- owner: `compute`
-- rail: mathematical programming (LP/MIP/QP solver backend)
-- entry points: none (library only)
-- capability: revised-simplex/IPX/PDLP LP solve, branch-and-bound MIP solve over integer and semi-continuous columns, active-set convex-QP solve, incremental warm-basis re-solve, primal/dual/reduced-cost recovery with ray certificates, cost-and-bound sensitivity ranging, IIS extraction, multi-objective blend/lexicographic solve, and the MIP callback surface
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver, model, and solution roots
 
@@ -68,7 +58,7 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 [IisStrategy]: `kIisStrategyFromLp` `kIisStrategyFromRay` `kIisStrategyMin` `kIisStrategyMax` `kIisStrategyIrreducible` `kIisStrategyRelaxation` `kIisStrategyLight` `kIisStrategyColPriority`
 [HighsPresolveStatus]: `kNotPresolved` `kNotReduced` `kReduced` `kReducedToEmpty` `kInfeasible` `kUnboundedOrInfeasible` `kTimeout`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fluent modeling entry points
 
@@ -87,7 +77,7 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 |  [09]   | `Highs.optimize`       | `optimize()` / `run()` / `solve()` -> `HighsStatus` | solve the assembled LP/MIP/QP model                   |
 |  [10]   | `Highs.val`            | `val(var)` / `vals(vars)`                           | read the primal value of a variable or expression     |
 |  [11]   | `Highs.getSolution`    | `getSolution()` -> `HighsSolution`                  | read the full primal/dual solution carrier            |
-|  [12]   | `Highs.getInfo`        | `getInfo()` -> `HighsInfo`                          | read the solve measures fenced above                   |
+|  [12]   | `Highs.getInfo`        | `getInfo()` -> `HighsInfo`                          | read the solve measures fenced above                  |
 |  [13]   | `Highs.getModelStatus` | `getModelStatus()` -> `HighsModelStatus`            | read the terminal model verdict                       |
 |  [14]   | `Highs.setInteger`     | `setInteger(var)` / `setContinuous(var)`            | flip a column's integrality after assembly            |
 
@@ -112,7 +102,7 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 |  [13]   | `Highs.writeModel`            | `writeModel(path)` / `readModel(path)`           | MPS/LP model write and read                          |
 |  [14]   | `Highs.feasibilityRelaxation` | `feasibilityRelaxation(glob, local, rhs)`        | minimal-relaxation solve of an infeasible model      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import at boundary scope only, never module-level.
@@ -131,9 +121,3 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 
 [LOCAL_ADMISSION]:
 - admit `highspy` as the compute LP/MIP/QP backend and the cvxpy `cp.HIGHS` binding; a model carrying SOC/PSD/exponential/power cones routes to the `clarabel`/`scs` conic arms.
-
-[RAIL_LAW]:
-- Package: `highspy`
-- Owns: LP simplex/IPM/PDLP solve, branch-and-bound MIP solve over integer and semi-continuous columns, active-set convex-QP solve, incremental warm-basis re-solve, primal/dual/reduced-cost recovery with ray certificates, cost-and-bound sensitivity ranging, irreducible-infeasible-subsystem extraction, multi-objective blend/lexicographic solve, and the MIP callback surface
-- Accept: `Highs` fluent `addVariable`/`addConstr`/`minimize` or typed `passModel` sparse assembly, `run`/`optimize` solve with `setOptionValue` engine selection, `changeCol*`/`changeRow*`/`changeCoeff` warm re-solve, `HighsSolution`/`HighsInfo`/`HighsRanging`/`HighsIis` recovery, use as the cvxpy `cp.HIGHS` backend beside the Clarabel/SCS conic arms
-- Reject: wrapper-renames of `Highs`/`run`/`optimize`; a hand-rolled simplex, branch-and-bound, or QP active-set loop where HiGHS is admitted; a dense constraint matrix where the `HighsSparseMatrix` CSC/CSR form is required; a full-symmetric QP Hessian where the upper-triangular form is required; a second solver object per objective where `HighsLinearObjective` blend/lexicographic multi-objective discriminates; a cold rebuild where `changeCol*`/`changeRow*` warm re-solve applies; HiGHS for a model carrying SOC/PSD/exponential/power cones where Clarabel or SCS is the correct arm

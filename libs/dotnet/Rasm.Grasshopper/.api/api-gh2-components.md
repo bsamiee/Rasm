@@ -2,16 +2,7 @@
 
 `Grasshopper2.Components` owns the GH2 component-authoring model — the `Component`/`ModularComponent` document object whose lifecycle runs pin registration, per-access and iteration-array processing, and variable-parameter mutation, with `IDataAccess` the sole item/pear/twig/tree seam into the running solution. Typed pins register through the `InputAdder`/`OutputAdder` families; `Garden` and the `Grasshopper2.Types.Conversion` brokers own tree construction and conversion, and `Plugin`/`PluginServer` own registration.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grasshopper2` 'Rhino 9 WIP Grasshopper2 SDK'
-- assembly: `Grasshopper2.dll` (installed `Grasshopper2Plugin.rhp` managed plug-in; in-process, no NuGet redistribution)
-- namespace: `Grasshopper2.Components`, `.Components.Standard`, `Grasshopper2.Parameters`, `.Parameters.Standard`, `Grasshopper2.Data`, `.Data.Meta`, `Grasshopper2.Doc`, `.Doc.Attributes`, `Grasshopper2.Types.Assistant`, `.Types.Conversion`, `Grasshopper2.Framework`, `Grasshopper2.Bake`, `GrasshopperIO`
-- host: RhinoWIP `RhCore.framework` — `Rhino.Geometry` supplies the carrier types component pins bind
-- io: `GrasshopperIO` `IoIdAttribute` stamps the persistent type id every document object serializes under
-- rail: component-authoring model
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: component authoring and lifecycle
 
@@ -80,7 +71,7 @@
 |  [06]   | `CurveBroker` / `SurfaceBroker` | geometry broker | cast-or-convert onto the concrete `Rhino.Geometry` curve/surface family |
 |  [07]   | `MetaData`                      | pear metadata   | the per-pear annotation `Garden` and `SetItem` thread                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: component lifecycle and variable parameters
 
@@ -255,7 +246,7 @@
 - `InputAdder.Add(IParameter, Requirement = MustExist)` is public, so any `Grasshopper2.Parameters.Standard` parameter constructed by hand attaches through it — the escape hatch for a pin kind whose typed `Add*` the host has marked obsolete.
 - `InputAdder.AddLanguage(string, string, string, Access, Requirement)` alone carries `[Obsolete("Not actually obsolete, but consider adding Language Pin support to your component instead.")]`; the sibling `OutputAdder.AddLanguage(string, string, string, Access)` does not, so only the input leg needs the direct-mint route and no suppression is ever earned. `LanguageParameter` itself and the `Grasshopper2.Types.Linguistic.Language` culture-code enum carry no obsolescence.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Component` declares pins once through `AddInputs(InputAdder)`/`AddOutputs(OutputAdder)`, computes through `Process(IDataAccess)`, overrides `Process(IDataAccess[], CancellationToken)` for iteration-array policy, and reconciles variable pins through the `Can*`/`Do*Parameter(Side, int, ActionList)` pairs — every structural edit rides an `ActionList` for undo.
@@ -277,9 +268,3 @@
 - pin declaration composes the adder families through the generated pin-kind vocabulary.
 - `IDataAccess` is the sole in-`Process` seam into data, context, and messages.
 - `Garden` and the brokers own tree construction and conversion.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2.dll` (Rhino 9 WIP Grasshopper2 SDK, in-process managed plug-in; `GrasshopperIO` serialization; `Rhino.Geometry` carriers)
-- Owns: the `Component`/`ModularComponent` authoring model, `IDataAccess`, the typed pin adder families and their writable `Grasshopper2.Parameters.Standard` modifier columns, the component-attribute bases (`Attributes<T>`, `ComponentAttributes`, `ResizableAttributes<T>`), the `Tree`/`Twig`/`Pear`/`Garden` data algebra, the `ConversionServer` brokers, and `Plugin`/`PluginServer` registration
-- Accept: a `Component` declaring pins through the adder families, computing through `Process(IDataAccess)` with reads lifted onto `Fin`/`Validation`, `Access`/`Requirement`/`Side` folded onto `[SmartEnum]`s, trees built and folded through `Garden`, typed conversion through `ConversionServer`, and registration through `PluginServer`
-- Reject: a GH1 `GH_Component`/`SolveInstance`/`IGH_DataAccess`/`GH_Structure`/`GH_ParamAccess` shape; a hand-enumerated `Add*` pin wall; a `bool`+out read where `Fin`/`Option` gives the typed rail; a hand-rolled tree walker beside `Garden`; a `null`-out conversion beside the `Merit`-scored broker fold; the `IAttributes` contract itself (`api-gh2-document.md`) and the `Responses` dispatch family the attribute bases expose (`api-gh2-flex.md`); a `CS0618` suppression over `InputAdder.AddLanguage` where the public `Add(IParameter, Requirement)` seam declares the same parameter

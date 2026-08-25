@@ -2,15 +2,7 @@
 
 `otplib` owns the RFC-4226 HOTP and RFC-6238 TOTP second factor on one strategy-discriminated async rail: `strategy` picks the algorithm as a value, `verify` returns a verdict rather than throwing, and crypto and base32 arrive as injected ports, so `authn/otp` binds the HMAC primitive `sign/crypto` already owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `otplib`
-- package: `otplib` (MIT)
-- module: dual ESM and CJS; subpaths `.` (whole surface) · `./functional` · `./class`
-- runtime: `runtime:neutral` — pure JS; the bundled `NobleCryptoPlugin` runs in browser and node, and a port swap drops that dependency
-- rail: authn/otp — the second-factor mint and verify owner, taking its HMAC from `sign/crypto` through the `CryptoPlugin` port
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the verdict union and the option algebra both rails share.
 
@@ -42,7 +34,7 @@
 |  [03]   | `NobleCryptoPlugin` | class         | bundled `@noble/hashes` crypto default          |
 |  [04]   | `ScureBase32Plugin` | class         | bundled `@scure/base32` base32 default          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the functional rail — one strategy-discriminated entry with a sync mirror.
 
@@ -85,7 +77,7 @@ HOTP requires `counter`; TOTP reads `period`, `epoch`, and `t0`. `generateURI` r
 |  [17]   | `HOTP.verify({ token, counter }, Partial<HOTPOptions>) -> Promise<VerifyResult>` | instance | tolerance rides the second argument     |
 |  [18]   | `HOTP.toURI(number) -> string`                                                   | instance | provisioning URI at a counter           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `strategy` rides the options as a value, so `generate` and `verify` each stay one entry and `TOTP`/`HOTP` are its fixed specializations rather than a name fork.
@@ -102,12 +94,6 @@ HOTP requires `counter`; TOTP reads `period`, `epoch`, and `t0`. `generateURI` r
 - `authn/credential` (in-folder owner): the OTP rows share the mint-and-resolve digest idiom with machine keys, and `authn/otp` reaches HMAC only through the `CryptoPlugin` object `sign/crypto` constructs.
 
 [LOCAL_ADMISSION]:
-- `authn/` subpaths import this package; the `tests/typescript/_architecture` audit catches a `sign`, `session`, or `secret` rail reaching it.
+- `authn/` subpaths alone import this package.
 - `authn/otp` binds `{ crypto }` to the `sign/crypto`-backed plugin at every entry, keeping one HMAC owner for the folder.
 - Functional `generate` and `verify` carry the default; a class earns its place where plugin and guardrail config is fixed per subject and reused across calls.
-
-[RAIL_LAW]:
-- Package: `otplib`
-- Owns: RFC-4226 HOTP and RFC-6238 TOTP mint and verify, the `VerifyResult` verdict with `delta` resync, `epoch` and `counter` tolerance windows, `generateSecret`/`generateURI` enrollment, and the `CryptoPlugin`/`Base32Plugin` ports
-- Accept: `strategy` as the one discriminant, the async entries under `Effect.tryPromise`, `delta` for HOTP resync, tolerance as `number | [past, future]`, `afterTimeStep` as the replay floor, `{ crypto }` bound to a `sign/crypto` plugin, `hooks` for a non-standard alphabet
-- Reject: a `generateTotp`/`generateHotp` name fork, an enumerated tolerance-variant family, a caller-side replay re-check, a second HMAC stack beside the `CryptoPlugin` port, recovery codes claimed as an otplib row, an import outside `authn/`

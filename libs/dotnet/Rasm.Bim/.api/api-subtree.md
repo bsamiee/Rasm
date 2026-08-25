@@ -2,17 +2,7 @@
 
 `subtree` owns the 3D-Tiles implicit-tiling `.subtree` availability bitstream — the Morton-ordered tile, content, and child-subtree bitstreams that tell a client which implicit nodes exist. It authors and reads tileset AVAILABILITY structure only, the interchange-rail complement to `SharpGLTF.Ext.3DTiles`, which owns per-tile glTF CONTENT. `SubtreeCreator` folds a `List<Tile>` (quadtree) or `List<Tile3D>` (octree) into a binary `.subtree` buffer, `ImplicitSubdivisionScheme` selecting the level-offset and Morton arithmetic.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `subtree`
-- package: `subtree` (MIT)
-- assembly: `subtree`
-- namespace: `subtree`
-- asset: net8.0 single TFM; the net10.0 consumer binds `lib/net8.0` — pure-managed AnyCPU, no `runtimes/` folder
-- depends: transitive `Newtonsoft.Json`, the `SubtreeJson` JSON-chunk serializer
-- rail: interchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tile authoring nodes and scheme axis
 
@@ -45,7 +35,7 @@
 |  [02]   | `AvailabilityLevel` / `AvailabilityLevel3D`   | one subdivision level's availability row                          |
 |  [03]   | `AvailabilityLevels` / `AvailabilityLevels3D` | `List<AvailabilityLevel[3D]>` — the full level stack of a subtree |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `SubtreeCreator` folds a quadtree `List<Tile>`, `SubtreeCreator3D` an octree `List<Tile3D>`, each into one or many `.subtree` binaries across multi-subtree subdivision (all static)
 
@@ -78,7 +68,7 @@
 |  [14]   | `BitArrayExtensions.Count(this BitArray, bool whereClause = false) -> int`             | counts bits EQUAL to whereClause     |
 |  [15]   | `BufferPadding.AddPadding` / `AddBinaryPadding(byte[], int) -> byte[]`                 | 8-byte padding (3D-Tiles layout)     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every availability op folds through the Morton index `ImplicitSubdivisionScheme` selects; a tile is available exactly when its Morton bit is set in the `.subtree` bitstream.
@@ -93,9 +83,3 @@
 
 [LOCAL_ADMISSION]:
 - `Rasm.Bim` admits `subtree` for `.subtree` availability authoring and read only; glTF tile content, tileset.json hierarchy, and bounding-volume geometry stay `SharpGLTF`/EXPORT concerns.
-
-[RAIL_LAW]:
-- Package: `subtree`
-- Owns: 3D-Tiles implicit-tiling `.subtree` availability-bitstream authoring and read
-- Accept: the EXPORT per-tile availability leg complementing the glTF content leg
-- Reject: glTF tile content, tileset.json hierarchy, bounding-volume geometry

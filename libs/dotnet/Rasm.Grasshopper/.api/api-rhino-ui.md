@@ -2,15 +2,7 @@
 
 `Rhino.UI` carries GDI, Rhino `Color4f`, and Rhino `Font` values into `Eto.Drawing` through the static `EtoExtensions` conversion family, and attaches the Rhino pick button to a panel or window. Native styling, document window binding, position persistence, and the native value prompts are the branch host-bridge surface this partition registers.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Rhino.UI` — Grasshopper2 conversion and pick partition
-- package: `Rhino.UI` (Rhino 9 WIP host UI bridge)
-- assembly: `Rhino.UI` (in-process host DLL from the RhinoWIP `RhCore.framework` bundle)
-- namespace: `Rhino.UI` (`EtoExtensions`)
-- rail: host-rhino
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 - Registers the `Rhino.UI` host-bridge seams (`libs/dotnet/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number prompts carry their algebra there; the rows below are the conversion and pick members this boundary adds beyond it.
 
@@ -20,7 +12,7 @@
 | :-----: | :-------------- | :------------ | :---------------------------------------------- |
 |  [01]   | `EtoExtensions` | static class  | GDI and Rhino value conversion, pick attachment |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: GDI and Rhino value conversion
 
@@ -53,7 +45,7 @@ Members carry `System.Drawing` GDI and Rhino `Color4f`/`Font` carriers into `Eto
 |  [01]   | `Panel.PushPickButton(EventHandler<EventArgs>)`  | extension | pick-button attachment on a panel  |
 |  [02]   | `Window.PushPickButton(EventHandler<EventArgs>)` | extension | pick-button attachment on a window |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Conversion is the one bridge for GDI and Rhino colour, font, and image carriers into `Eto.Drawing`, and `Bitmap.ToEto` is the exact path the GH1 interop icon boundary composes; a hand-rolled channel or point remap beside these members is the deleted form.
@@ -71,9 +63,3 @@ Members carry `System.Drawing` GDI and Rhino `Color4f`/`Font` carriers into `Eto
 [LOCAL_ADMISSION]:
 - GDI and Rhino carriers cross into `Eto.Drawing` only through the conversion family here; a per-channel colour rebuild or a manual DPI point scale is the deleted form.
 - Native styling, document binding, and value prompts take the registered branch bridge; this partition never re-derives them.
-
-[RAIL_LAW]:
-- Partition: `Rhino.UI` Grasshopper2 boundary — GDI and Rhino value conversion into `Eto.Drawing`, and pick-button attachment
-- Owns: the `System.Drawing`, `Color4f`, and `Font` conversions and the panel and window pick attachments this boundary adds over the registered branch bridge
-- Accept: GDI and Rhino carriers converted into `Eto.Drawing`, screen-relative point and rectangle crossings, a pick handler attached to a host surface
-- Reject: a re-tabling of the branch host bridge, a hand-rolled channel or DPI remap beside the conversion family, Eto handler resolution and native embedding (`api-eto-platform`), the AppKit native seam (`api-macos-native`), and GH2 chrome hosts (`api-gh2-editor`)

@@ -4,18 +4,9 @@
 
 Two shapes cover the package: the generated typed resource (`apiVersion`/`kind`/`metadata`/`spec`/`status` as `Output`s) and the bespoke `ComponentResource` (`helm.v4.Chart`, `helm.v3.Release`, `kustomize.Directory`, `yaml.ConfigGroup`); typed charts install operators with zero authored YAML, `apiextensions.CustomResource` carries operator CRDs, and `Provider` binds the kubeconfig.
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[PUBLIC_TYPES]
 
-[PACKAGE_SURFACE]: `@pulumi/kubernetes`
-- package: `@pulumi/kubernetes` (Apache-2.0)
-- module: `@pulumi/kubernetes` + group sub-paths (`/apps/v1`, `/helm/v4`, `/apiextensions`, `/kustomize`, `/yaml`)
-- runtime: `node` — Automation-API program process
-- asset: typed resource classes for every API group, `helm.v4.Chart`/`helm.v3.Release`, `apiextensions.CustomResource`/`CustomResourcePatch`/`v1.CustomResourceDefinition`, `kustomize.Directory`, `yaml.{ConfigFile,ConfigGroup}`, `Provider`, the `types.input`/`types.output` shape namespaces
-- rail: iac / kubernetes
-
-## [02]-[PUBLIC_TYPES]
-
-### [02.1]-[TYPED_RESOURCE_PATTERN]
+### [01.1]-[TYPED_RESOURCE_PATTERN]
 
 [PUBLIC_TYPE_SCOPE]: typed resource — every API-group kind
 - entry: `@pulumi/kubernetes/<group>/<version>`
@@ -33,7 +24,7 @@ Every typed resource is `class Kind extends pulumi.CustomResource` with literal-
 |  [07]   | `<Kind>Patch`                         | class     | Server-Side-Apply patch twin                              |
 |  [08]   | `<Kind>List`                          | class     | the list-kind resource                                    |
 
-### [02.2]-[API_GROUP_ROSTER]
+### [01.2]-[API_GROUP_ROSTER]
 
 [PUBLIC_TYPE_SCOPE]: typed resource groups
 
@@ -49,7 +40,7 @@ Every typed resource is `class Kind extends pulumi.CustomResource` with literal-
 
 Every other generated API group folds the same pattern; each kind exposes its `*Patch` (SSA) and `*List` twins, and `meta.v1.ObjectMeta` is the shared metadata `Input` carrying `name`/`namespace`/`labels`/`annotations`.
 
-### [02.3]-[HELM_V4_CHART]
+### [01.3]-[HELM_V4_CHART]
 
 [PUBLIC_TYPE_SCOPE]: helm component
 - entry: `@pulumi/kubernetes/helm/v4`
@@ -81,7 +72,7 @@ Every other generated API group folds the same pattern; each kind exposes its `*
 
 `helm.v3.Release` is the stateful `helm install` peer — reach it only when a chart needs true release lifecycle (`atomic`, `waitForJobs`, `recreatePods`, `timeout`, rollback); the `Chart` path is the default for Pulumi-managed resources, keeping every object under diff and policy.
 
-### [02.4]-[APIEXTENSIONS_CUSTOMRESOURCE]
+### [01.4]-[APIEXTENSIONS_CUSTOMRESOURCE]
 
 [PUBLIC_TYPE_SCOPE]: operator CRD carrier
 - entry: `@pulumi/kubernetes/apiextensions`
@@ -98,7 +89,7 @@ Every other generated API group folds the same pattern; each kind exposes its `*
 |  [06]   | `class CustomResourcePatch`                 | class     | SSA patch twin over an existing CRD instance                         |
 |  [07]   | `apiextensions.v1.CustomResourceDefinition` | class     | typed CRD-install resource (`spec.group`/`names`/`versions`/`scope`) |
 
-### [02.5]-[MANIFEST_COMPONENTS_AND_PROVIDER]
+### [01.5]-[MANIFEST_COMPONENTS_AND_PROVIDER]
 
 [PUBLIC_TYPE_SCOPE]: manifest components + cluster binding
 
@@ -119,7 +110,7 @@ Every other generated API group folds the same pattern; each kind exposes its `*
 |  [13]   | `ProviderArgs.deleteUnreachable`              | arg       | unreachable-cluster resource GC                                        |
 |  [14]   | `ProviderArgs.clusterIdentifier`              | arg       | replace-identity for cluster reassociation                             |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Typed resources thread `meta.v1.ObjectMeta` and the group `Spec` as `Input`s and expose `metadata`/`spec`/`status` as `Output`s; compose across resources with `Output.apply`/`pulumi.all`, and the literal `apiVersion`/`kind` discriminants make `isInstance` narrowing exhaustive.
@@ -137,9 +128,3 @@ Every other generated API group folds the same pattern; each kind exposes its `*
 
 [LOCAL_ADMISSION]:
 - `pulumi-resource-kubernetes` shells `helm template` and drives the API server, so the arm admits only where `helm` and `kubectl` are reachable and the kubeconfig resolves to a live cluster (bootstrap host or in-cluster job).
-
-[RAIL_LAW]:
-- Package: `@pulumi/kubernetes`
-- Owns: typed resources for every API group, `helm.v4.Chart` render, the `apiextensions.CustomResource` CRD carrier, `yaml`/`kustomize` manifest components, the cluster `Provider`
-- Accept: typed `values` maps for chart config; `enableServerSideApply` field-management; chart provenance (`verify`/`keyring`) as correctness controls distinct from the `values` app config
-- Reject: authored chart or manifest YAML the typed `values` and resource classes replace; a hand-rolled kubeconfig-context switch the `Provider` owns

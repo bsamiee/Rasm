@@ -17,5 +17,8 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Contract/Contract.csproj" />
+        <ProjectReference Include="../Cargo/Cargo.csproj" RasmInfra="true" />
+        <ProjectReference Include="../Stub/Stub.csproj" ReferenceOutputAssembly="false" RasmInfra="true" />
+        <ProjectReference Include="../../../tests/dotnet/scenarios/Rasm.Scenarios.csproj" RasmInfra="true" />
     </ItemGroup>
 </Project>

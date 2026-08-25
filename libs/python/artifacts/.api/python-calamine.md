@@ -4,18 +4,7 @@
 
 `python-calamine` reads the binary-Excel and SpreadsheetML formats odfpy's OASIS parser cannot and re-implements none of the unzip, BIFF reader, or shared-string decode the Rust core owns, evaluating no formula; `LensProvider.CALAMINE` folds each row matrix through its `XLSX_READ` arm into a `document/model` `TableNode` of `RunNode` cells, and authoring stays at the openpyxl/xlsxwriter/odfpy owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-calamine`
-- package: `python-calamine` (MIT)
-- import: `python_calamine` (re-exports the native `python_calamine._python_calamine` PyO3 extension)
-- owner: `artifacts`
-- rail: office-ingest
-- build: PyO3/Rust C-extension, version-specific ABI (not abi3)
-- depends: none — the calamine Rust core owns the unzip, BIFF, shared-string, and date-serial decode
-- entry points: import-only; no console script
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: workbook, sheet, and table roots
 
@@ -46,7 +35,7 @@
 |  [08]   | `TablesNotSupported` | table fault     | `get_table_by_name` on a non-xlsx format                                         |
 |  [09]   | `TableNotFound`      | table fault     | `get_table_by_name` for a missing table name                                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: workbook open and introspect
 
@@ -79,7 +68,7 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 
 - [GEOMETRY]: `CalamineSheet` props `name` `height` `width` `total_height` `total_width` `start` `end` (`start`/`end` -> `tuple[int,int] | None`)
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `from_object` is the one shape-discriminating ingress and `load_tables=True` (xlsx only) the single knob, never a per-format open; introspection reads workbook structure before any grid, filtering a non-`WorkSheet` `SheetTypeEnum` or `Hidden`/`VeryHidden` `SheetVisibleEnum` at the boundary.
@@ -94,8 +83,3 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 
 [LOCAL_ADMISSION]:
 - Spreadsheet and binary-Excel ingest feeding the `document/lens#LENS` `XLSX_READ` arm, including `msoffcrypto-tool`-decrypted workbooks and the in-memory `from_object(BytesIO(payload))` open; `CALAMINE` rides `_GATED_PROVIDERS` for worker isolation of the Rust core.
-
-[RAIL_LAW]:
-- Package: `python-calamine`
-- Owns: read-only ingest of the Excel/OpenDocument family via `from_object`/`from_path`/`from_filelike`/`load_workbook`, workbook and table introspection, sheet resolution, the `to_python`/`iter_rows` native-scalar projection with date-serial decode, sheet geometry and `merged_cell_ranges`, and the `CalamineError` fault family.
-- Reject: any authoring path (openpyxl/xlsxwriter own `.xlsx`, odfpy owns `.ods`); the Arrow columnar frame (`fastexcel`); per-cell formula evaluation; workbook decryption (route a `PasswordError` through `msoffcrypto-tool`).

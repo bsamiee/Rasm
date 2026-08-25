@@ -2,16 +2,7 @@
 
 `zarr` owns the chunked, compressed, N-dimensional array store: a Zarr v2/v3 dual-format metadata layer, an explicit serialization-plus-compression codec pipeline, and pluggable `zarr.storage` backends over a sync-facade-over-async rail. `Array`/`Group` are synchronous facades over the public `AsyncArray`/`AsyncGroup`, and every top-level factory mirrors an `async def` in `zarr.api.asynchronous`. Pure-Python with no native extension and no subprocess seam, it resolves native compression through `numcodecs`/`blosc`/`zstd`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `zarr`
-- package: `zarr`
-- module: `import zarr`
-- namespaces: `zarr`, `zarr.api.asynchronous`, `zarr.storage`, `zarr.codecs`, `zarr.abc.store`, `zarr.abc.codec`, `zarr.registry`, `zarr.config`, `zarr.buffer`
-- rail: array-store — chunked N-D typed array store for the gridded tensor plane
-- entry points: import-only, no console script; `zarr.__version__` and `zarr.print_debug_info()` report the resolved environment
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core container types (`zarr`)
 
@@ -95,7 +86,7 @@ Every concrete `zarr.codecs.*`/`numcodecs` codec subclasses one role base; the p
 
 [warnings] `ZarrDeprecationWarning` `ZarrFutureWarning` `ZarrRuntimeWarning` `ZarrUserWarning` `UnstableSpecificationWarning` — warnings, never catchable refusals.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
 
@@ -176,7 +167,7 @@ Every synchronous factory wraps an `async def` of the same name in `zarr.api.asy
 |  [08]   | `Group.update_attributes(new_attributes)`                                         | instance | update user attributes            |
 |  [09]   | `Group.tree(expand=None, level=None)`                                             | instance | render subtree as `TreeRepr`      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - async axis: one operation binds the sync facade OR the async mirror, never parallel sync/async call sites for one write; inside `await`, `zarr.api.asynchronous.*` or `AsyncArray`/`AsyncGroup` skip the sync wrapper's loop hop.
@@ -202,9 +193,3 @@ Every synchronous factory wraps an `async def` of the same name in `zarr.api.asy
 - `oindex`/`vindex`/`blocks` cover non-basic selection; `__getitem__` stays NumPy basic indexing.
 - one `StoreLike` resolves outside hot paths and threads across every factory, decorated rather than re-wrapped.
 - `zarr.api.asynchronous`/`AsyncArray`/`AsyncGroup` serve `await` contexts, and one write binds sync or async.
-
-[RAIL_LAW]:
-- Package: `zarr`
-- Owns: the chunked N-D array store with v2/v3 dual-format metadata, the explicit v3 codec pipeline, pluggable `zarr.storage` backends, orthogonal/vectorized/block/coordinate/mask indexing, consolidated metadata, the donfig `config`, and the synchronous-over-async `Array`/`AsyncArray` rail
-- Accept: any `StoreLike` resolved once and passed in; an explicit `filters=`/`compressors=`/`serializer=` pipeline; `oindex`/`vindex`/`blocks` for non-basic selection; an `IcechunkStore`/`ObjectStore`/`FsspecStore` for transactional and cloud paths; the async mirror inside `await` contexts
-- Reject: a numcodecs-backed codec standing in for a native `zarr.codecs` equivalent; a codec constructed positionally where every constructor is keyword-only; manual chunk-key construction outside the store API; direct metadata-file writes bypassing the codec/store path; a per-backend store factory family where one `StoreLike` discriminates; mixed sync/async call sites for one write; `zarr_format`-dependent default codecs where reproducibility is required

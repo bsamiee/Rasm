@@ -10,17 +10,7 @@
 
 Row `[01]` derives field list, field order, and every column's own builder from the one `AnalyticsSchema`/`ColumnType`/`ColumnShape` declaration; row `[02]` keeps the `Strided` gather, the `on_front` mask, and the arena borrow, which are dataset-shaped. Persistence-local ADBC, Flight, Flight-hosting, Flight-SQL, and IPC-compression packages catalogue at `Rasm.Persistence/.api/api-arrow-egress.md`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Apache.Arrow`
-- package: `Apache.Arrow` (Apache-2.0)
-- assembly: `Apache.Arrow`
-- namespace: `Apache.Arrow`, `Apache.Arrow.Ipc`, `Apache.Arrow.Types`, `Apache.Arrow.Memory`
-- asset: pure-managed runtime library, AnyCPU, no native RID; the `net10.0` consumer binds `lib/net8.0`
-- abi: `RecordBatch`/`Schema`/`Field` are reference types; `MemoryAllocator` is `abstract` with a `Lazy<MemoryAllocator> Default`
-- rail: columnar-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: record, schema, field, array-builder, and type-descriptor construction (`Apache.Arrow`, `.Types`, `.Memory`)
 - note: every symbol is per-instance constructed, never a static handle; each primitive builder derives `PrimitiveArrayBuilder<T, TArray, TBuilder>` with a uniform append/build set (`StringArray.Builder` adds `.Append(string)`), and each `IArrowType.Default` singleton feeds `Field.Builder.DataType`.
@@ -103,7 +93,7 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 |  [12]   | `ICompressionCodec`        | codec contract  | `Decompress(ReadOnlyMemory<byte>, Memory<byte>)`; `Compress` default-throws |
 |  [13]   | `IArrowArrayStream`        | stream contract | async enumerable of record batches; `Schema` + `ReadNextRecordBatchAsync`   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: metadata-free `RecordBatch.Builder` assembly, typed-column bulk-append, and metadata-bearing `Schema`/`RecordBatch`/`Table` construction
 - note: `Append(ReadOnlySpan<T>)` copies a whole backing span in one call — the reduced-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns via `.Span`, `Reserve(capacity)` pre-sizing the buffer first; `RecordBatch.Builder` carries no `Schema`/`Metadata` seat, so a metadata-bearing batch builds through the explicit `Schema` and the public `RecordBatch` constructor. Null `StringArray` appends land as a validity-bitmap null.
@@ -197,7 +187,7 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 |  [07]   | `WriteRecordBatch(batch)` / `WriteRecordBatchAsync(batch)`  | write        | writes one `RecordBatch`                             |
 |  [08]   | `WriteEnd()` / `WriteEndAsync()`                            | finalize     | writes IPC EOS terminator (mandatory before dispose) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Zero-copy construction is the second root: `new ArrowBuffer(ReadOnlyMemory<byte>)` borrows a caller's contiguous slice, a primitive array's `(valueBuffer, nullBitmapBuffer, length, nullCount, offset)` constructor binds it at the element width, `ArrowBuffer.Empty` fills the dense array's absent validity bitmap, and `FixedSizeListArray` states an interleave the borrowed bytes already carry — no builder, no allocator, no gather.
@@ -222,9 +212,3 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 [LOCAL_ADMISSION]:
 - Compute references core `Apache.Arrow` alone; the `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.AspNetCore`, `Apache.Arrow.Flight.Sql`, and `Apache.Arrow.Compression` egress packages are Persistence's and absent from the Compute closure.
 - `WriteStart`/`WriteStartAsync` emits the schema message and `WriteEnd`/`WriteEndAsync` the mandatory EOS terminator; a writer disposed without `WriteEnd` leaves a truncated stream the reader rejects.
-
-[RAIL_LAW]:
-- Package: `Apache.Arrow`
-- Owns: the columnar in-memory format — typed-array builders, `Schema.Builder`/`Field.Builder`, the public `RecordBatch` constructor, metadata-free `RecordBatch.Builder`, the `IArrowType` descriptors, `MemoryAllocator`, the zero-copy buffer-borrowing path — and Arrow IPC file/stream serialisation with the `IArrowArrayStream` egress contract
-- Accept: whole-span column appends pre-sized by `Reserve`, `Schema.Builder.Metadata` carrying operation facts, `new RecordBatch(schema, arrays, points)`, an `Instant` through the NodaTime clock seam, the buffer-borrowing constructors wherever the caller already owns contiguous bytes at the lane's width, IPC stream/file IO closed by `WriteEnd`
-- Reject: `RecordBatch.Builder` for a metadata-bearing batch; a per-element `Append(T)` loop where a span append exists; a builder copy where the caller's bytes are already contiguous; a half or unorm lane widened at the wrap; a per-component scalar fan-out where `FixedSizeListArray` states the arity; a hand-rolled columnar layout; divergent schema-field and array order; a bare `DateTime` column; the shared `MemoryAllocator.Default` where a lane arena exists; a per-transport reader where `IArrowArrayStream` unifies the egress; a Compute-side IPC/ADBC/Flight/compression member or Flight listener

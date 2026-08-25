@@ -2,17 +2,7 @@
 
 `connectrpc` owns the branch RPC seam: generated handler protocols and their ASGI / WSGI applications answer Connect, gRPC, and gRPC-Web on one route set, typed async and sync clients dial that seam over `pyqwest`, and interceptors, codecs, compression, and the `ConnectError` status rail bind both ends. `protobuf-py` keeps message shape; every request and response crosses here as its own generated class.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `connectrpc`
-- package: `connectrpc` (Apache-2.0)
-- module: `connectrpc`
-- namespaces: `connectrpc.server`, `connectrpc.client`, `connectrpc.request`, `connectrpc.method`, `connectrpc.interceptor`, `connectrpc.codec`, `connectrpc.compression` with `.gzip` / `.brotli` / `.zstd`, `connectrpc.errors`, `connectrpc.code`, `connectrpc.protocol`, `connectrpc.compat`
-- abi: pure Python; clients dial through the `pyqwest` reqwest-backed native extension, servers mount on any ASGI or WSGI host
-- depends: `protobuf-py` supplies the message and descriptor runtime; `pyqwest` supplies the HTTP clients and transport
-- rail: transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: request, method, and status family
 
@@ -82,7 +72,7 @@
 
 - `<Svc>` / `<Svc>Sync`: each method body raises `ConnectError(Code.UNIMPLEMENTED, 'Not implemented')`, so a handler satisfies the protocol structurally and overrides what it serves.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serving
 - application ctors carry: `interceptors`, `read_max_bytes`, `compressions`, `codecs`.
@@ -196,7 +186,7 @@
 - `<rpc>`: each proto method name folds to snake_case, so `GetThing` is reached as `get_thing`.
 - `use_get`: generated onto `NO_SIDE_EFFECTS` unary methods alone, and absent from every other rpc's signature.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `protoc-gen-connectrpc` emits `<path>_connect.py` beside `<path>_pb.py` for service-bearing sources alone, under two options: `protobuf` (`py` default, `google`) selects the message runtime, and `io` (`async`, `sync`, both when unset) selects the handler flavour.
@@ -229,9 +219,3 @@
 - `protobuf=py` is the one generator option the estate emits, so `connectrpc.compat` codecs stay out of every fence.
 - `connectrpc` and `protoc-gen-connectrpc` resolve from one source coordinate and one protobuf floor. The `_connect.py` tree regenerates whenever that pair moves.
 - every client takes an injected `pyqwest` `Client` over an `HTTPTransport` the composition root `aclose`s, and no fence leans on `ConnectClient.close()` to release a socket.
-
-[RAIL_LAW]:
-- Package: `connectrpc`
-- Owns: Connect / gRPC / gRPC-Web protocol handling, generated handler protocols and their ASGI / WSGI applications, typed async and sync clients, interceptors, codecs, compression, and the `ConnectError` status rail
-- Accept: `<Svc>ASGIApplication(service)` under an ASGI host, `<Svc>Client(address, protocol=..., http_client=...)` inside `async with`, `ConnectError(Code.X, msg, details)` from handlers, `MetadataInterceptor` for telemetry and auth
-- Reject: hand-rolled HTTP framing of Connect or gRPC bodies, a second RPC transport beside this one, status codes spelled as strings or integers, blocking handler bodies on the event loop

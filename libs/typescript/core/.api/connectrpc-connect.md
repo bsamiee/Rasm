@@ -4,16 +4,7 @@
 
 `ConnectError`/`Code` is the `interchange/codec` fold source and the `Interceptor` onion the cross-cutting seam. Protocol construction stays with the public web and Node adapter packages.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@connectrpc/connect`
-- package: `@connectrpc/connect` (Apache-2.0)
-- peer: `@bufbuild/protobuf` — `DescService`/`DescMethod`/`MessageInitShape`/`MessageShape`/`create`/`fromBinary`/`toBinary` (`../../.api/bufbuild-protobuf.md`)
-- effect-peer: none direct — client `Promise`/`AsyncIterable` cross into `Effect.tryPromise`/`Stream.fromAsyncIterable` at `interchange/invoke` (`.api/effect.md`)
-- runtime: isomorphic, `sideEffects:false`; transport-agnostic — consumes any public adapter `Transport`
-- module: `.` — client, error, interceptor, context, and the in-process router transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the transport, the descriptor-derived client, and per-call options
 - rail: interchange/invoke
@@ -44,7 +35,7 @@
 |  [04]   | `ConnectError.findDetails(desc \| registry)`                      | detail decode    | `Any`-wrapped error details → typed messages      |
 |  [05]   | `ServiceImpl` / `MethodImpl` / `HandlerContext` / `ConnectRouter` | server-side      | OUT of `wire`'s client role; import is the defect |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the client and the invocation seam
 - rail: interchange/invoke
@@ -66,7 +57,7 @@
 |  [11]   | `err.findDetails(desc)`                            | detail decode   | decode typed `Any`-wrapped error details                   |
 |  [12]   | `createRouterTransport(routes, options?)` / `cors` | in-proc / CORS  | in-memory `Transport` for kit specs; CORS helper           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Deadlines propagate on the wire, not just locally: `timeoutMs` builds a deadline signal that aborts with `Code.DeadlineExceeded` AND writes a header — `Connect-Timeout-Ms` carrying bare milliseconds on Connect, `Grpc-Timeout` carrying milliseconds with an `m` unit suffix on gRPC and gRPC-Web. Undefined timeouts send no header at all, and `defaultTimeoutMs` itself defaults to undefined, so an unset deadline crosses as an unbounded call.
@@ -85,9 +76,3 @@
 - `effect` interruption: `CallOptions.signal` is the running fiber's `AbortSignal`, so a scope close or race loss aborts the in-flight RPC with `Code.Canceled`.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): an `Interceptor` reads the active span via `Tracer.currentOtelSpan` and writes `traceparent` into `req.header` on egress, `ContextValues` carrying the tenant/HLC it annotates — W3C propagation without a call-site change.
 - `@connectrpc/connect-web` and `@connectrpc/connect-node`: their public factory records realize the supported adapter pairs; this package consumes the selected `Transport` without knowing its host.
-
-[RAIL_LAW]:
-- Package: `@connectrpc/connect`
-- Owns: the `Transport` port, `createClient`/`Client<T>` and the callback/any client variants, `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, and the `-bin` header codec
-- Accept: `createClient` over a selected public adapter `Transport` and an emitted `DescService`; client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`; `ConnectError` folded through `interchange/codec`; retry via `Effect.retry(Schedule)` gated on retryable `Code`; `CallOptions.signal` from Effect interruption; trace propagation via an `Interceptor`
-- Reject: hand-written client maps, internal client-function or protocol factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `Wire.Hops`, a second adapter selector beside `interchange/invoke`, and server routers in `wire` except `createRouterTransport` for in-process proof

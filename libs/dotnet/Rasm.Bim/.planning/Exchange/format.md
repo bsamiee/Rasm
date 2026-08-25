@@ -35,7 +35,7 @@
 - [ROW_PROMOTION]: one codec admit promotes one row — a candidate trades the pending corner for a direction-bearing one and drops the `CataloguePackage` marker, the `import#IMPORT_RAIL`/`export#EXPORT_RAIL` folds gain one `InterchangeCodec`-keyed arm grounded against the named package with zero new `BimIo`/`BimExport` entrypoint, and the managed-versus-companion split reads the `Companion` predicate (managed grounds its decode inline, companion routes the geometry hop to `tessellation#TESSELLATION_BRIDGE`), never an `if(ifc)`/`if(step)` branch. Chunked simulation-field, FastCDC geometry-delta, and content-addressed artifact codecs stay at `Rasm.Compute/Runtime/codecs`, consumed at the seam, never re-minted here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;

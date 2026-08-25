@@ -27,7 +27,7 @@
 - Boundary: this cluster reads the admitted component's own bag and nothing else; geometry bounds and material identity resolve at the join.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;

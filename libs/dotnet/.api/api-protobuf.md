@@ -2,16 +2,7 @@
 
 `Google.Protobuf` owns generated wire contracts for the Compute remote lane and every projection off them: binary through the coded streams, the span and sequence buffer fast path, the extension and unknown-field algebra, the reflection descriptor graph, and ProtoJSON — the one JSON form a generated message takes — through a registry-bearing formatter and parser pair. Generated messages implement `IBufferMessage`, so one message body crosses a pooled transport with no intermediate array. Message envelopes, content digests, and transport policy stop outside this boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Google.Protobuf`
-- package: `Google.Protobuf` (BSD-3-Clause)
-- assembly: `Google.Protobuf`, binding the asset carrying the `ReadOnlySpan<byte>`, `ReadOnlySequence<byte>`, and `IBufferWriter<byte>` overloads
-- namespace: `Google.Protobuf`, `Google.Protobuf.Collections`, `Google.Protobuf.Reflection`, `Google.Protobuf.WellKnownTypes`
-- depends: `protoc` under the buf generation axis owns the `.proto` compile outside every project; this package ships the managed runtime alone
-- rail: remote-contracts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message, codec, and buffer-cursor contracts
 
@@ -126,7 +117,7 @@ Each wrapper message carries one presence-bearing field over its named CLR primi
 
 [WRAPPER]: `DoubleValue` `FloatValue` `Int32Value` `UInt32Value` `Int64Value` `UInt64Value` `BoolValue` `StringValue` `BytesValue`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: typed decode through `MessageParser<T>`
 
@@ -517,7 +508,7 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 
 - `CodedOutputStream.Deterministic`: fixes map-field ordering so equal messages serialize to equal bytes within one binary; it is a property of the stream object alone, so a frozen fixture stages through `new CodedOutputStream(stream) { Deterministic = true }` then `WriteTo(cos)` and `Flush()`, never the `IBufferWriter<byte>` path; cross-generator byte identity still needs a map-free wire, since no peer generator orders map entries the same way.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Generated messages implement `IMessage<T>` and `IBufferMessage` and expose a static `Parser` and `Descriptor`, so codec and metadata both reach off the type alone.
@@ -546,10 +537,3 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - JSON crossings are ProtoJSON of a generated message through the ONE configured `JsonFormatter`/`JsonParser` pair carrying the estate `TypeRegistry` (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`); the parser tolerates unknown members so binary and JSON intake share one admission posture.
 - Reflection descriptors serve diagnostics, `Any`/`FieldMask` admission, the contract generation read off `FileDescriptor.Package`, and read-only runtime dispatch — never a runtime compatibility diff.
 - Proto2 extensions and unknown fields enter through the extension and unknown-field surfaces, keeping forward-compatible payloads intact across a re-emit.
-
-[RAIL_LAW]:
-- Package: `Google.Protobuf`
-- Owns: generated wire contracts, the codec stack, the buffer fast path, `FieldCodec<T>`, the extension and unknown-field algebra, the reflection descriptor graph, the well-known type family, and JSON edge projection
-- Accept: generated contracts driven over the span, sequence, and `IBufferWriter<byte>` entries, stacked onto the pooled stream sink and the content-identity digest
-- Reject: a per-message serializer written against raw streams beside the generated `IBufferMessage` path
-- `Rasm.Element` (`Graph/wire` family): `CodedInputStream.CreateWithLimits` the one hostile size/recursion gate, `MessageParser<T>.ParseFrom` under it, content keys as the kernel `ContentHash.Wire`/`Admit` 16 big-endian bytes, `RepeatedField`/`MapField` fills at the boundary's own mutable shape, `MessageExtensions.WriteTo(IBufferWriter<byte>)` and the `WriteDelimitedTo`/`ParseDelimitedFrom` pair the copy-free egress legs, and `FieldMask.FromString<T>().Normalize()` + `MessageDescriptor`/`IFieldAccessor.Clear` the declaration-total redaction walk.

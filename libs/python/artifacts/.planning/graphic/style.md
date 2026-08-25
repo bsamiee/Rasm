@@ -19,7 +19,7 @@ Every visual plane composes a typed per-plane binding: `composition/sheet#SHEET`
 - Boundary: no color math, compositing vocabulary, pen truth, shaping, layout, font transformation, chart/table/diagram rendering, or sheet geometry. Theme rows carry canonical substrate values and typed per-plane bindings; no `Map[str, str]`, nullable feature preset, identity, or rail survives inward.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import hashlib
 from dataclasses import asdict, dataclass
 from enum import Enum, StrEnum

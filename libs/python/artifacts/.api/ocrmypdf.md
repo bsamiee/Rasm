@@ -2,15 +2,7 @@
 
 `ocrmypdf` owns whole-document OCR-to-PDF/A for the artifacts pdf/document rail: one `ocr` entrypoint rasterizes a PDF or image, Tesseract-OCRs each page, grafts the text layer over the raster, and emits a searchable PDF or validated PDF/A — the `document/lens#LENS` `LensProvider.OCRMYPDF` arm of the `OCR` recovery op. It orchestrates the external `tesseract`/`ghostscript`/`unpaper`/`jbig2enc`/`pngquant` executables; `ExitCode` folds onto the `expression` `Result` rail off the `anyio` `to_process` worker lane.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ocrmypdf`
-- package: `ocrmypdf` (MPL-2.0)
-- module: `ocrmypdf`
-- rail: pdf / document (OCR)
-- depends: external `PATH` executables `tesseract` `ghostscript` `unpaper` `jbig2enc` `pngquant`, orchestrated and never pip deps; `veraPDF` is the campaign's separate PDF/A validation oracle, not invoked here
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline result, context, and hOCR-tree roots
 
@@ -52,7 +44,7 @@ Every exported error derives directly from `ExitCodeException` (base `other_erro
 |  [12]   |   15   | `other_error`            | `ExitCodeException` (base default)                            |
 |  [13]   |  130   | `ctrl_c`                 | —                                                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipeline run
 
@@ -128,7 +120,7 @@ Campaign code owns its `structlog` root and its own stdout, so it skips both `co
 |  [06]   | `run_hocr_to_ocr_pdf_pipeline` | `run_hocr_to_ocr_pdf_pipeline(options, *, plugin_manager) -> ExitCode`       |
 |  [07]   | `hookimpl`                     | `@hookimpl` (pluggy `HookimplMarker('ocrmypdf')`)                            |
 
-## [04]-[INPACKAGE_OWNERS]
+## [03]-[INPACKAGE_OWNERS]
 
 [INPACKAGE_OWNER_SCOPE]: the `__all__`-exported submodule owners
 
@@ -174,7 +166,7 @@ Campaign code owns its `structlog` root and its own stdout, so it skips both `co
 |  [04]   | `is_file_writable(...)`               | output-path writability check                  |
 |  [05]   | `IMG2PDF_KWARGS`                      | the `img2pdf` conversion-kwargs constant       |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `ocr` owns the full rasterize-OCR-graft-PDF/A pipeline; `language`/`output_type`/`mode`/`optimize`/`deskew`/`clean`/`rotate_pages`/`color_conversion_strategy`/`tesseract_*` are keyword rows on that call, never a per-config builder or a `run_force`/`run_skip`/`run_redo` family — `mode` discriminates. `document/lens#LENS`'s `OCR` arm calls `ocrmypdf.ocr(source.name, target.name, sidecar=sidecar.name, language=spec.language, output_type='pdfa', mode='force', deskew=, clean=, rotate_pages=, optimize=, progress_bar=False)`; a holder of a validated `OcrOptions` passes it as the positional instead.
@@ -192,9 +184,3 @@ Campaign code owns its `structlog` root and its own stdout, so it skips both `co
 
 [LOCAL_ADMISSION]:
 - `lazy import ocrmypdf` inside the worker process (the `document/lens` import form), never module-level; `ocr` takes path/IO arguments over its own `NamedTemporaryFile` source/target, so the bytes-in/bytes-out boundary lives in the consuming arm, not in ocrmypdf.
-
-[RAIL_LAW]:
-- Package: `ocrmypdf`
-- Owns: OCR-to-PDF/A conversion of a single PDF or image, Tesseract page OCR with language/PSM/OEM/mode control, image preprocessing, PDF/A output-type and color-conversion control (including the standalone `pdfa` egress and `file_claims_pdfa` claim-check), pre-OCR layout/structure analysis (`pdfinfo.PdfInfo`/`PageInfo`), hOCR parsing (`hocrtransform.HocrParser`), document-metadata stamping, sidecar text emission, plugin-driven extension, and a typed `ExitCode`/`ExitCodeException` rail
-- Accept: single-document OCR-to-searchable-PDF/A runs feeding the `document/lens#LENS` `LensProvider.OCRMYPDF` arm (from `ocr` kwargs or a pre-built `OcrOptions`), gated on `code is ExitCode.ok` and mapped onto the `expression` `Result` rail; the `api.run_hocr_*` two-phase split with a `hocrtransform.HocrParser` mutation when interposing between OCR and graft; `pdfinfo.PdfInfo` as the standalone pre-flight; `pdfa.speculative_pdfa_conversion` as the standalone PDF/A step; HEIF input via the `pi-heif` boundary opener; execution on the `anyio` `to_process` worker lane under the shared `CapacityLimiter`
-- Reject: wrapper-renames of `ocr`; a hand-rolled rasterize-OCR-graft loop or external `tesseract`/`gs` orchestration the package owns; a `run_force`/`run_skip`/`run_redo` entrypoint family where `mode` is a call row; bare-`Exception` handling that discards the `ExitCode` rail or flattens the `ExitCodeException` lattice; a hand-rolled `multiprocessing` pool around `ocr` instead of the `anyio` outer offload + `Executor` inner page fan; a forked OCR loop bypassing the `Executor`/`OcrEngine` plugin points; a separate `gs` PDF/A invocation where `pdfa.speculative_pdfa_conversion` is the in-package egress; a phantom `HocrTransform` (the class is `HocrParser`); treating `pymupdf`/`pdfplumber` as ocrmypdf deps (its deps are `pypdfium2`/`pdfminer-six`/`fpdf2`/`uharfbuzz`)

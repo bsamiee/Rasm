@@ -2,15 +2,7 @@
 
 `onnx` owns the ONNX model intermediate representation for the compute model-asset rail: the protobuf graph/tensor schema and the structural gate that admits a `ModelProto`. `onnx` sits between the producer `skl2onnx` and the inference runtime `onnxruntime`, validating a model before it graduates to `Rasm.Compute`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `onnx`
-- package: `onnx` (Apache-2.0)
-- module: `onnx`
-- namespaces: `onnx.checker`, `onnx.shape_inference`, `onnx.helper`, `onnx.numpy_helper`, `onnx.version_converter`, `onnx.compose`, `onnx.defs`
-- rail: model
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: protobuf message and error types
 
@@ -49,7 +41,7 @@
 |  [13]   | `UINT4` / `INT4` |   21/22 | 4-bit packed int — sub-byte weight quantization |
 |  [14]   | `FLOAT4E2M1`     |      23 | 4-bit float — sub-byte quantization type        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: load, save, check, and infer
 
@@ -89,7 +81,7 @@
 
 - dtype-enum↔NumPy bridges (static): `helper.tensor_dtype_to_np_dtype` `np_dtype_to_tensor_dtype` `tensor_dtype_to_field` — maps the `TensorProto` element-type enum onto NumPy dtypes.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A model asset loads as `ModelProto`; `checker.check_model(model, full_check=True)` raises `ValidationError` on a malformed graph, mismatched opset, or unbound value.
@@ -105,9 +97,3 @@
 
 [LOCAL_ADMISSION]:
 - A model asset admits after `load`, `check_model(full_check=True)`, and `infer_shapes(strict_mode=True)`; the `ModelAssetManifest` captures the opset (`defs.onnx_opset_version()`) and the graph input/output signatures.
-
-[RAIL_LAW]:
-- Package: `onnx`
-- Owns: offline ONNX model IR — the structural gate, bottom-up construction, and `TensorProto`↔NumPy bridging for the model-asset rail
-- Accept: a model asset validated through `check_model(full_check=True)` + `infer_shapes(strict_mode=True)` with a captured opset and input/output signature; producer output from `skl2onnx.to_onnx`
-- Reject: hand-parsed protobuf; hand-written `TensorProto`↔NumPy conversion `numpy_helper` owns; wrapper-renames of the checker/inference calls; runtime inference `onnxruntime` owns

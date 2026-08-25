@@ -2,18 +2,7 @@
 
 `Sep` owns zero-allocation, SIMD-vectorized separated-value read and write over `ReadOnlySpan<char>` columns: typed `ISpanParsable<T>` parsing, ref-struct row/col projections scope-bound to the read, and a sync/async/parallel enumeration boundary that lifts them into domain records. It is the column codec for Persistence tabular interchange — schedule/cost import-export, the Arrow/DuckDB CSV bridge edge, and the `Query/lane` row-projection seam — feeding parsed spans into the NodaTime/Thinktecture wire converters and the linq2db bulk rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Sep`
-- package: `Sep` (MIT)
-- assembly: `Sep`
-- namespace: `nietras.SeparatedValues`
-- asset: runtime library
-- target: net10.0 (multi-targets net8.0/net9.0/net10.0; the net10.0 asset binds)
-- abi: ref-struct row/col projections, `allows ref struct` generic delegates, ref-struct `IDisposable`/`IAsyncDisposable` rows
-- rail: interchange-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [ENTRY_TYPES]: specification and options
 
@@ -61,7 +50,7 @@
 |  [07]   | `SepWriterExtensions`                           | class         | option builders, `To*`, `Strict`                     |
 |  [08]   | `SepReaderWriterExtensions`                     | class         | `NewRow(readerRow)` + `CopyTo` reader->writer        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: option construction
 
@@ -185,7 +174,7 @@
 |  [04]   | `SepToString.PoolPerColThreadSafeFixedCapacity(maxLen, cap)` | factory | thread-safe fixed-capacity per-column pool |
 |  [05]   | `SepToString.OnePool(maxLen, initCap, maxCap)`               | factory | single shared pool across all columns      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every read and write folds through a declared `SepReaderOptions`/`SepWriterOptions` profile; ref-struct `Row`/`Col`/`Cols` projections stay scope-bound and never escape the read, `Enumerate(RowFunc<T>)` the one boundary lifting them into `IEnumerable<T>`/`IAsyncEnumerable<T>` of domain records.
@@ -202,9 +191,3 @@
 - Sep is the separated-value codec for tabular interchange profiles; profile options (`Sep`, culture, trim, unset policy, pool factory) are declared, never inlined ad hoc.
 - Typed parse rides `ISpanParsable<T>`; nullable optionality rides `TryParse<T>() -> T?` (struct-constrained), folded onto the `Fin`/`Validation` rail at the row boundary.
 - `Cols.Parse<T>(Span<T>)`/`Header.IndicesOf(ReadOnlySpan<string>, Span<int>)` write into caller buffers on hot paths, keeping the row scope allocation-free.
-
-[RAIL_LAW]:
-- Package: `Sep`
-- Owns: separated-value interchange — typed span parsing, header indexing, ref-struct row projection, parallel enumeration, pooled string interning, interpolated-string writes.
-- Accept: profile-declared tabular reads/writes; `ISpanParsable<T>` typed columns; `RowFunc<T>` materialization at the scope boundary.
-- Reject: hand-rolled CSV split/parse pipelines; `string.Split`; ref-struct rows escaping the read scope; per-column string-materialize-then-parse in hot paths; a bespoke columnar reader where Arrow/DuckDB owns the binary path.

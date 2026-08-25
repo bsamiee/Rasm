@@ -2,16 +2,7 @@
 
 `prosemirror-collab` owns client-side collaborative editing against a central authority: the plugin tracks a linear version number and the unconfirmed local steps, `sendableSteps(state)` hands the outbound batch to any transport, and `receiveTransaction(state, steps, clientIDs)` rebases the local work over what the authority accepted. Convergence comes from the authority's total order over steps, not from a commutative merge.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-collab`
-- package: `prosemirror-collab` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure state folding — no transport, no socket, no DOM; steps cross any wire the caller owns as JSON
-- depends: `prosemirror-state` alone; `Step` values arrive typed from `prosemirror-transform`
-- rail: `view/content` — the client half of central-authority document collaboration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the plugin configuration and the outbound batch shape — both structural, neither exported as a named type.
 
@@ -24,7 +15,7 @@
 - `CollabConfig` is declared but never exported; annotate a config object structurally or inline it at the `collab(...)` call.
 - `clientID` defaults to a random 32-bit number per plugin instance and must stay stable for the life of one editor, so a caller that persists identity supplies it.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the four declared surfaces — one plugin, one outbound read, one inbound fold, one version read.
 
@@ -41,7 +32,7 @@
 - `options.mapSelectionBackward` maps a text selection's sides with negative bias so content inserted at the cursor lands after it — off by default.
 - `rebaseSteps` ships as a runtime export with no type declaration and takes an unexported `Rebaseable[]`; the rebase it performs is what `receiveTransaction` already runs.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One central authority owns the total order: it holds a monotonically increasing version and an append-only step log, accepts a batch only when its `version` matches the authority's current version, and rejects a stale batch outright. Every client converges by replaying that one order.
@@ -66,9 +57,3 @@
 - Ship steps as `Step.toJSON()` payloads over the branch's own wire family and rehydrate with `Step.fromJSON(schema, json)`; the plugin owns no transport.
 - Hold `clientID` stable for the life of an editor session and derive it from the branch's identity owner rather than the random default where a durable actor identity exists.
 - Keep document convergence here and presence axes on the presence fold; a cursor position sent as a document step is the rejected shape.
-
-[RAIL_LAW]:
-- Package: `prosemirror-collab`
-- Owns: the client half of central-authority collaboration — the `collab({version, clientID})` plugin holding the confirmed version and unconfirmed step queue, `sendableSteps(state)` producing the outbound `{version, steps, clientID, origins}` batch, `receiveTransaction(state, steps, clientIDs, {mapSelectionBackward})` folding authority steps in while rebasing local work, and `getVersion(state)` as the resume coordinate
-- Accept: one plugin instance per editor session with a caller-supplied stable `clientID`, a send loop driven by `sendableSteps` after each dispatch, every authority frame folded through `receiveTransaction`, step batches carried as `Step.toJSON()` on the branch's wire family, and reconnection resumed from `getVersion`
-- Reject: treating this plugin as a CRDT or feeding its output into a commutative merge, a peer-to-peer exchange with no authority, a locally applied confirmation that skips `receiveTransaction`, a per-reload random `clientID` where durable actor identity exists, `steps` and `clientIDs` arrays of unequal length, a cursor or presence fact smuggled in as a document step, and any use of the undeclared `rebaseSteps` export

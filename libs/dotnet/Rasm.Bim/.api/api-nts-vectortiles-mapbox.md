@@ -2,18 +2,7 @@
 
 `NetTopologySuite.IO.VectorTiles.Mapbox` is the protobuf wire codec for the `NetTopologySuite.IO.VectorTiles` tile model (`.api/api-nts-vectortiles`): `MapboxTileWriter` encodes a `VectorTileTree`/`VectorTile` to MVT protobuf — an `{z}/{x}/{y}.mvt` directory pyramid or a single `Stream` — `MapboxTileReader` decodes one MVT `Stream` back to a `VectorTile` of `IFeature` rows, and `VectorTileSource`/`VectorLayer` are the TileJSON descriptor a renderer discovers the pyramid through. It is the byte-emitting half of the MVT pair the `Semantics/model#TILE_PYRAMID` web-tile leg feeds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite.IO.VectorTiles.Mapbox`
-- package: `NetTopologySuite.IO.VectorTiles.Mapbox` (MIT)
-- assembly: `NetTopologySuite.IO.VectorTiles.Mapbox`
-- namespace: `NetTopologySuite.IO.VectorTiles.Mapbox`
-- dependency: `NetTopologySuite.IO.VectorTiles` (the `VectorTile`/`Layer`/`VectorTileTree` model it serializes; `.api/api-nts-vectortiles`)
-- dependency: `protobuf-net` (`Serializer.Deserialize<Tile>`/`Serialize` over the generated MVT `Tile` DTOs)
-- asset: netstandard2.0 managed AnyCPU assembly; IL-only, no P/Invoke
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the MVT wire codec
 
@@ -27,7 +16,7 @@
 - `MapboxTileReader()` binds an EPSG:4326 `GeometryFactory`; `MapboxTileReader(GeometryFactory)` overrides it.
 - `VectorTileSource` carries wire snake_case `tiles` `minzoom` `maxzoom` `bounds` `name` `description` `attribution` `format` `id` `basename` `version` `tilejson` `vector_layers` (`format` is `"pbf"`); each `VectorLayer` carries `id`/`minzoom`/`maxzoom`/`description`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pyramid and tile encode (`MapboxTileWriter` extensions)
 - Write carry: the pyramid overloads take a directory `path`, the single-tile overload a `Stream`, all with `(uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")` — `extent` is the tile-local integer grid, the two extents cull sub-pixel features. Each receiver also carries a SHORT overload with no extent culls — `Write(this VectorTileTree, string path, uint extent = 4096u)`, `Write(this IEnumerable<VectorTile>, string path, uint extent = 4096u)`, `Write(this VectorTile, Stream, uint extent = 4096u, string idAttributeName = "id")`.
@@ -47,7 +36,7 @@
 |  [01]   | `MapboxTileReader.Read` | instance | decode one MVT stream against its `Tile` anchor                 |
 |  [02]   | `MapboxTileReader.Read` | instance | the same decode threading the feature id onto `idAttributeName` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Tile`/`Tile.Layer`/`Tile.Feature`/`Tile.Value`/`Tile.GeomType` are the generated `[ProtoContract]` wire DTOs — command-integer geometry, the layer `Extent`, the de-duplicated `Keys`/`Values` tag tables — populated transitively by `Read`/`Write`; a catalog naming `Tile.Feature` as authoring surface documents a phantom.
@@ -66,9 +55,3 @@
 - `VectorTileTree.Write(path, minLineal, minPolygonal, extent)` admits the pyramid encode, `VectorTile.Write(stream, …)` a single tile.
 - `MapboxTileReader.Read(stream, new Tile(z, x, y))` admits the decode — decoding without the geographic tile anchor yields tile-local integer coordinates, never geography.
 - `VectorTileSource`/`VectorLayer` populated from `VectorTileTree.GetExtents` admit the TileJSON descriptor; hand-authoring the `bounds`/zoom span beside the pyramid is the drift form.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite.IO.VectorTiles.Mapbox` (+ `NetTopologySuite.IO.VectorTiles`, `protobuf-net`)
-- Owns: the Mapbox-Vector-Tile protobuf encode (`MapboxTileWriter` directory pyramid + single-stream) and decode (`MapboxTileReader`), and the TileJSON source descriptor (`VectorTileSource`/`VectorLayer`)
-- Accept: serializing a `VectorTileTree`/`VectorTile` to `.mvt` bytes, de-serializing one `.mvt` stream against a `Tile` definition, advertising a pyramid through TileJSON
-- Reject: building the tile model and slicing features (`NetTopologySuite.IO.VectorTiles` owns `VectorTileTree`/`Add`/`Tile`), the geodetic reprojection to EPSG:4326 (the `Semantics/georeference` `ProjNET`/OSR leg runs first), the planar `Geometry`/`Feature` algebra (`NetTopologySuite` owns it), the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles` own them)

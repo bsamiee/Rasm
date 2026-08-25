@@ -2,17 +2,7 @@
 
 `@effect/vitest` is the dev-plane binding between Vitest and the `Effect` runtime: it makes an `Effect`-returning test body a first-class Vitest test, runs it under deterministic `TestServices` (`TestClock` for virtual time, `TestRandom` for seeded randomness), shares an `Effect` `Layer` across a test block without a hand-rolled harness (the standalone `layer(SharedLayer)` opener, nested via `it.layer`), derives property tests from `Schema`/`FastCheck` arbitraries (`it.prop`), retries a flaky effect to a deadline (`it.flakyTest`), and installs `Equal`-aware equality testers so `expect(...).toEqual(...)` compares Effect data structurally. It re-exports the full `vitest` surface (`expect`, `describe`, `vi`, the lifecycle hooks) and ships a `./utils` subpath of Effect-aware assertions (`assertSome`, `assertLeft`, `assertSuccess`, `assertFailure`). It is the whole reason the testkit ships no bespoke test wrapper: layer-sharing, deterministic clocks, and Schema-driven generators are package capability, and specs live beside the folder they prove.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/vitest`
-- package: `@effect/vitest` · license `MIT`
-- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; exports `.` (the binding + `export * from "vitest"`) and `./utils` (Effect-aware assertions)
-- runtime target: dev/test only — a `devDependency`; the `tests/typescript/_architecture` suite asserts it never leaks into a runtime subpath or shipped bundle
-- peer: `vitest@^3.2.0` (both hard; `peerDependenciesMeta` is null), `effect@^3.21.0`; no runtime dependencies of its own; the admitted runner sits one major ahead of the declared range; pnpm resolves the binding against it and the collector API (`test`/`expect`/`TestContext`) is stable across v3→v4, so the binding runs unmodified until a newer `@effect/vitest` widens the peer to `vitest@^4`
-- asset: pure-TypeScript test binding; the collectors run inside the Vitest worker
-- rail: plane:dev (the `tests/` estate; specs co-located with the folder they prove); dev-tool tier (`tests/typescript/.api/`) is the canonical owner of this catalog, folder-scoped stacking composing onto it without re-documenting the generic contract
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the test-method families
 - rail: plane:dev
@@ -164,7 +154,7 @@ function assertFailure<A, E>(exit: Exit.Exit<A, E>, expected: Cause.Cause<E>, ..
 function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<never>): asserts exit is Exit.Success<A, never>
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: effect test collectors and their service context — every collector takes `(name, (ctx) => Effect<A, E, R>, timeout?)` and discriminates by the service context `R` it provides.
 - rail: plane:dev
@@ -207,33 +197,26 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 |  [07]   | `assertInclude`/`assertMatch`                 | string          | substring / regex membership                                     |
 |  [08]   | `throws`/`throwsAsync`/`doesNotThrow`/`fail`  | throw           | throw-shape assertions and an explicit `fail`                    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [VITEST_TOPOLOGY]:
 - `it.effect` runs the body as an `Effect` inside the Vitest test, folds its `Exit`, and fails the test on a failure `Cause` — the typed error channel and defects both surface, so a spec asserts on the value, never on a thrown exception; default service context is `TestServices`: `TestClock` makes time virtual (advance it explicitly with `TestClock.adjust`, so a `Duration`-bounded effect resolves instantly and deterministically) and `TestRandom` makes randomness seeded and reproducible.
 - Collector family discriminates by service context, not by name: `it.effect` (TestServices), `it.scoped` (TestServices + `Scope`, closed per test), `it.live` (real services — real clock/random), `it.scopedLive` (real + `Scope`). `excludeTestServices: true` is an option on the STANDALONE `layer(rootLayer, { excludeTestServices: true })` opener — not the instance `it.layer` — dropping the TestServices requirement for a block that supplies its own real clock; every nested `it.layer` inherits the flag as a type parameter.
 - Standalone `layer(rootLayer, options?)` is the block OPENER and the harness: it builds the `Layer` once (memoized across sibling blocks via an optional shared `memoMap`), provides it to every `it.effect`/`it.scoped` in the block, and tears it down after; instance `it.layer(childLayer, { timeout? })` NESTS inside an already-open block — its child `Layer<R2, E, R>` may require the parent's provided `R`, extending the outer context. This is why the testkit ships no wrapper and why every consuming catalog binds the opener as `layer(SharedLayer)(…)`: a testcontainers Postgres, a pglite instance, or an `HttpServer.layerTestClient` is a `Layer`, and layer-sharing is package capability.
-- `it.prop`/`it.effect.prop` derive generators from the `Arbitraries` spec — an array or record whose entries are `Schema.Schema.Any` or `FC.Arbitrary<any>` (`effect/FastCheck`). A `Schema` entry is turned into an arbitrary via `Arbitrary.make`, so the testkit arbitrary source (`tests/typescript/_testkit`) declares one `Schema`-driven generator per kernel brand and every property law consumes it; the `fastCheck` option passes `FC.Parameters` (run count, seed, `endOnFailure`).
+- `it.prop`/`it.effect.prop` derive generators from the `Arbitraries` spec — an array or record whose entries are `Schema.Schema.Any` or `FC.Arbitrary<any>` (`effect/FastCheck`). `Arbitrary.make` turns a `Schema` entry into an arbitrary, so the testkit arbitrary source (`tests/typescript/testkit`) declares one `Schema`-driven generator per kernel brand and every property law consumes it; the `fastCheck` option passes `FC.Parameters` (run count, seed, `endOnFailure`).
 - `it.flakyTest(effect, timeout)` retries a nondeterministic effect until it succeeds or the `Duration` elapses — the sanctioned tool for an inherently timing-dependent assertion, never a bare `setTimeout` or a re-run loop.
 - `addEqualityTesters()` registers `Equal.equals` as Vitest's deep-equality comparator for Effect data, so `expect(chunkA).toEqual(chunkB)` and `expect(optionA).toEqual(optionB)` compare by structural `Equal`/`Hash` rather than reference — called once in the testkit setup.
 
 [STACKS_WITH]:
 - `effect` (`.api/effect.md`): the test body is an `Effect`; `TestClock`/`TestRandom` come from `effect/TestServices`; `it.scoped` provides a `Scope`; `it.prop` arbitraries derive from `Schema` via `Arbitrary.make`; `addEqualityTesters` uses `Equal.equals`. `@effect/vitest` is `effect` projected into the Vitest worker.
 - `@effect/platform` + `@effect/platform-node` (`.api/effect-platform.md`, `.api/effect-platform-node.md`): the standalone `layer(NodeContext.layer)(…)` opener runs an integration spec against the real filesystem/command bindings; `layer(HttpServer.layerTestClient)(…)` serves a declarative `HttpApi` in-process and exercises it with the derived `HttpApiClient` — the same Tags production uses, bound to test Layers; a per-suite child extends the block via `it.layer`.
-- `fast-check` (catalogued at `tests/typescript/.api/`): `it.prop` accepts raw `FC.Arbitrary`s beside `Schema`s, and the `@rasm/ts-testkit` law source (`tests/typescript/_testkit`) composes reusable law combinators (fold identity, merge commutativity, upcast totality) over them; the `fastCheck` option forwards `FC.Parameters` for shrink and seed control.
-- `testcontainers` + `@electric-sql/pglite` (catalogued at `tests/typescript/.api/`): each is wrapped as an Effect `Layer` (a scoped container / an in-memory Postgres) and shared through the standalone `layer(containerLayer, { timeout })("suite", (it) => …)` opener across a `describe` block — the testkit harness layers (`tests/typescript/_testkit`) own these Layers, binding the combinator exactly as `testcontainers.md` / `electric-sql-pglite.md` [04] document (`layer(PgContainer)` / `layer(PgLiteTest)`).
-- `vitest` + `@vitest/coverage-v8` + `@stryker-mutator/*` (catalogued at `tests/typescript/.api/`): `@effect/vitest` re-exports the `vitest` surface (`expect`/`describe`/`vi`/lifecycle); coverage and mutation run the same specs under coverage-v8 and the root `stryker.config.json` thresholds-as-data (the assay-gated mutation rail).
+- `effect/FastCheck`: `it.prop` accepts raw `FC.Arbitrary`s beside `Schema`s, and the `@rasm/ts-testkit` law source (`tests/typescript/testkit`) composes reusable law combinators (fold identity, merge commutativity, upcast totality) over them; the `fastCheck` option forwards `FC.Parameters` for shrink and seed control.
+- `@electric-sql/pglite` (catalogued at `tests/typescript/.api/`): wrapped as an Effect `Layer` (an in-memory Postgres) and shared through the standalone `layer(pgLayer, { timeout })("suite", (it) => …)` opener across a `describe` block — the testkit harness layers (`tests/typescript/testkit`) own this Layer, binding the combinator exactly as `electric-sql-pglite.md` [04] documents (`layer(PgLiteTest)`).
 
 [LOCAL_ADMISSION]:
 - Use `it.effect` for every spec whose body is an `Effect`; never `it(async () => { await Effect.runPromise(...) })` — that loses `TestServices`, the typed `Exit` fold, and virtual time.
 - Use `it.scoped` when the effect acquires a resource; never leak a `Scope` by running an acquiring effect under plain `it.effect`.
 - Use the standalone `layer(SharedLayer)(…)` opener to share a container/server/Layer across a block (nest a block-local extension with `it.layer(childLayer)`); never construct a service in a `beforeAll` and thread it by hand — that is the wrapper the package exists to delete.
-- Use `it.prop` with `Schema`-derived arbitraries for law-style tests; never hand-write example arrays where a `Schema` already generates the domain (the testkit arbitrary source in `tests/typescript/_testkit` owns the generators).
+- Use `it.prop` with `Schema`-derived arbitraries for law-style tests; never hand-write example arrays where a `Schema` already generates the domain (the testkit arbitrary source in `tests/typescript/testkit` owns the generators).
 - Use `TestClock.adjust` to drive time in an `it.effect`; never `it.live` with a real `sleep` unless the assertion genuinely depends on wall-clock timing.
 - Use the `./utils` `assertSome`/`assertRight`/`assertSuccess`/`assertFailure` for Effect-data assertions and call `addEqualityTesters()` once; never unwrap an `Option`/`Either`/`Exit` with `._tag` checks inside a spec.
-
-[RAIL_LAW]:
-- Package: `@effect/vitest`
-- Owns: the `Effect`-aware Vitest binding — `it.effect`/`it.scoped`/`it.live`/`it.scopedLive` collectors under `TestServices`, the `.skip`/`.skipIf`/`.runIf`/`.only`/`.each`/`.fails` modifiers, the standalone `layer(rootLayer, { memoMap?, timeout?, excludeTestServices? })` block opener with the nestable instance `it.layer(childLayer, { timeout? })`, `it.prop`/`it.effect.prop` Schema/`FastCheck` property testing, `it.flakyTest`, `addEqualityTesters`, `describeWrapped`/`makeMethods`, the `vitest` re-export, and the full `./utils` Effect-data assertion family (`assertSome`/`assertNone`/`assertLeft`/`assertRight`/`assertSuccess`/`assertFailure` + `strictEqual`/`deepStrictEqual`/`assertEquals` + `assertTrue`/`assertFalse`/`assertInstanceOf`)
-- Accept: `it.effect` with a deterministic `TestServices` body, `it.scoped` for resources, the standalone `layer(SharedLayer)(…)` opener for a shared container/server/pglite Layer with nested `it.layer` for block-local extension, `it.prop` over `Schema`-derived arbitraries with `fastCheck` params, `it.flakyTest` for timing-dependent assertions, `./utils` assertions + `addEqualityTesters`
-- Reject: `Effect.runPromise` inside a plain `it`, hand-threaded services in `beforeAll` where `it.layer` fits, example arrays where a `Schema` generates the domain, real `sleep` under `it.live` where `TestClock.adjust` is deterministic, `._tag` unwrapping in place of the `./utils` assertions

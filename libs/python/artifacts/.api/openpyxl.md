@@ -2,15 +2,7 @@
 
 `openpyxl` owns read+write `.xlsx`/`.xlsm`/`.xltx` for the artifacts office rail: one `Workbook` root whose `write_only`/`read_only` flags select streaming mirrors, a `Worksheet` grid, and the style, chart, conditional-format, table, validation, pivot, page-setup, and `formula.Translator` families over full OOXML fidelity. `openpyxl` never re-implements the OOXML parse, SpreadsheetML packaging, or formula reference-translation it already owns; the document emit owner lowers its `TableNode` grid through this surface and the detect gate routes spreadsheet ingest here, constant-memory bulk write routing to `xlsxwriter` and value-only fast read to `python-calamine`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `openpyxl`
-- package: `openpyxl` (MIT)
-- module: `openpyxl`
-- abi: pure-Python, no native build
-- rail: office — OOXML spreadsheet authoring and fidelity-preserving ingest feeding the document owners
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: workbook and sheet roots
 
@@ -54,7 +46,7 @@
 |  [12]   | `worksheet.page.PageMargins`            | page margins       | print-margin geometry                                              |
 |  [13]   | `utils`                                 | coordinate utils   | A1/coordinate + range converters                                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: workbook open, build, and save
 - `load_workbook` read policy: `read_only`, `data_only` (cached values vs formula text), `keep_vba` (`.xlsm` macros), `keep_links`, `rich_text` (inline `CellRichText`)
@@ -131,7 +123,7 @@
 |  [06]   | `oddHeader` / `oddFooter` (`.left`/`.center`/`.right` `HeaderFooterItem`) | header/footer with `&P`/`&N`/`&D` field codes  |
 |  [07]   | `Workbook.properties`                                                     | core OOXML descriptive metadata                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - workbook: one `Workbook` owns sheet lifecycle, named styles, defined names, and save; `write_only`/`read_only` are mode flags yielding `WriteOnlyWorksheet`/`ReadOnlyWorksheet`, never parallel workbook types; `data_only` reads cached values, `keep_vba` round-trips `.xlsm`, `rich_text` reads inline `CellRichText`.
@@ -154,8 +146,3 @@
 
 [LOCAL_ADMISSION]:
 - openpyxl is the owner when style/chart/validation/defined-name fidelity or feature-preserving read matters; value-only read defers to `python-calamine`, constant-memory bulk write to `xlsxwriter`.
-
-[RAIL_LAW]:
-- Package: `openpyxl`
-- Owns: `.xlsx`/`.xlsm`/`.xltx` read+write with `read_only`/`write_only` streaming, cached-value read and the reference-translating formula engine, named + inline-rich styles over `DifferentialStyle`, conditional formatting, the full chart family, images, worksheet tables, data validation, pivot definitions, defined names, array/data-table formulas, print-production page setup, workbook+sheet protection, core document properties, and dataframe interchange
-- Accept: fidelity-preserving spreadsheet authoring + ingestion feeding the `document/emit`/`exchange/detect` owners, decrypted workbooks from `msoffcrypto-tool`, print-ready sheets via the page-setup family, and the `TableNode`-grid lowering through `CellValue.write_openpyxl`

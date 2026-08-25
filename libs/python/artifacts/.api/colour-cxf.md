@@ -2,19 +2,7 @@
 
 `colour_cxf` owns the CxF3 (Color Exchange Format v3) document wire for the artifacts color/print plane: an `xsdata`-generated dataclass binding of the `CxF3-core` XSD whose `cxf3.CxF` root models the spot/spectral/device interchange graph, round-tripped against UTF-8 XML bytes through `read_cxf`/`read_cxf_from_file`/`write_cxf`. It is the exchange skin only: it decodes a partner's `.cxf` and encodes a derived palette, carrying no colorimetric math. Parsed spectra feed the `colour-science` `sd_to_XYZ` rail and device CMYK/spot rows feed the `graphic/color/managed` separations egress.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `colour_cxf`
-- package: `colour-cxf` (BSD-3-Clause)
-- import: `colour_cxf`
-- owner: `artifacts`
-- rail: color
-- target: pure-Python (`xsdata`-generated dataclasses, abi-agnostic, no native extension, no `python_version` marker)
-- depends: `xsdata` (XML bind/parse/serialize runtime), `typing-extensions`
-- entry points: none (library only)
-- capability: parse a CxF3 document from bytes or path into the typed `cxf3.CxF` graph, build or mutate it as plain dataclasses, and serialize back to UTF-8 XML bytes; the `cxf3` package binds the complete CxF3-core type system across the `ColorValues` (spectral + colorimetric) and `DeviceColorValues` (CMYK / spot / recipe) unions, measurement specification, and physical attributes
-
-## [02]-[ENTRYPOINTS]
+## [01]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document read/write rail (`colour_cxf` top-level)
 - rail: color
@@ -39,7 +27,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [03]   | `XmlSerializer` | `serializers.XmlSerializer` | `render(cxf)` -> `str`; accepts a `SerializerConfig` for pretty/indent |
 |  [04]   | `PathLike`      | `os.PathLike`               | the accepted `source_path` shape for `read_cxf_from_file`              |
 
-## [03]-[DOCUMENT_GRAPH]
+## [02]-[DOCUMENT_GRAPH]
 
 [MODEL_SCOPE]: document spine — `cxf3.CxF` root and resource collections
 - rail: color
@@ -108,7 +96,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [07]   | `ColorRecipe`                                           | ink-mixing recipe — substrate + process + weighted colorant formula |
 |  [08]   | `Colorant`                                              | one ink/base in a recipe at a mixing value, base-ink flag           |
 
-## [04]-[VOCABULARIES]
+## [03]-[VOCABULARIES]
 
 [ENUM_SCOPE]: closed measurement + sample vocabularies (`cxf3`, exact CxF3-core cardinality)
 - rail: color
@@ -143,7 +131,7 @@ These closed `StrEnum` vocabularies the measurement/physical nodes select from a
 |  [04]   | `WavelengthRange` | the global SPD sampling grid all spectra share         |
 |  [05]   | `SpectralPoint`   | a single (wavelength, value) irregular-grid sample     |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - generation: every `cxf3` type is an `xsdata`-generated `@dataclass` with `Meta.namespace = "http://colorexchangeformat.com/CxF3-core"`; field-to-XML binding lives in each field's `metadata`, and the graph is bound, parsed, and serialized by the `xsdata` runtime, never hand-walked. `MeasurementSpec.measurement_type` wraps the spectrum token as `MeasurementType(EspectrumType | None)`; a bare `EspectrumType` in the slot is the mis-shape.
@@ -164,9 +152,3 @@ These closed `StrEnum` vocabularies the measurement/physical nodes select from a
 - `read_cxf`/`read_cxf_from_file` ingest every CxF document and `write_cxf` emits it; the typed `cxf3` graph is the only intermediate — never `lxml`/`ElementTree` parsing nor string templating.
 - authoring builds and mutates a `cxf3.CxF` as plain dataclasses (construct `Object`, append to `ObjectCollection.object_value`, set `color_values.choice`), never assembling an XML string.
 - bulk reads share one re-exported `XmlContext()` passed to `XmlParser(context=...)`; pretty/indent output sets an `xsdata` `SerializerConfig` on `XmlSerializer` rather than post-processing the rendered string.
-
-[RAIL_LAW]:
-- Package: `colour-cxf`
-- Owns: CxF3 document read/parse/build/serialize — the typed `cxf3.CxF` graph and its `read_cxf`/`read_cxf_from_file`/`write_cxf` round-trip over the complete CxF3-core type system; the CxF spot/spectral exchange skin for the print/separations plane.
-- Accept: `read_cxf`/`read_cxf_from_file` to decode a `.cxf`, `write_cxf` to encode a built or mutated graph, the `cxf3` dataclasses for programmatic construction, the re-exported `XmlContext`/`XmlParser`/`XmlSerializer` for shared-cache or pretty-print config, and the closed `Espectrum`/`Eilluminant`/`Eobserver`/`Eastm` vocabularies as the registry-key set bridged onto `colour-science`.
-- Reject: parsing CxF XML by hand (`lxml`/`ElementTree`) or templating it as strings; integrating an SPD, computing a CIE transform, solving an ink recipe, or mapping a gamut inside this rail (those are `colour-science`/`coloraide`/`managed`); using `colour_cxf` for any non-CxF color file; emitting private/custom blocks unless a named partner requires them; treating a spectrum or Lab row as context-free rather than resolving its `color_specification` IDREF; a `python_version` marker (pure-Python, abi-agnostic).

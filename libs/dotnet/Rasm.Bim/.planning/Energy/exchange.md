@@ -28,7 +28,7 @@ Faults route the existing `Model/faults#FAULT_BAND` `BimFault` arms — band 260
 - Boundary: five energy rows (`hbjson`/`dfjson`/`osm`/`gbxml`/`idf`) live on the ONE `Exchange/format#FORMAT_AXIS` `InterchangeFormat` table under an `energy-model` `InterchangeCodec` row, every capability column naming this folder's realizing arm — raise = `CanImport`, the hbjson/dfjson lower = `CanExport`, the osm/gbxml/idf emit rides the `Translate` matrix over an admitted OSM-family source, so those rows hold `CanExport=false` against the graph. `Rasm.Compute` project references in either direction are the named strata defect: Compute simulates what the projector raises and the derive lowers what any projector landed, so the two align on the seam graph alone. `SimulationParameter`, run periods, conditioning policy, and weather are SIMULATION context never authored here — a lowered model is the semantic building envelope and library, its run context Compute's locally or the python recipe plane's over the wire.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Text;
 using LanguageExt;
 using NodaTime;

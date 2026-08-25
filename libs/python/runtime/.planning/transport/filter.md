@@ -28,7 +28,7 @@ Evaluation is TOTAL by specification: every operator, function, and cast answers
 - Boundary: expression compilation and total evaluation only. Mints no dialect, no subscription, and no binding. Rejected: a recursive-descent walk over mutable parser state; a node family beside an evaluator re-dispatching what the parser already discriminated; a raise escaping any arm; a widened 64-bit answer where the specification's `Integer` is 32-bit; a `LIKE` pattern translated per event; a `str | int | bool` value union; a unary arm dropping its cast's fault.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections.abc import Callable
 from typing import Final, Literal, Self, assert_never
@@ -442,7 +442,7 @@ _PARSER: Final[Lark] = Lark(GRAMMAR, parser="lalr", start="expression", maybe_pl
 |  [07]   | `sql`     | a compiled CESQL expression                 | consumer-side always                         |
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Final, Literal, Self, assert_never
 

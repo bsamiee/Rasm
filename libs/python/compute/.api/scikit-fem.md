@@ -2,16 +2,7 @@
 
 `scikit-fem` owns finite-element mesh management, element spaces, threaded form assembly, conditioning, and linear/eigen solve for the compute FEM structural and field-analysis rail. Assembly emits a `scipy.sparse` matrix that crosses to scipy for sparse solve, and the assembled system is offline study evidence, never a production substrate.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `scikit-fem`
-- package: `scikit-fem`
-- import: `skfem`; public types and functions at top level
-- owner: `compute`
-- rail: FEM assembly and solve
-- capability: simplex/tensor mesh management, H1/Hdiv/Hcurl/DG/C1 element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mesh types
 
@@ -106,7 +97,7 @@ Exact members per family in `[ELEMENT_ROSTER]` below.
 |  [06]   | `LinearSystem` \| `CondensedSystem` \| `Solution`      | system carrier  | assembled/conditioned system bundle and solve result         |
 |  [07]   | `LinearSolver` \| `EigenSolver`                        | solver alias    | callable protocol the `solver=` keyword accepts              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: mesh construction, labelling, and IO
 
@@ -180,7 +171,7 @@ Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None)`; `D`/`I` acce
 |  [08]   | `build_pc_diag(A)` \| `build_pc_ilu(A, ...)`                 | preconditioner | Jacobi / ILU preconditioner                         |
 |  [09]   | `adaptive_theta(est, theta=0.5, max=None)`                   | refinement     | Dörfler-marked element set for `mesh.refined(ix)`   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - pipeline: `Mesh -> Element -> Basis`; `CellBasis` (alias `Basis`/`InteriorBasis`) owns volume assembly, `FacetBasis`/`BoundaryFacetBasis`/`InteriorFacetBasis` own facet assembly, and element/geometry order matches the assembled physics (`MeshTri2` + `ElementTriP2` for curved isoparametric).
@@ -199,9 +190,3 @@ Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None)`; `D`/`I` acce
 - transfer: a callable source/Dirichlet field projects with `basis.project`; physical-point transfer fidelity uses `basis.probes`/`global_coordinates`/`doflocs`, feeding the `Readout` transfer residual.
 - adaptive: an error estimator drives `adaptive_theta(est, theta)` -> `mesh.refined(ix)`, the loop capturing the estimator and marked-element count as study evidence.
 - boundary: the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and benchmark evidence stays branch-local, grading no peer runtime.
-
-[RAIL_LAW]:
-- Package: `scikit-fem`
-- Owns: FEM mesh management, H1/Hdiv/Hcurl/DG/C1 element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation
-- Accept: a `Mesh + Element + Basis` pipeline assembled via `BilinearForm`/`LinearForm`/`asm`, conditioned via `condense`/`enforce`/`mpc`, solved via `solve`/`solve_eigen` with a captured solver factory and DOF partition
-- Reject: hand-rolled element quadrature, DOF bookkeeping, or assembly loops when `Basis`/`BilinearForm`/`LinearForm`/`asm` own the concern; parallel DOF-selection method families when `get_dofs` discriminates by keyword

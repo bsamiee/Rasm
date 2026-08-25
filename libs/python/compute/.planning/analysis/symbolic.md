@@ -45,7 +45,7 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 - Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never, cast

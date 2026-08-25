@@ -2,16 +2,7 @@
 
 `minio` is the self-hosted object plane the deploy plane installs when a stack rules its artifact store in-cluster. The chart is workload-plus-jobs: a StatefulSet or Deployment serving the S3 API beside a family of `mc`-driven post-install Jobs that create buckets, policies, users, and service accounts. Bucket creation is therefore a values row, never a separate resource, and the root credential is a values key the chart renders into a Secret.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `minio`
-- chart: `minio` from `https://charts.min.io/` (Apache-2.0)
-- asset: the server workload, an API Service and a console Service, a ServiceAccount, a PVC, a Secret, and the `mc` bootstrap Jobs (`makeBucketJob`, `makePolicyJob`, `makeUserJob`, `makeServiceAccountJob`, `customCommandJob`, `postJob`)
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / object plane
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                  | [CAPABILITY]                                                                      |
 | :-----: | :------------------------------------- | :-------------------------------------------------------------------------------- |
@@ -36,7 +27,7 @@
 [FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride` — absent a pin, a release named `objects` renders `objects-minio`, so every address derived from the release name alone resolves to nothing. The estate pins the override to the release name so the two agree by proof.
 [SERVICE_NAME]: with the pin, the API Service is `<fullname>` on port 9000 and the console Service is `<fullname>-console` on 9001, both ClusterIP by default; a distributed install additionally renders the headless `<fullname>-svc` the StatefulSet's peers resolve through. The API door is the only one this estate addresses.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The object plane is an engine ROW, not a fixed choice — the same tier answers `minio` or `ceph` off one profile axis, and each row supplies its own chart, values, endpoint projection, and credential mint. What crosses the seam is the endpoint and the bucket, never the engine.
@@ -54,9 +45,3 @@
 - Size through `persistence.size`; the chart's 500Gi default is a capacity commitment no profile made.
 - Address the API door alone; the console Service is a second plane this estate does not publish.
 - Never spell `purge: true` against a bucket holding artifacts — it deletes before it creates.
-
-[RAIL_LAW]:
-- Contract: `minio` chart values
-- Owns: the self-hosted object plane — the S3 server, its topology and data claim, the declarative bucket, policy, user, and service-account estate, and the two rendered doors
-- Accept: `fullnameOverride` pinned to the release; `rootUser`/`rootPassword` from the in-graph credential read; one `buckets` row per owned bucket; `persistence.size` from the profile's storage coordinate; the API door as the one published endpoint
-- Reject: an address derived from an unpinned release name; a bucket created outside `buckets[]`; the 500Gi persistence default; `purge` on a live bucket; a published console door; a credential spelled anywhere the chart renders into a ConfigMap

@@ -2,14 +2,7 @@
 
 `pytest-timeout` bounds each test's wall-clock duration and dumps every thread's stack on breach, converting a hung test or runaway loop into a deterministic failure with a diagnostic trace. It owns the real-time ceiling the Hypothesis lane deliberately cedes: the `rasm` profiles set `deadline=None`, so per-example timing is off and this plugin is the sole wall-clock authority over a whole property test.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pytest-timeout` · license `MIT`
-- namespace: `import pytest_timeout` — a single-module plugin.
-- asset: dist `pytest-timeout`; `pytest11` entry point `timeout = pytest_timeout` (disable with `-p no:timeout`).
-- rail: per-test wall-clock enforcement — the hang and runaway-loop guard.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 Resolved per-item settings and the diagnostic dump the plugin emits on breach.
 
@@ -31,7 +24,7 @@ def pytest_timeout_set_timer(item: Item, settings: Settings) -> bool | None: ...
 def pytest_timeout_cancel_timer(item: Item) -> bool | None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Config key, marker, and CLI/env surface resolving a per-test ceiling.
 
@@ -48,7 +41,7 @@ Config key, marker, and CLI/env surface resolving a per-test ceiling.
 ```python
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PYTEST_TIMEOUT_TOPOLOGY]:
 - `[tool.pytest] timeout = "30"` is string-typed on purpose: pytest-timeout registers `timeout` as a string ini option, and pytest 9's native TOML mode rejects a bare int for a string option, so the quoted `"30"` is the only valid spelling.
@@ -57,15 +50,9 @@ Config key, marker, and CLI/env surface resolving a per-test ceiling.
 
 [STACKING]:
 - `pytest`(`.api/pytest.md`): `required_plugins` lists `pytest-timeout`, so the guard fails the session if it is absent; `@pytest.mark.timeout` composes with the closed marker set.
-- `runtime.py`(`../_testkit/runtime.py`): the `rasm` profiles set `deadline=None`, ceding per-example timing; pytest-timeout owns the whole-test wall clock instead, so a long property run is bounded once, not per example.
+- `runtime.py`(`../testkit/runtime.py`): the `rasm` profiles set `deadline=None`, ceding per-example timing; pytest-timeout owns the whole-test wall clock instead, so a long property run is bounded once, not per example.
 - `pytest-xdist`(`.api/pytest-xdist.md`): the ceiling applies inside each worker; a hung worker test fails locally rather than stalling the controller.
 
 [LOCAL_ADMISSION]:
 - Admitted on the dev plane in `[dependency-groups] dev`; no runtime graph imports `pytest_timeout`.
-- A test needing a longer bound raises it through `@pytest.mark.timeout`, never by weakening the session-wide `"30"`.
-
-[RAIL_LAW]:
-- Package: `pytest-timeout`
-- Owns: per-test wall-clock enforcement, the `signal`/`thread` mechanism choice, the all-thread stack dump on breach, and the session-total ceiling.
-- Accept: the string `timeout = "30"` ini row; `@pytest.mark.timeout` for a per-test override; `--timeout-method thread` where work runs off the main thread; `func_only` to exclude fixture time.
-- Reject: a native-int `timeout` in the TOML table (string-only option); reliance on a Hypothesis `deadline` for whole-test bounding (`deadline=None` cedes it); the `signal` method for off-main-thread work.
+- Tests needing a longer bound raise it through `@pytest.mark.timeout`, never by weakening the session-wide `"30"`.

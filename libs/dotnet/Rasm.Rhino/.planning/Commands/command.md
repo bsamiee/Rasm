@@ -20,7 +20,7 @@
 - Law: `CommandPolicy` accumulates — an empty need set, an absent notice, and an out-of-band budget are three independent defects one `Validation` reports together, each as its own `DraftFault` clause, where the prior single-message hook collapsed all three onto "policy is incomplete".
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
 using Rasm.Rhino.Document;

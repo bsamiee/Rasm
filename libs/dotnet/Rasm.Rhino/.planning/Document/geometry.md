@@ -21,7 +21,7 @@
 - Growth: a custody policy is one `CrossingMode` behavior row over the same acquisition rail; a custody phase is one `HandleRelease` case the pure transitions absorb.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Threading;
 using Rasm.Analysis;
 using Rasm.Domain;

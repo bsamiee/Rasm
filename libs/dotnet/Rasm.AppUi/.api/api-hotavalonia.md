@@ -2,15 +2,7 @@
 
 `HotAvalonia` is a build-asset meta-package with no `lib/` or managed surface: `build/HotAvalonia.props` advertises the `HotAvalonia` project capability and the Avalonia floor, `build/HotAvalonia.targets` defaults the MSBuild knobs and runs the three tasks that weave `HotAvalonia.Fody` and launch the HARFS server, and `HotAvalonia.Extensions` injects `AvaloniaHotReloadExtensions`, the callable wiring beside `HotAvalonia.Core`. A Debug gate binds every asset and self-strips on Release, so an unconditional `PrivateAssets="all"` reference keeps `packages.lock.json` configuration-independent.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HotAvalonia`
-- package: `HotAvalonia` (MIT)
-- assembly: none (no `lib/`; build, task, and tool assets only)
-- avalonia-floor: `HotAvaloniaMinimumSupportedAvaloniaVersion` (props)
-- rail: hot-reload
-
-## [02]-[PACKAGE_ASSETS]
+## [01]-[PACKAGE_ASSETS]
 
 [BUILD_ASSETS]: package payload
 
@@ -38,7 +30,7 @@
 |  [02]   | `HotAvalonia.GetFileSystemClientConfigTask`      | resolve client address/secret into runtimeconfig              |
 |  [03]   | `HotAvalonia.StartFileSystemServerTask`          | launch `hotavalonia/tools/HotAvalonia.Remote.dll` after build |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 MSBuild knobs default in `HotAvalonia.targets`; runtime options land in `runtimeconfig.json`; the injected `AvaloniaHotReloadExtensions` source carries the callable wiring.
 
@@ -106,7 +98,7 @@ MSBuild knobs default in `HotAvalonia.targets`; runtime options land in `runtime
 |  [04]   | `DisableHotReload` | `Application` extension | reload stop    |
 |  [05]   | `TriggerHotReload` | `Application` extension | manual trigger |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Gate `$(HotAvalonia)` is `true` under `Configuration == Debug` or explicit `enable`; with it on, `DefineConstants` gains `HOTAVALONIA_ENABLE` (with `_USE_REMOTE_FILE_SYSTEM`/`_ENABLE_LITE`/`_EXCLUDE_EXTENSIONS` per knob), `CompileAvaloniaXaml` runs before the weave, and `HotAvaloniaGenerateFodyConfig` injects a `<HotAvalonia>` element into Fody's `WeaverConfiguration` so `HotAvalonia.Fody` patches the XAML-load methods.
@@ -121,9 +113,3 @@ MSBuild knobs default in `HotAvalonia.targets`; runtime options land in `runtime
 [LOCAL_ADMISSION]:
 - Reference `HotAvalonia` unconditionally with `PrivateAssets="all"`; the package's Debug gate, not an MSBuild `Condition` on the reference, decides whether any hot-reload asset activates, so `packages.lock.json` stays configuration-independent.
 - Hot-reload wiring lands through the injected `AvaloniaHotReloadExtensions` source and `HotAvalonia.Core`, never a hand-written bootstrap.
-
-[RAIL_LAW]:
-- Package: `HotAvalonia`
-- Owns: Debug-gated XAML hot-reload — the MSBuild knob set, the three tasks (Fody weave and HARFS launch), the runtimeconfig option set, and Release reference stripping; no `lib/` managed surface.
-- Accept: the `$(HotAvalonia)` gate; injection into the `AvaloniaHotReloadExtensions` source and `HotAvalonia.Core`; an unconditional `PrivateAssets="all"` reference.
-- Reject: a hand-written hot-reload bootstrap; a `Condition` on the reference; treating the meta-package as a referenced managed type.

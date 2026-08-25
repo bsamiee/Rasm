@@ -2,16 +2,7 @@
 
 `obstore` is the branch object-store substrate: sync and async object IO across cloud, HTTP, local, and memory backends through one `ObjectStore` handle built by `from_url` or a typed store, carrying zero-copy `Bytes`, conditional `PutMode`/`GetOptions` mutation, coalesced range reads, Arrow-native listing, credential-provider refresh, and presigned URLs. It owns the object plane directly; `obstore.fsspec` adapts a store to an `AbstractFileSystem` only where a downstream library requires a filesystem handle, never as a second IO owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `obstore`
-- package: `obstore` (MIT)
-- module: `obstore`
-- asset: native wheel (Rust `object_store` core via pyo3)
-- rail: object storage
-- namespaces: `obstore`, `obstore.store`, `obstore.auth`, `obstore.fsspec`, `obstore.exceptions`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store backends and config
 
@@ -43,7 +34,7 @@
 
 [exceptions] subclass `BaseError`: `NotFoundError` `AlreadyExistsError` `PreconditionError` `NotModifiedError` `PermissionDeniedError` `UnauthenticatedError` `NotSupportedError` `InvalidPathError` `UnknownConfigurationKeyError` `GenericError` `JoinError`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store construction and credentials
 - construct carry: `config`, `client_options`, `retry_config`, `credential_provider`; `from_url` adds `url` and `**kwargs`, returning `ObjectStore`
@@ -81,7 +72,7 @@
 
 Every operation is both a module-level free function taking `store` first and a bound method through `ObjectStoreMethods`: a held store calls the bound form, a store threaded as a value calls the free function.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - store law: `ObjectStore` is the canonical store-handle annotation; concrete stores subclass `ObjectStoreMethods` for the bound-method surface, and a custom backend implements the `obspec` protocols rather than subclassing it.
@@ -101,9 +92,3 @@ Every operation is both a module-level free function taking `store` first and a 
 - Accept `from_url` or a typed store constructor carrying the four config values as the branch object-store construction surface.
 - Accept free-function or bound operation forms, conditional `GetOptions`/`PutMode`, coalesced `get_ranges`, Arrow `list(return_arrow=True)`, and native credential providers.
 - Accept `obstore.fsspec` only where a downstream library requires an `AbstractFileSystem` handle.
-
-[RAIL_LAW]:
-- Package: `obstore`
-- Owns: branch object-store construction, credentials, retry/backoff, read/list/range/mutation/sign operations, zero-copy buffers, buffered file handles, Arrow listing, and the fsspec bridge
-- Accept: `from_url` or typed constructors with the four config carries; free or bound operation forms; conditional mutation; Arrow listings; native credential providers; fsspec adaptation where a filesystem handle is required
-- Reject: hand-rolled storage HTTP clients, duplicate token refresh, custom store protocols duplicating `ObjectStore`, object IO paths parallel to the fsspec adapter, and folder-tier package-surface duplication

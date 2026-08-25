@@ -2,17 +2,7 @@
 
 `arro3.io` owns the pyarrow-free codec rail for the carrier leg: native Rust readers parse Arrow IPC file and stream framing, Parquet, CSV, JSON, and NDJSON into a lazy `arro3.core.RecordBatchReader`, and writers lower any `arro3.core.types` PyCapsule producer back to each format with no producer-named branch. `read_parquet_async` streams a cloud Parquet object off an `ObjectStore` into a materialized `arro3.core.Table` with no local copy, and a typed `exceptions` hierarchy surfaces store and codec faults — every surface on the `arro3.core` model that keeps the `pyarrow` C++ bridge out.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `arro3-io`
-- package: `arro3-io` (MIT OR Apache-2.0)
-- owner: `data`
-- module: `arro3.io`
-- asset: native extension (Rust/PyO3) over `arrow-rs` `arrow-ipc`, `parquet`, `arrow-csv`, `arrow-json`
-- dependency: `arro3-core` (sole runtime requirement)
-- rail: arrow-io
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Parquet encoding and compression vocabulary (`arro3.io._parquet`)
 
@@ -48,7 +38,7 @@
 |  [05]   | `NotSupportedError` / `JoinError` / `GenericError`          | exception     | capability and async-join faults |
 |  [06]   | `UnknownConfigurationKeyError`                              | exception     | store config-key fault           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema inference (`arro3.io._csv`, `_json`)
 
@@ -87,7 +77,7 @@ Writers take `data` as any `ArrowStreamExportable`/`ArrowArrayExportable` produc
 |  [05]   | `write_ipc_stream(data, file, ...)` | Arrow IPC stream                                  |
 |  [06]   | `write_parquet(data, file, ...)`    | Parquet across the full `arrow-rs` writer surface |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `arro3.io` re-exports free functions from the `_csv`/`_ipc`/`_json`/`_parquet` extension modules beside the `store` object-store submodule and the `exceptions` failure hierarchy.
@@ -103,9 +93,3 @@ Writers take `data` as any `ArrowStreamExportable`/`ArrowArrayExportable` produc
 - Read and write the carrier leg through `arro3.io` where the payload is IPC/Parquet/CSV/JSON.
 - Hold the returned `RecordBatchReader` and compose `arro3.compute` `filter`/`cast`/`date_part` onto it, deferring materialization to a terminal drain.
 - Front cloud Parquet with an `arro3.io.store` `ObjectStore` and `read_parquet_async`, selecting the store variant by scheme and carrying a `RetryConfig` for flaky transports.
-
-[RAIL_LAW]:
-- Package: `arro3-io`
-- Owns: pyarrow-free Arrow IPC/Parquet/CSV/JSON/NDJSON readers and writers, cloud object-store carriers, and the typed IO failure hierarchy over the `arro3.core` memory model
-- Accept: a path/`Path`/binary buffer on read; any PyCapsule producer through `arro3.core.types` on write
-- Reject: a `pyarrow.parquet`/`pyarrow.csv`/`pyarrow.feather` re-import on a carrier leg the `arro3` model already serves

@@ -4,16 +4,7 @@
 
 Extension-type metadata infers the geometry column and every layer takes a single `RecordBatch` as `data`; a new geometry family lands as a roster row, never a new mechanism.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@geoarrow/deck.gl-geoarrow`
-- package: `@geoarrow/deck.gl-geoarrow` (MIT)
-- rail: viewer/geo — the GeoArrow-column deck layer plane
-- deps: `@geoarrow/geoarrow-js` (`ga.data.*` extension-typed columns + `worker/earcut`), `threads` (earcut `Pool<FunctionThread>`)
-- runtime: `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-time excluded from the non-spatial core
-- entry: single `.` barrel (`dist/index.d.ts`) — the `GeoArrow*Layer` classes + matching `*Props`, `initEarcutPool`, and the accessor/picking type family; `GeoArrowTextLayer` is `_`-prefixed (`_GeoArrowTextLayer`), the overlay/unstable row
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the shared accessor + picking type family (bound once, read by every layer)
 - Each accessor is a discriminated union — an Arrow column (`arrow.Data<…>`, GPU-bound directly, zero JS) OR a per-feature `AccessorFunction` over the `RecordBatch` — the collapse point where layers differ only in which columns they bind, never in accessor mechanism.
@@ -50,7 +41,7 @@ Extension-type metadata infers the geometry column and every layer takes a singl
 |  [13]   | `S2`              | S2 token cell-id column (`getFillColor`/`getElevation`)       | `S2Layer` (`geo-layers`)                          |
 |  [14]   | `Trips`           | `getPath` + `getTimestamps` — animated trajectories           | `TripsLayer` (`geo-layers`)                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: layer construction
 - Construction is uniform — `new GeoArrow<Name>Layer({ id, data: recordBatch, get…: column | fn })` — the geometry column inferred from GeoArrow extension metadata when the accessor is omitted, a picked feature returning as a `GeoArrowPickingInfo` carrying an `arrow.StructRowProxy`.
@@ -70,7 +61,7 @@ Extension-type metadata infers the geometry column and every layer takes a singl
 | :-----: | :------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
 |  [01]   | `initEarcutPool(workerUrl?, optionsOrSize?)` | worker pool    | share ONE `threads` pool across polygon layers via `earcutWorkerPool` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `data` is one `arrow.RecordBatch`, never a `Table`: the caller iterates `Table.batches` and mounts one layer per batch, so a chunked table becomes a `LayersList` and an internally-created earcut pool runs once and dies — hoist it with `initEarcutPool`.
@@ -87,9 +78,3 @@ Extension-type metadata infers the geometry column and every layer takes a singl
 [LOCAL_ADMISSION]:
 - Gate `_GeoArrowTextLayer` behind a capability flag as an overlay, never a load-bearing row.
 - `GeoArrowHeatmapLayer` (needs `@deck.gl/aggregation-layers`) and the polygon-tessellation path (needs `@math.gl/polygon`) stay UNRESOLVED until those peers admit to `[VIEWER_GEO]`; the vector/cell/temporal families over the admitted `core`/`layers`/`geo-layers` are the resolved surface.
-
-[RAIL_LAW]:
-- Package: `@geoarrow/deck.gl-geoarrow`
-- Owns: the GeoArrow-column deck `CompositeLayer` roster (vector/cell/temporal/aggregation families), the columnar accessor union (`Float`/`Color`/`Normal`/`Timestamp`), extension-type geometry inference, `arrow.StructRowProxy` picking, and the shared earcut `threads` pool
-- Accept: one `arrow.RecordBatch` as `data`, column-or-function accessors, inferred geometry columns, a hoisted `initEarcutPool`, per-batch layer fan-out for chunked tables, `MapboxOverlay` interleave over MapLibre
-- Reject: row-materialized data feeding object accessors, per-layer auto earcut pools, a re-mint of the WKB→GeoArrow decode inside `ui` (it is `wire`-owned), the overlay text layer as a stable surface, importing this outside `scope:viewer`

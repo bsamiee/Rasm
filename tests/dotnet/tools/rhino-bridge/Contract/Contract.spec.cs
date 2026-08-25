@@ -97,7 +97,7 @@ public sealed class RpcProxyLaws {
             Assert.Equal(expected: "shell", actual: reply.SenderVersion);
             Assert.Equal(expected: WireGens.Endpoint, actual: reply.Endpoint);
             Assert.Equal(expected: WireGens.Host, actual: reply.Fingerprint);
-            LoadedCargo cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [Guid.Parse(input: "b45a29b1-4343-4035-989e-044e8580d9cf")], BuiltAgainst: WireGens.Host, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            LoadedCargo cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage"), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "xx64:abc", actual: cargo.ContentHash);
             ScenarioOutcome[] outcomes = await proxy.RunAsync(selection: new ScenarioSelection.ThemesCase(Themes: ["blocks", "vectors"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "themes:blocks,vectors", actual: outcomes[0].Scenario);
@@ -127,7 +127,7 @@ public sealed class UnionWireLaws {
         new BridgeFault.ConnectFailed(Detail: "no pipe", ElapsedMs: 90_000.0),
         new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 12.0),
         new BridgeFault.ShellSkew(ShellContract: 1, SupervisorContract: 2),
-        new BridgeFault.HostDrift(MissingMember: "RhinoDoc.Create", BuiltAgainst: WireGens.Host, Running: WireGens.Host),
+        new BridgeFault.HostDrift(MissingMember: "RhinoDoc.Create", Running: WireGens.Host),
         new BridgeFault.CargoUnloadLeak(GcdumpPath: "/tmp/rbx/leak.gcdump"),
         new BridgeFault.RhinoCrash(Crash: new CrashFact(IpsPath: "/tmp/r.ips", CrashThread: "main", ExceptionType: "SIGABRT", Detail: "RhMacSignalHandler"), Scenario: "blocks.baseline"),
         new BridgeFault.DialogSuspected(SilentForMs: 5_000.0),
@@ -135,7 +135,6 @@ public sealed class UnionWireLaws {
         new BridgeFault.ExecuteDeadline(Scenario: "gh.canvas", ElapsedMs: 30_000.0),
         new BridgeFault.NugetLockDrift(Detail: "NU1004 Rasm.Bridge.Contract"),
         new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", Detail: "headless solve unsupported"),
-        new BridgeFault.RedeployIncomplete(FailingCheck: "mcp.listener"),
     ];
 
     [Theory]
@@ -299,30 +298,14 @@ public sealed class WireVocabularyLaws {
         Assert.Equal(expected: "events", actual: ReportLayout.EventsDirectory);
         Assert.Equal(expected: "gh2", actual: ReportLayout.Gh2Directory);
         Assert.Equal(expected: "manifests", actual: ReportLayout.ManifestsDirectory);
-        Assert.Equal(expected: "references", actual: ReportLayout.ReferencesDirectory);
         Assert.Equal(expected: "scratch", actual: ReportLayout.ScratchDirectory);
         Assert.Equal(expected: Path.Combine("r", "bridge-certificate.json"), actual: ReportLayout.Certificate(reportDir: "r"));
         Assert.Equal(expected: Path.Combine("r", "events", "s.jsonl"), actual: ReportLayout.Spool(reportDir: "r", scenario: "s"));
     }
 
-    [Fact]
-    public void EvidenceModeKeysAreTheFrozenTokens() {
-        Assert.Equal(expected: ["verify", "author"], actual: EvidenceMode.Items.Select(selector: static mode => mode.Key), comparer: StringComparer.Ordinal);
-        Assert.Same(expected: EvidenceMode.Author, actual: EvidenceMode.Get(key: "author"));
-        Assert.False(condition: EvidenceMode.TryGet(key: "chaos", item: out _));
-    }
-
-    [Fact]
-    public void ReferenceAdmissionKeysStayAdditive() =>
-        Assert.Equal(
-            expected: ["reviewed", "candidate", "unpromoted", "missing", "mismatch", "matched"],
-            actual: ReferenceAdmission.Items.Select(selector: static admission => admission.Key),
-            comparer: StringComparer.Ordinal);
-
     [Theory]
     [InlineData("case.volume.status", "assertion")]
     [InlineData("case.volume.start", "assertion")]
-    [InlineData("reference.volume", "reference")]
     [InlineData("manifest.object.blocks", "object-manifest")]
     [InlineData("manifest.geometry.blocks", "geometry-manifest")]
     [InlineData("manifest.viewport.blocks", "viewport-manifest")]
@@ -330,17 +313,13 @@ public sealed class WireVocabularyLaws {
     [InlineData("artifact.capture", "artifact")]
     [InlineData("cargo.swapped", "fact")]
     [InlineData("manifest.objects", "fact")]
-    [InlineData("reference", "fact")]
     [InlineData("capture.frame", "fact")]
     public void FactKeysClassifyThroughTheTypedVocabulary(string key, string role) =>
         Assert.Same(expected: EvidenceRole.Get(key: role), actual: EvidenceRole.OfFactKey(key: key));
 
     [Fact]
-    public void FactArgumentStripsExactlyTheOwnedPrefix() {
-        Assert.Equal(expected: "volume", actual: EvidenceRole.Reference.FactArgument(key: "reference.volume"));
-        Assert.Equal(expected: "unowned", actual: EvidenceRole.Reference.FactArgument(key: "unowned"));
+    public void EmptyFactPrefixOwnsNoKey() =>
         Assert.False(condition: EvidenceRole.Fact.OwnsFactKey(key: "anything"));
-    }
 }
 
 public sealed class SelectionFilterLaws {

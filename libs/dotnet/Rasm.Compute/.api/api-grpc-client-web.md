@@ -2,16 +2,7 @@
 
 `Grpc.Net.Client.Web` translates client gRPC calls into `application/grpc-web` or `application/grpc-web-text` transport for HTTP/1.1 and browser-constrained paths. `GrpcWebHandler` wraps the channel handler chain as a `DelegatingHandler`, carrying unary and server-streaming calls across a gRPC-Web frame while client-streaming, duplex, and the typed-fault rail stay on the HTTP/2 `Grpc.Net.Client` channel.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Grpc.Net.Client.Web`
-- package: `Grpc.Net.Client.Web`
-- assembly: `Grpc.Net.Client.Web`
-- namespace: `Grpc.Net.Client.Web`
-- asset: runtime library
-- rail: remote-client
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transport translation contracts
 
@@ -20,7 +11,7 @@
 |  [01]   | `GrpcWebHandler` | class         | translates gRPC to gRPC-Web   |
 |  [02]   | `GrpcWebMode`    | enum          | selects the wire content type |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: handler construction and the pipeline override
 
@@ -40,7 +31,7 @@
 |  [01]   | `GrpcWebMode.GrpcWeb`     | enum case | binary `application/grpc-web`      |
 |  [02]   | `GrpcWebMode.GrpcWebText` | enum case | base64 `application/grpc-web-text` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `GrpcWebHandler.SendAsync` rewrites only requests carrying the `application/grpc` content type; all other traffic passes to the inner handler untouched.
@@ -56,9 +47,3 @@
 - `GrpcChannelOptions.HttpHandler` is the handler's sole entry into the channel.
 - Mode selection is remote-execution policy and stays explicit at channel composition.
 - Internal content, stream, and protocol types are not extension surfaces.
-
-[RAIL_LAW]:
-- Package: `Grpc.Net.Client.Web`
-- Owns: gRPC-Web transport translation for client channels
-- Accept: unary and server-streaming remote-execution calls over HTTP/1.1-constrained paths
-- Reject: client-streaming, duplex, and server hosting surface

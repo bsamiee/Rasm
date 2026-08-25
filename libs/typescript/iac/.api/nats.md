@@ -2,16 +2,7 @@
 
 `nats` is the fanout engine's server: a StatefulSet whose config document the chart assembles from a typed `config` tree, with a `merge`/`patch` pair at every level for the raw server directives no values key spells. Two facts rule a fence against it — the config tree renders the server file, so a directive the chart already emits is not a values key, and the release name alone does not name the Service.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nats`
-- chart: `nats` from `https://nats-io.github.io/k8s/helm/charts/` (Apache-2.0)
-- asset: the server StatefulSet with its ConfigMap, Service, headless Service, ServiceAccount, and PodDisruptionBudget, beside a config-reloader sidecar, an optional Prometheus exporter sidecar, and a `natsBox` utility Deployment that ships DEFAULT-ON
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / fanout engine
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                               | [CAPABILITY]                                                                      |
 | :-----: | :---------------------------------- | :-------------------------------------------------------------------------------- |
@@ -37,7 +28,7 @@
 [FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride`. Absent a pin, a release named `fanout` renders `fanout-nats`, `fanout-nats-headless`, and `fanout-nats-config`, so a websocket origin spelled off the release name alone resolves to nothing.
 [SERVICE_NAME]: with the pin, the client Service is `<fullname>` and the peer Service `<fullname>-headless`; `service.name` and `headlessService.name` override each independently. The websocket ingress renders as `<fullname>-ws`.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Deployment posture and topic policy are two owners. This tier states the storage envelope, the replica count, and the durability posture; retention, dedup windows, ack posture, and replay depth are the runtime fanout owner's topic rows, so a topic change never touches the deploy plane.
@@ -57,9 +48,3 @@
 - State both halves of every listener: the config row opens the port and the service row publishes it.
 - Disable `natsBox`; it is a CLI shell Deployment no tier declared and nothing dials.
 - Set `config.cluster.replicas` at 2 or higher whenever JetStream is on; the server refuses a one-node cluster with the file store armed.
-
-[RAIL_LAW]:
-- Contract: `nats` chart values + the server config document the `config` tree renders
-- Owns: the fanout server — listeners and their published ports, the cluster route mesh, the JetStream store and its claim, the reloader and exporter sidecars, and the per-object merge and patch seams
-- Accept: `fullnameOverride` pinned to the release; JetStream file store sized from the profile with `sync_interval: always` through `jetstream.merge`; the websocket listener opened in config AND published in service; cluster replicas matching the profile; `natsBox` off
-- Reject: an origin derived from an unpinned release; a raw directive as a bare values key; `no_tls` or any other chart-rendered directive spelled as a value; a listener opened on one half of the pair; the default `natsBox` Deployment; topic retention or ack posture stated here, which is the runtime owner's

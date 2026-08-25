@@ -1,6 +1,5 @@
 # [PY_RUNTIME_BODY]
 
-
 `AsyncClosable` is the one shape this page mints outward — `transport/artifact` imports it as `from rasm.runtime.transport.body import AsyncClosable` to release a caller-owned async source at every refusal. `transport/serve#SERVE` seats `BodyAdmission(AdmissionSide.SERVER)` on every generated application, and `transport/shapes#VOCABULARY` lifts `AdmissionError` through its `dialed` weave at every generated-client edge. Connect's interceptor primitives run on asyncio, so every host and proof runs under the asyncio backend alone.
 
 ## [01]-[INDEX]
@@ -22,7 +21,7 @@
 ```python
 """Descriptor-driven admission for asynchronous Connect message bodies."""
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import EnumCheck, StrEnum, verify
 from typing import final, Protocol, runtime_checkable
 
@@ -114,7 +113,7 @@ class AdmissionError(Exception):
 - Boundary: this owner evaluates rules and projects refusals; deadline, metadata, spans, and the served roster are `transport/serve#SERVE`'s.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from typing import Final, final
 

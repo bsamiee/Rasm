@@ -24,7 +24,7 @@
 - Boundary: `Layer.PathSeparator`, `GetLeafName`, `GetParentName`, and `IsValidName` are the host path grammar; `LayerPath` composes them once, so no consumer re-derives separator arithmetic or name legality.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -213,7 +213,7 @@ public sealed partial class LayerStamp : IDetachedDocumentResult {
 - Boundary: the screen draw colour stays the host's own `System.Drawing.Color` evidence — a snapshot column, never a public payload crossing — and the PLOT product leaves only through the `PlotStyle` projection, where the colour admits into `PerceptualColor` once.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Numerics;
@@ -1143,7 +1143,7 @@ public static partial class Layers {
 - Growth: one appended entity field beside one domain column carries a new axis; every containment, member, and view relation stays nested under its owner.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;

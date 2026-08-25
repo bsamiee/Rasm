@@ -2,18 +2,7 @@
 
 `SixLabors.ImageSharp` is the fully managed raster container and pixel-plane owner behind the texture asset estate: one `Image<TPixel>` generic over a closed `IPixel<TPixel>` format family, decoded and encoded through per-format `ImageDecoder`/`ImageEncoder` rows carrying 16-bit PNG, 16-bit and float TIFF, WebP, QOI, and JPEG. `Image.WrapMemory` adopts a caller-owned pooled plane with no copy, so the codec never mints a second arena beside the one the texture plane already owns. The `.Processing` half is the chained in-image operation pipeline — `Mutate`/`Clone` over `IImageProcessingContext`, fifteen named resamplers, wrap-mode convolution, CLAHE-class histogram equalization, palette quantization and dithering, one `ColorMatrix` filter rail, affine/projective transforms, and the `ProcessPixelRowsAsVector4` float row seam — legal on `Image<RgbaVector>` at full float precision, at home in the codec's own `Image` domain and never a replacement for the span-based plane algebra.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SixLabors.ImageSharp`
-- package: `SixLabors.ImageSharp` (Apache-2.0)
-- assembly: `SixLabors.ImageSharp`
-- namespace: `SixLabors.ImageSharp`, `.PixelFormats`, `.Formats.*`, `.Metadata`, `.Metadata.Profiles.*`, `.ColorSpaces`, `.ColorSpaces.Conversion`, `.ColorSpaces.Companding`, `.Processing`, `.Processing.Processors.*`, `.Advanced`, `.Memory`
-- asset: multi-target; the `net10.0` consumer binds `lib/net6.0/SixLabors.ImageSharp.dll` and takes no package dependency
-- rail: raster container
-
-Six Labors' Split License grants Apache-2.0 unconditionally to an open-source consumer. Later majors inject an MSBuild license-validation task that fails `CoreCompile` without a vendor-signed key, file, or `sixlabors.lic`, carrying no open-source opt-out property; admission holds at the last major granting Apache-2.0 without that gate, and the manifest pins where.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image owners and configuration — `SixLabors.ImageSharp`
 
@@ -150,7 +139,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - `AdvancedImageExtensions`: `GetPixelMemoryGroup`, `DangerousGetPixelRowMemory(int)`, `DetectEncoder(string)`; `Buffer2D<T>` carries `Width`, `Height`, `MemoryGroup`, `ref this[int,int]`, and `DangerousGetRowSpan(int y)`, while `Buffer2DRegion<T>` owns `Stride` and both `GetSubRegion` overloads.
 - `SRgbCompanding` spans `Expand`/`Compress` over `Span<Vector4>`, `ref Vector4`, and `float`; the gamma, L, Rec709, and Rec2020 peers carry the scalar forms alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: detect, identify, and decode — `Image`
 
@@ -266,7 +255,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - `PixelConversionModifiers.SRgbCompand` and an in-body `SRgbCompanding` call are ONE choice per pass — applying both double-compands the row.
 - Three-plane per-texel folds ride `Image<TPixel>.ProcessPixelRows<TPixel2, TPixel3>(image2, image3, accessor)` — albedo, roughness, and normal read together with no interleave staging.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Image<TPixel>` is the one owner; the pixel type is the storage decision and every codec is a row on `Configuration.ImageFormatsManager`, so a new container is a registered `IImageFormat` pair, never a second image type.
@@ -295,9 +284,3 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - Eight-bit types (`Rgba32`, `Rgb24`, `L8`) admit for display and preview egress alone; a texture channel plane binds `L16`, `Rgba64`, `HalfVector4`, or `RgbaVector`, because an 8-bit intermediate on a texture path is a silent quantization the wire cannot recover.
 - Every encoder row states its depth explicitly. Null `PngEncoder.BitDepth` or `TiffEncoder.BitsPerPixel` on a 16-bit plane is an inference, not a declaration, and inference is what quietly ships an 8-bit channel.
 - Animated and multi-frame containers (GIF, animated WebP) are outside the texture estate; frame collections serve only where a declared layer law makes a frame sequence the plane.
-
-[RAIL_LAW]:
-- Package: `SixLabors.ImageSharp`
-- Owns: the managed raster containers the folder admits — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit integer, WebP, QOI, and JPEG; BMP, GIF, TGA, and Netpbm ship in the assembly and sit outside the admitted container roster; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, XMP, and CICP metadata carriage; the `ColorSpaceConverter` space and chromatic-adaptation transform; and the in-image processing pipeline — resamplers, wrap-mode convolution, histogram equalization, quantization and dithering, `ColorMatrix` filters, affine/projective warps, swizzles, integral images, the float row seam, and the parallel row iterator.
-- Accept: `Load<TPixel>` naming the demanded plane depth; `WrapMemory` over a pooled `MemoryOwner<T>` arena with the ownership form chosen deliberately; the five bulk rails per their own contracts, `PixelOperations<TPixel>.Instance` owning every bulk conversion with its modifiers stated; Processing inside the codec's own `Image` domain — preview, palette egress, ingest normalization — with `PixelConversionModifiers` stated explicitly on every float pass; one reused `Configuration` per encode profile; encoder instances declaring depth, compression, and filter policy explicitly; `CloneAs<TPixel2>` as the one depth conversion.
-- Reject: a hand-rolled per-texel conversion loop where `PixelOperations<TPixel>.Instance` owns the fold, and any `ToVector4`/`FromVector4Destructive` call leaving its `PixelConversionModifiers` unstated on a linear plane; an 8-bit pixel type on a texture channel plane; `Quantize`/`Dither` on a channel plane (a ≤256-entry palette collapse belongs to preview and palette-container egress alone); a `PlaneOp` re-routed through `Image<TPixel>` for a plane the arena already holds; an inferred encoder depth on a 16-bit or float plane; a second arena where `WrapMemory` binds the existing one; `DangerousTryGetSinglePixelMemory` without `PreferContiguousImageBuffers`; an EXR expectation against this surface; a hand-rolled block-compression or KTX2 writer over it; a decode assumed to have color-managed anything.

@@ -2,15 +2,7 @@
 
 `coloraide` mints the pure-Python per-color engine feeding the `graphic/color/derive#DERIVE` palette source and `graphic/color/managed#MANAGED` egress provenance: one `Color` object parses CSS/named/coordinate input, converts across registered spaces, and folds gamut, filtering, difference, interpolation, compositing, CCT, and chromaticity. `everything.ColorAll` is the all-plugins engine the closed `ColorOp` family folds onto the closed `Derivation` family. It owns the per-color legs `colour-science` has no Lab-array form for; spectral integration and the ICC/LUT pixel transform stay outside.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `coloraide`
-- package: `coloraide` (MIT)
-- module: `coloraide`
-- rail: color
-- target: pure-Python, zero native extension, ABI-agnostic; stdlib-only runtime with no NumPy at import (the bundled `algebra` module carries the linear-algebra kernels)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: color object, match record, top-level exports
 
@@ -29,7 +21,7 @@
 |  [09]   | `ease` / `ease_in` / `ease_out` / `ease_in_out` | easing function    | CSS-named easing progress (tunable knots)             |
 |  [10]   | `NaN`                                           | sentinel           | `float('nan')` channel sentinel for a powerless hue   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, convert, channel read/write, serialize
 
@@ -138,7 +130,7 @@ Construction parses any `ColorInput` (CSS string, named color, `(space, coords)`
 |  [10]   | `Color.convert_chromaticity(cspace1, cspace2, coords, *, white=None) -> Vector` | static   | transform between chromaticity spaces     |
 |  [11]   | `Color.white(cspace='xyz') -> Vector`                                           | instance | white point of the current space          |
 
-## [04]-[PLUGIN_MAPS]
+## [03]-[PLUGIN_MAPS]
 
 [MAP_SCOPE]: the eight class-level engine maps `register`/`deregister` extend
 
@@ -169,7 +161,7 @@ Method rosters, `base` then the `ColorAll` additions:
 - `CS_MAP` base: `srgb` `srgb-linear` `hsl` `hsv` `hwb` `lab` `lab-d65` `lch` `lch-d65` `oklab` `oklch` `display-p3` `display-p3-linear` `a98-rgb` `a98-rgb-linear` `prophoto-rgb` `prophoto-rgb-linear` `rec2020` `rec2020-linear` `rec2100-pq` `rec2100-hlg` `rec2100-linear` `ictcp` `jzazbz` `jzczhz` `xyz-d50` `xyz-d65`.
 - `CS_MAP` `ColorAll` adds the appearance/wide-gamut/print spaces `cmyk` `cmy` `hct` `luv` `lchuv` `hsluv` `hpluv` `okhsl` `okhsv` `oklrab` `oklrch` `din99o` `lch99o` `cam16-*` `cam02-*` `zcam-jmh` `hellwig-*` `aces2065-1` `acescc` `acescct` `acescg` `rec709` `xyy` `ipt` `igpgtg` `ryb` `cubehelix` `prismatic` `orgb` `xyb` and others.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Color`/`ColorAll` object owns parse, convert, fit, filter, distance, interpolation, composition, CCT, and chromaticity; arity and modality ride method arguments (`space`, `method`, `name`, `hue`, `**kwargs`), never a per-operation builder type. `new`/`clone`/`mutate`/`update`/`random` mint or rewrite without a parallel constructor family; `get`/`set` discriminate one channel name against a `list`/`dict`.
@@ -178,7 +170,7 @@ Method rosters, `base` then the `ColorAll` additions:
 - Each `Derivation` case captures only its operation's evidence — resolved space, channel coordinates, CSS notation, path, a `Metric`-keyed `frozendict[Metric, float]`, or the `GamutFit` witness; `Derivation.coords` projects the coordinate array common to every case.
 
 [STACKING]:
-- `colour-science`(`.api/colour-science.md`): a measured XYZ/Lab from `colour.sd_to_XYZ` or an appearance-model coordinate enters as `Color(('xyz-d65', coords))` / `Color(('lab', …))` for gamut-mapped CSS egress; `colour` owns spectral/colorimetric truth per its `[RAIL_LAW]`, `coloraide` the per-color presentation. `ColorModel`'s `ModelNames(science, aide)` dual-name collapses the two engine spellings into one row.
+- `colour-science`(`.api/colour-science.md`): a measured XYZ/Lab from `colour.sd_to_XYZ` or an appearance-model coordinate enters as `Color(('xyz-d65', coords))` / `Color(('lab', …))` for gamut-mapped CSS egress; `colour` owns spectral/colorimetric truth per its `[STACKING]`, `coloraide` the per-color presentation. `ColorModel`'s `ModelNames(science, aide)` dual-name collapses the two engine spellings into one row.
 - `colour-cxf`(`.api/colour-cxf.md`): a CxF `ColorCielab`/`ColorCiexyz` decoded from a `.cxf` enters as `Color(('lab', …))` / `Color(('xyz-d65', …))` for gamut-mapped spot egress; `coloraide` never parses CxF XML.
 - `graphic/color/managed#MANAGED`: `space()` id and the `GamutFit` method recorded on `Derivation` feed the ICC/LUT raster-egress leg as color-space provenance; the device ICC pixel transform is pyvips `icc_transform` on the `managed` side, never here.
 - figures/visuals/document owners: the channel `Vector` (`coords`/`get`/`split_chromaticity`/`Y`), the sampled `Interpolator`, and `to_string` CSS feed `visualization/chart/spec#CHART`, `scene/render#SCENE`, `visualization/table#TABLE`, `graphic/marks/encode#MARK`, and document output as numeric data + CSS, never a render call here.
@@ -187,9 +179,3 @@ Method rosters, `base` then the `ColorAll` additions:
 [LOCAL_ADMISSION]:
 - Color logic enters through `everything.ColorAll` aliased to `Color` at boundary scope; the base `from coloraide import Color` enters only where the all-plugins surface is provably unneeded, and module-level import is banned by the manifest import policy.
 - Registration on the matching engine map admits every new space/fit/filter/metric/CAT/CCT/interpolation, never a local conversion kernel.
-
-[RAIL_LAW]:
-- Package: `coloraide`
-- Owns: CSS/named/coordinate color parsing; conversion across the registered color spaces; gamut mapping (`FIT_MAP`) and Pointer's-gamut tests; CVD + W3C filtering (`FILTER_MAP`); delta-E and raw Euclidean distance; WCAG21/L\* contrast and luminance; the reusable-`Interpolator` interpolation family including `spectral` pigment mixing; mixing, harmonies, and averaging; masking and blend/Porter-Duff `layer` compositing; CCT/blackbody and CAT adaptation; chromaticity and spectral `wavelength`/`from_wavelength`; and a plugin `register`/`deregister` surface over the eight engine maps — the per-color CSS/gamut/CVD/palette/compositing presentation engine for the color plane.
-- Accept: `everything.ColorAll` as the working engine; the gamut-map, CVD+W3C, palette, compositing, difference, CCT, chromaticity, and spectral legs feeding `graphic/color/derive#DERIVE`'s `ColorOp` and `Derivation` families; XYZ/Lab vectors handed off from `colour-science` and `colour-cxf` for CSS and gamut presentation; the map cardinalities as the `FitMethod`/`ColorFilter`/`Interp`/`Harmony`/`BlendMode`/`PorterDuff`/`CamMethod`/`Blackbody` key sets.
-- Reject: wrapper-renames of `fit`/`filter`/`convert`/`layer`/`interpolate`; a hand-rolled gamut-map, Daltonization, Planckian-CCT, or sRGB/OKLCH/Lab conversion matrix where a registered method/filter/space exists; a per-space color type where `ColorAll` serves; a `get_channel`/`set_channels` family where `get`/`set` discriminate; a per-sample interpolation curve where one `Interpolator` serves; `coloraide` for spectral sd→XYZ integration, the Lab-array `delta_E`, or the colorimetric-index family (those are `colour-science`); parsing CxF/ICC files or running the ICC/LUT pixel transform (those are `colour-cxf`/`managed`); identity minting the runtime owns; a `python_version` marker or version pin.

@@ -32,7 +32,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Boundary: Rhino's `.rui` toolbar files, `RhinoApp.ToolbarFiles`, and `MenuLinks` live menu mutation are that host's OWN menu estate over its own persistence format — conflating them with this table is the sharpest trap in the boundary corpus, because the two answer different questions about different files.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Parametric;
 
@@ -223,7 +223,7 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
 - Boundary: menu lifecycle observation — opening, closing, closed — is the input owner's fact algebra over the live popup inside the lease window, never a column on a node. The flat host's own screen-point argument and its call stay at that boundary: `Flatten` answers the roster and `Choose` reads the ordinal, and neither knows where the menu was shown.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoPointF = Eto.Drawing.PointF;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -316,7 +316,7 @@ public static class MenuForge {
 - Boundary: window lifecycle facts — closing, closed, state changed, pixel size changed — are the input owner's source rows over the realized form; per-display placement math reads the platform owner's display facts; Grasshopper2's editor panes and slots, and Rhino's dockable panel registry, stay at their boundaries and hand this owner an anchor rather than a case.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoIcon = Eto.Drawing.Icon;
 using EtoPoint = Eto.Drawing.Point;
 using EtoSize = Eto.Drawing.Size;
@@ -508,7 +508,7 @@ public sealed class WindowMount : IMount, IDisposable {
 - Boundary: Rhino's multi-value, document-scoped, and resource-scoped dialogs — layer, linetype, print-width, sun, and the property and check rosters — stay at that boundary as its own instances, because each is a `Rhino.UI` document surface with no host-neutral analogue.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoSize = Eto.Drawing.Size;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -736,7 +736,7 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
 - Boundary: the page paints through the same paint program the on-screen surface mounts, so a printed page and a drawn frame are one program replayed under two scene policies rather than two render paths.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoRange = Eto.Forms.Range<int>;
 using EtoRectangleF = Eto.Drawing.RectangleF;
 using Rasm.Domain;
@@ -948,7 +948,7 @@ public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spe
 - Boundary: this owner reaches OS notification-center, tray, taskbar, and badge presence ALONE — a Rhino in-viewport toast, a Rhino status-bar meter, and a Grasshopper2 canvas notice are host surfaces over their own chrome, and the two never alias.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;
 using Rasm.Numerics;

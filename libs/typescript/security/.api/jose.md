@@ -2,16 +2,7 @@
 
 `jose` owns every JOSE operation the `crypt/sign` `Jwt` design composes, over WebCrypto with zero runtime dependencies. Its surface collapses on three axes — crypto op, token profile, serialization — so Compact, Flattened, and General render one sign/verify to three wire forms; `createRemoteJWKSet` is the key-rotation seam, and every failure is a `JOSEError` subclass discriminated by a stable `code`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jose`
-- package: `jose` (MIT)
-- module: ESM (`type: module`, `sideEffects: false`); per-concern subpaths resolve the members the root barrel re-exports, so a root import tree-shakes to the composed surface
-- runtime: isomorphic — WebCrypto with global `fetch` across node, bun, deno, workerd, and browser; no native addon, so `sign/jwt.ts` stays host-neutral
-- asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `JWTPayload` stays open (`[propName: string]: unknown`), so a `Schema` decode gates the verified claim set
-- rail: `crypt/sign` — token-crypto owner, admitted in `sign/` only
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: claims, keys, and the verification-policy axis — consumer `sign/jwt`
 
@@ -43,7 +34,7 @@
 - [04]-[RESOLVER_FAULT]: `JWKSNoMatchingKey` `JWKSMultipleMatchingKeys` `JWKSTimeout` `JWKSInvalid` — `JWKSTimeout` and `JWKSNoMatchingKey` are the retry/reload arms.
 - [05]-[CRYPTO_FAULT]: `JWEDecryptionFailed` `JWEInvalid` `JWKInvalid` `JOSENotSupported` — `JOSENotSupported` flags an unadmitted `alg`/`enc` at the boundary.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the JWT claim profile, primary token owner — consumer `sign/jwt`
 
@@ -83,7 +74,7 @@
 - [04]-[KEY_CODEC]: `importPKCS8` `importSPKI` `importX509` `importJWK` `exportPKCS8` `exportSPKI` `exportJWK`.
 - [05]-[THUMBPRINT]: `calculateJwkThumbprint(key, 'sha256')` `calculateJwkThumbprintUri(key)` `base64url.encode` `base64url.decode`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op returns a `Promise` and rejects with a `JOSEError` subclass; the stable `code` projects the whole family onto one tagged union folded at a single seam, never an instance-of ladder.
@@ -103,9 +94,3 @@
 - Mint and verify the JWT profile through `SignJWT`/`jwtVerify` behind a pinned `algorithms` allow-list, delegating every claim gate to `JWTClaimVerificationOptions`; `UnsecuredJWT` stays test-only.
 - Hold one `createRemoteJWKSet` resolver behind a `Tag` under a `Schedule`-driven `reload` with `jwksCache` persistence, so a request reuses both the set and the imported key.
 - Wrap every op in `Effect.tryPromise` and fold the `JOSEError` family by `code` at that seam, so a jose rejection reaches domain logic as a tagged arm.
-
-[RAIL_LAW]:
-- Package: `jose`
-- Owns: JWS sign/verify across three serializations, the JWT claim profile, JWE encrypt/decrypt, JWKS resolution and rotation, key import/export/generation, JWK thumbprint, JOSE `base64url`, and the closed `JOSEError` fault family
-- Accept: `SignJWT`/`jwtVerify` under a pinned `algorithms` allow-list, declarative `JWTClaimVerificationOptions`, `createRemoteJWKSet` behind a `Tag` with `Schedule` reload and `jwksCache`, `Effect.tryPromise` with a `code`-tagged fault fold, `Schema` decode of the verified `JWTPayload`, non-extractable `CryptoKey` handles in `Redacted`
-- Reject: an unpinned `alg` on verify, `decodeJwt`/`decodeProtectedHeader` read as verification, a hand-rolled claim or timestamp check, a per-request JWKS fetch or per-call key import, a bare jose rejection in domain code

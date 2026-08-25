@@ -4,7 +4,6 @@
 
 One discriminant rules the plane: `CodecProfile.tag` is the algorithm, `ALGO_OF` derives the `CompressionAlgo` label from it, and `Bundle` stores no second algorithm field — a bundle encoding one algorithm and executing another is unrepresentable, so dispatch, key material, evidence, and manifest labels all read one recoverable value. `Bundle.of` is the one polymorphic admission: a `CompressionAlgo` token resolves `DEFAULT_PROFILE`, a `CodecProfile` carries its own algorithm, and the delta case accepts exactly one payload, derives its sole parent from `DeltaKnobs.parent_key`, and crosses the `_delta_admitted` congruence gate — the `DELTA_MATRIX` `(algorithm, patch_type)` roster plus the in-place and firmware band rules — so every profile a kernel ever dispatches is already in-matrix and `pack` runs no combination validation.
 
-
 ## [01]-[INDEX]
 
 - [02]-[BUNDLE]: the `Bundle` carrier and pre-run key mint, the `CodecProfile` policy union with its derived `CompressionAlgo` label, the closed `Literal` vocabularies, the `InPlaceSegments`/`FirmwareLayout` delta bands and the `DELTA_MATRIX` admission gate, the manifest and evidence folds, and the `PackWorker` port.
@@ -18,7 +17,7 @@ One discriminant rules the plane: `CodecProfile.tag` is the algorithm, `ALGO_OF`
 - Boundary: no behavior arm, provider dispatch value, offload, or lane; `core/plan` and runtime faults remain type-only under `TYPE_CHECKING`, while codec, archive, and delta compose this page without importing each other. Runtime-only parallelism knobs (`threads`, `block_size`) stay in the profile deliberately: they perturb the output bytes on the zstd and threaded-gzip arms, so keying over them is the conservative miss, never a wrong hit. Member stamps stay container-level (`_EPOCH`, one `mode`) because byte-reproducibility rules the ZIP arm; `names` is the one per-member axis, and a per-member wall-clock stamp is the rejected key-churning form.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path, PurePosixPath

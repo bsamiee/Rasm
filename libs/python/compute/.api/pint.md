@@ -2,16 +2,7 @@
 
 `pint` owns the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units rail. One shared `UnitRegistry` mints the vocabulary, and every array-admission and study-result claim rides as a `Quantity` whose magnitude is any array-protocol object, so units thread through `numpy` ufuncs over the same array the compute array rail folds. A dimensional claim captured off the `Quantity` feeds the `Measurement`, and a dimension mismatch is the boundary reject signal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pint`
-- package: `pint`
-- module: `pint`
-- owner: `compute`
-- rail: units
-- capability: physical-quantity arithmetic over a shared `UnitRegistry` — dimensional analysis, base/root/compact reduction, cross-dimension `Context` transforms, `Measurement` uncertainty, NumPy-array unit threading, and `wraps`/`check` signature enforcement
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registry, quantity, and context owners
 
@@ -41,7 +32,7 @@
 |  [09]   | `RedefinitionError`            | `PintError`, `ValueError`     | duplicate unit definition                           |
 |  [10]   | `UnitStrippedWarning`          | `UserWarning`                 | magnitude consumed with the unit silently dropped   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registry construction, parsing, and definition — every surface is a `UnitRegistry` member; constructor keywords are in note [01].
 
@@ -99,7 +90,7 @@
 |  [05]   | `UnitRegistry.setup_matplotlib(enable=True)` | instance | registers unit-aware matplotlib axis support    |
 |  [06]   | `pi_theorem(quantities, registry=None)`      | static   | dimensionless Buckingham-π groups               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - registry: one shared `UnitRegistry` owns the vocabulary, so quantities minted by different registries never interoperate; the default application registry is a `LazyRegistry` deferring definition loading to first use.
@@ -116,9 +107,3 @@
 - `get_application_registry` serves the rail's one shared registry; per-claim registries are rejected.
 - each array-admission and study result carries a `Quantity` unit claim, converted via `to`/`to_base_units`/`convert`; error-bearing magnitudes use `Measurement`/`plus_minus`.
 - unit claims graduate as evidence on the one rail, and a consumer folds them into its own unit policy.
-
-[RAIL_LAW]:
-- Package: `pint`
-- Owns: the physical-unit registry, dimensional quantities, measurement uncertainty, cross-dimension contexts, NumPy-array unit threading, and signature-level unit checking for the units rail
-- Accept: a unit-bearing `Quantity` or `Measurement` from the shared `UnitRegistry`, converted via `to`/`to_base_units`, carrying a captured `dimensionality` claim, with boundaries decorated by `wraps`/`check`
-- Reject: stringly-typed unit labels; hand-rolled conversion factors; per-claim registries; a parallel uncertainty object beside the unit; wrapper-renames of `Quantity` arithmetic

@@ -2,16 +2,7 @@
 
 `python-magic` binds the host `libmagic` library through a `ctypes` cookie, cooking bytes, a path, or a descriptor into a MIME type, description, charset, or extension list under a `MAGIC_*` bitmask. libmagic sits off the runtime loader path, so `exchange/detect` reifies every detection across the `anyio.to_process` `WORKER_BAND` subprocess seam and folds the cookie into its `DetectIdentity`/`MediaClass`/`Container`/`Trust` verdict. It is the broad-leaf-signature fallback behind the default `puremagic` sniffer, retained where its compiled database recognizes a signature `puremagic` lacks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-magic`
-- package: `python-magic` (MIT)
-- module: `magic` (the `magic/__init__.py` ctypes binding)
-- namespaces: `magic`, `magic.loader`
-- abi: pure-Python `py3-none-any` wheel over a runtime `ctypes` binding to the host `libmagic`; `import magic` raises `ImportError('failed to find libmagic')` when `magic.loader.load_lib` finds no candidate, so libmagic is a Forge-provisioned host dependency off the runtime loader path
-- rail: file control
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cookie and fault
 
@@ -22,7 +13,7 @@
 |  [01]   | `Magic`          | class         | detector cookie; `flags: int`, `cookie` (`magic_t`), `lock`       |
 |  [02]   | `MagicException` | exception     | libmagic NULL/-1 return; `.message` (`None` on the 5.09 null bug) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stateless module detection
 
@@ -77,7 +68,7 @@ Constructor booleans set the `MAGIC_*` bitmask; `MAGIC_PARAM_*` ordinals address
 |  [03]   | `maybe_decode(s) -> str`                      | static  | decode a C-string as utf-8/backslashreplace             |
 |  [04]   | `magic.magic_setflags(cookie, flags) -> int`  | static  | apply a recomputed `MAGIC_*` bitmask onto a live cookie |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `import magic` at boundary scope only, reified inside the `to_process` worker, so every detection crosses the `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` subprocess seam because libmagic is off the loader path, never the in-process call the `puremagic` peer rides; an import-time `ImportError` is a Forge-provisioning fault, a transient `BrokenWorkerProcess` death recovers under a bounded `stamina` retry, and a deterministic magic-bomb crash rails through `async_boundary` unretried behind the `MAGIC_PARAM_*` caps.
@@ -96,8 +87,3 @@ Constructor booleans set the `MAGIC_*` bitmask; `MAGIC_PARAM_*` ordinals address
 
 [LOCAL_ADMISSION]:
 - Admitted MIT as the broad-leaf-signature worker-band fallback behind `puremagic`, off the runtime loader path; libmagic is a Forge-provisioned host dependency the wheel does not carry. `compat`, the deprecation-wrapped file-5.x shim, collides with the upstream binding and is not admitted — the `Magic` cookie is the one surface.
-
-[RAIL_LAW]:
-- Package: `python-magic`
-- Owns: worker-band `libmagic` content sniffing from bytes or path — MIME / description / MIME-encoding / extension-list outputs, compressed look-through, `MAGIC_NO_CHECK_*` check-set narrowing, custom `.mgc` databases, and the `MAGIC_PARAM_*` recursion/ELF-bomb caps — the broad-leaf-signature fallback behind the default `puremagic` sniffer
-- Accept: producing the `exchange/detect#DETECT` `DetectIdentity`/`MediaClass`/`Container`/`Trust` fold from `Magic.from_buffer`/`from_file` cooked strings, one flag-pinned `functools.cache`-memoised cookie per `MagicFacet`, crossed through `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` under a `stamina` `BrokenWorkerProcess` retry and `async_boundary`; tuning an untrusted ingest through `setparam`; gating the `EXTENSION` facet on `version() >= 524`

@@ -2,17 +2,7 @@
 
 `lark` owns the EBNF grammar engine: a `Lark` parser folds a grammar string into a `Tree`/`Token` parse forest under an Earley/LALR/CYK algorithm and auto/basic/contextual/dynamic lexer, and a `Transformer`/`Visitor`/`Interpreter` family folds that forest to a typed value. Two branch rails author a grammar over it — runtime's transport filter compiles CESQL under `lalr` with an inline `transformer=` fold, and geometry's ifc-analysis owner compiles a selector query under `earley` before it reaches `ifcopenshell.util.selector.filter_elements`. Pure-Python, core.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lark`
-- package: `lark`
-- import: `import lark`
-- owner: `runtime` + `geometry`
-- rail: cesql-grammar (runtime transport filter) / selector-grammar (geometry ifc-analysis)
-- entry points: none (library); the standalone-parser CLI is `python -m lark.tools.standalone`
-- capability: EBNF grammar definition, Earley/LALR/CYK parsing, contextual/dynamic lexing, `Transformer`/`Visitor`/`Interpreter` tree folds, typed-AST construction, error-recovery parsing, grammar composition, and parser caching/standalone generation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parser, forest, and folds
 - rail: cesql-grammar + selector-grammar
@@ -43,7 +33,7 @@
 |  [06]   | `UnexpectedEOF`        | parser failure | input ended mid-rule; `expected` repeats, `pos_in_stream` is `-1`    |
 |  [07]   | `VisitError`           | fold failure   | wraps any raise a `Transformer` method makes, inline fold included   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar construction
 - rail: cesql-grammar + selector-grammar
@@ -82,7 +72,7 @@
 |  [08]   | `tree.find_data(name)` / `tree.scan_values(pred)`            | node                  | search a node by rule / value                 |
 |  [09]   | `Token(type, value)`                                         | terminal type + value | matched terminal (str subclass + position)    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `from lark import Lark, Token, Transformer, v_args` at MODULE scope, the branch's only admitted import form; a function-local import is what the manifest bans, and a `lazy` deferral suits a cold rail alone.
@@ -94,9 +84,3 @@
 [STACKING]:
 - `ifcopenshell`(`.api/ifcopenshell.md`): the folded typed query feeds `util.selector.filter_elements` — `lark` owns the string→validated `Tree`, the `Transformer` folds it into the typed selector structure, and that structure, not the raw string, is what reaches IfcOpenShell.
 - within-lib: one module-level parser value compiles the grammar once and every call reuses it, so a per-call construction rebuilds the whole table. `save`/`load` and the `cache=` option serialize a built parser for `lalr` ALONE — every other algorithm raises `ConfigurationError` — and a cache file is a filesystem side effect a composition opts into rather than inherits; `python -m lark.tools.standalone` emits a dependency-free parser module when a grammar must ship without `lark` at runtime.
-
-[RAIL_LAW]:
-- Package: `lark`
-- Owns: EBNF grammar definition, Earley/LALR/CYK parsing into a `Tree`/`Token` forest, contextual/dynamic lexing, `Transformer`/`Visitor`/`Interpreter` tree folds, typed-AST construction, error-recovery parsing, and parser caching/standalone generation
-- Accept: a grammar plus a query string, feeding the validated structure into the runtime CESQL filter arm or the geometry ifc-analysis selector arm
-- Reject: a hand-rolled regex/split query parser where the grammar owns the structure; a parser-per-algorithm function family over the `parser` knob; a parse-then-transform two-pass where the LALR `transformer=` option folds inline; an enumerated tree-walk where the `Transformer` rule-dispatch owns the fold; a boundary fence catching `UnexpectedInput` alone under an inline fold; `cache=` on any algorithm but `lalr`

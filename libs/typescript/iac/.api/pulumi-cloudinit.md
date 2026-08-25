@@ -2,17 +2,7 @@
 
 `@pulumi/cloudinit` renders multi-part MIME cloud-init user-data as a typed graph value — the pre-SSH first-boot leg of the bootstrap rail. One part shape (`content`/`contentType`/`filename`/`mergeType`) feeds one render surface with a `Promise`/`Output` invoke mirror (`getConfig`/`getConfigOutput`); `rendered` is the product and `gzip`/`base64Encode`/`boundary` shape the wire encoding the consuming host API reads.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/cloudinit`
-- package: `@pulumi/cloudinit` (Apache-2.0)
-- module: `@pulumi/cloudinit` → `{ Config, getConfig, getConfigOutput, Provider, types }`
-- runtime: Node deploy-host; the render is a pure provider invoke, no target reachability
-- rail: fabric / cluster-bootstrap
-- depends-on: `@pulumi/pulumi` (`Input`/`Output`, `InvokeOptions`/`InvokeOutputOptions`)
-- abi-note: `GetConfigOutputArgs` double-wraps parts — `parts: Input<Input<GetConfigPartArgs>[]>` — so a part's content binds an upstream `Output`; `GetConfigArgs` takes plain values for the eager `Promise` read
-
-## [02]-[CONFIG_RENDER]
+## [01]-[CONFIG_RENDER]
 
 [RENDER_SCOPE]: the invoke mirror pair
 - `getConfigOutput` is canonical — parts thread the graph as `Input`s and `rendered` lands as an `Output<string>` a host-provisioning resource consumes as user-data; `getConfig` is the eager `Promise` mirror for an `async` program body. `Config` is the provider-deprecated resource twin, never authored new.
@@ -37,7 +27,7 @@
 |  [03]   | `filename`    | `Input<string>`            | part identity inside the archive; keys per-part instance state        |
 |  [04]   | `mergeType`   | `Input<string>`            | `X-Merge-Type` directive combining multiple `text/cloud-config` parts |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - boot-split: cloud-init owns first boot — package install, user/key layout, daemon enablement on a fresh VPS or metal image; a first-boot step re-run over SSH, or an SSH step folded into user-data, is the same defect in two directions.
@@ -50,9 +40,3 @@
 - `@pulumi/command`(`.api/pulumi-command.md`): cloud-init `rendered` lays the SSH surface during first boot, then `remote.Command` over the shared `StackSpec.Connection` owns steady state — sequential complements across one boot boundary, and the `epoch`-forced re-render mirrors the `triggers`/`keepers` rotation.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): a first-boot part installs the Doppler CLI, and the runtime pulls its material through the `ServiceToken.key` (`DOPPLER_TOKEN`) env channel, keeping every secret out of `parts[].content`.
 - within-lib: part content arrives as rendered template data like `Dispatch.Pins.install`; the lib hardcodes no script body.
-
-[RAIL_LAW]:
-- Package: `@pulumi/cloudinit`
-- Owns: multi-part MIME user-data composition for raw VPS/metal first boot — the pre-SSH half of the bootstrap row
-- Accept: `getConfigOutput` for graph-threaded renders, `getConfig` for eager reads, typed parts with explicit `contentType`, `mergeType` on composed cloud-config parts, explicit encoding per consuming boundary
-- Reject: the deprecated `Config` resource in new work, credential material inside part content, hand-concatenated MIME bodies, first-boot logic duplicated into `remote.Command`, script bodies hardcoded in the lib instead of arriving as pins

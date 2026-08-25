@@ -2,9 +2,7 @@
 
 `Imposition` owns press imposition — reordering, scaling, rotating, and cropping an already-emitted multi-page PDF onto larger imposed sheets in a press-ready form. It discriminates a closed-payload `ImposeOp` `tagged_union` by one total `match` — `Impose` the drawing case (`source`, `Scheme`, `Geometry`, `Marks`), `Proof` the `ProofPolicy`-driven RGB-screen / CMYK-separations / GRAY-density raster proof — never a per-scheme `Nup`/`Booklet`/`Signature` draw family or a `StrEnum` over an erased `dict`; the compute-only pre-flight is `Imposition.planned` over the same `Impose` payload, never a parallel op case duplicating it. It is the dedicated booklet/signature engine computing the saddle-stitch creep, the folded-signature ordering, and the work-and-turn duplexing that the simpler `document/egress#FINISH` `IMPOSE` in-document n-up step over a finished PDF never reaches. It computes the imposition and places the pages but assembles no document — the imposed sheets hand onward to `document` assembly.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[IMPOSE]
 
@@ -14,7 +12,7 @@
 - Growth: a new locally-placeable scheme is one `Scheme` member plus one `PLANS` row, a new provider-native scheme one `Scheme` member plus one `_PDFIMPOSE_SCHEMAS` row carrying its `impose` function and `accepts` kwarg frozenset — `_ENGINES` re-derives both, never a parallel imposer class, an `if scheme == ...` branch, or a new `ImposeOp` case; a geometry behavior is one `Orientation` or `CreepMode` policy value or one `Geometry` field read in `partition`, the fold, or the `_pdfimpose_kwargs` dict; a placement behavior axis extends `PlacementPolicy`; a deeper signature is the same `_folded_plan` fold over a larger `Geometry.leaves`; a press-finish concern is one `Marks` field; a LOCAL printer's mark is one `PressMark` member plus one `_press_marks` arm, while a figure overlay still routes through `Marks.overlay` to `composition/compose#COMPOSE` — two distinct seams; a proof axis is one `ProofInk`/`ProofRaster` member plus one `_PROOF_RASTERS` admission row or one `ProofPolicy` field, the ICC gamut audit an outward `graphic/color/managed#MANAGED` chain. Zero new surface.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import math
 from collections.abc import Callable, Iterable
 from enum import StrEnum

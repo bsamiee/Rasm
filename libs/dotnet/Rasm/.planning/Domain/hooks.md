@@ -26,7 +26,7 @@
 - Boundary: `TFact` closes at declaration as the owning folder's closed union, so a stringly payload cannot enter the rail; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield. Evidence cells enter as constructor material from the owning composition, never process-static — two compositions in one process hold two cells.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
@@ -173,7 +173,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
 - Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder rails onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one rail every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookRail<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Numerics;
 
 namespace Rasm.Domain;
@@ -382,7 +382,7 @@ public sealed class HookRail<TPoint, TFact, TOwner>
 - Boundary: keyed instances stay the folder's — a `(point, scope)` seat and a plugin-rider seat are earned by grant custody under branch RULINGS `[02]`, and what those folders need from the kernel is `TOwner` typed once, never a kernel-side registry of their instances.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -445,7 +445,7 @@ public sealed class HookMounts<TPoint, TOwner>
 - Boundary: the registry is an audit surface, never a dispatch surface — nothing fires through it, and a lookup that returns a point for firing is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 
 namespace Rasm.Domain;

@@ -20,7 +20,7 @@ Every host-bound acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, 
 - Growth: a new host precedence tier is one `VerdictSeam` row; a new boundary projection is one mapper row.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Riok.Mapperly.Abstractions;
@@ -88,7 +88,7 @@ internal static partial class InputMap {
 - Growth: a new host handler virtual is one adapter relay reading one kernel phase key; a new attachment modality reuses `Attachment` and `Mounted<TFacts>`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -216,7 +216,7 @@ public static class Dispatch {
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -294,7 +294,7 @@ public sealed class EdgeResize {
 - Growth: a new synchronous host moment is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;

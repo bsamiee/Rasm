@@ -21,7 +21,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 - Growth: a new host span or kind is one row keyed on its host ordinal; the kernel column absorbs the pairing.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Parametric;
 using Thinktecture;
@@ -78,7 +78,7 @@ public sealed partial class PaceRow {
 - Growth: a new carrier type is one kernel `Tween` member lifted through `Lerp.Of`; the binder never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Flex;
 using Rasm.Domain;
@@ -151,7 +151,7 @@ public static class FlexDrive {
 - Growth: a new semantic glyph is one row; a new figure lowering is one arm named against the host surface.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -213,7 +213,7 @@ public static class GlyphPath {
 - Growth: a new drive shape is one kernel `MotionScript` case; neither pacer gains a parallel sampling arm.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -307,12 +307,12 @@ public sealed class CanvasPacer : IDisposable {
 - Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the result shape (`FrameWindow`, `FramePulse`, the kernel `PaintTally`, or a row-addressed raw cost).
 - Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; the judging consumer writes each breached span through `Shell/telemetry.md`'s `GhInstruments.Breached`), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
 - Law: judgment happens at read time over results already settled — the gate never samples, never owns a clock, and never mutates a result; a breached span is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes it without re-measuring.
-- Law: the host-free kernel families this boundary exercises carry corpus benchmark rows in the tests estate; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
+- Law: the host-free kernel families this boundary exercises carry corpus benchmark rows; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
 - Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintTally`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
 - Growth: a new judged axis is one row with one subject arm; a tuned bound is a row fraction change with every consumer untouched.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Parametric;

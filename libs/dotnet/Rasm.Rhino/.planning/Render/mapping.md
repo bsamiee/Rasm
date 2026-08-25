@@ -22,7 +22,7 @@
 - Packages: `api-rhinocommon-geometry.md` (`TextureMapping`, `TextureMappingType`, `TextureSpace`, `TextureMapping.Projection`, `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh`, `Mesh`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`Op.Row`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;

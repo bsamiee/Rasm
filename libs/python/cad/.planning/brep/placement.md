@@ -1,6 +1,5 @@
 # [PY_CAD_PLACEMENT]
 
-
 `Frame3` arrives orthogonality-proved and `UnitDirection3` magnitude-proved by protovalidate, so lowering is total and re-validation never runs; refusal opens at the kernel builders alone, on `BREP_INPUT` and `BREP_KERNEL` from `faults#ROWS`, and this page owns the builder-admission rail the whole B-rep leg composes. One `Lowering` correspondence declares each spatial owner as an ordered component read spread onto its `gp` constructor, and one span algebra serves the 3-D `CurveSegment3` family here and the 2-D `ProfileKnot` family at `profile#LOOPS`, parameterized by the point lift alone.
 
 ## [01]-[INDEX]

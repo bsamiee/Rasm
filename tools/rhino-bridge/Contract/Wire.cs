@@ -50,17 +50,7 @@ public sealed partial class SessionPhase {
     public static readonly SessionPhase QuitAe = new(key: "quit.ae");
     public static readonly SessionPhase QuitForce = new(key: "quit.force");
     public static readonly SessionPhase QuitKill = new(key: "quit.kill");
-    public static readonly SessionPhase Install = new(key: "install");
     public static readonly SessionPhase Status = new(key: "status");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceMode, ValidationError>))]
-public sealed partial class EvidenceMode {
-    public static readonly EvidenceMode Verify = new(key: "verify");
-    public static readonly EvidenceMode Author = new(key: "author");
 }
 
 [SmartEnum<string>]
@@ -72,7 +62,6 @@ public sealed partial class EvidenceClass {
     public static readonly EvidenceClass Semantic = new(key: "semantic");
     public static readonly EvidenceClass Geometry = new(key: "geometry");
     public static readonly EvidenceClass Visual = new(key: "visual");
-    public static readonly EvidenceClass CertifiedReference = new(key: "certified-reference");
 }
 
 [SmartEnum<string>]
@@ -82,7 +71,6 @@ public sealed partial class EvidenceClass {
 public sealed partial class EvidenceRole {
     public static readonly EvidenceRole Fact = new(key: "fact", factPrefix: "");
     public static readonly EvidenceRole Assertion = new(key: "assertion", factPrefix: "case.");
-    public static readonly EvidenceRole Reference = new(key: "reference", factPrefix: "reference.");
     public static readonly EvidenceRole ObjectManifest = new(key: "object-manifest", factPrefix: "manifest.object.");
     public static readonly EvidenceRole GeometryManifest = new(key: "geometry-manifest", factPrefix: "manifest.geometry.");
     public static readonly EvidenceRole ViewportManifest = new(key: "viewport-manifest", factPrefix: "manifest.viewport.");
@@ -110,19 +98,6 @@ public sealed partial class EvidenceRole {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<ReferenceAdmission, ValidationError>))]
-public sealed partial class ReferenceAdmission {
-    public static readonly ReferenceAdmission Reviewed = new(key: "reviewed");
-    public static readonly ReferenceAdmission Candidate = new(key: "candidate");
-    public static readonly ReferenceAdmission Unpromoted = new(key: "unpromoted");
-    public static readonly ReferenceAdmission Missing = new(key: "missing");
-    public static readonly ReferenceAdmission Mismatch = new(key: "mismatch");
-    public static readonly ReferenceAdmission Matched = new(key: "matched");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<ArtifactRetentionClass, ValidationError>))]
 public sealed partial class ArtifactRetentionClass {
     public static readonly ArtifactRetentionClass Evidence = new(key: "evidence");
@@ -145,7 +120,6 @@ public sealed partial class ArtifactRetentionClass {
 [JsonDerivedType(typeof(ExecuteDeadline), "execute-deadline")]
 [JsonDerivedType(typeof(NugetLockDrift), "nuget-lock-drift")]
 [JsonDerivedType(typeof(CapabilityAbsent), "capability-absent")]
-[JsonDerivedType(typeof(RedeployIncomplete), "redeploy-incomplete")]
 [Union]
 public abstract partial record BridgeFault {
     private BridgeFault() { }
@@ -153,7 +127,7 @@ public abstract partial record BridgeFault {
     public sealed record ConnectFailed(string Detail, double ElapsedMs) : BridgeFault;
     public sealed record BusyHeld(int HolderPid, double AgeSeconds) : BridgeFault;
     public sealed record ShellSkew(int ShellContract, int SupervisorContract) : BridgeFault;
-    public sealed record HostDrift(string MissingMember, HostFingerprint BuiltAgainst, HostFingerprint Running) : BridgeFault;
+    public sealed record HostDrift(string MissingMember, HostFingerprint Running) : BridgeFault;
     public sealed record CargoUnloadLeak(string GcdumpPath) : BridgeFault;
     public sealed record RhinoCrash(CrashFact Crash, string Scenario) : BridgeFault;
     public sealed record DialogSuspected(double SilentForMs) : BridgeFault;
@@ -161,7 +135,6 @@ public abstract partial record BridgeFault {
     public sealed record ExecuteDeadline(string Scenario, double ElapsedMs) : BridgeFault;
     public sealed record NugetLockDrift(string Detail) : BridgeFault;
     public sealed record CapabilityAbsent(string Capability, string Detail) : BridgeFault;
-    public sealed record RedeployIncomplete(string FailingCheck) : BridgeFault;
 
     public PhaseStatus Status => Switch(
         busyHeld: static _ => PhaseStatus.Busy,
@@ -175,23 +148,21 @@ public abstract partial record BridgeFault {
         cargoUnloadLeak: static _ => PhaseStatus.Failed,
         rhinoCrash: static _ => PhaseStatus.Failed,
         dialogSuspected: static _ => PhaseStatus.Failed,
-        nugetLockDrift: static _ => PhaseStatus.Failed,
-        redeployIncomplete: static _ => PhaseStatus.Failed);
+        nugetLockDrift: static _ => PhaseStatus.Failed);
 
     public string Prescription => Switch(
-        shellSkew: static f => string.Create(provider: CultureInfo.InvariantCulture, $"shell contract v{f.ShellContract} < supervisor v{f.SupervisorContract}: run redeploy"),
+        shellSkew: static f => string.Create(provider: CultureInfo.InvariantCulture, $"shell contract v{f.ShellContract} < supervisor v{f.SupervisorContract}: install the current bridge package"),
         nugetLockDrift: static f => $"lock drift ({f.Detail}): run dotnet restore --force-evaluate via the static rail; the bridge never mutates lockfiles",
         busyHeld: static f => string.Create(provider: CultureInfo.InvariantCulture, $"session lease held by pid {f.HolderPid} for {f.AgeSeconds:F0}s: wait or quit that session"),
         capabilityAbsent: static f => $"capability '{f.Capability}' unavailable on this host: {f.Detail}",
         launchFailed: static f => f.Detail,
         connectFailed: static f => f.Detail,
-        hostDrift: static f => $"host moved under compiled cargo ({f.MissingMember}): rerun verify (auto-rebuild)",
+        hostDrift: static f => $"host capability unavailable ({f.MissingMember}): rebuild before verifying again",
         cargoUnloadLeak: static f => $"cargo ALC leaked; gcdump at {f.GcdumpPath}; session fell back to host recycle",
         rhinoCrash: static f => $"host crashed in '{f.Scenario}': {f.Crash.ExceptionType} on {f.Crash.CrashThread}",
         dialogSuspected: static f => string.Create(provider: CultureInfo.InvariantCulture, $"host alive but silent {f.SilentForMs:F0}ms after launch: modal dialog suspected"),
         uiWedged: static f => string.Create(provider: CultureInfo.InvariantCulture, $"UI thread silent {f.SilentForMs:F0}ms inside '{f.Scenario}'"),
-        executeDeadline: static f => string.Create(provider: CultureInfo.InvariantCulture, $"'{f.Scenario}' exceeded the session deadline at {f.ElapsedMs:F0}ms"),
-        redeployIncomplete: static f => $"relaunched shell failed status check '{f.FailingCheck}'");
+        executeDeadline: static f => string.Create(provider: CultureInfo.InvariantCulture, $"'{f.Scenario}' exceeded the session deadline at {f.ElapsedMs:F0}ms"));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -244,7 +215,6 @@ public static class ReportLayout {
     public const string EventsDirectory = "events";
     public const string Gh2Directory = "gh2";
     public const string ManifestsDirectory = "manifests";
-    public const string ReferencesDirectory = "references";
     public const string ScratchDirectory = "scratch";
 
     public static string Certificate(string reportDir) => Path.Combine(path1: reportDir, path2: CertificateFile);
@@ -364,10 +334,8 @@ public sealed partial class EndpointRecord {
 public readonly record struct HostFingerprint(string BundleVersion, string RhinoCommonVersion, string Grasshopper2Version, string RuntimeVersion);
 public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Detail);
 public readonly record struct ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
-public readonly record struct ReferenceRoot(string Assembly, string Theme, string Path);
 public readonly record struct EvidenceName(string Key);
 public readonly record struct ArtifactHash(string Algorithm, string Value);
-public readonly record struct ReferenceTolerance(string Mode, double Absolute, double Relative);
 public sealed record ArtifactRef(
     string Id, EvidenceRole Role, string RelativePath, string MediaType, long Bytes,
     ArtifactHash Hash, ArtifactRetentionClass Retention, string Scenario, bool OnFailure);
@@ -379,18 +347,9 @@ public sealed record GeometryManifest(string Scenario, int Count, JsonElement[] 
 public sealed record ViewportManifest(string Scenario, string ActiveView, JsonElement[] Viewports);
 public sealed record Gh2CanvasManifest(string Scenario, int ObjectCount, int WireCount, JsonElement[] Objects, JsonElement[] Wires);
 public sealed record ScratchManifest(string Scenario, string Root, string[] Files, ArtifactRef[] Artifacts);
-public sealed record ReferenceEvidence(
-    EvidenceName Name, EvidenceClass Class, JsonElement Expected,
-    ReferenceTolerance Tolerance, ReferenceAdmission Admission, string ReviewedBy, string ReviewedAt);
-public sealed record ReferenceEvidenceResult(
-    EvidenceName Name, EvidenceClass Class, ReferenceAdmission Admission, bool Matched,
-    string ReferencePath, string Detail, ReferenceTolerance Tolerance) {
-    public string Scenario { get; init; } = string.Empty;
-}
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct EvidenceCounts(
-    int Facts, int Assertions, int References, int ReferenceMatches, int ReferenceFailures,
-    int Captures, int Artifacts, int ObjectManifests, int GeometryManifests,
+    int Facts, int Assertions, int Captures, int Artifacts, int ObjectManifests, int GeometryManifests,
     int ViewportManifests, int Gh2CanvasManifests, int ScratchManifests);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ScenarioCounts(int Total, int Ok, int Failed, int Skipped, int Unsupported, int Timeout, int Busy, int Degraded);
@@ -403,13 +362,12 @@ public sealed record FaultSummary(SessionPhase? Phase, BridgeFault? Fault, strin
 public readonly record struct SpoolSummary(long DurableEvents, long RelayedEvents, long LastSequence, bool Diverged, int Failures);
 public sealed record EvidenceCertificate(
     string RunId, string Scenario, StatusBreakdown Status, EvidenceClass[] Classes,
-    EvidenceCounts Counts, ArtifactRef[] Artifacts, ReferenceEvidenceResult[] References,
+    EvidenceCounts Counts, ArtifactRef[] Artifacts,
     ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
     ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
     ScratchManifest[] ScratchManifests, PhaseOutcome[] Phases, FaultSummary? FirstFault);
 public readonly record struct ScenarioOutcome(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
     public PhaseStatus ScenarioStatus { get; init; } = Status;
-    public ReferenceEvidenceResult[] ReferenceResults { get; init; } = [];
     public string FirstScenarioFailure { get; init; } = string.Empty;
 }
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
@@ -419,9 +377,7 @@ public readonly record struct QuitScrub(int Documents, int MarkedClean, int Resi
     public bool Scrubbed => ResidualDirty == 0;
 }
 
-public sealed record CargoManifest(
-    Guid SessionId, string ReportDir, string ContentHash, string StagePath,
-    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
+public sealed record CargoManifest(Guid SessionId, string ReportDir, string ContentHash, string StagePath);
 public sealed record LoadedCargo(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 public sealed record Handshake(

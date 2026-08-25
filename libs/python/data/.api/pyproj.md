@@ -2,16 +2,7 @@
 
 `pyproj` binds PROJ as the data branch's coordinate-reference-system and transformation owner: `CRS` construction with WKT/PROJ4/EPSG/JSON/CF interchange, axis-aware `Transformer` reprojection under area-of-interest operation selection, and `Geod` ellipsoidal distance and area. Geometry stays CRS-free at `shapely` and tabular CRS rides `geopandas`/`rasterio`/`pyogrio` as one `pyproj.CRS` interchanged by WKT/EPSG/JSON, so pyproj owns the projection math the geospatial rail never re-implements.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyproj`
-- package: `pyproj` (MIT)
-- module: `import pyproj`
-- owner: `data`
-- rail: geospatial
-- asset: native PROJ binding, GDAL-independent; `proj_version_str` / `show_versions()` report the linked native versions
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: CRS, transformer, geodesic owners with their operation vocabularies
 
@@ -29,7 +20,7 @@
 |  [10]   | `database.CRSInfo` `database.Unit` `database.PJType`         | record        | database query-result records and CRS-type vocabulary    |
 |  [11]   | `exceptions.CRSError` `ProjError` `GeodError` `DataDirError` | exception     | typed CRS, transform, geodesic, and data-dir failures    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction, transformation, geodesic, database, and network surfaces
 
@@ -50,7 +41,7 @@
 [TRANSFORMER_READOUT]: `accuracy` `area_of_use` `operations` `has_inverse` `get_last_used_operation` `is_network_enabled` `definition` `description` `source_crs` `target_crs` `to_wkt` `to_json` `to_json_dict` `to_proj4`
 [PROJ_REGISTRY]: `get_authorities` `get_codes` `get_units_map` `get_ellps_map` `get_prime_meridians_map` `get_proj_operations_map` `database.get_database_metadata` `set_use_global_context` `datadir.set_data_dir` `datadir.get_data_dir` `sync.get_transform_grid_list` `sync.get_proj_endpoint`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `always_xy=True` forces lon/lat argument order regardless of authority-declared axis order; set it at construction or PROJ silently swaps axes.
@@ -71,9 +62,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `pyproj` as the canonical CRS and coordinate-transformation owner on the data geospatial rail, composed by geopandas/shapely/rasterio/pyogrio rather than re-parsed per library.
-
-[RAIL_LAW]:
-- Package: `pyproj`
-- Owns: CRS construction and interchange, axis-aware coordinate transformation, geodesic and ellipsoidal computation, transformer-group enumeration, PROJ database queries, CDN grid network control
-- Accept: `Transformer.from_crs` with `always_xy` explicit and reused, `CRS` interchange via `to_epsg`/`to_wkt`/`to_json`, `Geod` for ellipsoidal distance and area, `area_of_interest` for operation selection
-- Reject: per-point transformer reconstruction, implicit axis-order assumptions, planar-distance approximation where geodesic distance is required, and hand-rolled datum-shift math when PROJ grids exist

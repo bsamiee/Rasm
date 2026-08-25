@@ -268,12 +268,6 @@
           "Google.Protobuf": "[3.31.1, 4.0.0]"
         }
       },
-      "Grpc.Core.Api": {
-        "type": "CentralTransitive",
-        "requested": "[2.83.0, )",
-        "resolved": "2.83.0",
-        "contentHash": "xU8BT2bCw4Ct+/qIFJhhjkDEilKUbBOfp4US7l3Xa3hnlkN9l2LgISCbOw4PFYpW5jJFcK7FUAyWOFIQ94Hiqg=="
-      },
       "MathNet.Numerics": {
         "type": "CentralTransitive",
         "requested": "[6.0.0-beta2, )",

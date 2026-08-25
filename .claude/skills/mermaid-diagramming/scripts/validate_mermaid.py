@@ -7,7 +7,7 @@
 
 # ruff:file-ignore[print, undocumented-public-class, undocumented-public-function]
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 
 import base64
 from collections import Counter

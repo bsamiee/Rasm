@@ -30,7 +30,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 The corpus owns every field number. The only envelope bracket this projection must know is `NodeWire`: `id = 1`, payload arms `2..9`, and `content_address = 10`. Nested-family number law stays with the corresponding corpus file; this page carries only the arm census consumed by the codec's parity fold.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Globalization;
 using System.Diagnostics;

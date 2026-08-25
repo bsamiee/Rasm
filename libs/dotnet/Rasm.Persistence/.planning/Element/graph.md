@@ -24,7 +24,7 @@ Fault codes read the kernel `Rasm/Domain/rails#FAULT_BAND` roster, which allocat
 - Boundary: stream grain is ONE stream PER MODEL (or per spatial partition), never per-`NodeId`, and the event body is the `GraphDelta`, never a whole-graph snapshot; the `GraphDelta` is the seam-owned graph-mutation record the projection folds immutably through `GraphDelta.ReplayOnto`, so the durable history is a delta log the engine replays and the rehydrated graph is bit-identical to the live state at any version because the fold is the ONE `GraphDelta.ReplayOnto` the AS-OF reconstruction also runs; the optimistic append (`Append(stream, expectedVersion, …)`) is the inline guard, `AppendOptimistic` the read-then-guard, and the `GraphStoreOp.CommitExclusive` case the stream-level advisory-lock escalation (`FetchForExclusiveWriting<GraphProjection>`, `#STORE_RAIL`); the `GraphRetired` delta is a real convergent retirement the projection folds and the `Version/retention#RETENTION_CLASSES` sweep reclaims, never an `ArchiveStream` that hides the events from the fold (archive is the AS-OF cut boundary, not retirement); a `GraphCreated` carries the `Header` so the stream's `ReleaseVersion`/`GeoReference`/`Tolerance` are the first folded fact and every later delta's measure quantization (`Element/codec#CONTENT_ADDRESS`) reads the header tolerance; `EventAppendMode` trades metadata richness for throughput as a config value, never a per-call branch; the `GraphEvent` is the body family `Version/ledger#CHANGEFEED` lifts (`OpLog.Project(IEvent<GraphEvent>)` reads `e.Data.Body`/`e.Data.Lifecycle`), so this owner's body shape is the changefeed's input contract; `Configure` is the spine's `StoreOptions` seat and registers ONLY spine-owned mappings — a rolling-window declaration over a `Query`/`Version` document type makes this S0 surface name an S2/S3 type, the forbidden upward edge, so each such family publishes its own `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` contribution at its own owner and the composition root folds it over these options, one `StoreOptions` value threaded through both.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Text.Json;
@@ -379,20 +379,20 @@ public static class GraphStore {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                                    | [BINDING]                                                       |
-| :-----: | :--------------------- | :----------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | one txn owner          | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`                   |
-|  [02]   | read consistency       | `FetchLatest<GraphProjection>`             | inline document or live tail fold; read-your-writes             |
-|  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`             |
-|  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer aborts → `StreamVersionConflict`                  |
-|  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8302        |
-|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills clock, causal pair, and instrument set at the port|
-|  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation |
-|  [08]   | coordination edges     | `ModelLink` rows + `Link` op case          | cross-model references durable, project-scoped, blame-stamped   |
-|  [09]   | project rollup         | `ProjectRollup` header-sliced, async       | roster + watermark only; never a second delta materializer      |
-|  [10]   | causal pair            | `CorrelationId` + `TenantContext` on frame | kernel types seat on the frame; raw scalars only at pack sites  |
-|  [11]   | tenant text            | `TenantContext.Entry` fixed-width `x32`    | RLS predicate, blame header, and meter tag compare alike        |
-|  [12]   | elapsed read           | kernel `MonotonicTimeline` via `Since`     | provider identity admitted; a mark/elapsed delegate pair is out |
+| [INDEX] | [POLICY]               | [VALUE]                                    | [BINDING]                                                        |
+| :-----: | :--------------------- | :----------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | one txn owner          | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`                    |
+|  [02]   | read consistency       | `FetchLatest<GraphProjection>`             | inline document or live tail fold; read-your-writes              |
+|  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`              |
+|  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer aborts → `StreamVersionConflict`                   |
+|  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8302         |
+|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills clock, causal pair, and instrument set at the port |
+|  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation  |
+|  [08]   | coordination edges     | `ModelLink` rows + `Link` op case          | cross-model references durable, project-scoped, blame-stamped    |
+|  [09]   | project rollup         | `ProjectRollup` header-sliced, async       | roster + watermark only; never a second delta materializer       |
+|  [10]   | causal pair            | `CorrelationId` + `TenantContext` on frame | kernel types seat on the frame; raw scalars only at pack sites   |
+|  [11]   | tenant text            | `TenantContext.Entry` fixed-width `x32`    | RLS predicate, blame header, and meter tag compare alike         |
+|  [12]   | elapsed read           | kernel `MonotonicTimeline` via `Since`     | provider identity admitted; a mark/elapsed delegate pair is out  |
 
 ## [05]-[FAULT_TABLES]
 

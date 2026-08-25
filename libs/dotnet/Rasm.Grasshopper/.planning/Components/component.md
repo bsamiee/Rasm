@@ -17,7 +17,7 @@
 - Boundary: `ProcessScope` is the only step seam into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, output writes, notices, and the operation key.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
@@ -127,7 +127,7 @@ public static class Executions {
 - Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists. `BakeKey` coordinates, `BakeDataState` re-find filtering, and layer pre-creation stay `Grasshopper2.Bake`'s and are reached through the minted context, never re-derived here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
@@ -232,7 +232,7 @@ public sealed record ComponentSpec {
 - Law: `Connectivity`/`ConnectivityComplete` exist on no live `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — all three are host plumbing the base owns, so no `Lifecycle` slot projects them and a catalog row claiming component virtuals for the first two is stale against the shipped assembly.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Parameters;
@@ -435,7 +435,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 - Boundary: assembly harvesting remains inside `PluginServer`; local reflection is limited to exported-type declaration and persistent-id admission.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;

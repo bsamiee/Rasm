@@ -19,7 +19,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 - Boundary: raw-scan ingestion and decimation route `scan/ingestion#INGESTION`; watertight repair and hole-fill route the `mesh/repair#MESH` `MeshRepairOp.Condition` arm, the only path from a non-watertight ball-pivoting or alpha surface to a valid solid; scan-vs-model deviation routes `scan/deviation#DEVIATION`; the closure algebra is `mesh/quality.closure_fold`'s. No IFC tessellation, no durable store, no Rhino/GH mutation.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial

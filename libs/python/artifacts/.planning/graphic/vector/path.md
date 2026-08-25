@@ -20,7 +20,7 @@ Vector parse, query, affine, point-relation, measure, and sample behavior lives 
 - Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no identity minting; no folder-minted limiter or retry — the one native seam is the runtime lane's `offload`; no rail-collapsing convenience export — a consumer that wants the drawable set composes `scene` and holds the `Result`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import math
 
 from builtins import frozendict

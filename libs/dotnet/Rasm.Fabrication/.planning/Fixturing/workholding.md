@@ -24,7 +24,7 @@
 - Boundary: template cases survive beside realized elements because their payload arrives before geometry realization and aggregate admission; provider geometry never reaches this cluster.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;

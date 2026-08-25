@@ -2,16 +2,7 @@
 
 `networkx` is the branch graph substrate: four payload classes spanning the directed/undirected × simple/multi-edge matrix, tabular/array/dict/sparse conversion bridges, file-format and JSON codecs, and the graph-algorithm families, all folded through one `create_using` kind discriminator and one `@_dispatchable` backend axis so a single call site serves every graph kind and installed engine. `nx.community` detection and the `nx.config` dispatch-policy layer ride the same surface; product graph-database and route-discovery state stay outside it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `networkx`
-- package: `networkx` (BSD-3-Clause)
-- import: `import networkx as nx`
-- owner: `data` (codec/egress), `geometry` (`graph/features` analysis)
-- rail: graph
-- capability: payload classes, conversion bridges, file-format and JSON codecs, algorithm families over directed/undirected/multi-edge graphs, the `nx.community` detection namespace, and the `nx.config` layer routing any `@_dispatchable` algorithm to an installed backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph payload classes
 - shared members carry across all four classes; directed and multi-edge classes add the members noted
@@ -49,7 +40,7 @@
 |  [13]   | `HasACycle`                       | `NetworkXException`      | cycle where acyclicity required  |
 |  [14]   | `NodeNotFound`                    | `NetworkXException`      | node absent from graph           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: conversion bridges
 - each `from_*` has a `to_*` peer; `create_using` selects the target graph kind
@@ -127,7 +118,7 @@
 |  [02]   | `betweenness_centrality(G, k=None, normalized=True, weight=None, endpoints=False, seed=None)`                         |
 |  [03]   | `eigenvector_centrality` / `closeness_centrality` / `degree_centrality`                                               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Payload owners thread `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
@@ -145,9 +136,3 @@
 - `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy — `backend_priority`, `backends`, `cache_converted_graphs`, `fallback_to_nx`, `warnings_to_ignore`; the graph rail sets it once at boundary scope and threads `backend=` only to override the global priority for one call.
 - Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain rail translates the raised exception at the boundary into the `Result` rail.
 - Community algorithms namespace under `nx.community`: `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition, returning `list[set]`/`list[frozenset]`/a nested-tuple iterator.
-
-[RAIL_LAW]:
-- Package: `networkx`
-- Owns: graph payload classes, conversion bridges, file-format and JSON codecs, algorithm families, the `nx.community` detection namespace, and the `nx.config` backend-dispatch layer
-- Accept: graph-kind discrimination via `create_using` and `node_link_graph(directed=, multigraph=)`; tabular/array/dict/sparse bridges; file and JSON codecs; typed algorithm failures on the `NetworkXException` base; backend selection via `backend=` / `nx.config.backend_priority`
-- Reject: wrapper-renames, per-graph-kind parallel entrypoints, per-backend forked call sites, weaker local reimplementation of supplied algorithms, and product graph-database or route-discovery state

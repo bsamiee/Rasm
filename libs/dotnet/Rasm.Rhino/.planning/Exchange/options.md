@@ -23,7 +23,7 @@
 - Boundary: each `Mint` block is a host-mutation capsule; object initialization and the ordered `Seat`/`Through`/`Apply` statements are the platform-forced statement exemption.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;

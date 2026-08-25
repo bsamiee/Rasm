@@ -2,19 +2,7 @@
 
 `VividOrange.IStandards` mints the Eurocode standards-identity taxonomy: the `IStandard`/`StandardBody` contract naming which body publishes a code, the closed `NationalAnnex` key parameterizing every Eurocode `ψ`/`γ` table lookup, the per-Eurocode `En199xPart` clause-part enums, and the `MissingNationalAnnexException` fault for an unmapped annex. Concrete `VividOrange.Standards` realizes it as the mutable `En1990`…`En1999` classes fixing `Body => StandardBody.EN`, and Bim reads the taxonomy on the standards rail, lowering the unmapped-annex fault onto `BimFault` at ingest.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `VividOrange.IStandards`
-- packages: `VividOrange.IStandards` + `VividOrange.Standards` (MIT)
-- assembly: `VividOrange.IStandards`, `VividOrange.Standards`
-- namespace: `VividOrange.Standards` (`IStandard`, `StandardBody`), `VividOrange.Standards.Eurocode` (`NationalAnnex`, `En1990Part`…`En1999Part`, `MissingNationalAnnexException`, concrete `En1990`…`En1999`)
-- asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0`; the `net10.0` consumer binds `lib/net8.0`
-- asset: pure-managed AnyCPU IL-only assemblies; no native binaries; ALC-safe inside the in-Rhino plugin assembly
-- dependency: `VividOrange.IStandards` → `VividOrange.ISerialization` (`ITaxonomySerializable`); `VividOrange.Standards` → `VividOrange.IStandards`
-- consumer: Bim binds `VividOrange.IStandards` transitively via `VividOrange.Cases → VividOrange.ICases → VividOrange.IStandards` (the `NationalAnnex` key + `MissingNationalAnnexException`); the concrete `VividOrange.Standards` (`En1990`…`En1999`) is referenced by `Rasm.Materials`
-- rail: standards
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: standard-identity contract family (`VividOrange.IStandards`)
 - note: `NationalAnnex`/`MissingNationalAnnexException` are `.Eurocode`-namespaced; each `StandardBody` member carries a `[Description]`.
@@ -57,7 +45,7 @@
 |  [09]   | `En1998` | EC8 seismic      | `"Eurocode 8: Design of Structures for Earthquake Resistance"`  |
 |  [10]   | `En1999` | EC9 aluminium    | `"Eurocode 9: Design of Aluminium Structures"`                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: standard-identity construction and read
 
@@ -73,7 +61,7 @@
 
 - [06]-[TITLE]: `Title` = `"{abbr} EN 199x[-part]: Eurocode N: {discipline} - {clause}".TrimStart(' ')`; `abbr` empties for `RecommendedValues`, and `Part` renders `Part`/`_`→`-`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - contract: `IStandard: ITaxonomySerializable` — `StandardBody Body { get; }`, `string Title { get; }`; `StandardBody` is the publishing-body axis (`EN` at index 7) above the Eurocode-specific `En199x` family
@@ -97,9 +85,3 @@
 - a national deviation is a `NationalAnnex` value the `Cases` tables key on, selected as a discriminant rather than a Bim branch
 - `MissingNationalAnnexException` is captured at the Bim boundary as its exact exceptional `Error`; an explicit unsupported-policy verdict uses `BimFault.Refused` under the model/capability axes
 - concrete `En1990`…`En1999` are the Materials-owned authoring surface; project the resolved `(StandardBody, NationalAnnex, Title)` onto the immutable Bim records rather than re-exporting the concrete class as the canonical graph shape
-
-[RAIL_LAW]:
-- Package: `VividOrange.IStandards` (contract) realized by `VividOrange.Standards` (concrete)
-- Owns: the Eurocode standards-identity taxonomy — `IStandard`/`StandardBody`, the `NationalAnnex` dispatch key, the `En199xPart` clause-part enums, the concrete `En1990`…`En1999`, and `MissingNationalAnnexException`
-- Accept: national-annex selection as a `NationalAnnex` value; `RecommendedValues` as the EN fallback; identity read through `IStandard.Body`/`Title`; serialization through `ITaxonomySerializable`; the unmapped-annex fault lowered onto `BimFault`
-- Reject: a per-country code branch replacing the `NationalAnnex` discriminant, a fabricated compiled `Country`→`NationalAnnex` map, re-exporting the concrete `En199x` as the canonical Bim graph shape, propagating `MissingNationalAnnexException` into the fold

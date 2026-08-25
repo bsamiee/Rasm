@@ -2,16 +2,7 @@
 
 `usd-core` supplies Pixar OpenUSD stage authoring and USDZ packaging for the `scene/stage` rail: a `pxr.Usd.Stage` root defines typed `UsdGeom` prims, binds `UsdShade` materials, carries `UsdSemantics` AEC labels, and fills `Gf`/`Vt` value arrays zero-copy from numpy through `Vt.<Type>Array.FromNumpy`, then `UsdUtils` packages the authored `.usdc`/`.usda` layer with its dependency closure into a `.usdz`. Numpy point/index buffer authoring is the standing path; the `vtkUSDExporter` render-to-layer front half needs a VTK build enabling `vtkIOUSD`. It never re-implements the C++ runtime's layer formats, composition-arc stack, Hydra render graph, or USDZ zip record, and authoring stays on the `HOSTILE`-trait offload worker.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `usd-core`
-- package: `usd-core` (LicenseRef-TOST-1.0)
-- module: `pxr`
-- namespaces: `Usd`, `UsdGeom`, `UsdShade`, `UsdSemantics`, `UsdLux`, `Sdf`, `Gf`, `Vt`, `Tf`, `Kind`, `UsdUtils`
-- abi: C++/Boost.Python native extension (`_<module>.so` per submodule); the Forge python-overlay `.pth` supplies `pxr` at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
-- rail: scene — `scene/stage`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stage, prim, and layer roots
 - rail: scene — `pxr.Usd`, `pxr.Sdf`
@@ -73,7 +64,7 @@ USD authoring faults raise `Tf.ErrorException`; a wrong-arity or wrong-type call
 |  [01]   | `Tf.ErrorException`          | runtime fault | the USD runtime error (missing asset, malformed layer, write failure) |
 |  [02]   | `Boost.Python.ArgumentError` | binding fault | a wrong-arity/type call into a `pxr` C++ overload                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stage authoring and layer export
 - rail: scene — `pxr.Usd`, `pxr.UsdGeom`, `pxr.Sdf`
@@ -120,7 +111,7 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 |  [05]   | `UsdUtils.ModifyAssetPaths`          | `ModifyAssetPaths(layer, modifyFn)` -> `None`; rewrite every asset path via a callback         |
 |  [06]   | `UsdUtils.ComputeUsdStageStats`      | `ComputeUsdStageStats(stage \| path)` -> `dict`; stats (`totalPrimCount`/`usedLayerCount`/...) |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - authoring: one `Usd.Stage` root, `<Schema>.Define(stage, primPath)` per typed prim, `Create<Attr>Attr(...)` per attribute over the `Gf`/`Vt` vocabulary, then `SetStageUpAxis`/`SetStageMetersPerUnit`/`SetDefaultPrim` metadata, then `GetRootLayer().Save()` or `Export(path)`; the layer format is the file suffix, never a parallel per-geometry-kind writer.
@@ -144,9 +135,3 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - Carry every geometry buffer as one `Vt.<Type>Array.FromNumpy` set; never a `.tolist()` copy or a per-vertex append.
 - Package through `CreateNewUsdzPackage`/`CreateNewARKitUsdzPackage`; never hand-roll USDZ zip alignment.
 - Import `pxr` only inside the offload worker.
-
-[RAIL_LAW]:
-- Package: `usd-core`
-- Owns: USD stage authoring (`Usd.Stage`), typed geometry prims (`UsdGeom` family + `SetStageUpAxis`/`SetStageMetersPerUnit`), per-attribute authoring over the `Gf`/`Vt` vocabulary with the zero-copy `FromNumpy` bridge, primvars (`UsdGeom.PrimvarsAPI`), material/shader graphs bound through `UsdShade.MaterialBindingAPI`, semantic labels (`UsdSemantics.LabelsAPI`/`LabelsQuery`), layer serialization to `.usdc`/`.usda` (`Sdf.Layer`), and USDZ packaging/extraction with asset-dependency discovery/rewrite (`UsdUtils`)
-- Accept: `StageOp.MeshAuthor` over `surface_arrays`; `vtkIOUSD`-backed `StageOp.RenderExport`; qualified-name process offload through `LanePolicy`; explicit `Sdf.AssetPath`; `UsdzProfile.ARKIT`; dependency closure and relocation; `ComputeUsdStageStats`; `Result[PackageFacts, PackageFault]`
-- Reject: a per-vertex or `.tolist()` buffer copy where `FromNumpy` is zero-copy; a parallel per-geometry-kind writer class; hand-rolled USDZ zip alignment; a re-implemented crate/composition/Hydra runtime; an out-of-band semantic sidecar

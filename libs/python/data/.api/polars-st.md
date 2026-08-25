@@ -2,17 +2,7 @@
 
 `polars-st` mints the GeoArrow spatial extension for the `data` spatial rail: a `.st` accessor on `polars.Expr`/`Series`/`DataFrame`/`LazyFrame` running GEOS-backed geometry ops as registered plugin expressions over a WKB column, with parsing factories, OGR/GeoPandas IO, and the `GeoExprNameSpace` predicate/measure/overlay/transform vocabulary. Every op folds into the same `LazyFrame` graph as ordinary Polars work and inherits pushdown; GEOS overlay, buffering, and PROJ reprojection stay bound to the extension.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `polars-st`
-- package: `polars-st` (LGPL-2.1)
-- module: `polars_st`
-- owner: `data`
-- rail: spatial
-- asset: GEOS/GDAL-backed native extension registered as a Polars expression plugin over a WKB geometry column, the LGPL obligation held at the shared-library boundary and safe for a host-distributed plugin
-- capability: GeoArrow/WKB geometry columns with GEOS-backed predicates, measures, overlay, constructive, affine/topology, linear-referencing, SRID projection, WKB/WKT/EWKT/GeoJSON/shapely serialization, OGR/GeoPandas IO, and spatial joins as vectorized `.st` expression rows
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geo frame/expr roots, accessor namespaces, and geometry vocabulary
 
@@ -35,7 +25,7 @@
 |  [13]   | `PolarsDimensionType`   | enum projection | `pl.Enum` over `DimensionType`                        |
 |  [14]   | `PolarsCoordinateType`  | enum projection | `pl.Enum` over `CoordinateType`                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: geometry construction, parsing, and IO factories
 
@@ -138,7 +128,7 @@ These take no positional geometry, and the `to_*` serializers accept format keyw
 |  [08]   | `write_geojson` / `write_ndgeojson`                                                       | write GeoJSON / newline-delimited GeoJSON  |
 |  [09]   | `plot` / `explore`                                                                        | Altair chart / interactive map             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Geometry is a WKB-encoded Polars column, and each `.st.<op>` is a registered plugin expression node composing into the same `LazyFrame` query graph as ordinary `Expr` work, inheriting predicate/projection pushdown, never a post-collect Python pass.
@@ -157,9 +147,3 @@ These take no positional geometry, and the `to_*` serializers accept format keyw
 
 [LOCAL_ADMISSION]:
 - polars-st is the sole vectorized-GEOS-over-Polars surface for `data`; its `.st` expressions admit for predicates, measures, overlay, constructive, transform, projection, and spatial joins feeding the GRID_DGGS and geospatial owners.
-
-[RAIL_LAW]:
-- Package: `polars-st`
-- Owns: GeoArrow/WKB geometry columns over Polars, GEOS-backed predicate/measure/overlay/constructive/transform operations, SRID projection, spatial joins, and WKB/WKT/EWKT/GeoJSON/shapely/OGR/GeoPandas serialization
-- Accept: vectorized geometry pipelines feeding the GRID_DGGS and geospatial owners through `geom(...).st.<op>()` expressions and `GeoLazyFrame` pushdown
-- Reject: a wrapper-rename of `st`/`geom`/`GeoExprNameSpace` ops; a per-row shapely loop where a vectorized `.st` expression exists; a hand-rolled GEOS overlay/buffer or PROJ reprojection; a parallel accessor per container shape; a builder type per operation variant; identity or CRS-catalog minting the runtime owns

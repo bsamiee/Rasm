@@ -2,16 +2,7 @@
 
 `UnitsNet` owns strongly typed physical quantities over the `double`-or-`decimal` `QuantityValue` scalar, binding native operator algebra, boundary conversion, registry identity, and unit-system policy across measured inputs and results. Each generated quantity struct fixes one physical concern to its `QuantityInfo.Name` and SI base unit, and feeds the units rail every Compute and materials boundary canonicalizes through.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `UnitsNet`
-- package: `UnitsNet` (MIT-0)
-- assembly: `UnitsNet`
-- namespace: `UnitsNet`, `UnitsNet.Units`, `UnitsNet.GenericMath`
-- asset: managed runtime library with localized abbreviation satellite assemblies
-- rail: units
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: quantity contracts and scalar carriers
 
@@ -103,7 +94,7 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 
 `ConversionFunction` carries two shapes — `public delegate IQuantity ConversionFunction(IQuantity)` and `public delegate TQuantity ConversionFunction<TQuantity>(TQuantity) where TQuantity : IQuantity` — and BOTH `GetConversionFunction<TQuantity>` and `TryGetConversionFunction<TQuantity>` yield the NON-generic typeless form, so a typed hot path re-narrows the boxed `IQuantity` result itself; a `Func<TQuantity, TQuantity>` method-group conversion over either getter does not compile.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: boxed quantity projection
 
@@ -300,7 +291,7 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - Rows [56]-[58] are `Comparison`, the only live consumer of `ComparisonType` now that the quantity-level scalar-tolerance overload is obsolete: the quantity face compares through `Equals(TQuantity, TQuantity tolerance)`, and `Comparison` stays the rail for the raw scalars a projection already unwrapped.
 - [BASEUNIT_COHERENCE]: `QuantityInfo.BaseUnitInfo` is the DECLARED base, not a guaranteed SI-coherent one. Ten quantities carry no coherent unit anywhere in their roster: the logarithmic `Level`/`AmplitudeRatio`/`PowerRatio`, the volt-ampere-hour `ApparentEnergy`/`ElectricApparentEnergy`/`ReactiveEnergy`/`ElectricReactiveEnergy`, `RelativeHumidity` (`Percent` alone), `FuelEfficiency` (`LiterPer100Kilometers`), and `SpecificFuelConsumption` (`GramPerKiloNewtonSecond`). `UnitInfo.Name` IS `Value.ToString()` for every row, so a name-keyed index and an enum-keyed one join exactly — and it is therefore NOT a display token: a readout resolving a unit label through row [30] prints `Millimeter` where a reader expects `mm`. Row [35] constrains `TUnit : Enum` and cannot bind a value already erased to the `Enum` face, so an elected unit carried as `Enum` reaches its abbreviation through row [47], which is exactly what row [35]'s own body forwards to; a `null` provider on either sends the lookup to `CurrentCulture`, so a deterministic surface passes its own resolved culture.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every quantity is a `readonly struct` over generic-math static-abstract interfaces; native operators preserve quantity identity across same-quantity, scalar, ratio, and cross-quantity algebra, and cross-quantity operators yield typed results at compile time. `QuantityValue` holds an admitted scalar as `double` or `decimal` until construction, `IValueQuantity<TValue>` fixes each family's backing precision, and primitive projection stays a boundary cast.
@@ -326,9 +317,3 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 - Boundary parse, format, and abbreviation lookup pass `CultureInfo.InvariantCulture` explicitly — `UnitAbbreviationsCache` accessors default to `CurrentCulture` on a `null` provider, the internal invariant `FallbackCulture` only the per-unit secondary degrade — so admission is deterministic across ambient culture and loaded satellites.
 - Conversion runs exactly once at admission and interior numerics are raw `double`; abbreviation resolution rides `UnitParser.Default.TryParse(string, Type, IFormatProvider, out Enum)`, never a probe-string parse, and `UnitsNetSetup.Default` is the single setup root composed once.
 - `SpecificEntropy` carries specific-heat-capacity values at its `JoulePerKilogramKelvin` base, and an affine family (`Temperature`) aggregates at the canonical absolute scale, never across display offsets.
-
-[RAIL_LAW]:
-- Package: `UnitsNet`
-- Owns: typed quantity algebra, registry identity, boundary conversion, unit-system policy, and typed aggregation.
-- Accept: unit-aware inputs and results; `QuantityInfo.Name` identity with `BaseDimensions` validation; `UnitConverter` boundary conversion; `UnitMath` aggregation; `IQuantity.Value`/`IQuantity.Unit` wire projection.
-- Reject: a quantity `==`/`!=` or single-argument `Equals` comparison where the two-quantity tolerance form is the live one, a hand-rolled unit-conversion table where `UnitConverter` owns the rescale, a per-quantity conversion helper where the struct's `ToUnit`/`As` owns it, a raw `double` carrying its unit in a comment where the quantity struct binds it, a quantity type crossing an interior signature or a wire, an AEC-domain reach down to the Compute units owner — each stratum owns its own unit boundary — and a `GenericMathExtensions`/`DecimalGenericMathExtensions` call (neither exists), `UnitFormatter` (internal; `QuantityFormatter` is the public formatter), or `IDecimalQuantity` (`IValueQuantity<decimal>` is the live face).

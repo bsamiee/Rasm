@@ -137,5 +137,4 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `Polly.Testing` — `ResiliencePipelineDescriptor` composition inspection over a built resilience pipeline.
 - `Microsoft.Testing.Platform`
 - `Microsoft.AspNetCore.TestHost` — In-memory ASP.NET Core server behind the transport proof harnesses.
-- `BenchmarkDotNet`
 - `Verify.XunitV3` + `Verify.DiffPlex` — architecture and generator snapshot laws.

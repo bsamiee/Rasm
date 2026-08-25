@@ -4,16 +4,7 @@
 
 `@effect/opentelemetry` `NodeSdk`/`WebSdk` build the provider from these `SpanProcessor`/`TracerConfig` types, `sdk-trace-node`/`-web` re-export the whole surface, and the leg collapses at `[OTEL_PIN_BLOCK]` on native `Otlp` parity.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-base`
-- package: `@opentelemetry/sdk-trace-base` (Apache-2.0)
-- module: CJS default + ESM mirror, flat barrel, no `exports` subpath map; an env-fallback shim re-exporting the `@opentelemetry/sdk-trace` trace roster under `OTEL_*` variable defaults
-- runtime: runtime-neutral — the `@opentelemetry/sdk-trace` `./platform` split binds node crypto ids + `BufferConfig` or browser `Math.random` + `BatchSpanProcessorBrowserConfig` with no consumer fork; the `@opentelemetry/api` peer floor rides the workspace catalog
-- depends: `@opentelemetry/sdk-trace` (the re-exported roster), `@opentelemetry/core` (`ExportResult`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`
-- rail: observability/sdk-bridge; `[OTEL_PIN_BLOCK]` collapse target — only `semantic-conventions` survives the retirement
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the pipeline contracts, the sampler and id algebra, and the provider construction bags
 
@@ -39,7 +30,7 @@
 |  [18]   | `TraceIdRatioBasedSampler`                         | class          | deterministic head sampling by trace-id ratio              |
 |  [19]   | `ParentBasedSampler`                               | class          | combinator delegating by parent sampled/remote flags       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider, processor, exporter, and sampler construction with the SDK-driven lifecycle hooks
 
@@ -68,7 +59,7 @@
 - `BufferConfig`: `maxExportBatchSize?` 512, `scheduledDelayMillis?` 5000, `exportTimeoutMillis?` 30000, `maxQueueSize?` 2048; `maxExportBatchSize` must be at or below `maxQueueSize`. `BatchSpanProcessorBrowserConfig` extends it with `disableAutoFlushOnDocumentHide?`.
 - `SpanLimits`: `attributeValueLengthLimit?`, `attributeCountLimit?`, `linkCountLimit?`, `eventCountLimit?`, `attributePerEventCountLimit?`, `attributePerLinkCountLimit?`. `GeneralLimits` carries the first two alone and applies provider-wide.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Sampling flows head-first: `ParentBasedSampler` reads the parent span-context's sampled and remote flags and delegates to `root` only for a parentless span, where `TraceIdRatioBasedSampler` maps the trace-id to keep-below-ratio; one `shouldSample` fires per span start and the decision holds for the whole trace.
@@ -85,9 +76,3 @@
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/sdk-trace-base` admits only inside `scope:runtime` (edge-ledger ban); no folder outside `otel` constructs a processor, sampler, or provider, and `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` survive-and-collapse roster.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/sdk-trace-base`
-- Owns: the runtime-neutral trace-export pipeline — the `SpanProcessor`/`SpanExporter` contracts with the `Batch`/`Simple`/`Noop` and `Console`/`InMemory` rows, the `Sampler` algebra with the `ParentBased` combinator over `TraceIdRatioBased`/`AlwaysOn`/`AlwaysOff` rows, the `IdGenerator`, `TracerConfig`/`SpanLimits`, and the `ReadableSpan`/`Span` recorded shape; `BasicTracerProvider` is the base `sdk-trace-node`/`-web` extend
-- Accept: `new BatchSpanProcessor` wrapping an `OTLPTraceExporter` for production; `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` for head sampling; `InMemorySpanExporter` for kit-driven specs; the surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration`
-- Reject: `SimpleSpanProcessor` in production, `TracerConfig.resource` under the facade, imports outside `scope:runtime`, a hand-rolled exporter where a `SpanExporter` row suffices, treating this leg as permanent past `[OTEL_PIN_BLOCK]`

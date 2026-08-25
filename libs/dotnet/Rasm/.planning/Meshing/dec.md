@@ -22,7 +22,7 @@
 - Boundary: this page populates the settled `Numerics/spectral` carriers and routes every cotangent through `Cotangent.OfLengths`/`OfEdges` — the `Rasm.Compute` adjoint seam binds those `DiscreteCalculus` spellings, so a redeclaration here forks the wire. CR assembly lifts a flipped intrinsic snapshot through the signpost seam at ONE site — `HeatSystemLifted` re-anchors flipped edge sources onto original-mesh edges before handing the assembler an unflipped snapshot, and a re-anchored snapshot still reporting flips stays the typed `Unsupported` refusal; the assembler itself refuses a flipped input outright, so no lift arm can re-enter it. Gauss-Bonnet stays count-independent and integer-anchored (`0.25` floor), admitting only cone prescriptions that round to the correct integer. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality, the residual gates witnessing the recovery. CR rotation convention declares ONCE at `SampleCrouzeixRaviartFaceField` — canonical `Lo→Hi` tangent, `e2 = unit(n × e1)` taken before any flip, a reversed halfedge negating `e1` alone — and every source encoder feeding the sampler adopts it verbatim; a mirrored encoder rotates the diffused field ninety degrees, so the consumer's source-normal-agreement claim is the only gate that can see it. Assembly folds, triplet accumulators, and outer-product folds are named statement-kernel exemptions. `HeatSystem`'s `lifted` argument stays a bare bool: it threads ONE fact into `SpectralAssembly.FlippedIntrinsicLifted`, a column `Numerics/spectral` declares, so a row here only re-wraps it at the seam. Public surface stays `Fin`-railed and exception-free.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -431,18 +431,18 @@ flowchart LR
 
 Each assembly axis seats one owner returning one rail:
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]                        | [RAIL]                                           | [CASES] |
-| :-----: | :----------------- | :----------------------------- | :----------------------------------------------- | :-----: |
-|  [01]   | DEC assembly       | `DecAssembly.Build`            | `Build → Fin<DiscreteCalculus>`                  |    —    |
-|  [02]   | Face row           | `IntrinsicTriangle`            | `FaceRead` (admitted or a named `FaceSkip` row)  |    1    |
-|  [03]   | Connection heat    | `HeatSystemLifted`             | `→ Fin<(SparseMatrix, SpectralAssembly)>` |    —    |
-|  [04]   | Trivial connection | `DistributeHolonomy`           | `→ Fin<Arr<double>>`                             |    —    |
-|  [05]   | Harmonic + Hodge   | `HarmonicForms`                | `→ Fin<HarmonicOneFormBasis>`                    |    —    |
-|  [06]   | Heat scaffold      | `FaceGradients`                | pure folds                                       |    2    |
-|  [07]   | Spectral basis     | `ComputeSpectralBasisDetailed` | `→ Fin<SpectralBasisBundle>`                     |    —    |
-|  [08]   | Face refusal       | `FaceSkip`                     | census rows (key IS the tally ordinal)           |    2    |
-|  [09]   | Cache provenance   | `AssemblyOrigin`               | bundle column                                    |    2    |
-|  [10]   | Sparse assembly    | `TripletStencil`               | `Freeze → Fin<SparseMatrix>`                     |    4    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                        | [RAIL]                                          | [CASES] |
+| :-----: | :----------------- | :----------------------------- | :---------------------------------------------- | :-----: |
+|  [01]   | DEC assembly       | `DecAssembly.Build`            | `Build → Fin<DiscreteCalculus>`                 |    —    |
+|  [02]   | Face row           | `IntrinsicTriangle`            | `FaceRead` (admitted or a named `FaceSkip` row) |    1    |
+|  [03]   | Connection heat    | `HeatSystemLifted`             | `→ Fin<(SparseMatrix, SpectralAssembly)>`       |    —    |
+|  [04]   | Trivial connection | `DistributeHolonomy`           | `→ Fin<Arr<double>>`                            |    —    |
+|  [05]   | Harmonic + Hodge   | `HarmonicForms`                | `→ Fin<HarmonicOneFormBasis>`                   |    —    |
+|  [06]   | Heat scaffold      | `FaceGradients`                | pure folds                                      |    2    |
+|  [07]   | Spectral basis     | `ComputeSpectralBasisDetailed` | `→ Fin<SpectralBasisBundle>`                    |    —    |
+|  [08]   | Face refusal       | `FaceSkip`                     | census rows (key IS the tally ordinal)          |    2    |
+|  [09]   | Cache provenance   | `AssemblyOrigin`               | bundle column                                   |    2    |
+|  [10]   | Sparse assembly    | `TripletStencil`               | `Freeze → Fin<SparseMatrix>`                    |    4    |
 
 ## [04]-[RESEARCH]
 

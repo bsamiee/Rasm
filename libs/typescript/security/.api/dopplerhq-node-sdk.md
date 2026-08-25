@@ -4,15 +4,7 @@
 
 Generated response types are all-optional and key on sample secret names, so a `Schema` decode gates every payload; each status subclass sets `statusCode` alone, so one fold owns the whole fault family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@dopplerhq/node-sdk`
-- package: `@dopplerhq/node-sdk` (MIT)
-- module: dual ESM/CJS behind one `.` export map; `DopplerSDK` is both default and named export, and every service hangs off it as an `sdk.<service>` property
-- runtime: node-only — `HTTPLibrary` drives node HTTP under its own `retryAttempts`/`retryDelayMs` transport retry, and the package pulls zero runtime dependencies
-- rail: `crypt/secret` leased-secret provider, admitted in `crypt/secret` alone
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client facade, the three admitted services, the download-shape vocabularies, and the collapsed fault carrier
 
@@ -28,7 +20,7 @@ Generated response types are all-optional and key on sample secret names, so a `
 
 [PAYLOADS]: `SecretsListResponse` `DownloadResponse` `SecretsGetResponse` `NamesResponse` `MeResponse` `IssueLeaseResponse` `RevokeLeaseResponse`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, probe, fetch, lease
 
@@ -52,7 +44,7 @@ Every `secrets` read keys on `(project, config)`; `includeDynamicSecrets` with `
 - `dynamicSecrets.revokeLease`: keys the lease by `slug` while `IssueLeaseResponse` returns `id` and `expires_at`, and an inline `list`/`download` lease surfaces no identifier — the refresh window is the only reclaim path for those.
 - `secrets.list`: `SecretsListResponse.secrets` types as an interface declaring FOUR fixed example key names (`STRIPE`, `ALGOLIA`, `DATABASE`, `USER`), a codegen artifact of the spec's example payload — the wire carries an arbitrary name-keyed map of `{ raw, computed, note, rawVisibility, computedVisibility }`, so a consumer decodes the response and never reads a name off the declared shape. Its `optionalParams` are `accepts` `includeDynamicSecrets` `dynamicSecretsTtlSec` `secrets` `includeManagedSecrets`; `secrets` narrows the read to a comma-separated allowlist, and `includeDynamicSecrets` is what turns a census into an unreclaimable lease.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DopplerSDK` fans every service off one facade; `secrets`, `dynamicSecrets`, and `auth` carry custody, and Doppler administration is provisioning's concern.
@@ -71,9 +63,3 @@ Every `secrets` read keys on `(project, config)`; `includeDynamicSecrets` with `
 - Source `accessToken` from `Config.redacted` and wrap each decoded value in `Redacted` at first read.
 - Lease through `includeDynamicSecrets` with `dynamicSecretsTtlSec`, refresh inside the window, and revoke in a `Scope` finalizer.
 - Publish the fetched set through one `SubscriptionRef` every consumer observes.
-
-[RAIL_LAW]:
-- Package: `@dopplerhq/node-sdk`
-- Owns: the Doppler fetch axis (`secrets` list/download/get/names), the `dynamicSecrets` lease lifecycle, the `auth` token probe, the generated payload shapes, and the collapsed `BaseHTTPError` fault family
-- Accept: one `Tag`-held client on a `Config.redacted` token, `Effect.tryPromise` calls with `statusCode`-folded faults, TTL leasing refreshed inside its window and revoked on a `Scope` finalizer, `Schema` decode into `Redacted` values, `SubscriptionRef` publication, `Layer.scoped` lifetime
-- Reject: the administration roster from a runtime folder, an instance-of ladder over the status subclasses, a lease with no refresh window or teardown revoke, a per-consumer refetch, trust in a generated payload type without a decode

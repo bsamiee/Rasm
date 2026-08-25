@@ -4,16 +4,7 @@
 
 `sanitize` is one `Config`-discriminated operation, not a family — the return flag selects the return type, hooks extend it, and it is the render-boundary ceiling every DOM-bound wire string clears once before `dangerouslySetInnerHTML`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `isomorphic-dompurify`
-- package: `isomorphic-dompurify` (MIT)
-- module: `.` conditional export — node backs a `jsdom` window (`clearWindow` disposes it), browser binds native `window`; one import, resolution by export condition
-- runtime: isomorphic — `isSupported` reads `false` where neither window exists; the node condition builds its window at import, so resolving this module costs one document
-- depends: `dompurify` re-exports the full type surface and the sanitizer; `jsdom` backs the node window
-- rail: sanitize — the render-boundary ceiling every DOM-bound wire string clears once
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `isomorphic-dompurify` re-exports the DOMPurify type surface whole from `dompurify` — `Config` is the policy vocabulary, the hook types the extension surface, `DOMPurify` the default-export instance.
 
@@ -37,7 +28,7 @@
 - profile: `USE_PROFILES` (`html`/`svg`/`svgFilters`/`mathMl`, overrides `ALLOWED_TAGS`)
 - defense: `SANITIZE_DOM` `SANITIZE_NAMED_PROPS` `WHOLE_DOCUMENT` `CUSTOM_ELEMENT_HANDLING` `TRUSTED_TYPES_POLICY`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `sanitize` is one overloaded gate — `dirty: string | Node`, the `Config` return flag selecting the return type.
 
@@ -73,7 +64,7 @@
 |  [08]   | `uponSanitizeElement`      | `UponSanitizeElementHook`   | override the element decision    |
 |  [09]   | `uponSanitizeAttribute`    | `UponSanitizeAttributeHook` | override the attribute decision  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Pass the return flag for a return mode; four separate functions is the deleted form.
@@ -95,9 +86,3 @@
 - node SSR reuses the one cached window across renders, since `sanitize` leaves no per-render document state; `clearWindow()` serves a long-lived process reclaiming the document, and the same pass that calls it re-registers every hook and re-pins the policy.
 - Own the node document's construction — its console, its resource policy — by building the window and minting through `DOMPurify(root)`; the browser path gates on `isSupported`.
 - Strict CSP returns `TrustedHTML` (`RETURN_TRUSTED_TYPE`) into a Trusted-Types sink.
-
-[RAIL_LAW]:
-- Package: `isomorphic-dompurify`
-- Owns: the dual-runtime DOMPurify sanitize gate, the `Config` allow/deny/return-mode vocabulary, the hook extension axis, the `removed[]` audit, Trusted-Types output, and the node/browser window resolution (`clearWindow`/`isSupported`/`DOMPurify(root)`)
-- Accept: one boundary `sanitize` parameterized by `Config`, project policy via `setConfig`, `USE_PROFILES` for common HTML, `RETURN_TRUSTED_TYPE` under CSP, hooks for decision overrides, one long-lived node window, `DOMPurify(root)` where the host owns the document's construction, invocation once at the ingress/render boundary
-- Reject: per-render or per-component sanitize, re-sanitizing a clean string, a hand-rolled tag/attr allowlist beside `Config`, a hook or pinned policy assumed to survive `clearWindow()`, unsanitized markup reaching `dangerouslySetInnerHTML`

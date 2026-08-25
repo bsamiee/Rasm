@@ -2,17 +2,7 @@
 
 This catalog owns the live document-object surface: `RhinoObject` read and staged mutate, `ObjectAttributes` as the typed per-object display and override program, and the parametric-history triad `HistoryRecord`, `ReplayHistoryData`, and `ReplayHistoryResult`. Every live `RhinoObject` and `ObjectAttributes` value resolves inside the owning document grant and never leases outward.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon live-object surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll`
-- namespaces: `Rhino.DocObjects`, `Rhino.Geometry`, `Rhino.Render`, `Rhino.Render.CustomRenderMeshes`, `Rhino.Commands`, `Rhino.UI.Gumball`, `Rhino.FileIO`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: object-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: live object and attributes
 
@@ -48,7 +38,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 - `public enum Rhino.Render.DecalProjection` — `None = -1`, `Forward = 0`, `Backward = 1`, `Both = 2`.
 - `public enum Rhino.Render.CustomRenderMeshes.RenderMeshProvider.Flags` (`[Flags]`) — `None = 0`, `Canceled = 1`, `DisableCaching = 2`, `Recursive = 4`, `IsDocumentObject = 8`, `AlwaysCopyDocumentContent = 0x10`, `ReturnNullForStandardMaterial = 0x20`, `Incomplete = 0x40`; `Canceled` is the sole return-signalled bit.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [OBJECT_IDENTITY_STATE]:
 - `Rhino.DocObjects.RhinoObject.ObjectType -> ObjectType` — geometry-kind discriminant for query and dispatch.
@@ -203,7 +193,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 - `Rhino.DocObjects.ReplayHistoryResult.UpdateToLinearDimension(LinearDimension dimension, ObjectAttributes attributes) -> bool` / `UpdateToRadialDimension(RadialDimension dimension, ObjectAttributes attributes) -> bool` / `UpdateToAngularDimension(AngularDimension dimension, ObjectAttributes attributes) -> bool` / `UpdateToLeader(Leader leader, ObjectAttributes attributes) -> bool` / `UpdateToHatch(Hatch hatch, ObjectAttributes attributes) -> bool` — annotation and hatch updates.
 - `Rhino.DocObjects.ReplayHistoryResult.UpdateToText(TextEntity text, ObjectAttributes attributes) -> bool` / `UpdateToText(string text, Plane plane, double height, string fontName, bool bold, bool italic, TextJustification justification, ObjectAttributes attributes) -> bool` / `UpdateToInstanceReferenceGeometry(InstanceReferenceGeometry instanceReference, ObjectAttributes attributes) -> bool` — text-entity, raw-text, and block-reference updates.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `RhinoObject` is geometry and one `ObjectAttributes` set, both resolved by id inside a session grant; `RuntimeSerialNumber` keys the object and `FromRuntimeSerialNumber` re-resolves it across a dropped host callback.
@@ -222,9 +212,3 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 - a live `RhinoObject` and its `ObjectAttributes` remain inside the document grant; downstream code receives detached geometry copies, detached attribute snapshots, or explicit leases, never the live handle.
 - history authoring enters through a leased `HistoryRecord` populated by slot id inside a command, threaded once into `ObjectTable.Add`/`TransformWithHistory`; replay enters through the sealed `ReplayHistoryData` callback and drives `ReplayHistoryResult.UpdateTo*` on the existing object.
 - grip editing crosses to the custom-objects catalog through `GetGrips`/`EnableCustomGrips`; visual-analysis registration crosses to the display catalog; pick projection and id-set selection cross to the commands and document catalogs.
-
-[RAIL_LAW]:
-- Surface: `Rhino.DocObjects` live-object, attribute, and history reads
-- Owns: object state and subobject selection, mesh/render/material/texture caches, on-object visual analysis, object frame and section extraction, the typed attribute program, and the record/replay/result history triad.
-- Accept: object read and staged mutate, attribute display and override programs, section/slice extraction, and history authoring and replay projected onto `Fin`/`Option`/`Validation` rails.
-- Reject: live document-bound objects or attribute sets crossing the session boundary, exception-style history outcomes, replay that adds or replaces table objects instead of updating existing results, and a cancel channel on the strict-`bool` replay contract.

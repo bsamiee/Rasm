@@ -2,18 +2,7 @@
 
 `ReactiveUI.Avalonia` is the Avalonia platform binding for ReactiveUI: it supplies typed view bases, the `WithAvalonia` builder admission that registers Avalonia's activation/command/property fetchers into the ReactiveUI/Splat resolver, routed and direct view hosts, the Avalonia main-thread scheduler, and lifetime suspension. It owns no view-model abstractions of its own — those live in `ReactiveUI` (`IViewFor<T>`, `ReactiveObject`, `RoutingState`, `ReactiveCommand`); this assembly wires them to Avalonia controls.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ReactiveUI.Avalonia`
-- package: `ReactiveUI.Avalonia` (MIT)
-- assembly: `ReactiveUI.Avalonia`
-- build-floor: `net10.0` (consumer-bound; multi-targets net8.0/net9.0 — none bound here)
-- namespace: `ReactiveUI.Avalonia` (13 types, 1 namespace)
-- depends-on: `ReactiveUI` (view-model/command/routing core), `Avalonia` (control + `AppBuilder` surface), `Splat`/`Splat.Builder` (DI resolver the fetchers register into)
-- asset: runtime library
-- rail: reactive-ui
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [VIEW_TYPES]: typed view bases and view hosts — consumer-facing controls — rail: reactive-ui. `AvaloniaScheduler` and `AutoSuspendHelper` are sealed.
 
@@ -38,7 +27,7 @@
 |  [06]   | `AvaloniaCreatesCommandBinding`       | internal     | `ICreatesCommandBinding`        | routed-event command bind |
 |  [07]   | `AvaloniaObjectObservableForProperty` | internal     | `ICreatesObservableForProperty` | property-change stream    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [BUILDER_ENTRYPOINTS]: admission during `AppBuilder` startup. `UseReactiveUI` calls `IReactiveUIBuilder.WithAvalonia()`, which registers the fetchers — rail: reactive-ui
 
@@ -101,7 +90,7 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 - Object binding: `GetBindingSubject(this AvaloniaObject, AvaloniaProperty, BindingPriority = LocalValue) : ISubject<BindingValue<object?>>`
 - Typed binding: `GetBindingSubject<T>(this AvaloniaObject, AvaloniaProperty<T>, BindingPriority = LocalValue) : ISubject<BindingValue<T>>`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [ADMISSION_TOPOLOGY]:
 - `UseReactiveUI(builder, b => ...)` defers to `AfterPlatformServicesSetup`: it creates a `ReactiveUIBuilder` via `RxAppBuilder.CreateReactiveUIBuilder()`, calls `WithAvalonia()` on it, runs the consumer callback, then `BuildApp()` unless the app is already built. `WithAvalonia()` composes the builder chain `WithMainThreadScheduler(AvaloniaScheduler.Instance) -> WithTaskPoolScheduler(TaskPoolScheduler.Default) -> WithRegistration(splat => { RegisterConstant<IActivationForViewFetcher>(new AvaloniaActivationForViewFetcher()); RegisterConstant<IPropertyBindingHook>(new AutoDataTemplateBindingHook()); RegisterConstant<ICreatesCommandBinding>(new AvaloniaCreatesCommandBinding()); RegisterConstant<ICreatesObservableForProperty>(new AvaloniaObjectObservableForProperty()); }) -> WithSuspensionHost<Unit>()` — so the UI scheduler is installed through `WithMainThreadScheduler` (setting `RxApp.MainThreadScheduler`), not a bare field assignment. `RegisterReactiveUIViews*` add `IViewFor<T>` registrations to `AppLocator.CurrentMutable`; `UseReactiveUIWithDIContainer<TContainer>` is the only path that assigns `RxSchedulers.MainThreadScheduler = AvaloniaScheduler.Instance` directly, after swapping the Splat locator to the supplied container's `IDependencyResolver`.

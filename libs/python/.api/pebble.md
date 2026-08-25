@@ -2,17 +2,7 @@
 
 `pebble` owns the terminal-kill worker crossing: `ProcessPool`/`ThreadPool` schedule callables onto recyclable workers, and `ProcessPool.schedule(timeout=)` enforces a wall-clock deadline by KILLING the worker mid-execution — the interruption cooperative `anyio` cancellation cannot express against a native C loop or a blocking syscall. `schedule` and `submit` are two argument spellings over that one kill mechanism; the `concurrent`/`asynchronous` decorators bridge a single call to a fresh worker. It feeds the `WorkerPool` TERMINAL-`PROCESS` arm.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pebble`
-- package: `pebble` (LGPL-3.0)
-- import: `pebble`
-- owner: `runtime`
-- rail: worker crossing
-- namespaces: `pebble`, `pebble.concurrent`, `pebble.asynchronous`
-- capability: process/thread worker pools with per-task wall-clock kill-on-deadline, `max_tasks` worker recycling, running-task cancellation, `OSError`-typed worker-death evidence, stdlib-`Executor`-shaped `submit` beside collection-shaped `schedule`, input-order chunked `map`, one-call process/thread decorators over both `concurrent.futures` and `asyncio` futures, and signal-handler/synchronization/wait primitives
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pools, futures, faults
 
@@ -26,7 +16,7 @@
 |  [06]   | `ProcessExpired`   | fault (OSError) | dead-worker evidence carrying `exitcode`/`pid`                  |
 |  [07]   | `CONSTS`           | record          | `Consts(sleep_unit, term_timeout, channel_lock_timeout)` tuning |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool construction and lifecycle
 
@@ -68,7 +58,7 @@
 |  [07]   | `waitforthreads(threads, timeout=None)`                                               | static  | await any thread exit        |
 |  [08]   | `waitforqueues(queues, timeout=None)`                                                 | static  | await any queue ready        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - terminal-deadline: `schedule(timeout=)` is a wall-clock KILL, not a cooperative signal — expiry terminates the worker process mid-execution and raises the builtin `TimeoutError` on `.result()`, so a task stuck in a native C loop, a compute spin, or a blocking syscall still yields its slot and the pool respawns a fresh worker.
@@ -95,9 +85,3 @@
 - a compute leg needing a hard wall-clock deadline over a native or blocking body routes to `ProcessPool.schedule(timeout=)`; a leg needing only cooperative in-loop cancellation stays with `anyio`.
 - a standing `ProcessPool` is acquired once per arm key through `WorkerPool.acquire` and passed to the `concurrent`/`asynchronous` decorators via `pool=`; a per-call fresh spawn is reserved for a one-shot leg where pool amortization does not pay.
 - worker payloads reach pebble as the module-level `shipped` gate carrying a stdlib-picklable `Kernel`; a closure crosses only as `cloudpickle` bytes on `Kernel.payload`, never live to `schedule`/`submit`.
-
-[RAIL_LAW]:
-- Package: `pebble`
-- Owns: process/thread worker pools, per-task wall-clock kill-on-deadline, `max_tasks` recycling, running-task cancellation, `OSError`-typed worker-death evidence, stdlib-shaped `submit` beside collection-shaped `schedule`, input-order chunked `map`, and the one-call process/thread decorators over both future kinds
-- Accept: `ProcessPool.schedule(timeout=)` for a hard-deadline native leg, `submit` for a stdlib-`Executor` call site, `max_tasks` for RSS-bounded recycling, `ProcessFuture.cancel()` for running-task termination, `ProcessExpired` as worker-death evidence, `pool=` reuse from a standing pool
-- Reject: pebble for a cooperative in-loop deadline `anyio` owns, the warm-reuse process arm `loky` owns, a live closure handed to the stdlib pickle seam, a `ThreadPool` timeout expecting a worker kill, a second pool owner, and a hand-rolled `multiprocessing` wrapper

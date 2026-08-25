@@ -2,16 +2,7 @@
 
 `pylance` binds the Lance columnar dataset format for the data lance-format rail: versioned, Arrow-native table storage with ANN vector, scalar, and BM25 full-text indices over local paths and cloud object stores, opening and committing version snapshots, evolving schema, upserting through merge-insert, and storing blob columns. Its Rust `lance` core owns the columnar engine, Arrow scan pipeline, and IVF/HNSW/inverted index kernels, never re-implemented here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pylance`
-- package: `pylance` (Apache-2.0)
-- module: `import lance` (import name is `lance`, not `pylance`)
-- native: Rust `lance` core via PyO3; depends `pyarrow`, `numpy`, `lance-namespace`
-- owner: `data`
-- rail: lance-format — versioned columnar datasets, Arrow-native pushdown scan, vector/scalar/FTS indices, transactional merge-insert, blob columns, multi-base storage, real-time MemWAL shard ingest, and object-store egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: dataset, scan, query, storage, and MemWAL streaming owners
 
@@ -46,7 +37,7 @@
 |  [27]   | `lance.ShardingSpec` / `ShardingField` | class         | MemWAL shard-routing spec and derived-field definition             |
 |  [28]   | `lance.MergedGeneration`               | class         | merged flushed-generation descriptor                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dataset open, write, and scan-to-Arrow
 - scan carry: `columns`, `filter`, `limit`, `offset`, `nearest`, `full_text_query`, `prefilter`, `use_scalar_index`, `fast_search`, `order_by` (shared by `scanner`/`to_table`/`to_batches`)
@@ -92,7 +83,7 @@
 |  [07]   | `tags` / `branches` / `create_branch(name)`                 | property | named version tags and branch refs (`Tags` accessor)      |
 |  [08]   | `optimize` / `.compact_files` / `.optimize_indices`         | property | compaction and ANN/scalar index rebuild                   |
 |  [09]   | `cleanup_old_versions(...)`                                 | instance | prune old versions (`older_than` is a delta)              |
-|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics                                       |
+|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics                                        |
 |  [11]   | `lance.iops_counter` / `lance.bytes_read_counter`           | static   | process-wide IO counters                                  |
 |  [12]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)` | static   | checkpointed resumable batch UDF                          |
 |  [13]   | `lance.blob_field(name, *, nullable=True) -> pa.Field`      | static   | build a blob-typed Arrow field                            |
@@ -120,7 +111,7 @@
 |  [11]   | `ExecutionPlan.to_table()` / `.to_reader()` / `.explain()`              | instance | execute or explain a planned LSM operation      |
 |  [12]   | `lance.evaluate_sharding_spec(batch, spec, schema) -> pa.RecordBatch`   | static   | derive shard-routing values for one batch       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - versioning: each write/mutation appends a version; `dataset(uri, version=, asof=)` opens a snapshot — `version` takes the `int` number or `str` tag, `asof` the latest before a timestamp — and `checkout_version`/`checkout_latest` switch the in-handle snapshot. `version` is the checked-out `int`, `latest_version` the newest, `versions()` the history; `tags` (via `Tags`) and `branches`/`create_branch` carry semantic refs; `restore()` re-commits an old version as head.
@@ -149,9 +140,3 @@
 
 [LOCAL_ADMISSION]:
 - Lance datasets open through the lakehouse LANCE arms and the columnar/vector/FTS scan owners; a raw `lance.dataset(...)` open outside those owners is unadmitted.
-
-[RAIL_LAW]:
-- Package: `pylance`
-- Owns: versioned Lance columnar datasets, Arrow-native pushdown scan, ANN vector + scalar + BM25 full-text indices, transactional merge-insert/update/delete, schema evolution, blob column storage, multi-base physical storage, real-time MemWAL shard ingest with LSM-tier read, version checkout/tags/branches/cleanup, and object-store egress
-- Accept: Arrow `Table`/`RecordBatch`/reader written to a Lance URI with explicit `mode`/`schema`; `scanner`/`to_table`/`to_batches` with predicate/projection/`nearest`/`full_text_query` pushdown; `merge_insert` upsert; `create_index`/`create_scalar_index` for retrieval; `mem_wal_writer(shard_id).put(...)` for streaming ingest read back through `LsmScanner`/`Lsm*Planner`; `version`/`checkout_version`/`tags` for time-travel; `optimize`/`cleanup_old_versions` for maintenance
-- Reject: hand-rolled versioning over Parquet; a separate streaming/WAL buffer beside the dataset where `mem_wal_writer` owns durable real-time ingest; client-side post-filter after a full materialize where scan pushdown discriminates; wrapper-renames of scanner, index, or merge-insert operations lance owns; a `search_vector`/`search_text` split where one `scanner(nearest=/full_text_query=)` discriminates by parameter

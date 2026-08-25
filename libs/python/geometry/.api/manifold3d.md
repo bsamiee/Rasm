@@ -2,16 +2,7 @@
 
 `manifold3d` owns the geometry branch's guaranteed-manifold CSG rail: watertight 3D boolean solids, 2D polygon boolean and offset over Clipper2, SDF level sets, convex hull and Minkowski morphology, and ray casting. Geometry owners compose its lazy transform chains, `batch_boolean` n-ary CSG, and the `level_set` SDF constructor into the spatial-operation union rather than re-implementing Clipper2 offsetting, the manifold boolean kernel, or convex hull. In-memory `Mesh`/`Mesh64` arrays wire straight to the data mesh codec, so this nanobind extension never opens a file.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `manifold3d`
-- package: `manifold3d`
-- import: `import manifold3d`
-- owner: `geometry`
-- rail: geometry-csg / spatial-operations
-- capability: guaranteed-manifold 3D boolean CSG and 2D polygon boolean/offset over Clipper2, lazy affine/warp transforms, SDF marching-tetrahedra level sets, convex hull and Minkowski morphology, edge refinement and tolerance simplification, vertex normal/curvature/property computation, and ray-segment casting
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry carriers
 
@@ -33,7 +24,7 @@
 |  [03]   | `JoinType` | offset join    | `Square`, `Round` (default), `Miter`, `Bevel`                                           |
 |  [04]   | `Error`    | status code    | `NoError`..`Cancelled` (15 cases: `NonFiniteVertex`/`NotManifold`/`ResultTooLarge`/...) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Manifold construction
 
@@ -137,7 +128,7 @@
 |  [04]   | `set_min_circular_angle(degrees)`                                   | config         | min angle per segment (rounds up to factor of 4) |
 |  [05]   | `set_min_circular_edge_length(length)`                              | config         | min segment edge length                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Three-or-more-operand CSG folds through `batch_boolean(sequence, op)`, the single n-ary owner; a manual `reduce` over `+`/`-`/`^` is never the fold.
@@ -155,9 +146,3 @@
 
 [LOCAL_ADMISSION]:
 - `manifold3d` is the admitted exact-boolean and clearance backend for the geometry branch; the mesh, spatial, and CSG owners compose it rather than a parallel boolean or offset surface.
-
-[RAIL_LAW]:
-- Package: `manifold3d`
-- Owns: guaranteed-manifold 3D boolean CSG, 2D polygon boolean/offset over Clipper2, lazy affine/warp transforms, SDF marching-tetrahedra level sets, convex hull and Minkowski morphology, edge refinement and tolerance simplification, vertex normal/curvature/property computation, and ray-segment casting
-- Accept: `Manifold`/`CrossSection` values from primitives, `Mesh`/`Mesh64` round-trips, SDF level sets, or hull/Minkowski; in-memory triangle arrays from the data mesh codec
-- Reject: hand-rolled boolean mesh ops, hand-rolled Clipper2 offsetting, a manual `reduce` over `+`/`-`/`^` where `batch_boolean` owns n-ary CSG, non-manifold soup trusted without a `status()` gate, and a mesh-file/GLB encode that belongs to the data codec

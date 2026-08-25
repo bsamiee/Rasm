@@ -2,9 +2,7 @@
 
 `Register` is the ISO 19650 delivery-register / drawing-index owner — the information-container metadata authority at the delivery boundary, ONE owner over the closed `RegisterOp` `expression.tagged_union`: `Index` renders the sheet-index publication table through `visualization/table#TABLE`, `Container` serializes the information-container metadata as a dialect-profiled `lxml` XML tree that is `isoschematron.Schematron`-validated against the profile's mandated-metadata rows and emitted `c14n2`-canonical byte-reproducibly, `Audit` folds the coverage verdict over one closed `AuditRule` policy through the accumulating `RegisterFault.combined`, `Render` streams the native `xlsxwriter` register spreadsheet under one `RenderScope`, and `Delta` renders added, revised, regressed, and withdrawn containers against a prior container set — each arm dispatched by one total `match` and folded ONCE into the `Composed` evidence struct, never a second render. No ISO 19650 register library exists, so this owner composes the delivery algebra over the owned standards vocabularies with `polars`/`great-tables`/`xlsxwriter`/`openpyxl`/`lxml`, never a re-implemented byte emitter.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[REGISTER]
 
@@ -15,7 +13,7 @@
 - Boundary: no artifact production beyond the register/index/manifest close (sheets arrive emitted from `composition/sheet#SHEET`, QTO/schedule frames from `drawing/schedule#SCHEDULE`), no IFC authoring (`dotnet:Rasm.Bim` owns the model; the register composes container facts at the wire), no COBie-SpreadsheetML authoring (the COBie `DialectProfile` profiles the metadata XML only), no classification-table authoring (`specification/classify#CODE` owns the code tables), no publication-table render authority (`visualization/table#TABLE` owns the great-tables render; the register composes the `.build()` seam), no data sourcing (rows arrive as payloads, workbooks, or drawn sheets and cross the one gate), no content-key minting the runtime owns, and no second scheduler beside the `core/plan#PLAN` lane. Seven-of-eight `SuitabilityCode` subsets dropping `S5`, a fabricated closed `RecordCode`, a `_value2member_map_` membership probe, a bare-`str` suitability the interior re-parses, a `Result.to_option` casualty erasure at the workbook seam, a dialect that renames nothing, a `constant_memory`/`in_memory` contradiction, and a first-failure abort where the coverage verdict accumulates are each foreclosed by the correct form above.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from collections import Counter
 from contextlib import closing

@@ -2,16 +2,7 @@
 
 `Xbim.InformationSpecifications` owns the buildingSMART IDS specification document model: the in-memory `Xids` graph that parses, authors, and round-trips IDS XML and native JSON, holding `SpecificationsGroup`s of `Specification`s that each pair an applicability and a requirement `FacetGroup` under an IDS `ICardinality`. Each facet is `: FacetBase, IFacet`, deciding a candidate value through the `ValueConstraint` engine. It carries no IFC entity graph, only the specification that validates one, and feeds the `validation#IDS_FACETS` rail; an IDS parse fault lifts to `BimFault`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Xbim.InformationSpecifications`
-- package: `Xbim.InformationSpecifications` (CDDL-1.0)
-- assembly: `Xbim.InformationSpecifications`; the `net10.0` consumer binds `lib/net8.0` (pure-managed AnyCPU IL, ALC-safe, no native asset)
-- namespace: `Xbim.InformationSpecifications`, `.Helpers`, `.Helpers.Measures`, `.IO`, `.Cardinality`, `.Facets.buildingSMART`
-- transitive: `ids-lib` (`api-ids-lib`, the IDS-file audit + `IfcSchema` metadata), `System.Text.Json` (native JSON IO), `System.IO.Compression.ZipFile` (the IDS `.zip` container)
-- rail: `validation#IDS_FACETS`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: IDS document model
 
@@ -67,7 +58,7 @@
 |  [07]   | `Helpers.Measures.MeasureUnit`  | measure helper       | the SI unit conversion — 7-fundamental dimensional exponents + ratio/offset |
 |  [08]   | `XidsSettings`                  | serialization policy | export/load formatting via `Xids.Settings.PrettyPrint`                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document load and save
 - note: every load/save/probe overload takes a trailing optional `ILogger? logger = null`.
@@ -128,7 +119,7 @@
 |  [05]   | `ICardinality.IsSatisfiedBy(int count)`                         | instance | the occurrence-rule check                |
 |  [06]   | `IfcSchemaVersionHelper.ToIds` / `.FromIds`                     | static   | the `api-ids-lib` schema-metadata bridge |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Xids` is the document root (`ISpecificationMetadata`): it owns `SpecificationsGroup`s of `Specification`s and a `FacetGroupRepository`, and round-trips IDS XML (`LoadBuildingSmartIDS`/`ExportBuildingSmartIDS` → `ExportedFormat.XML`/`ZIP`) and native JSON (`Load`/`SaveAsJson`).
@@ -150,9 +141,3 @@
 - `IfcSchemaVersion` is the schema axis, bridged to `ids-lib` through `IfcSchemaVersionHelper`; a second schema-version enum beside the bridge is the rejected form.
 - `api-ids-lib` `IdsLib.Audit` owns the IDS-FILE audit; the `validation#IDS_FACETS` fold over the query algebra owns the MODEL audit (elements vs the spec) — orthogonal, neither re-implements the other.
 - this package carries no IFC entity graph — the model under test is the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` the `Projection/semantic#SEMANTIC_PROJECTOR` assembles.
-
-[RAIL_LAW]:
-- Package: `Xbim.InformationSpecifications` (CDDL-1.0)
-- Owns: the buildingSMART IDS specification document model (`Xids`/`SpecificationsGroup`/`Specification`/`FacetGroup`), the facet types, the `ValueConstraint` value-matching engine, IDS cardinality, the schema axis, and the IDS XML/JSON round-trip
-- Accept: an IDS document loaded or authored through `Xids`, its facets read as the closed `IdsFacet` union the `validation#IDS_FACETS` page lowers to the `BimLeaf` term algebra, its `ValueConstraint`s lowered at parse onto the seam `ValueMatch` family (range literals coerced through `TryGetNetType`/`ParseValue`), and the schema bridged to `ids-lib` through `IfcSchemaVersionHelper`.
-- Reject: a hand-rolled IDS XSD parser beside `Xids.LoadBuildingSmartIDS`; a stringly-typed value compare beside `ValueConstraint`; a second schema-version enum beside `IfcSchemaVersionHelper`; an IFC entity-graph reader sought from this package; re-implementing the IDS-FILE audit `api-ids-lib` owns; vendoring or modifying the CDDL-1.0 source rather than referencing the binary

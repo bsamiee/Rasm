@@ -44,12 +44,12 @@ public sealed record Slot(string Key, int Rank);
 
 public static class StoreProfile {
     public static NpgsqlDataSource Open(string channel, Func<NpgsqlConnectionStringBuilder, CancellationToken, ValueTask<string>> secret, ILoggerFactory logs) {
-        var profile = new NpgsqlDataSourceBuilder(channel);
+        NpgsqlDataSourceBuilder profile = new(channel);
         _ = profile.MapEnum<Band>("band").MapComposite<Slot>("slot").EnableDynamicJson().UseLoggerFactory(logs);
         _ = profile.UsePeriodicPasswordProvider(secret, successRefreshInterval: TimeSpan.FromMinutes(10), failureRefreshInterval: TimeSpan.FromSeconds(15));
         _ = profile.UsePhysicalConnectionInitializer(
-            static session => { using var floor = session.CreateCommand(); floor.CommandText = "SET statement_timeout = 30000"; _ = floor.ExecuteNonQuery(); },
-            static async session => { await using var floor = session.CreateCommand(); floor.CommandText = "SET statement_timeout = 30000"; _ = await floor.ExecuteNonQueryAsync().ConfigureAwait(false); });
+            static session => { using NpgsqlCommand floor = session.CreateCommand(); floor.CommandText = "SET statement_timeout = 30000"; _ = floor.ExecuteNonQuery(); },
+            static async session => { await using NpgsqlCommand floor = session.CreateCommand(); floor.CommandText = "SET statement_timeout = 30000"; _ = await floor.ExecuteNonQueryAsync().ConfigureAwait(false); });
         _ = profile.ConfigureTracing(static tracing => tracing
             .ConfigureCommandFilter(static command => !command.CommandText.StartsWith("LISTEN", StringComparison.Ordinal))
             .ConfigureCommandSpanNameProvider(static command => command.CommandText is ['M', 'E', 'R', 'G', 'E', ..] ? "<span-reconcile>" : "<span-ask>")
@@ -146,7 +146,7 @@ public static class StoreSeam {
         try { return Fin.Succ(await statement(store, token).ConfigureAwait(false)); }
         catch (PostgresException server) { return Fin.Fail<T>(Fold(server)); }
         catch (NpgsqlException driver) {
-            var captured = Error.New(driver.Message, (Exception)driver);
+            Error captured = Error.New(driver.Message, (Exception)driver);
             return Fin.Fail<T>(driver.IsTransient
                 ? new StoreFault.Unavailable(driver.Message, captured)
                 : new StoreFault.Broken(driver.Message, captured));
@@ -159,7 +159,7 @@ public static class StoreSeam {
 
     public static StoreFault Fold(PostgresException server) {
         ArgumentNullException.ThrowIfNull(server);
-        var captured = Error.New(server.Message, (Exception)server);
+        Error captured = Error.New(server.Message, (Exception)server);
         return server.SqlState switch {
             PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ExclusionViolation => new StoreFault.Conflict(server.ConstraintName ?? "<unnamed>", server.MessageText, captured),
             PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected => new StoreFault.Contention(server.SqlState, captured),
@@ -277,25 +277,25 @@ public sealed record ReconcileResult(ulong Staged, int Inserted, int Updated) { 
 public static class BulkLane {
     public static async Task<Fin<ReconcileResult>> Reconcile(NpgsqlDataSource store, Seq<StagedRow> rows, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        var reconciled = await StoreSeam.Ask(store, async (source, ct) => {
-            await using var connection = await source.OpenConnectionAsync(ct).ConfigureAwait(false);
-            await using var importer = await connection.BeginBinaryImportAsync("COPY staging (key, band, slot) FROM STDIN (FORMAT BINARY)", ct).ConfigureAwait(false);
-            foreach (var row in rows) {
+        Fin<ReconcileResult> reconciled = await StoreSeam.Ask(store, async (source, ct) => {
+            await using NpgsqlConnection connection = await source.OpenConnectionAsync(ct).ConfigureAwait(false);
+            await using NpgsqlBinaryImporter importer = await connection.BeginBinaryImportAsync("COPY staging (key, band, slot) FROM STDIN (FORMAT BINARY)", ct).ConfigureAwait(false);
+            foreach (StagedRow row in rows) {
                 await importer.StartRowAsync(ct).ConfigureAwait(false);
                 await importer.WriteAsync(row.Key, NpgsqlDbType.Uuid, ct).ConfigureAwait(false);
                 await importer.WriteAsync(row.Band, "band", ct).ConfigureAwait(false);
                 await importer.WriteAsync(row.Slot, "slot", ct).ConfigureAwait(false);
             }
-            var staged = await importer.CompleteAsync(ct).ConfigureAwait(false);
-            await using var reconcile = connection.CreateCommand();
+            ulong staged = await importer.CompleteAsync(ct).ConfigureAwait(false);
+            await using NpgsqlCommand reconcile = connection.CreateCommand();
             reconcile.CommandText = """
                 MERGE INTO target AS held USING staging AS staged ON held.key = staged.key
                 WHEN MATCHED THEN UPDATE SET band = staged.band, slot = staged.slot
                 WHEN NOT MATCHED THEN INSERT (key, band, slot) VALUES (staged.key, staged.band, staged.slot)
                 RETURNING merge_action()
                 """;
-            await using var verdicts = await reconcile.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            var (inserted, updated) = (0, 0);
+            await using NpgsqlDataReader verdicts = await reconcile.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            (int inserted, int updated) = (0, 0);
             while (await verdicts.ReadAsync(ct).ConfigureAwait(false)) { (inserted, updated) = verdicts.GetString(0) is "INSERT" ? (inserted + 1, updated) : (inserted, updated + 1); }
             return new ReconcileResult(staged, inserted, updated);
         }, token).ConfigureAwait(false);
@@ -340,9 +340,9 @@ public static class ChangeDecode {
     public static async Task Pump(LogicalReplicationConnection link, PgOutputReplicationSlot slot, Func<CommitBatch, Task> apply, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(link);
         ArgumentNullException.ThrowIfNull(apply);
-        var (staged, open) = (HashMap<uint, Seq<ChangeFact>>(), Seq<ChangeFact>());
-        var options = new PgOutputReplicationOptions(["<publication-a>"], PgOutputProtocolVersion.V4, binary: true, streamingMode: PgOutputStreamingMode.Parallel, messages: true);
-        await foreach (var message in link.StartReplication(slot, options, token).ConfigureAwait(false)) {
+        (HashMap<uint, Seq<ChangeFact>> staged, Seq<ChangeFact> open) = (HashMap<uint, Seq<ChangeFact>>(), Seq<ChangeFact>());
+        PgOutputReplicationOptions options = new(["<publication-a>"], PgOutputProtocolVersion.V4, binary: true, streamingMode: PgOutputStreamingMode.Parallel, messages: true);
+        await foreach (PgOutputReplicationMessage message in link.StartReplication(slot, options, token).ConfigureAwait(false)) {
             switch (message) {
                 case RelationMessage relation:
                     (staged, open) = Filed(staged, open, relation.TransactionXid, new ChangeFact.Marker($"<relation:{relation.Namespace}.{relation.RelationName}:{relation.ReplicaIdentity}>")); break;
@@ -374,8 +374,8 @@ public static class ChangeDecode {
         xid is uint id ? (staged.AddOrUpdate(id, held => held.Add(fact), Seq(fact)), open) : (staged, open.Add(fact));
 
     static async ValueTask<Seq<Cell>> Drained(ReplicationTuple row, CancellationToken token) {
-        var cells = Seq<Cell>();
-        await foreach (var value in row.ConfigureAwait(false)) {
+        Seq<Cell> cells = Seq<Cell>();
+        await foreach (ReplicationValue value in row.ConfigureAwait(false)) {
             cells = cells.Add(value switch {
                 { IsDBNull: true } => new Missing(),
                 { IsUnchangedToastedValue: true } => new Carried(),
@@ -414,12 +414,13 @@ public sealed record CapabilityVerdict(int Engine, FrozenSet<Lane> Held, Seq<Err
 public static class Verification {
     public static async Task<Fin<CapabilityVerdict>> Admit(NpgsqlDataSource store, int engineFloor, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        await using var batch = store.CreateBatch();
+        await using NpgsqlBatch batch = store.CreateBatch();
         batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT current_setting('server_version_num')::int"));
         batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT extname, split_part(extversion, '.', 1)::int FROM pg_extension"));
-        await using var evidence = await batch.ExecuteReaderAsync(token).ConfigureAwait(false);
-        var engine = await evidence.ReadAsync(token).ConfigureAwait(false) ? evidence.GetInt32(0) : 0;
-        var (installed, _) = (HashMap<string, int>(), await evidence.NextResultAsync(token).ConfigureAwait(false));
+        await using NpgsqlDataReader evidence = await batch.ExecuteReaderAsync(token).ConfigureAwait(false);
+        int engine = await evidence.ReadAsync(token).ConfigureAwait(false) ? evidence.GetInt32(0) : 0;
+        HashMap<string, int> installed = HashMap<string, int>();
+        _ = await evidence.NextResultAsync(token).ConfigureAwait(false);
         while (await evidence.ReadAsync(token).ConfigureAwait(false)) { installed = installed.AddOrUpdate(evidence.GetString(0), evidence.GetInt32(1)); }
         return engine < engineFloor
             ? Fin.Fail<CapabilityVerdict>(Error.New(7721, $"<engine-floor:{engine}:{engineFloor}>"))

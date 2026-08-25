@@ -2,16 +2,7 @@
 
 `pointblank` owns the graded data-quality validation rail: a `Validate` plan chains column, row, schema, and aggregate steps over a Narwhals-backed frame, `interrogate()` executes the fold, and `Thresholds`/`Actions` grade each step at warning/error/critical severity. `Validate` reduces the interrogated plan to a boolean/fractional pass-fail grade and emits a `great_tables.GT` report; the profile plane folds this surface into the `PROFILE_POINTBLANK_GRADE` path, while frame normalization, contract grading, and render stay downstream owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pointblank`
-- package: `pointblank` (MIT)
-- module: `pointblank`
-- owner: `data`
-- rail: grade
-- asset: pure Python
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validation, grading, declarative-plan, schema, profiling, and generation roots
 
@@ -34,7 +25,7 @@ Per-column generation constraints carry two equivalent idioms — the `IntField`
 |  [13]   | `Field` / `*Field`             | generation value | per-column generation-constraint classes                               |
 |  [14]   | `int_field` … `duration_field` | generation value | snake-case `*_field()` factories mirroring the `*Field` classes        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Validate` plan, interrogate, and grade
 
@@ -129,7 +120,7 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 |  [22]   | `config`                | global report/preview defaults                                       |
 |  [23]   | `has_columns`           | standalone existence check (`has_rows` mirror)                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - plan axis: one `Validate` owns the plan; each `col_vals_*`/`rows_*`/`col_schema_match`/`row_count_match` call is a step row returning `Validate`, a chained fold, never a per-rule validator object.
@@ -155,9 +146,3 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 - Grade through `Thresholds`/`Actions` and bind side-effects (`send_slack_notification`/`emit_otel`) as `Actions` payloads, never a try/notify or OTel-span wrapper around `interrogate()`.
 - Synthesize fixtures with `generate_dataset(schema, ...)` over `*_field()`/`*Field` columns and round-trip a real frame through `schema_from_tbl`/`profile_fields`, never a hand-built mock frame.
 - Persist a plan through `read_file`/`write_file` or a `Contract`/`Pipeline` `to_yaml`/`from_yaml`, and drive declarative validation with `yaml_interrogate`, never a parallel plan API.
-
-[RAIL_LAW]:
-- Package: `pointblank`
-- Owns: chained validation-plan authoring over Narwhals-backed frames, warning/error/critical threshold grading with severity actions and `send_slack_notification`/`emit_otel` side-effects, column/row/schema/aggregate assertions, table profiling, `Schema`-driven synthetic-dataset generation, declarative `Contract`/`Pipeline`/YAML plans, and `great_tables.GT` report emission
-- Accept: graded data-quality validation feeding a renderable `GT` frame to the document, visuals, and grade owners
-- Reject: wrapper-renames of `Validate`/`interrogate`/`get_tabular_report`; a hand-rolled row-level assertion engine; a parallel step type per comparison operator or per frame library; a re-rendered HTML table where the in-package `GT` frame needs none; an external try/notify or OTel-span wrapper around `interrogate()` where `Actions`+`emit_otel`/`send_slack_notification` own the side-effect rail; a hand-built mock frame where `generate_dataset`+`Schema` synthesizes one

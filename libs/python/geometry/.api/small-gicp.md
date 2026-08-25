@@ -2,15 +2,7 @@
 
 `small_gicp` owns the parallel fine point-cloud registration speed-path for the scan-processing rail: the polymorphic `align` entrypoint drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform, discriminating on the target shape and a `registration_type` string. It fills the fine multi-threaded refinement slot the coarse global `kiss_matcher`/`open3d` engines seed and the core `trimesh`/`manifold3d` spine cannot reach at scan scale.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `small-gicp`
-- package: `small-gicp` (MIT)
-- module: `small_gicp`
-- rail: scan-processing / fine-registration-enrichment
-- gate: native pybind11 build; a Forge-worker enrichment beside the core `trimesh`/`manifold3d` spine, which never depends on it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cloud, index, and result family
 
@@ -38,7 +30,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 |  [08]   | `GICPFactor`                   | factor        | plane-to-plane GICP linearization                |
 |  [09]   | `DistanceRejector`             | rejector      | `set_max_distance` correspondence gate           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`small_gicp.align`)
 
@@ -81,7 +73,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 |  [09]   | `result.num_inliers` / `result.error`     | property | inlier count and final error         |
 |  [10]   | `result.H` / `result.b`                   | property | linearized Hessian and gradient      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import small_gicp` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -101,9 +93,3 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 
 [LOCAL_ADMISSION]:
 - small_gicp is admitted for the fine multi-threaded GICP/VGICP/ICP/point-to-plane refinement slot the coarse global `kiss_matcher`/`open3d` and probabilistic `probreg` engines seed.
-
-[RAIL_LAW]:
-- Package: `small-gicp`
-- Owns: parallel GICP/VGICP/ICP/point-to-plane registration, voxel-grid downsampling, parallel KdTree search, normal and covariance estimation, incremental voxel maps, and linearized factors
-- Accept: fine point-cloud registration feeding the scan-processing owner
-- Reject: wrapper-renames of `align`/`preprocess_points`; a hand-rolled GICP linearization or parallel KdTree where small_gicp is admitted; an ICP/GICP/VGICP function family over the `registration_type` argument row; identity minting the runtime owns

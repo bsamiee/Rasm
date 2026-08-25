@@ -25,7 +25,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using QuikGraph;
@@ -987,19 +987,19 @@ public static class Chronicle {
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                   | [ENTRY]           |
-| :-----: | :------------------ | :---------------- | :--------------------------------------- | :---------------- |
-|  [01]   | slot payloads       | `SlotValue`       | closed union with total native write     | `HistoryScript`   |
-|  [02]   | record authoring    | `HistoryScript`   | leased mint on a `HistoryOwner` seat     | `Mint`            |
-|  [03]   | replace survival    | `ReplaceSurvival` | the copy-on-replace posture as its row   | `BondOp.Survival` |
-|  [04]   | slot recovery       | `SlotValue`       | generated write/read correspondence      | `Recover`         |
-|  [05]   | geometry regrowth   | `Regrown`         | admitted generated update dispatch       | `Apply`           |
-|  [06]   | text emphasis       | `TextEmphasis`    | the raw-text emphasis pair as one set    | `RawTextGrowth`   |
-|  [07]   | replay body         | `ReplayProgram`   | strict-`bool` telemetry delegate         | `Delegate`        |
-|  [08]   | linkage mutation    | `BondOp`          | shared-spine linkage union               | `Chronicle.Bind`  |
-|  [09]   | dependency topology | `HistoryWeb`      | delegate-column web projection           | `Chronicle.Ask`   |
-|  [10]   | process governance  | `HistoryConduct`  | gated settings rows with restoration     | `Under`           |
-|  [11]   | traversal bound     | `WebBudget`       | node and edge ceilings on every arm      | `WebAsk.Targeted` |
+| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                 | [ENTRY]           |
+| :-----: | :------------------ | :---------------- | :------------------------------------- | :---------------- |
+|  [01]   | slot payloads       | `SlotValue`       | closed union with total native write   | `HistoryScript`   |
+|  [02]   | record authoring    | `HistoryScript`   | leased mint on a `HistoryOwner` seat   | `Mint`            |
+|  [03]   | replace survival    | `ReplaceSurvival` | the copy-on-replace posture as its row | `BondOp.Survival` |
+|  [04]   | slot recovery       | `SlotValue`       | generated write/read correspondence    | `Recover`         |
+|  [05]   | geometry regrowth   | `Regrown`         | admitted generated update dispatch     | `Apply`           |
+|  [06]   | text emphasis       | `TextEmphasis`    | the raw-text emphasis pair as one set  | `RawTextGrowth`   |
+|  [07]   | replay body         | `ReplayProgram`   | strict-`bool` telemetry delegate       | `Delegate`        |
+|  [08]   | linkage mutation    | `BondOp`          | shared-spine linkage union             | `Chronicle.Bind`  |
+|  [09]   | dependency topology | `HistoryWeb`      | delegate-column web projection         | `Chronicle.Ask`   |
+|  [10]   | process governance  | `HistoryConduct`  | gated settings rows with restoration   | `Under`           |
+|  [11]   | traversal bound     | `WebBudget`       | node and edge ceilings on every arm    | `WebAsk.Targeted` |
 
 ## [09]-[RESEARCH]
 

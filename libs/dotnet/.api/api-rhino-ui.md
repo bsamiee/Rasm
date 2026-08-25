@@ -2,16 +2,7 @@
 
 `Rhino.UI` carries the two host-UI seams every Rhino-hosted boundary crosses: the `EtoExtensions` bridge that binds an Eto window to a `RhinoDoc`, stamps native chrome onto a control, presents a semi-modal dialog, and persists a window's screen slot keyed by a caller `Type`; and the `Dialogs` native value-prompt fast lane that settles a string or a number without a full Eto dialog. The namespace spans two host assemblies. This branch catalogue owns the shared seams; each host-boundary folder registers it and tables only the subsystem its own boundary reaches.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Rhino.UI` host-bridge seams
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `Rhino.UI.dll` — `EtoExtensions`; `RhinoCommon.dll` — `Dialogs`. One namespace, two host assemblies.
-- namespace: `Rhino.UI`
-- asset: in-process host DLLs from the installed RhinoWIP `RhCore.framework` bundle; the manifest never pins them
-- rail: host-rhino
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the shared host-bridge statics
 
@@ -20,7 +11,7 @@
 |  [01]   | `EtoExtensions` | static class  | native styling, document window binding, and position persistence |
 |  [02]   | `Dialogs`       | static class  | Rhino-native value prompts                                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `EtoExtensions` — native styling and document window binding
 
@@ -51,7 +42,7 @@ Each prompt settles a value through the Rhino-native fast lane, the accepted-ver
 |  [02]   | `Dialogs.ShowNumberBox(string, string, ref double) -> bool`                 | static  | unbounded number prompt |
 |  [03]   | `Dialogs.ShowNumberBox(string, string, ref double, double, double) -> bool` | static  | bounded number prompt   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every Eto surface reaches a Rhino window through this bridge alone: `UseRhinoStyle` stamps native chrome in place, `Show`/`ShowSemiModal` present against a document, and the control tree itself is authored through the Eto catalogues and never re-implemented here.
@@ -67,9 +58,3 @@ Each prompt settles a value through the Rhino-native fast lane, the accepted-ver
 - Native styling enters through `UseRhinoStyle`; a hand-rolled Rhino-chrome stamp is the deleted form.
 - Form-to-document binding is `Show`/`GetRhinoDoc`, and a boundary owner composes these rather than re-deriving the association.
 - A single-value input takes `ShowEditBox`/`ShowNumberBox`; a hand-built one-field Eto dialog beside them is the deleted form.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon` + `Rhino.UI` (host UI bridge)
-- Owns: `UseRhinoStyle` native styling, `RhinoDoc` window show and lookup, semi-modal presentation, window position persistence and localization, and the native edit and number prompts
-- Accept: Rhino chrome onto an Eto control, a form or dialog bound to a `RhinoDoc`, a window slot keyed by caller `Type`, a single value settled on the native fast lane
-- Reject: Eto widget construction and layout (`.api/api-eto-forms.md`), handler resolution and native embedding (`.api/api-eto-platform.md`), the AppKit native seam (`.api/api-macos-native.md`), a hand-rolled Rhino-chrome stamp or one-field dialog, and a folder partition re-tabling these seams at member depth

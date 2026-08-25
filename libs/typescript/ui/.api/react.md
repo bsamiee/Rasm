@@ -2,17 +2,7 @@
 
 `react` runs the whole `ui` folder as function components and hooks: `react-compiler` compiles memoization from the dataflow, `ref` rides as an ordinary prop, and `<Context>` is its own provider, so the folder authors no class component, `forwardRef`, or hand-written `useMemo`. `react` owns ephemeral interaction-local state alone — the `@effect-atom` binding owns domain state and reaches a component only through `useSyncExternalStore`, `@types/react` types the surface, and `react-dom` commits the tree.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react`
-- package: `react` (MIT)
-- module: ESM/CJS dual via conditional `exports`; subpaths `.` (barrel), `./jsx-runtime`, `./jsx-dev-runtime`, `./compiler-runtime`; a `react-server` condition swaps the RSC-safe build (no client hooks) at the `.` and jsx subpaths
-- runtime: isomorphic (browser/node/worker); zero dependencies; renderer-agnostic — `react` is the reconciler-facing runtime, a renderer package (`react-dom`) commits the tree
-- asset: JS runtime shipping no own `.d.ts` — `@types/react` (`.api/types-react.md`) is the type surface and `tsc` the gate, so a runtime member and its type move as one wave; the stable barrel omits the canary members, which resolve only from the `react/canary` types subpath, admitted by one `/// <reference types="react/canary" />` at the entry types since a tsconfig `types` array cannot reach a conditional subpath
-- compiler: `react-compiler` compiles memoization from the dataflow (`.api/babel-plugin-react-compiler.md` build pass, `.api/react-compiler-runtime.md` runtime companion); `__COMPILER_RUNTIME` is the internal handle the emitted code binds
-- rail: the `ui` React spine — every `view`/`act`/`atom`/`intl` row is a function component or hook composed on this runtime
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the runtime-value type shapes the hooks return and consume — `@types/react` (`.api/types-react.md`) declares the full element/props/ref/child vocabulary (`ReactNode`, `ReactElement`, `ComponentProps`, `FC`, `PropsWithChildren`, `Ref`/`RefObject`, `Context<T>`), and the rows below carry the runtime-behavior types a hook signature threads, composing the entrypoint tables without re-teaching the element vocabulary.
 
@@ -36,7 +26,7 @@
 - [07]-[VIEW_TRANSITION_CONTRACT]: props `name`/`default`/`enter`/`exit`/`update`/`share` (a class string or a per-transition-type map) + `onEnter`/`onExit`/`onUpdate`/`onShare(instance, types)`; declared only in the `react/canary` types subpath, never the default barrel.
 - [08]-[RENDER_TREE]: every component return; the headless `view` rows and `intl` message folds produce `ReactNode`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: local state, reducers, and the action surface — `react` owns *ephemeral interaction-local* state, the value a widget needs this frame; domain/app state is the `@effect-atom` binding (`ONE_FOLD_ONE_BINDING`), so `useState`/`useReducer` never mirror a domain fold, and the action hooks (`useActionState`/`useOptimistic`) are the pure-React form boundary the folder mostly supersedes with `Schema`→aria `FormBinding` + the atom.
 
@@ -106,7 +96,7 @@
 - [08]-[SERVER_MEMO]: RSC-only request-scoped memoization; inert in the client SPA build — a boundary row, not a client capability.
 - [09]-[TEST_DEV]: kit-driven spec flushing (`@effect/vitest`), dev-build-only owner-stack capture, cache invalidation — not shipped-component surface.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - function components + hooks are the whole authoring surface: a component is a function returning `ReactNode`, capability is added by composing hooks, and no class hierarchy is in play — `Component`/`PureComponent`/`forwardRef`/`createRef` exist for interop but the folder authors none; `ref` rides as an ordinary prop, `<Context>` is its own provider, and `use(promise|context)` reads conditionally under `Suspense`.
@@ -131,9 +121,3 @@
 - Let `react-compiler` emit memoization; never hand-write `useMemo`/`useCallback`/`memo` except at a proven identity/FFI boundary the compiler cannot see, and keep `useEffect` deps honest with `useEffectEvent` instead of an under-specified array.
 - Express async with `use`/`Suspense`/`lazy` + `useTransition`/`useDeferredValue`; never a manual `isLoading` boolean ladder, and never run an `Effect` inside a component body — the atom binding owns the rail and the one `runFork` edge is at boot.
 - Fire `<ViewTransition>` only from a transition-wrapped update with `addTransitionType` selecting the arm, keep the native `startViewTransition` rail (and motion `animateView`) for document-level swaps per the `act/transition` tier law, and admit the canary types with one `react/canary` reference; never author `react/experimental` surfaces, and never ship `cache`/`cacheSignal` as client capability.
-
-[RAIL_LAW]:
-- Package: `react`
-- Owns: the React function-component runtime — the hook surface (`useState`/`useReducer`/`useContext`/`useRef`/`useEffect`/`useLayoutEffect`/`useInsertionEffect`/`useEffectEvent`/`useId`/`useDebugValue`/`useImperativeHandle`), the external-store bind (`useSyncExternalStore`), the concurrent-async surface (`use`/`Suspense`/`lazy`/`useTransition`/`useDeferredValue`/`startTransition`), the action hooks (`useActionState`/`useOptimistic`), context (`createContext`/`useContext` + `<Context>` provider), the element/tree APIs (`createElement`/`cloneElement`/`Children`/`Fragment`/`StrictMode`/`Profiler`), the stable `Activity`, the canary `ViewTransition`/`addTransitionType`, the RSC `cache`/`cacheSignal`, and the test/compiler handles (`act`/`__COMPILER_RUNTIME`)
-- Accept: function components, compiler-emitted memoization, `atom`-owned domain state bound via `useSyncExternalStore`, Suspense/transition async, ref-as-prop, `<Context>` provider, `lazy` code-split of the `scope:viewer` tier, transition-gated `<ViewTransition>` composed with the `act/transition` tiers under the `react/canary` types reference
-- Reject: class components / `forwardRef` / `createRef` authoring, hand-written `useMemo`/`useCallback` outside a proven boundary, `useState` mirroring a domain fold, manual subscribe-in-effect stores, `isLoading` flag ladders, an `Effect` run inside a component body, `<ViewTransition>` fired outside a transition or shipped without its canary types reference, any `react/experimental` surface, and treating `cache`/`cacheSignal` as client capability

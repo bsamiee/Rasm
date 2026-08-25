@@ -2,17 +2,7 @@
 
 `opentelemetry-semantic-conventions` ships constants alone: the released schema-url roster beside the generated attribute-key and metric-name spellings. Carrying no provider, exporter, or instrumentation, it composes below every observability owner. Stability decides admission — `attributes`/`metrics` freeze, `_incubating.*` renames within a minor, and the two aggregate enums are deprecated whole.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-semantic-conventions`
-- package: `opentelemetry-semantic-conventions` (Apache-2.0)
-- module: `opentelemetry.semconv`
-- namespaces: `.schemas`, `.attributes`, `.metrics`, `._incubating.attributes`, `._incubating.metrics`, `.resource`, `.trace`
-- requires: `opentelemetry-api` pinned equal, `typing-extensions`
-- abi: pure-Python constant library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: schema roster
 
@@ -56,7 +46,7 @@
 |  [03]   | `resource.ResourceAttributes`     | deprecated    | aggregate resource enum, `@deprecated` at the class |
 |  [04]   | `trace.SpanAttributes`            | deprecated    | aggregate span enum, `@deprecated` at the class     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema pin
 
@@ -71,7 +61,7 @@
 |  [01]   | `from ...attributes.<domain> import <CONSTANT>`             | constant | a frozen specification key      |
 |  [02]   | `from ..._incubating.attributes.<domain> import <CONSTANT>` | constant | an unfrozen key a minor renames |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Constants alone ship here, so importing the distribution reifies no SDK tier and costs no composition custody
@@ -92,14 +82,3 @@
 - frozen per-domain modules are the default import
 - Incubating keys enter only with a live consumer, rename risk stated on the consuming row
 - Fences citing `ResourceAttributes` or `SpanAttributes` re-author against the owning per-domain module
-
-[RAIL_LAW]:
-- Package: `opentelemetry-semantic-conventions`
-- Owns: the released schema-url roster and the generated key and metric-name constants per stability tier
-- Accept: `Schemas.<V>.value` as the branch schema pin
-- Accept: frozen per-domain attribute and metric constants
-- Accept: an incubating constant carrying its rename risk on the consuming row
-- Reject: a hand-spelled schema url
-- Reject: `ResourceAttributes` and `SpanAttributes` imports
-- Reject: an incubating constant admitted with no consumer
-- Reject: the distribution version read as the schema version

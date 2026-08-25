@@ -4,22 +4,7 @@
 
 `Rasm` owns the branch's one envelope algebra at `Rasm/Domain/event#ENVELOPE_MINT` and every other folder composes it: `Rasm.Bim` announces its fired `BimFact` rows onto that owner at `Exchange/events#EVENT_PROJECTION`, `Rasm.Persistence` projects the op-log changefeed at `Version/egress` `Egress.Envelope`, `Rasm.Compute` decodes the sensor ingest, and `Rasm.AppHost` serves the HTTP ingress. Format siblings and protocol bindings ride their own catalogues — `api-cloudevents-protobuf.md`, `api-cloudevents-avro.md`, `api-cloudevents-aspnetcore.md` at the branch tier, the Kafka and AMQP bindings Persistence-local.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents`
-- package: `CloudNative.CloudEvents` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents`
-- namespace: `CloudNative.CloudEvents` (envelope, attribute, spec-version, formatter base), `.Core` (`MimeUtilities`/`BinaryDataUtilities`/`Validation`/`CloudEventAttributeTypes`), `.Extensions` (`Partitioning`/`Sampling`/`Sequence`), `.Http`
-- asset: `net10.0` beside `net8.0` and `netstandard2.0`; the consumer binds `lib/net10.0` — pure-managed AnyCPU IL, no native asset; the core depends on the BCL alone
-- rail: message envelope
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.SystemTextJson`
-- package: `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.SystemTextJson` (`net10.0` bound asset over `System.Text.Json`, BCL-shipped on `net10.0`)
-- namespace: `CloudNative.CloudEvents.SystemTextJson` (`JsonEventFormatter`/`JsonEventFormatter<T>`)
-- rail: message envelope
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: envelope and attribute algebra
 
@@ -64,7 +49,7 @@
 - [07]-[EXTENSION_ACCESSORS]: `SetPartitionKey(ce, string?)`/`GetPartitionKey`, `SetSampledRate(ce, int?)`/`GetSampledRate`, and `SetSequence(ce, object?)`/`GetSequenceString`/`GetSequenceType`/`GetSequenceValue` each assign through the same `CloudEvent` indexer a caller reaches directly, so composing a singleton composes the helper.
 - [09]-[SEQUENCE_CEILING]: `SetSequence` throws `ArgumentException` for every value but `int`, and `GetSequenceValue` parses an `"Integer"`-typed sequence through an `int`-backed surrogate attribute. The current CloudEvents Sequence extension has only one String `sequence` and requires lexicographic ordering; the estate's generated contract therefore carries exact `D20` unsigned decimal and does not compose this retired two-attribute helper.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `CloudEvent` construction and attribute access
 
@@ -127,7 +112,7 @@
 |  [08]   | `HttpUtilities`          | `HttpHeaderPrefix` / `SpecVersionHttpHeader`            | the binding's own header names           |
 |  [09]   | `HttpUtilities`          | `GetAttributeNameFromHeaderName` / `*HeaderValue`       | the percent-encoding pair                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Extension declarations handed to the ctor AND to every decode ARE part of the wire contract: a non-string attribute declared for a write and forgotten at its read decodes under the wrong value space, so each consumer derives the fields it reads from generated descriptors.
@@ -155,10 +140,3 @@
 - Every consumed event extension derives its name from the generated field descriptor and declares the CloudEvents value space at its package boundary; the kernel carries the resulting `EventField` and owns no peer-name set.
 - Each decode receives exactly the generated-descriptor declarations its consumer reads; unrelated generated extensions are not accepted by convenience.
 - Transport bindings, delivery guarantees, and per-binding `dataref` policy stay at their owning legs and never enter the envelope owner.
-
-[RAIL_LAW]:
-- Packages: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.SystemTextJson`
-- Owns: the CloudEvents 1.0 envelope algebra — the typed attribute map, the spec-version rosters, extension declaration, the standard-extension helpers, the shared MIME and validation utilities, the four `System.Net`-era HTTP surfaces — and the `System.Text.Json` structured/binary/batch codec in both its untyped and typed forms
-- Accept: an event minted under a declared roster, `Data` as source-generated `JsonElement`, POCO, or raw bytes, the `Instant` `time` seal, the declared W3C trace rows, emit and admit through the shared formatter, partition key via `Partitioning`
-- Reject: a hand-built JSON envelope where the formatter owns structured mode, a formatted timestamp string where `Instant.ToDateTimeOffset()` seals `time`, a per-transport or per-event formatter instance, an attribute declared at one end only, an extension name past the specification ceiling the package admits, a `sequence` value crossed through the legacy `int` helper or unpadded decimal, and a second envelope shape parallel to the one branch mint
-- `Rasm.Element` (`Graph/wire#EVENT_ENVELOPE`): `CloudEvent` is the envelope VALUE crossing `GraphCrossing.Mint`/`Frame`/`Admit` — construction, generated-field writes, and codecs all ride the kernel `EventEnvelope` owner; `Graph/corpus` `CorpusGate.Announce` is the in-folder Snapshot producer.

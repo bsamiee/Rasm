@@ -2,19 +2,7 @@
 
 `cloudevents` is the CNCF Python distribution carrying TWO disjoint trees that never import each other. `cloudevents.core` is the validating tree: a typed `CloudEvent` per spec version validating required, optional, and extension attributes into one aggregating `CloudEventValidationError`, a `Format` protocol whose `write_data`/`read_data` pair is the binary-mode payload seam, and four protocol bindings lowering one event onto transport parts. `cloudevents.v1` is the frozen legacy tree: a mutable dict-backed event whose constructor checks a required-NAME subset and nothing else, a converter/marshaller stack over it, and a pydantic mirror. Every binding returns a transport-neutral value and the distribution holds no broker or HTTP client, so its reach ends at message envelope bytes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cloudevents`
-- package: `cloudevents` (Apache-2.0)
-- module: `cloudevents`
-- namespaces: `cloudevents.core.{spec,base,exceptions}`, `cloudevents.core.{v1,v03}.event`, `cloudevents.core.formats.{base,json}`, `cloudevents.core.bindings.{common,http,kafka,amqp,rabbitmq}`, `cloudevents.v1.{abstract,conversion,exceptions}`, `cloudevents.v1.{http,kafka,pydantic}`, `cloudevents.v1.sdk.{marshaller,types,exceptions}`, `cloudevents.v1.sdk.{converters,event}`
-- target: pure-Python wheel, no native asset; `py.typed` at `cloudevents/` and `cloudevents/v1/`
-- runtime deps: `deprecation`, `python-dateutil` — `dateutil.parser.isoparse` is the RFC-3339 reader every binding's `time` decode runs through
-- rail: event-envelope
-
-`cloudevents/__init__.py` exports `__version__` alone — no symbol, no `__all__`, no re-export — so `assay api --key cloudevents` resolves empty and every member claim reads the module source. `cloudevents/v1/__init__.py` carries its own frozen `__version__` for the legacy tree.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CORE_EVENT_SCOPE]: `cloudevents.core` — the validating family
 
@@ -95,7 +83,7 @@ The four leaf findings expose `attribute_name` but no stable code, tag, enum, or
 
 [LEGACY_FAULTS]: `v1.exceptions.GenericException` roots `MissingRequiredFields` `InvalidRequiredFields` `InvalidStructuredJSON` `InvalidHeadersFormat` `DataMarshallerError` `DataUnmarshallerError` `IncompatibleArgumentsError` `PydanticFeatureNotInstalled`; `v1.kafka.exceptions.KeyMapperError` extends it. `v1.sdk.exceptions` mints five BARE `Exception` subclasses joined to no root — `UnsupportedEvent` `InvalidDataUnmarshaller` `InvalidDataMarshaller` `NoSuchConverter` `UnsupportedEventConverter`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: message envelope construction and read (`cloudevents.core`)
 
@@ -163,7 +151,7 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 
 `data_marshaller` and `data_unmarshaller` are the two callable seams the legacy tree threads: `MarshallerType` rides every `to_*` leg positionally after the event and defaults `None`; `UnmarshallerType` rides every `from_*` leg last and defaults `None` at the public surface while `Converter.read`, `BaseEvent.UnmarshalJSON`, and `BaseEvent.UnmarshalBinary` each REQUIRE it. `HTTPMarshaller.FromRequest` defaults it to `json.loads` and `BaseEvent.MarshalBinary` defaults its marshaller to `json.dumps`; `v1.conversion.from_http` defaults to the module-private `_json_or_string`. Either slot rejects a non-callable, raising `InvalidDataMarshaller`/`InvalidDataUnmarshaller`. `v1.kafka.conversion` alone adds `envelope_marshaller`/`envelope_unmarshaller` for the structured leg.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `cloudevents.core` imports nothing from `cloudevents.v1` and the reverse holds, so the two trees are disjoint and a family choice is total — a `core.v1.event.CloudEvent` never crosses a `v1.conversion` leg and a `v1.http.CloudEvent` never satisfies `BaseCloudEvent`.
@@ -199,9 +187,3 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 - Extension names admit through the branch roster before construction, since the package's charset check carries no length ceiling and no roster.
 - Every `attributes` mapping handed to the constructor is freshly built per mint and never a value the caller retains, because construction writes defaults into it.
 - Every raise crosses one `boundary` fence into `BoundaryFault`; `CloudEventValidationError.errors` spreads into the aggregate rather than collapsing to its `__str__`.
-
-[RAIL_LAW]:
-- Package: `cloudevents`
-- Owns: the spec attribute algebra, its validation, the structured/binary content-mode split, the JSON format, and the four protocol bindings' header and property lowering
-- Accept: `core.v1.event.CloudEvent`, `core.formats.base.Format` with `core.formats.json.JSONFormat`, the four `core.bindings` modules, `core.exceptions`
-- Reject: the whole `cloudevents.v1` tree; a hand-rolled `ce-`/`ce_`/`cloudEvents_` header map beside a binding that owns it; a broker or HTTP client here — reach ends at message envelope bytes

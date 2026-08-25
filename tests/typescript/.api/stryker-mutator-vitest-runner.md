@@ -1,13 +1,5 @@
 # [TS_TESTS_API_STRYKER_MUTATOR_VITEST_RUNNER]
 
-[PACKAGE_SURFACE]:
-- package: `@stryker-mutator/vitest-runner` · license `Apache-2.0`
-- module: ESM (`type: module`); one `.` export → `dist/src/index.js`; peer contract `@stryker-mutator/api` + a `vitest` peer it augments.
-- asset: `dist/src/index.d.ts`; augments `declare module 'vitest'` (adds `ProvidedContext` + `TaskMeta` fields) — the in-worker instrumentation channel.
-- runtime: node-only; boots `vitest`'s programmatic API in-process, reuses one vitest worker across mutants (no per-mutant process spawn).
-- plane: `plane:dev` — a Stryker TestRunner plugin loaded by `@stryker-mutator/core`; a config row, never a value import; the `tests/typescript/_architecture` purity audit holds trivially.
-- rail: mutation kill-execution / test-run verdict.
-
 `@stryker-mutator/vitest-runner` is the kill engine of the mutation/coverage gauge and the one admitted Stryker plugin. For every mutant the engine instruments — no checker pre-filters them, so a compile-invalid mutant arrives here too — Stryker activates the mutant (an env-flagged branch inside the instrumented source) and calls `mutantRun`; the runner executes the folder's `@effect/vitest` specs against that mutant and returns `Killed` (a spec failed — the mutant was caught), `Survived` (all specs passed — a test gap), `Timeout`, or `Error`. It reuses ONE vitest instance across the whole mutant sweep and narrows execution to only the specs that cover each mutant via `perTest` coverage — the difference between a mutation run that finishes and one that never does. This catalog owns the TestRunner kill-execution surface; the plugin-loading ABI (`PluginKind`/`FactoryPlugin`/`commonTokens`) and the canonical config-as-data schema (`StrykerOptions`/`PartialStrykerOptions`) this plugin rides are owned by `stryker-mutator-core.md` [04]/[02].
 
 ## [01]-[PLUGIN_ENTRY]
@@ -78,18 +70,15 @@ declare module 'vitest' {
 
 ## [03]-[CONFIG_AS_DATA]
 
-Runner and the whole mutation gauge are ONE declarative options object `stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor; the `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
-
 | [INDEX] | [CONFIG_ROW]                                    | [OWNER] | [CAPABILITY]                                                          |
 | :-----: | :---------------------------------------------- | :------ | :-------------------------------------------------------------------- |
-|  [01]   | `mutate: string[]`                              | core    | the mutant-source glob; assay `--mutation changed` scopes it          |
-|  [02]   | `testRunner: "vitest"`                          | core    | activates this plugin as the kill engine                              |
-|  [03]   | `coverageAnalysis: 'off' \| 'all' \| 'perTest'` | core    | `perTest` → `testFilter` runs only covering specs per mutant          |
-|  [04]   | `thresholds: { high; low; break }`              | core    | mutation-score policy; `break` is the CI fail floor (kill-ratio gate) |
-|  [05]   | `reporters: string[]` + `jsonReporter`          | core    | `["json","html","clear-text"]`; the JSON report is the gauge verdict  |
-|  [06]   | `concurrency` / `maxTestRunnerReuse`            | core    | worker fan-out and reuse cap across the mutant sweep                  |
-|  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
-|  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
+|  [01]   | `testRunner: "vitest"`                          | core    | activates this plugin as the kill engine                              |
+|  [02]   | `coverageAnalysis: 'off' \| 'all' \| 'perTest'` | core    | `perTest` → `testFilter` runs only covering specs per mutant          |
+|  [03]   | `thresholds: { high; low; break }`              | core    | mutation-score policy; `break` is the CI fail floor (kill-ratio gate) |
+|  [04]   | `reporters: string[]` + `jsonReporter`          | core    | `["json","html","clear-text"]`; the JSON report is the gauge verdict  |
+|  [05]   | `concurrency` / `maxTestRunnerReuse`            | core    | worker fan-out and reuse cap across the mutant sweep                  |
+|  [06]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
+|  [07]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
 
 ```ts
 import type { PartialStrykerOptions } from "@stryker-mutator/api/core"
@@ -106,15 +95,6 @@ const strykerConfig = {
 
 ## [04]-[INTEGRATION]
 
-[STACK: `vitest-runner` executes the folder's `@effect/vitest` specs] — the runner does not run its own tests; it runs the SAME specs every folder authors with `@effect/vitest` `it.effect` / `it.scoped` / `it.prop` and the `layer(SharedLayer)` combinator (`fast-check.md` [05]). Each mutant is measured by whether those existing specs kill it — so the `_testkit` law combinators (fold identity, merge commutativity, upcast totality via `fast-check`) and the Schema-derived arbitraries ARE the mutation kill force. A weak property that under-constrains its arbitrary shows up here as a `Survived` mutant. `vitest.configFile` MUST be the config those specs already run under, so no divergence exists between the CI test run and the mutant run.
+[STACK: `vitest-runner` executes the folder's `@effect/vitest` specs] — the runner does not run its own tests; it runs the SAME specs every folder authors with `@effect/vitest` `it.effect` / `it.scoped` / `it.prop` and the `layer(SharedLayer)` combinator (`fast-check.md` [05]). Each mutant is measured by whether those existing specs kill it — so the `testkit` law combinators (fold identity, merge commutativity, upcast totality via `fast-check`) and the Schema-derived arbitraries ARE the mutation kill force. Weak properties that under-constrain their arbitrary show up here as `Survived` mutants. `vitest.configFile` MUST be the config those specs already run under, so no divergence exists between the CI test run and the mutant run.
 
-[STACK: shared harness Layers as the mutant-execution environment] — because the runner reuses one vitest worker across mutants (`reloadEnvironment` reported per `TestRunnerCapabilities`), a spec's acquired Layers persist across `mutantRun` calls. A `layer(PgLiteTest)` unit Layer (`electric-sql-pglite.md` [04]) or a `layer(PgContainer)` container Layer (`testcontainers.md` [04]) is built once and re-entered per mutant — so those Layers must be idempotent and leave no cross-mutant state (a mutant must not see another mutant's rows). `hitLimit` + `Effect.timeout` guard a mutant that drives an acquired resource into an infinite loop; `disableBail` keeps a spec block running so `killedBy` names every catching test, not just the first.
-
-[STACK: assay `test --mutation` + this runner] — `uv run assay test run --mutation changed|full --typescript` loads `@stryker-mutator/core`, which drives this runner directly with no checker phase ahead of it; the JSON reporter output is the gauge verdict the assay rail scores against its kill floor; `thresholds.break` is that floor expressed as config data. `vitest.related: true` aligns with `--mutation changed` — both narrow to changed-related specs.
-
-## [05]-[RAIL_LAW]
-
-- Owns: the mutant kill-execution — one dry run to collect `perTest` coverage, then a coverage-narrowed `mutantRun` per mutant returning the `Killed`/`Survived`/`Timeout`/`Error` verdict — over the folder's existing `@effect/vitest` specs in one reused worker.
-- Accept: `testRunner: "vitest"` + `coverageAnalysis: "perTest"` for the `testFilter` narrowing; `vitest.configFile` pointing at the folder's real vitest config; `thresholds.break` as the enforced kill floor; `hitLimit`/`timeoutMS` as runaway-mutant guards; `incremental` for cross-run caching.
-- Reject: a `vitest` config divergent from the specs' own (mutant runs that disagree with CI); `coverageAnalysis: "off"` on a non-trivial suite (every spec runs for every mutant — the run never finishes); stateful shared Layers that leak rows across mutants under worker reuse; importing any symbol from this package into source (config row only — the `tests/typescript/_architecture` suite bans runtime import).
-- Boundary: this is a TestRunner plugin — it renders a `MutantRunResult`, never a compile verdict; with no checker admitted, a compile-invalid mutant still reaches `mutantRun` and lands as `Survived` or `Error`, so a `Survived` verdict is read against the type gate before it is read as a test gap. `CompileError` is out of scope by construction — it belongs to a checker's `CheckResult`, never here.
+[STACK: shared harness Layers as the mutant-execution environment] — because the runner reuses one vitest worker across mutants (`reloadEnvironment` reported per `TestRunnerCapabilities`), a spec's acquired Layers persist across `mutantRun` calls. `layer(PgLiteTest)` unit Layers (`electric-sql-pglite.md` [04]) are built once and re-entered per mutant — so each Layer must be idempotent and leave no cross-mutant state (a mutant must not see another mutant's rows). `hitLimit` + `Effect.timeout` guard a mutant that drives an acquired resource into an infinite loop; `disableBail` keeps a spec block running so `killedBy` names every catching test, not just the first.

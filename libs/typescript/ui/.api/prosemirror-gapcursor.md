@@ -2,16 +2,7 @@
 
 `prosemirror-gapcursor` owns the cursor position no text can hold: `GapCursor` is a registered `Selection` subclass pointing at a gap beside an unselectable block, and `gapCursor()` captures the clicks and arrow motion that land there. Without it a document ending in a block node — a table, an image, a viewer embed — leaves no place to type, and the plugin's own stylesheet is what makes the cursor visible.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-gapcursor`
-- package: `prosemirror-gapcursor` (MIT)
-- module: `type: module`, `.` entry and a `./style/gapcursor.css` subpath; `sideEffects` names that stylesheet alone
-- runtime: browser input — the plugin binds its own keymap and click handling and draws through a widget decoration
-- depends: `prosemirror-state`, `prosemirror-model`, `prosemirror-view`, `prosemirror-keymap`
-- rail: `view/content` — the gap-selection plane beside block nodes
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one selection class; the plugin takes no configuration.
 
@@ -19,7 +10,7 @@
 | :-----: | :---------- | :------------ | :-------------------------------------------------------- |
 |  [01]   | `GapCursor` | class         | `Selection` whose `$anchor` and `$head` both name the gap |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the plugin and the selection it mints.
 
@@ -34,7 +25,7 @@
 - `GapCursor` registers itself under the `"gapcursor"` selection JSON id at import, so a serialized state holding one rehydrates through `Selection.fromJSON` as soon as the module loads.
 - `gapCursor()` renders the cursor as an element with class `ProseMirror-gapcursor`, invisible until `style/gapcursor.css` or an equivalent rule loads.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Gap positions exist wherever the document holds no selectable text: before or after a leaf or unselectable block, between two block nodes, and at a document edge that begins or ends with one. `gapCursor()` captures arrow motion and clicks near such a position and mints a `GapCursor` there so typing has a landing place.
@@ -55,9 +46,3 @@
 - Mount `gapCursor()` in every document class holding a leaf or unselectable block node, and load `prosemirror-gapcursor/style/gapcursor.css` with it.
 - Handle `GapCursor` in any command that branches on the selection class; a two-way branch over text and node selections declines at a gap.
 - Override placement with `allowGapCursor` on the owning `NodeSpec` rather than by filtering selections after the fact.
-
-[RAIL_LAW]:
-- Package: `prosemirror-gapcursor`
-- Owns: the gap-selection plane — the `GapCursor` selection class registered under the `"gapcursor"` JSON id, the `gapCursor()` plugin capturing clicks and arrow motion into gap positions, the per-node `allowGapCursor` spec override, and the `ProseMirror-gapcursor` render class with its shipped stylesheet
-- Accept: one `gapCursor()` plugin per document class holding block-level embeds, the package stylesheet loaded with it, `allowGapCursor` declared on the specs needing a non-default answer, and commands that recognize a `GapCursor` selection
-- Reject: a document class with unselectable block nodes and no gap-cursor plugin, the plugin mounted without its stylesheet, a selection branch covering only text and node selections, and a post-hoc selection filter where an `allowGapCursor` spec row decides

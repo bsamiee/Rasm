@@ -4,15 +4,7 @@
 
 It curates a language model and four provider-executed tools; embeddings and token-counting stay on the raw `Generated.Client`, so `ai/embed.ts` routes a Google embedding through the low-level `EmbedContent`/`CountTokens` rail. Failure flows through `AiError`, all I/O through `Effect`/`Stream`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/ai-google`
-- package: `@effect/ai-google` (MIT)
-- module: per-namespace subpath exports (`@effect/ai-google/GoogleClient`), dual CJS+ESM, `sideEffects:[]`
-- runtime: node|browser, platform-neutral; peers `@effect/ai`, `@effect/experimental`, `@effect/platform`, `effect`
-- rail: ai-google provider — Gemini generateContent onto the `@effect/ai` core
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the service tags and their resolved shapes
 
@@ -56,7 +48,7 @@ It curates a language model and four provider-executed tools; embeddings and tok
 - `Generated.Schema`/`Generated.Type`: the Gemini function-parameter JSON-schema dialect, not `effect/Schema`.
 - `Client` methods return `Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>`; its internal `transformClient` is effectful (`(client) => Effect<HttpClient>`), unlike the synchronous transform on the public surfaces.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct the client and call generateContent — three constructors share `opts = { apiKey?: Redacted, apiUrl?: string, transformClient? }`, `optsConfig` wrapping `apiKey`/`apiUrl` in `Config`
 
@@ -102,7 +94,7 @@ It curates a language model and four provider-executed tools; embeddings and tok
 |  [01]   | `withClientTransform(transform) -> (Effect) -> Effect` | instance | data-last request-client mutation  |
 |  [02]   | `withClientTransform(Effect, transform) -> Effect`     | instance | data-first request-client mutation |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Generation rides `Effect`/`Stream` and fails into `AiError.AiError`; `generateContentStream` re-emits a full `GenerateContentResponse` per chunk, so a consumer folds `candidates[]` deltas rather than a tagged event union.
@@ -119,9 +111,3 @@ It curates a language model and four provider-executed tools; embeddings and tok
 [LOCAL_ADMISSION]:
 - Bind Gemini through `GoogleClient.layer({ apiKey })` under an `HttpClient` layer, then `GoogleLanguageModel.model(id)` over it; the app root picks the runtime `HttpClient`.
 - Write the `Config` tag for per-request tuning and `GoogleConfig.withClientTransform` for a request-scoped client mutation; reach embeddings, token-counting, caching, batches, and operations through `Service.client.*` alone.
-
-[RAIL_LAW]:
-- Package: `@effect/ai-google`
-- Owns: the Gemini `GoogleClient` (`make`/`layer`/`layerConfig` with generateContent), `GoogleLanguageModel` (`model`/`make`/`layer` with the per-request `Config` tag), the four `GoogleTool` provider-defined tools, `GoogleConfig` request-scoped transform, and the `Generated` REST wire surface
-- Accept: `GoogleLanguageModel.model(id)` resolved into the core `LanguageModel` tag, the `Config` tag written per call, `GoogleTool` tools projected through `ai/tool.ts`, credential via `Redacted`+`Config`, `HttpClient` satisfied at the app root
-- Reject: a hand-rolled Gemini REST client, a fabricated `createEmbedding` or tokenizer wrapper, a per-effect config-override call, a model-id enum invention, or a second provider generation API

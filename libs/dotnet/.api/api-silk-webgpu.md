@@ -2,24 +2,7 @@
 
 `Silk.NET.WebGPU` binds the native `wgpu_native` runtime against the canonical `webgpu.h` surface: `WebGPU.GetApi()` roots an `unsafe` function table whose instance methods marshal raw-pointer descriptor structs across the instance/adapter/device/queue lifecycle. One binding serves three planes — the presented viewport, the GPGPU dispatch lane, and the surfaceless bake device — because a surface is a `SurfaceDescriptor` a plane either chains or omits, never a second binding.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.WebGPU`
-- package: `Silk.NET.WebGPU` (MIT)
-- assembly: `Silk.NET.WebGPU`
-- namespace: `Silk.NET.WebGPU` (function-table root, descriptors, enums, callback delegates, platform-source structs)
-- namespace: `Silk.NET.WebGPU.Platforms.MacOS` (`NSWindow`/`ObjectiveCRuntime` Metal-layer plumbing for `SurfaceDescriptorFromMetalLayer`)
-- asset: consumer binds the `net5.0` asset
-- abi: every entrypoint is an `unsafe` instance method on `WebGPU : NativeAPI`; native handles (`Device`/`Queue`/`Buffer`/…) are pointer-wrapped structs released through `XxxRelease`/`XxxDestroy`, never `IDisposable`
-- depends: `Silk.NET.Core`, `Silk.NET.Maths`
-- rail: gpu device
-
-[PACKAGE_SURFACE]: `Silk.NET.WebGPU.Native.WGPU`
-- package: `Silk.NET.WebGPU.Native.WGPU` (MIT)
-- asset: native `wgpu_native` binaries fanned across the win/linux/osx RIDs, carrying no managed surface — `runtimes/osx-arm64/native/libwgpu_native.dylib` is the darwin leg
-- rail: native runtime
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and device-lifecycle owners
 
@@ -141,7 +124,7 @@
 
 [BUFFER_MAP_STATUS]: `Success` = 0 `ValidationError` `Unknown` `DeviceLost` `DestroyedBeforeCallback` `UnmappedBeforeCallback` `MappingAlreadyPending` `OffsetOutOfRange` `SizeOutOfRange`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every surface below is an `unsafe` instance method on the `WebGPU.GetApi()` function-table root. Each descriptor-taking call ships paired overloads — a raw `<Descriptor>*` form and a `ref readonly <Descriptor>` `in`-reference form binding the same native call — and `<T0>(… ref T0)` generic overloads thread typed `unmanaged` userdata without a `void*` cast. `callback, userdata` abbreviates the member's own `Pfn…Callback` delegate beside its `void*` state slot.
 
@@ -272,7 +255,7 @@ Every surface below is an `unsafe` instance method on the `WebGPU.GetApi()` func
 |  [11]   | `CommandBufferRelease(CommandBuffer*)`           | instance | commands release    |
 |  [12]   | `QuerySetRelease(QuerySet*)`                     | instance | query-set release   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `WebGPU.GetApi()` returns the function-table root; a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes raw pointers, never a managed wrapper object, since Silk.NET binds the C `webgpu.h` surface directly. Composers bind the `ref readonly` descriptor overload (no manual pin) and reserve the `byte*` form for hot WGSL and label paths they own as fixed buffers.
@@ -301,9 +284,3 @@ Every surface below is an `unsafe` instance method on the `WebGPU.GetApi()` func
 - Silk.NET 2.x is maintenance-mode and 3.x reshapes the binding, so each composing folder confines the raw table to ONE narrow internal seam — the swap-point is that seam, never a call site spread across pages.
 - Device ownership is single-writer per plane: a folder composing another folder's device never issues `AdapterRequestDevice`, and a folder needing a device where no viewport exists acquires a surfaceless one rather than forcing a window open.
 - Buffers mint through `DeviceCreateBuffer` alone: the binding exposes no external-memory import, adopt, or shared-handle entrypoint, so a foreign device allocation reaches a `Buffer*` only by host copy through `QueueWriteBuffer`.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.WebGPU` + `Silk.NET.WebGPU.Native.WGPU` (native binaries)
-- Owns: the managed `wgpu_native` binding for every C# GPU plane — instance/adapter/device lifecycle surfaced and surfaceless, feature and limit negotiation, surface-from-window-handle and swapchain, buffer/texture/sampler allocation, WGSL and SPIR-V shader compile, render and compute pipeline create with explicit or auto layout, command recording, queue submission, host transfer and texture-to-buffer readback, error-scope validation, and timestamp-query timing.
-- Accept: raw-pointer or `ref readonly` descriptor calls on the `WebGPU.GetApi()` function-table root; a null `CompatibleSurface` for a headless plane and a platform-source `next` chain for a presented one; feature and limit query before device request; `override`-constant specialization over one WGSL module; padded `BytesPerRow` staging on texture readback; error-scope-bracketed validation into typed diagnostics; native-handle scoped create-and-release pairs at the boundary capsule.
-- Reject: a managed convenience wrapper renaming the native surface; a second `Device` where a composing folder already holds one; a window opened solely to obtain a device; a `QueryType.PipelineStatistics` core value, which is wgpu-native-only; a direct span cast over a mapped range whose `BytesPerRow` is padded; CPU fallback math where a declared kernel row lowers to dispatch.

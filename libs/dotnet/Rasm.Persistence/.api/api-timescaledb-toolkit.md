@@ -2,15 +2,7 @@
 
 `timescaledb_toolkit` owns the two-stage hyperfunction algebra over the Persistence series tables: an aggregate folds raw samples into a composable summary object, accessors project scalars off that summary, and `rollup` re-aggregates disjoint summaries across buckets without re-scanning a chunk. Every surface is server-side SQL a typed-SQL read composes as text, carrying no managed assembly and no EF translator. Summary state is what a continuous aggregate materialises, so accessor choice stays a read-time decision over one materialisation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `timescaledb_toolkit`
-- package: `timescaledb_toolkit` (Timescale License)
-- namespace: SQL — `public` aggregates, accessors, and the summary types they thread
-- asset: server extension whose sole install precondition is the `timescaledb` base type
-- rail: timescale-provisioning, analytical-lane
-
-## [02]-[TIME_WEIGHT]
+## [01]-[TIME_WEIGHT]
 
 [TIME_WEIGHT_ENTRY_SCOPE]: sample-weighted mean and integral over irregular timesteps, carrying the aggregate/accessor/rollup discipline every family repeats
 
@@ -29,7 +21,7 @@
 - `interpolated_average` and `interpolated_integral` extend their base accessor with `(TIMESTAMPTZ, INTERVAL, prev, next)`, the neighbouring summaries a window `lag`/`lead` supplies, so a bucketed read carries no bound gap.
 - `integral` defaults its unit to `second` and accepts any PostgreSQL time-unit alias down to `microsecond`.
 
-## [03]-[STATISTICS]
+## [02]-[STATISTICS]
 
 [STATISTICS_ENTRY_SCOPE]: combinable moment and regression state, materialised once per bucket and read by many accessors
 
@@ -47,7 +39,7 @@
 [STATS_1D_ACCESSORS]: `average` `sum` `num_vals` `stddev` `variance` `skewness` `kurtosis`
 [STATS_2D_ACCESSORS]: `slope` `intercept` `x_intercept` `corr` `covariance` `determination_coeff` `num_vals`
 
-## [04]-[PERCENTILE]
+## [03]-[PERCENTILE]
 
 [PERCENTILE_ENTRY_SCOPE]: bounded-error percentile sketches that partial-aggregate, so a quantile read never sorts a chunk
 
@@ -63,7 +55,7 @@
 
 [UDDSKETCH_ACCESSORS]: `approx_percentile` `approx_percentile_array` `approx_percentile_rank` `error` `mean` `num_vals`
 
-## [05]-[COUNTER_AND_STATE]
+## [04]-[COUNTER_AND_STATE]
 
 [COUNTER_AND_STATE_ENTRY_SCOPE]: reset-adjusted counter algebra, discrete state durations, and heartbeat liveness over a declared window
 
@@ -90,7 +82,7 @@
 [STATE_ACCESSORS]: `duration_in` `state_at` `state_periods` `state_timeline` `into_values`
 [HEARTBEAT_ACCESSORS]: `uptime` `downtime` `live_at` `live_ranges` `dead_ranges` `num_gaps` `num_live_ranges` `trim_to` `interpolate`
 
-## [06]-[DOWNSAMPLE_AND_CARDINALITY]
+## [05]-[DOWNSAMPLE_AND_CARDINALITY]
 
 [DOWNSAMPLE_ENTRY_SCOPE]: server-side reduction to a graph-sized point set, and distinct-count sketches that union across buckets
 
@@ -108,7 +100,7 @@
 - `resolution` sets the approximate point count a graph consumes, so a tile read reduces server-side and ships no raw chunk.
 - `hyperloglog` rounds its bucket count up to a power of two within `[16, 2^18]` and admits any type carrying an extended hash function.
 
-## [07]-[IMPLEMENTATION_LAW]
+## [06]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Aggregate, accessor, and `rollup` are three separable stages: a `timescaledb.continuous` view materialises the summary column alone, and each accessor stays a read-time choice over that one materialisation.
@@ -125,9 +117,3 @@
 
 [LOCAL_ADMISSION]:
 - `Store/provisioning#SERVER_EXTENSIONS` carries the `ServerExtension.TimescaledbToolkit` row under `ExtensionAdmission.BaseType("timescaledb")`, so the base extension resolves first and the row admits through `CREATE EXTENSION IF NOT EXISTS` inside the verification session.
-
-[RAIL_LAW]:
-- Package: `timescaledb_toolkit`
-- Owns: the two-stage aggregate algebra over irregular series — time-weighted mean and integral, moment and regression state, bounded-error percentiles, reset-adjusted counters, state duration, liveness, and visual downsampling
-- Accept: a summary column materialised once by a continuous aggregate, accessors projected at read time, `rollup` closing across disjoint buckets
-- Reject: a naive `avg` over irregular timesteps, an exact percentile sort over a full chunk scan, a client-side moment or reset-adjusted counter fold, a managed EF translator over these functions

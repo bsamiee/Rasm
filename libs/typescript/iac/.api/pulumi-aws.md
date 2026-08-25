@@ -4,17 +4,7 @@
 
 `aws` rides a prepared `Match.exhaustive` dispatch row, never first-class: a `StackSpec` value finalizes it, a new cloud is one new arm, and its carried worth is the service-equivalence subset mapping AWS managed services onto the `selfhosted-k8s` capability matrix.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/aws`
-- package: `@pulumi/aws` (Apache-2.0)
-- module: `@pulumi/aws` with per-service subpath exports — `aws.s3.BucketV2`, `aws.ec2.Vpc`, `aws.rds.Cluster`
-- runtime: node Automation-API program process; the `pulumi` CLI and AWS provider plugin resolve on the deploy host, wrapped once in `program`
-- rail: deploy — the prepared `aws` provider dispatch row
-- depends: `@pulumi/pulumi` (the `Output`/`Input`/`CustomResource`/`ComponentResource`/`ProviderResource` model and Automation API engine), `@pulumi/awsx` (higher-level `ComponentResource` compositions backing this row)
-- namespaces: top-level `Provider`/`config`/`types` and the `getArn`/`getRegion`/`getCallerIdentity`/`getAvailabilityZones` data-source invokes, and one service namespace per AWS service (`ec2`, `s3`, `rds`, `eks`, `ecs`, `iam`, `acm`, `route53`, `lb`, `efs`, `elasticache`, …)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the uniform resource pattern (every namespace)
 
@@ -79,7 +69,7 @@ Public-access refusals ride four independent `Input<boolean>` args on one resour
 |  [01]   | `Get<X>Result`                    | result record | data-source return shapes (e.g. `GetRegionResult`) |
 |  [02]   | `Get<X>Args` / `Get<X>OutputArgs` | input record  | invoke args; `OutputArgs` is `Input`-lifted        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider construction (from StackSpec)
 
@@ -135,7 +125,7 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 |  [01]   | `aws.getCallerIdentity()` / `aws.getCallerIdentityOutput()`    | invoke  | resolve the deploying account/arn/user id |
 |  [02]   | `aws.getRegion()` / `aws.getAvailabilityZones()` (+ `…Output`) | invoke  | active region / AZ list for subnet spread |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `@pulumi/aws` is a generated SDK carrying one uniform resource pattern across every service namespace — `CustomResource` subclass, `(name, args, opts)` constructor, `static get`, `static isInstance`, `Output<T>` properties — with service namespaces as seed data behind it; the catalog documents the pattern and the mapped service-equivalence subset, never a flat per-service roster.
@@ -153,9 +143,3 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 - `awsx` components own standard compositions (VPC, Fargate service, ALB) and raw `aws.*` resources own fine-grained control, both taking the arm's explicit StackSpec-derived provider.
 - Credentials and account selection ride the `StackSpec` Doppler project ref into `ProviderArgs` (`profile`/`assumeRoles`) marked `pulumi.secret`, sourced through the `@pulumiverse/doppler`/`security/crypt/secret` read path.
 - `<Resource>.get(name, id)` adopts a pre-existing cloud resource into the arm's graph under the same explicit provider, so an estate built by hand enters the typed program as library code and the plane keeps zero authored `Pulumi.yaml`.
-
-[RAIL_LAW]:
-- Package: `@pulumi/aws`
-- Owns: the prepared `aws` provider dispatch row — the uniform AWS resource pattern, the explicit StackSpec-derived `Provider`, the data-source invokes, and the service-equivalence subset mapping AWS managed services to the `selfhosted-k8s` capability matrix
-- Accept: one `Match.exhaustive` arm constructing one `aws.Provider` from a `StackSpec`, resources scoped via `{ provider }`, `Output`→`Input` dependency wiring, `awsx` components for standard compositions, `<Resource>.get` adoption, StackSpec-derived secret credentials, a `types.enums` const spread into a caller's own admission alphabet where the coordinate is the estate's to close
-- Reject: a flat per-service roster, ambient AWS config, resolving `Output` to plain values inside a program, hand-wiring compositions `awsx` already owns, inline credential literals, authored `Pulumi.yaml`, promoting `aws` above the first-class `selfhosted-k8s` arm, a hand-restated vocabulary the `types.enums` tree already generates, a release literal pinning a roster the installed tree widens

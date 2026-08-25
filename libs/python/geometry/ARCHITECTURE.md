@@ -167,7 +167,6 @@ Each collapsed edge stands for every contract between that sub-domain and that p
 
 `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner, while geometry interior pages spell only the semantic `ContentKey` mint beneath both. Scene shading crosses one-way as an `ArtifactRef`, and `energy/simulate` resolves and proves its SHA-256 body onto a helper-owned path for the decode scope.
 
-
 `GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes off the single `util.geolocation` transform seam collapsing every coordinate-operation subtype, the write side riding the `AuthorVerb` vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence, an identity transform reading as map coordinates the moment the prelude composes it. This producer declares the georeference roster and the data decoder mirrors it arm-for-arm.
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.

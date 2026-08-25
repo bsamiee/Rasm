@@ -2,16 +2,7 @@
 
 `scikit-image` — builds from source at the interpreter floor and imports on the canonical venv: the root manifest's version-pinned `dependency-metadata` row rewrites pythran's `gast~=0.6.0` pin onto the 3.15-clean gast 0.7 line, and the override retires itself on pythran's next release — (`skimage`) owns array-level image processing on the artifacts imaging rail: every domain operation is a pure function over `numpy.ndarray` with no private image class, so the rail composes by passing arrays rather than objects. Decode, encode, and rendering stay outside the boundary — skimage holds the array-transform middle, drawing input from the `pillow`/`tifffile` codec owners and feeding the visualization and mesh tiers downstream.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `scikit-image`
-- package: `scikit-image` (BSD-3-Clause)
-- import: `skimage` (submodules lazy-load via `lazy_loader`; each domain module materializes on first attribute access)
-- owner: `artifacts`
-- rail: imaging
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometric transform models — `skimage.transform`
 - type-family: geometric model
@@ -57,7 +48,7 @@
 |  [01]   | `ImageCollection` | load-on-demand sequence of images from a glob |
 |  [02]   | `MultiImage`      | multi-frame image file (GIF/TIFF) collection  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: I/O — `skimage.io`
 
@@ -318,7 +309,7 @@ Classical trainable pixel segmentation: extract a multiscale feature stack, fit 
 |  [11]   | `apply_parallel(function, array, chunks, depth, …)`            | parallel       | dask-chunked tiled parallel apply of a per-tile func |
 |  [12]   | `regular_grid(ar_shape, n_points)`                             | sampling       | even N-point grid of slice objects over an array     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every function accepts and returns `numpy.ndarray`; no private image class exists, so the rail composes by passing arrays.
@@ -350,9 +341,3 @@ Classical trainable pixel segmentation: extract a multiscale feature stack, fit 
 - `find_contours` returns a list of `(N, 2)` float arrays in `(row, col)` order; convert to `(x, y)` at the boundary.
 - `marching_cubes` returns `(verts, faces, normals, values)`; the `trimesh` mesh owner consumes `verts`/`faces` and `mesh_surface_area(verts, faces)` cross-checks area.
 - denoising preserves image dtype under `preserve_range=True`; call `estimate_sigma(image, channel_axis=...)` first and feed the result to `denoise_*`/`calibrate_denoiser`.
-
-[RAIL_LAW]:
-- Package: `scikit-image`
-- Owns: array-level image processing — every skimage domain operation as a pure `numpy.ndarray` transform.
-- Accept: NumPy ndarray inputs; SciPy sparse arrays where documented; sklearn-style classifiers for the trainable segmenter; a dask array for `util.apply_parallel`.
-- Reject: OpenCV, PIL, or hand-rolled reimplementations of operations skimage owns; per-pixel Python loops where a vectorized operation applies; an open-coded tile loop where `util.apply_parallel` owns dask-chunked parallelism; in-package rendering owned by `matplotlib`/`resvg-py`/`color.label2rgb`; image decode/encode owned by `pillow`/`tifffile`.

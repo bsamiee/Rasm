@@ -4,15 +4,7 @@
 
 Every provider symbol is one parameterized surface over the `Generated` REST corpus; all I/O rides `Effect`/`Stream` and every failure flows through the core `AiError.AiError`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/ai-openai`
-- package: `@effect/ai-openai` (MIT)
-- module: per-module subpath exports (`@effect/ai-openai/OpenAiClient`), dual CJS+ESM, `sideEffects:[]`
-- runtime: node|browser isomorphic; every constructor requires `HttpClient` from a `@effect/platform` client `Layer`; peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect`
-- rail: openai-provider — the reference provider binding the Responses API onto the `@effect/ai` tags
-
-## [02]-[CLIENT]
+## [01]-[CLIENT]
 
 [CLIENT_TYPE_SCOPE]: the curated client tag, its service, and the streaming-fold surface
 
@@ -41,7 +33,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 - `Service.createResponseStream`: `options` is `CreateResponse.Encoded` minus `stream`.
 - `ResponseStreamEvent`: each event discriminates on a `type` literal and carries `sequence_number: Int`; consumers `Stream.runForEach` + `Match.discriminator("type")`, never parallel handlers. Events group by family — response lifecycle, output-item, content-part, text, refusal, function-call-args, reasoning, provider-executed-tool progress, and `error`.
 
-## [03]-[LANGUAGE_MODEL]
+## [02]-[LANGUAGE_MODEL]
 
 [LANGUAGE_MODEL_TYPE_SCOPE]: the per-request Config carrier and the model-id union
 
@@ -67,7 +59,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 - `Config.Service` omits `input`/`tools`/`tool_choice`/`stream`/`text`, made partial, and adds `fileIdPrefixes`, `text.verbosity` (`low`/`medium`/`high`), and `strict`; `static getOrUndefined` reads it, and `ai/model.ts` writes it per call as the tier-routing seam.
 - `declare module` augments the `@effect/ai` `Prompt`/`Response` interfaces with an optional `openai` slot; internal code reads canonical shapes and the edge maps them. Distinctive slot payloads: `itemId`/`encryptedContent` on reasoning parts, `imageDetail` on file parts, `refusal` on text metadata, `file_citation`/`url_citation` index shapes on source metadata, and `serviceTier` (`default`/`auto`/`flex`/`scale`/`priority`) on finish metadata.
 
-## [04]-[EMBEDDING_MODEL]
+## [03]-[EMBEDDING_MODEL]
 
 [EMBEDDING_MODEL_TYPE_SCOPE]: the batched and data-loader config extensions
 
@@ -93,7 +85,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 - both config extensions carry the FULL request band beside their own batching keys, so `dimensions` — the truncated output width, honoured by `text-embedding-3` and later and refused by earlier generations — rides either posture; `encoding_format` and `user` arrive the same way.
 - `makeDataLoader` also requires `Scope` for its background batcher; the layers scope internally, and `ai/embed.ts` reads this binding as the `read/search` `Embedder` port source.
 
-## [05]-[TOKENIZER]
+## [04]-[TOKENIZER]
 
 [TOKENIZER_ENTRY_SCOPE]: model-keyed token counting installed dependency-free
 
@@ -104,7 +96,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 
 - `make` returns a `Tokenizer.Service` with no `Effect` wrapper; `OpenAiLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold `layer` in implicitly.
 
-## [06]-[TOOL]
+## [05]-[TOOL]
 
 [TOOL_ENTRY_SCOPE]: provider-executed tool constructors the provider runs and the app collects with `Toolkit.make`
 
@@ -121,7 +113,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 - `WebSearch`/`WebSearchPreview` parameters `{action: search \| open_page \| find}`, success `{status: WebSearchToolCallStatus}`; `WebSearch` adds `filters.allowed_domains?`.
 - `FileSearch.filters` is the OpenAI filter algebra — a comparison node `{type: eq\|ne\|gt\|gte\|lt\|lte; key; value: string\|number\|boolean\|ReadonlyArray<string\|number>}` or a compound node `{type: and\|or; filters: ReadonlyArray<comparison>}`.
 
-## [07]-[TELEMETRY]
+## [06]-[TELEMETRY]
 
 [TELEMETRY_TYPE_SCOPE]: OpenAI-namespaced GenAI attribute extensions
 
@@ -140,7 +132,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 
 - `OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set; `addGenAIAnnotations` mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation and the seam onto `@effect/opentelemetry`. Both `RequestAttributes` and `ResponseAttributes` fold under the `gen_ai.openai.request` prefix, so response attributes resolve under the request namespace. `OpenAiTelemetryAttributeOptions` NESTS — `{ openai: { request?, response? } }`, never flat fields. `ResponseAttributes.systemFingerprint` is currently unfillable through the part algebra: `FinishPartMetadata.openai` exposes `serviceTier` alone, and no `Response` augmentation forwards the raw response's `system_fingerprint`.
 
-## [08]-[CONFIG]
+## [07]-[CONFIG]
 
 [CONFIG_TYPE_SCOPE]: the request-scoped client-transform carrier
 
@@ -157,7 +149,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 
 - `OpenAiConfig` carries a per-region/per-request `HttpClient` mutation without rebuilding transport, distinct from the layer-construction `transformClient`.
 
-## [09]-[GENERATED]
+## [08]-[GENERATED]
 
 [GENERATED_ENTRY_SCOPE]: the machine-generated OpenAI REST surface reached through named anchors
 
@@ -174,7 +166,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 [REQUEST_RESPONSE_SHAPES]: `CreateResponse` `Response` `OutputItem` `CreateChatCompletionRequest` `CreateEmbeddingRequest` `CreateEmbeddingResponse`
 [TOOL_SUB_SCHEMAS]: `RankingOptions` `Filters` `ApproximateLocation` `SearchContextSize` `WebSearchToolSearchContextSize` `WebSearchToolCallStatus` `WebSearchActionSearch` `WebSearchActionOpenPage` `WebSearchActionFind` `CodeInterpreterOutputLogs` `CodeInterpreterOutputImage` `Annotation` `OutputTextContent` `RefusalContent` `ReasoningTextContent`
 
-## [10]-[IMPLEMENTATION_LAW]
+## [09]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every provider symbol resolves a core `@effect/ai` tag, so provider choice is one composition-root `Layer` swap; all I/O rides `Effect`/`Stream`, failures flow through the `AiError.AiError` union, and the streaming union folds on the `type` discriminant.
@@ -189,10 +181,3 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 [LOCAL_ADMISSION]:
 - OpenAI is the reference provider row of `@effect/ai` — the only admitted provider populating language, embedding, tokenizer, and telemetry.
 - Reach REST through `OpenAiClient`, resolve credentials as `Redacted` via `layerConfig`, and compose provider dependencies top-down: `Effect.provide(OpenAiLanguageModel.model(id))` over `OpenAiClient.layer({ apiKey })` over an `HttpClient` Layer.
-
-[RAIL_LAW]:
-- Package: `@effect/ai-openai`
-- Owns: the OpenAI Responses/Embeddings binding onto `@effect/ai` — `OpenAiClient` curated rails with `streamRequest`, `OpenAiLanguageModel` with the per-request `Config` override, `OpenAiEmbeddingModel` batched/data-loader, `OpenAiTokenizer`, the four `OpenAiTool` provider-executed constructors, `OpenAiTelemetry` GenAI attributes, `OpenAiConfig` request-scoped client transform, and the `Generated` REST corpus
-- Accept: a provider symbol resolving a core `@effect/ai` tag, `Redacted` credentials through `layerConfig`, per-request tuning through `Config` + `withConfigOverride`, the `ResponseStreamEvent` fold under `Match.discriminator("type")`, and `AiError` through `catchTag`
-- Reject: a hand-rolled OpenAI HTTP call, a raw `Generated.make` or individual schema import in planning code, a per-provider generation API beside the shared tags, an unredacted key, and a thrown fault where the `AiError` rail carries it
-

@@ -412,7 +412,6 @@ class IfcSelector:
         return transformer.transform(tree)
 ```
 
-
 ## [03]-[RESEARCH]
 
 <!-- source-only: research row template:

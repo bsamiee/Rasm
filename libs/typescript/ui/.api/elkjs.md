@@ -4,15 +4,7 @@
 
 Reach it only through `elkjs/lib/elk-api` with a worker: the constructor demands `workerUrl` or `workerFactory`, and the worker path is the one that leaves the caller's graph untouched.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `elkjs`
-- package: `elkjs` (EPL-2.0 OR GPL-3.0-or-later)
-- module: CJS with hand-written `.d.ts` and no `exports` map, so every deep path resolves — `elkjs/lib/elk-api` is the admitted entry (the thin promise client) and `elkjs/lib/elk-worker.min.js` the solver payload the worker loads
-- runtime: the client is DOM-free and isomorphic; the solver is GWT-compiled JavaScript running inside a `Worker`, reached through `postMessage` and structured clone
-- rail: view canvas plane — the layout solver whose coordinate output crosses into `view/canvas` as data
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the graph model — one shape family carrying both the request and the solved answer
 
@@ -41,7 +33,7 @@ Reach it only through `elkjs/lib/elk-api` with a worker: the constructor demands
 |  [05]   | `ElkLayoutOptionDescription`    | interface     | `id` `group` `type` `targets` — the introspected option registry |
 |  [06]   | `ElkLayoutCategoryDescription`  | interface     | `id` `name` `knownLayouters` — the algorithm grouping            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and the solve call
 
@@ -86,7 +78,7 @@ Reach it only through `elkjs/lib/elk-api` with a worker: the constructor demands
 |  [09]   | `elk.separateConnectedComponents` / `elk.randomSeed`         | fold    | component splitting and deterministic reruns                    |
 |  [10]   | `elk.interactive` / `elk.layered.considerModelOrder.*`       | fold    | biases the solve toward existing positions and input order      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two execution paths ship, differing in purity rather than answer: an in-process solve MUTATES the caller's graph and returns the same object reference, writing `x`/`y` onto the nodes handed in and stamping a GWT hash field on each, while a worker solve structured-clones the request across `postMessage` and resolves a fresh tree, leaving the caller's graph pristine — the purity the estate's controlled-state fold requires.
@@ -110,10 +102,3 @@ Reach it only through `elkjs/lib/elk-api` with a worker: the constructor demands
 - Emit the option table from a policy row keyed by layout intent, and spell every value as a string.
 - Read solved geometry back as data — positions into a change batch, bend points onto edge data — and let the consuming renderer own every stroke.
 - Register the narrowest `algorithms` set the surface solves.
-
-[RAIL_LAW]:
-- Package: `elkjs`
-- Owns: whole-graph layout as a promise over a worker — the `ElkNode` compound model with ports and labels, the eleven algorithm folds, the 235-row string option table across three override tiers, solved absolute coordinates, and `ElkEdgeSection` orthogonal routing geometry
-- Accept: the `elkjs/lib/elk-api` entry with a `workerFactory`, a scoped client released through `terminateWorker()`, policy-row option tables, compound nesting for containers and ports for fixed anchors, solved geometry crossing into a canvas as a change batch and edge data, the solve wrapped as a debounced `Effect`
-- Reject: the bare `elkjs` entry, the in-process path that mutates the caller's graph, a hand-rolled hierarchy or force pass where an algorithm row answers, a hand-drawn polyline where `bendPoints` answers, a per-frame solve during a drag, a client leaked past its scope, and the solver joining a shared serialized worker pool
-

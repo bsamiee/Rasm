@@ -20,7 +20,7 @@
 - Growth: each reuse gate adds one `ReusePolicy` member and one `ReuseGates` row minting its payload-bearing `RetireCause` case; each traceability demand adds one `ReuseTrait` row the `Required` capability column admits by name; each lifecycle operation adds one `RemnantOp` case and one generated dispatch arm; each physical observation axis adds one `RemnantObservation` member.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
@@ -368,7 +368,7 @@ file readonly struct InventoryGate(RemnantInventory inventory, RemnantRow[] rows
 - Owner: `Remnants` owns admission, minting, containment, reconciliation, sweep, lineage admission, projection, and the canonical preimage; `Remnant` stays a value with no fold of its own, so the type is not a partial split across two sections.
 - Law: containment reads the `Geometry2D` owner's own topology walk — the `PolygonTrace.Regioned` projection publishes `Depth`, `Parent`, and `IsHole`, so a hole's owner is a COLUMN read and the pairwise arc-relation matrix over the region deletes whole. `ForestDisjointSet` is refused by name: union-find collapses a set to an arbitrary representative and cannot answer WHICH member encloses.
 - Law: `Loop.CanonicalBytes` is the ONE loop preimage — rotation-canonical, CCW-oriented, quantized on the loop's own admitted grid — so the hand rotation search and its station comparator delete onto it, and set ordering keys on each loop's own digest. Both preimage CLOSES seat at the S0 `FabricationCanon` — `Keyed` mints the retaining remnant address, `Ordered` answers the streaming digest that totally orders a region's loops without materializing a buffer per probe. Hex TEXT renders of a preimage decide no byte order here; the folder preimage law forbids it.
-- Law: the nine reuse gates are ROWS over one `RemnantAssay` measurement carrier, so a new gate is one row and both call sites read the same fold.
+- Law: the nine reuse gates are ROWS over one `RemnantAssessment` measurement carrier, so a new gate is one row and both call sites read the same fold.
 - Law: an absent measure is carried, never forged. Value resolves from the remnant's own figure or the profile rate over its usable area, and a remnant with neither stays UNPRICED through every total and sorts behind every priced row; aspect is absent where the calipers walk returns no `OrientedEnvelope` and the sliver gate retires on that absence with the absence in its cause. A zero standing in for either fact makes an unmeasured offcut indistinguishable from a worthless one and scraps stock under a verdict nobody reached, and a provider failure rides the typed rail rather than becoming a measure.
 - Auto: arc-exact offsets and Booleans route through `ArcAlgebra.Apply`; chord projection routes through `ArcAlgebra.Densify`; exact measures route through `Loop.Area` and `Loop.Length`; independent row gates partition through `ParallelHelper`; lineage acyclicity and order route through `QuikGraph`; lease membership routes through `Interval.Contains`.
 - Exemption: `InventoryGate` is the measured per-row partition boundary and `AdmitLineage` the bounded graph-population kernel; mutation stays inside their own admitted containers.
@@ -582,7 +582,7 @@ public static class Remnants {
         bool duplicate,
         Instant now,
         RemnantInventory inventory) {
-        Seq<RetireCause> causes = Causes(new RemnantAssay(
+        Seq<RetireCause> causes = Causes(new RemnantAssessment(
             remnant, remnant.Profile, area, aspect, compactness, spans, duplicate, inventory.Material, inventory.Policy));
         return causes.IsEmpty
             ? Right<Seq<RetireCause>, RemnantRow>(new RemnantRow(
@@ -745,7 +745,7 @@ public static class Remnants {
             ? Fin.Succ(None)
             : observation.Map(seen =>
                 from assessment in Assess(row.Remnant, seen.Profile, policy)
-                let policyCauses = Causes(new RemnantAssay(
+                let policyCauses = Causes(new RemnantAssessment(
                     row.Remnant,
                     seen.Profile,
                     assessment.Area,
@@ -908,7 +908,7 @@ public static class Remnants {
         from spanCore in Offset(usable, -0.5 * policy.MinReusableSpan.Millimeters)
         select (usable, measure.Area, measure.Aspect, measure.Compactness, !spanCore.IsEmpty);
 
-    public readonly record struct RemnantAssay(
+    public readonly record struct RemnantAssessment(
         Remnant Remnant,
         RemnantProfile Profile,
         double Area,
@@ -919,40 +919,40 @@ public static class Remnants {
         MaterialId Material,
         ReusePolicy Policy);
 
-    private static readonly Seq<Func<RemnantAssay, Option<RetireCause>>> ReuseGates = Seq<Func<RemnantAssay, Option<RetireCause>>>(
-        static assay => assay.Remnant.Material != assay.Material
-            ? Some<RetireCause>(new RetireCause.Material(assay.Remnant.Material, assay.Material))
+    private static readonly Seq<Func<RemnantAssessment, Option<RetireCause>>> ReuseGates = Seq<Func<RemnantAssessment, Option<RetireCause>>>(
+        static assessment => assessment.Remnant.Material != assessment.Material
+            ? Some<RetireCause>(new RetireCause.Material(assessment.Remnant.Material, assessment.Material))
             : None,
-        static assay => assay.Duplicate
-            ? Some<RetireCause>(new RetireCause.Duplicate(assay.Remnant.Identity))
+        static assessment => assessment.Duplicate
+            ? Some<RetireCause>(new RetireCause.Duplicate(assessment.Remnant.Identity))
             : None,
-        static assay => assay.Remnant.Generation > assay.Policy.MaxGeneration
-            ? Some<RetireCause>(new RetireCause.Generation(assay.Remnant.Generation, assay.Policy.MaxGeneration))
+        static assessment => assessment.Remnant.Generation > assessment.Policy.MaxGeneration
+            ? Some<RetireCause>(new RetireCause.Generation(assessment.Remnant.Generation, assessment.Policy.MaxGeneration))
             : None,
-        static assay => assay.Policy.MinGauge.Millimeters > 0.0
-            && assay.Profile.GaugeMm.Filter(gauge => gauge >= assay.Policy.MinGauge.Millimeters).IsNone
-                ? Some<RetireCause>(new RetireCause.Gauge(assay.Profile.GaugeMm, assay.Policy.MinGauge.Millimeters))
+        static assessment => assessment.Policy.MinGauge.Millimeters > 0.0
+            && assessment.Profile.GaugeMm.Filter(gauge => gauge >= assessment.Policy.MinGauge.Millimeters).IsNone
+                ? Some<RetireCause>(new RetireCause.Gauge(assessment.Profile.GaugeMm, assessment.Policy.MinGauge.Millimeters))
                 : None,
-        static assay => assay.Area < assay.Policy.MinUsable.SquareMillimeters
-            ? Some<RetireCause>(new RetireCause.AreaFloor(assay.Area, assay.Policy.MinUsable.SquareMillimeters))
+        static assessment => assessment.Area < assessment.Policy.MinUsable.SquareMillimeters
+            ? Some<RetireCause>(new RetireCause.AreaFloor(assessment.Area, assessment.Policy.MinUsable.SquareMillimeters))
             : None,
-        static assay => !assay.Spans
-            ? Some<RetireCause>(new RetireCause.FeatureWidth(assay.Policy.MinReusableSpan.Millimeters))
+        static assessment => !assessment.Spans
+            ? Some<RetireCause>(new RetireCause.FeatureWidth(assessment.Policy.MinReusableSpan.Millimeters))
             : None,
-        static assay => assay.Aspect.Filter(aspect => aspect >= assay.Policy.MinAspect.DecimalFractions).IsNone
-            ? Some<RetireCause>(new RetireCause.SliverAspect(assay.Aspect, assay.Policy.MinAspect.DecimalFractions))
+        static assessment => assessment.Aspect.Filter(aspect => aspect >= assessment.Policy.MinAspect.DecimalFractions).IsNone
+            ? Some<RetireCause>(new RetireCause.SliverAspect(assessment.Aspect, assessment.Policy.MinAspect.DecimalFractions))
             : None,
-        static assay => assay.Compactness < assay.Policy.MinCompactness.DecimalFractions
-            ? Some<RetireCause>(new RetireCause.Compactness(assay.Compactness, assay.Policy.MinCompactness.DecimalFractions))
+        static assessment => assessment.Compactness < assessment.Policy.MinCompactness.DecimalFractions
+            ? Some<RetireCause>(new RetireCause.Compactness(assessment.Compactness, assessment.Policy.MinCompactness.DecimalFractions))
             : None,
-        static assay => assay.Profile.CostPerSquareMillimeter
-            .Map(rate => rate * assay.Area)
-            .Filter(value => value < assay.Policy.MinSalvageValue)
-            .Map(value => (RetireCause)new RetireCause.Salvage(value, assay.Policy.MinSalvageValue)));
+        static assessment => assessment.Profile.CostPerSquareMillimeter
+            .Map(rate => rate * assessment.Area)
+            .Filter(value => value < assessment.Policy.MinSalvageValue)
+            .Map(value => (RetireCause)new RetireCause.Salvage(value, assessment.Policy.MinSalvageValue)));
 
-    private static Seq<RetireCause> Causes(RemnantAssay assay) =>
-        ReuseGates.Map(gate => gate(assay)).Somes()
-            .Concat(toSeq(ReuseTrait.Of(assay.Profile).Missing(assay.Policy.Required).Held
+    private static Seq<RetireCause> Causes(RemnantAssessment assessment) =>
+        ReuseGates.Map(gate => gate(assessment)).Somes()
+            .Concat(toSeq(ReuseTrait.Of(assessment.Profile).Missing(assessment.Policy.Required).Held
                     .OrderBy(static trait => trait.Rank))
                 .Map(static trait => (RetireCause)new RetireCause.Traceability(trait)));
 

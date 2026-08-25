@@ -2,17 +2,7 @@
 
 bSDD — the buildingSMART Data Dictionary — is the live REST authority for standard classification systems (IFC, Uniclass, OmniClass, ETIM) and their class-to-property mappings, consumed as a hand-thin read-only HTTP client over the injected Compute transport. `BsddPort.Fetch` issues one identifier-URI `GET`, content-negotiates `application/json`, and projects the wire `ClassContract.v1` into the seam-owned `BsddClass`/`BsddProperty` evidence that classification resolution returns and the property templates mine for `PropertyKey` seeds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: bSDD `Dictionaries API`
-- service: buildingSMART Data Dictionary `Dictionaries API` (MIT) — live REST, OpenAPI `v1`
-- base-url: `https://api.bsdd.buildingsmart.org/`
-- identifier-uri: `https://identifier.buildingsmart.org/uri/{organization}/{dictionary}/{version}/class/{code}` — the canonical class identity, passed AS the `Uri` query argument to `api/Class/vX`/`api/Property/vX`
-- auth: the `Class`/`Property`/`Dictionary`/`Search`/reference `GET` resources are token-free; upload and private-content methods require Azure AD B2C (MSAL), outside the read path
-- transport-headers: `Accept: application/json` (the resource also serves `application/xml`, `text/turtle`, `application/rdf+xml`); an `X-User-Agent`/`User-Agent` of `"application/version"` attributes usage
-- rail: classification
-
-## [02]-[ENDPOINTS]
+## [01]-[ENDPOINTS]
 
 [ENDPOINT_SCOPE]: class + property resolution (the Bim read path)
 
@@ -63,7 +53,7 @@ Optional query parameters, keyed to the rows above:
 - `languageCode` is case-sensitive; a class text missing in the requested language falls back to the dictionary's `defaultLanguageCode`.
 - `IncludeClassProperties=true` is mandatory on `api/Class/v1` for the property-template fold; absent it, `classProperties` is omitted and only the class header resolves.
 
-## [03]-[RESPONSE_CONTRACTS]
+## [02]-[RESPONSE_CONTRACTS]
 
 [CONTRACT_SCOPE]: class detail + property + relation shapes
 
@@ -106,7 +96,7 @@ Optional query parameters, keyed to the rows above:
 
 [PropertyContract.v5]: mirrors the `ClassPropertyContract.v1` value fields (`dataType`/`propertyValueKind`/`allowedValues[]` as `PropertyValueContract.v5`/`units[]`/`qudtCodes[]`/`dimension*`/`pattern`/`min*`/`max*`) with dictionary-master metadata `code`/`uri`/`status`/`versionDateUtc`/`connectedPropertyCodes[]`/`methodOfMeasurement`/`textFormat`/`propertyRelations[]`.
 
-## [04]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the hand-thin client — `BsddPort.Fetch` request build + `BsddClass.Of` projection; `{classUri}` = `{DictionaryUri}/class/{code}`
 - surface-root: `Semantics/classification#BSDD_RESOLUTION` (`BsddPort`/`BsddResolution`/`BsddClass`/`BsddProperty`)
@@ -123,7 +113,7 @@ Optional query parameters, keyed to the rows above:
 [BSDD_CLASS]: `BsddClass(code, name, classType, definition, uri, properties, status, relatedIfcEntities, relations, reverseRelations, parent, ancestry, children, replaces, replacedBy, deprecation)` — `Status` gates IDS admission, `Relations`/`ReverseRelations` feed the `BsddFederation` closure, `Parent`/`Ancestry`/`Children` the containment, `Replaces`/`ReplacedBy`/`Deprecation` the supersession the `Admit` gate reads.
 [BSDD_PROPERTY]: `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, status, allowedValues, pattern, bounds, siDimension, units)` — `AllowedValues`/`Pattern`/`Bounds`/`SiDimension`/`Units` feed the `Semantics/properties` templates and IDS value constraints; the seven `dimension*` exponent columns build the seam `Dimension` directly, so no exponent carrier stands beside it.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Class identity IS the identifier URI (`{org}/{dictionary}/{version}/class/{code}`); every resource is addressed by that URI, so `BsddPort.Fetch(string dictionaryClassUri)` carries one argument and the API resolves the org/dictionary/version/code split server-side.
@@ -143,9 +133,3 @@ Optional query parameters, keyed to the rows above:
 - `BsddClass.Of` reads ONLY the fields enumerated here; the wire is `additionalProperties: false`, so an unexpected member signals contract drift, not a new capability, and a field absent from this catalog is a phantom the seam never deserializes.
 - A transport miss degrades to the row's local code-shape policy (`LocalShape`); only a MALFORMED published-class shape routes `Model/faults#FAULT_BAND` `BimFault.Refused` under `BimScope.Semantics`/`BimReason.Codec` — an unreachable service is a degrade, a corrupt response is a fault.
 - Memoization keyed by the dictionary class URI rides Compute's transport cache; a durable classification cache is the calling app-platform's concern at the seam.
-
-[RAIL_LAW]:
-- Service: bSDD `Dictionaries API` (`https://api.bsdd.buildingsmart.org/`, MIT, OpenAPI `v1`)
-- Owns: the live standard-classification dictionary — class detail (`ClassContract.v1`), the class-to-property mapping (`ClassPropertyContract.v1`), property masters (`PropertyContract.v5`), value enumerations, dictionary enumeration, and the unit/country/language/reference data — addressed by the identifier-URI scheme.
-- Accept: a single identifier-URI `GET` over the injected Compute transport, `application/json` negotiated, projected into the seam-owned `BsddClass`/`BsddProperty` through `BsddClass.Of`; the class-level constraint over the master; degrade-to-`LocalShape` on an unreachable service.
-- Reject: a `Rasm.Bim`-minted transport; reading a field absent from this catalog; a second hardcoded code-shape table drifting from the dictionary; a fault on service-unreachable degradation.

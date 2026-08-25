@@ -1,6 +1,5 @@
 # [RASM_RHINO_RENDER_SETTINGS]
 
-
 ## [01]-[INDEX]
 
 - [02]-[SOURCE]: `SettingsSource` — the origin union with its `Use` read and `Mutate` undo-bracketed borrow folds.
@@ -21,7 +20,7 @@
 - Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -1399,23 +1398,23 @@ public sealed class AmbientWatch : IDisposable {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]                              | [FORM]                             | [ENTRY]                |
-| :-----: | :---------------- | :----------------------------------- | :--------------------------------- | :--------------------- |
-|  [01]   | live origin       | `SettingsSource.Live`                | document borrow                    | `Use` / `Mutate`       |
-|  [02]   | archive origin    | `SettingsSource.Archived`            | archive borrow                     | `Use` / `Mutate`       |
-|  [03]   | detached origin   | `SettingsSource.Detached`            | owned borrow                       | `Use` / `Mutate`       |
-|  [04]   | sub-owner window  | `SubOwners`                          | bracket-owned seven-wrapper borrow | `Within`               |
-|  [05]   | host switches     | `GroundTrait` … `RenderTrait`        | read-and-seat capability rows      | `Of` / `Apply`         |
-|  [06]   | guide bands       | `GuideZone` / `GuideBand`            | one band shape over two quadruples | `Reads` / `Seats`      |
-|  [07]   | state payloads    | `SettingsBody`                       | one case per axis, one write fold  | `Apply`                |
-|  [08]   | aggregate config  | `RenderConfig`                       | correlated configuration           | `Of` / `Apply`         |
-|  [09]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)`      |
-|  [10]   | host astronomy    | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve`      |
-|  [11]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve`      |
-|  [12]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`         |
-|  [13]   | broadcasts        | `AmbientPulse` / `AmbientFailure`    | bound ring over verified pulses    | `AmbientWatch.Of`      |
-|  [14]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate`  |
-|  [15]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`          |
+| [INDEX] | [CONCERN]         | [OWNER]                              | [FORM]                             | [ENTRY]               |
+| :-----: | :---------------- | :----------------------------------- | :--------------------------------- | :-------------------- |
+|  [01]   | live origin       | `SettingsSource.Live`                | document borrow                    | `Use` / `Mutate`      |
+|  [02]   | archive origin    | `SettingsSource.Archived`            | archive borrow                     | `Use` / `Mutate`      |
+|  [03]   | detached origin   | `SettingsSource.Detached`            | owned borrow                       | `Use` / `Mutate`      |
+|  [04]   | sub-owner window  | `SubOwners`                          | bracket-owned seven-wrapper borrow | `Within`              |
+|  [05]   | host switches     | `GroundTrait` … `RenderTrait`        | read-and-seat capability rows      | `Of` / `Apply`        |
+|  [06]   | guide bands       | `GuideZone` / `GuideBand`            | one band shape over two quadruples | `Reads` / `Seats`     |
+|  [07]   | state payloads    | `SettingsBody`                       | one case per axis, one write fold  | `Apply`               |
+|  [08]   | aggregate config  | `RenderConfig`                       | correlated configuration           | `Of` / `Apply`        |
+|  [09]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)`     |
+|  [10]   | host astronomy    | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve`     |
+|  [11]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve`     |
+|  [12]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`        |
+|  [13]   | broadcasts        | `AmbientPulse` / `AmbientFailure`    | bound ring over verified pulses    | `AmbientWatch.Of`     |
+|  [14]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate` |
+|  [15]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`         |
 
 ## [08]-[RESEARCH]
 

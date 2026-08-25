@@ -4,17 +4,7 @@
 
 `EncodeArm(qr=(SegnoFactory, accepts))` binds it, `DataOverflowError`/`ValueError` mapping onto the closed `MarkFault` vocabulary; DataMatrix/PDF417/Aztec/MaxiCode/rMQR route to zxing-cpp and the linear symbologies to python-barcode.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `segno`
-- package: `segno` (BSD)
-- import: `segno` (payload grammar `segno.helpers`, policy vocabulary `segno.consts`)
-- owner: `artifacts`
-- rail: imaging — the `graphic/marks/encode#MARK` `qr` `EncodeArm` arm (`Symbology.QR`/`MICRO_QR`/`QR_SEQUENCE`)
-- asset: pure-Python wheel, no compiled extension, no cp-gate; every serializer is in-package and dependency-free including the `png` raster path (`write_png`, zlib-only, no Pillow), so raster post-processing routes to `pyvips`/`pillow` only when explicitly required
-- entry points: console script `segno`; the codec owner is import-only, never shelling the CLI
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: symbol and sequence roots
 
@@ -38,7 +28,7 @@
 |  [04]   | `VERSION_RANGE_01_09` / `VERSION_RANGE_10_26` / `VERSION_RANGE_27_40`                         | version-band axis   |
 |  [05]   | `SYMBOL_CAPACITY` / `RSYMBOL_CAPACITY` / `MICRO_VERSIONS`                                     | capacity table      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory functions
 - shared head: `(content, error, version, mode, mask, encoding, boost_error)`, elided as `…`; the table carries only per-row accepts
@@ -115,7 +105,7 @@ Per-kind `save` options:
 - [08]-[TXT]: `dark='1'`, `light='0'`.
 - [09]-[ANS]: `border`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - factory axis: one `getattr(segno, factory)` spread over the `SegnoFactory` member owns symbol encoding — `make`/`make_micro`/`make_sequence` are three `SYMBOLOGIES` rows (`Symbology.QR`/`MICRO_QR`/`QR_SEQUENCE`) each binding `EncodeArm(qr=(SegnoFactory, accepts))`; `make_qr` is the `make` row with `micro=False`. `SHARED_FACTORY_KEYS` threads the six common parameters and the per-row `accepts` the factory-specific keys, key-filtered so an over-key never reaches a rejecting factory.
@@ -133,9 +123,3 @@ Per-kind `save` options:
 [LOCAL_ADMISSION]:
 - lazy `import segno` (and `from segno import helpers`) at the `graphic/marks/encode#MARK` boundary; module-level import violates the manifest import policy, and the annotation-only `from segno import QRCode` rides the `if TYPE_CHECKING` block.
 - segno is strictly QR/Micro-QR — DataMatrix/PDF417/Aztec/MaxiCode/rMQR route to the zxing-cpp `matrix` arm and the linear symbologies to python-barcode; the dependency-free SVG bytes feed the `svgelements`/document figure owners with no rasterization, and live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `segno`
-- Owns: QR (versions 1-40) and Micro-QR (M1-M4) generation, L/M/Q/H error correction with `boost_error` auto-raise, numeric/alphanumeric/byte/kanji/hanzi/ECI segment-mode and explicit data-mask control, structured-append `QRCodeSequence` spans, the `segno.helpers` structured-payload grammar (vCard/MeCard/WiFi/EPC/geo/email + `_data` twins), the boolean module matrix (`matrix`/`matrix_iter`), the `designator`/`version`/`error`/`mask`/`mode`/`symbol_size`/`is_micro` evidence surface, and dependency-free SVG/PNG/PDF/EPS/Netpbm/LaTeX/text/terminal serialization and `svg_inline`/`svg_data_uri`/`png_data_uri` inline forms
-- Accept: `getattr(segno, factory)` resolution over the `SegnoFactory` member with the six `SHARED_FACTORY_KEYS` plus per-row `SegnoKey` accepts, `make_sequence` keyed by a REQUIRED `symbol_count` bounded 1..16, the `Content` family folding through `helpers.make_*_data` (the genuinely-spelled `make_make_email_data` included), `symbol.save(BytesIO(), kind="svg", **SvgStyle)` SVG bytes folding to `RasterFact`, the nested closed `SvgStyle` per-module-color-plus-structural band on `MarkPayload`, the `DataOverflowError`/`ValueError` raises mapped onto distinct `MarkFault` cases, SVG bytes feeding the `svgelements`/document figure owners and the `stream-zip` bundle sink
-- Reject: wrapper-renames of `make`/`save`; a hand-rolled Reed-Solomon QR encoder; a hand-formatted vCard/WiFi/MeCard/geo/email string where `segno.helpers` owns the grammar; a thin slice of a contact grammar the helper carries in full at 26 fields; the `QRCode`-returning `make_*` where the `_data` twin folds to text through the one factory axis; a forced Pillow raster path where the in-package serializers (PNG included) need none; a `dark`/`light`-only slice of the full `SvgStyle` surface; a parallel symbol type per output format; an unwrapped `save` letting a serializer `ValueError` escape the encode capsule; a bare `except Exception` flattening the `DataOverflowError`/`ValueError` causes; a `VERSION_RANGE_*` reference where the real names are the `01_09`/`10_26`/`27_40` triple; a claimed 2D-matrix or linear symbology this package does not own; identity minting the runtime owns

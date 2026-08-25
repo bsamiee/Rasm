@@ -2,16 +2,7 @@
 
 `Confluent.Kafka` owns the librdkafka-backed Kafka client rail: builder-constructed typed producers and consumers, the message envelope over ordered headers, per-message delivery acknowledgement, the offset position algebra, and the codec slots every payload crosses. It carries the at-least-once, dead-letter-capable leg of the op-log changefeed egress — message-envelope shape rides the CloudEvents binding and payload shape the registry codecs, so produce, acknowledgement, commit, and native lifetime are this package's whole concern.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Confluent.Kafka`
-- package: `Confluent.Kafka` (Apache-2.0)
-- assembly: `Confluent.Kafka`
-- namespace: `Confluent.Kafka`, `Confluent.Kafka.SyncOverAsync`
-- depends: `librdkafka.redist` ships `runtimes/osx-arm64/native/librdkafka.dylib`, P/Invoke-loaded by the client handle
-- rail: cdc-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, builder, and native handle
 
@@ -134,7 +125,7 @@
 |  [06]   | `ProduceException<TKey, TValue>` | class         | failed delivery carrying its message        |
 |  [07]   | `ConsumeException`               | class         | failed fetch carrying its result            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction — every builder setter returns the builder, so wiring chains to one `Build()`, and each `Set*Handler` takes `Action<TClient, T>` over the payload type its cell names.
 
@@ -238,7 +229,7 @@
 - `[Deserializers]`: `Utf8` `Null` `Ignore` `Int32` `Int64` `Single` `Double` `ByteArray`.
 - `[Offset]`: `Beginning` `End` `Stored` `Unset`; `Partition.Any` defers placement to the partitioner.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One handle owns one client: `ProducerConfig`/`ConsumerConfig` derive from `ClientConfig` as string key-value rows, the builder folds them with the codec slots into a native librdkafka handle, and every runtime mutation (`SetSaslCredentials`, the OAUTHBEARER hand-off, `AddBrokers`) acts on that live handle rather than minting a second one.
@@ -259,9 +250,3 @@
 - `ProducerConfig.EnableIdempotence` deduplicates broker-side retries and the transaction bracket gives `ReadCommitted` consumers atomic visibility, both scoped to broker records alone; the PostgreSQL outbox cursor advances outside that scope, so content-key consumer dedupe closes the crash window between broker persistence and cursor advance. Egress states `MessageTimeoutMs` explicitly because idempotence forces the retry count to `INT32_MAX` and that timeout becomes the leg's whole attempt bound; it states none of the four properties idempotence forces, since supplying any of them either restates the forced value or refuses to construct the producer.
 - Kafka consumers disable `EnableAutoCommit` and commit through `StoreOffset` with an explicit `Commit`, so a committed offset never outruns durable downstream apply; `GetWatermarkOffsets`/`QueryWatermarkOffsets` derive lag and `OffsetsForTimes` resolves a replay cursor from a wall-clock `TopicPartitionTimestamp`.
 - `SetOAuthBearerTokenRefreshHandler` wires a SASL/OAUTHBEARER cluster so each librdkafka refresh callback mints a token from the admitted `OpenIddict.Client` and hands it back through `OAuthBearerSetToken`, or reports a mint failure through `OAuthBearerSetTokenFailure`; `SetSaslCredentials` rotates a PLAIN or SCRAM credential without rebuilding the client.
-
-[RAIL_LAW]:
-- Package: `Confluent.Kafka`
-- Owns: librdkafka-backed produce and consume, delivery acknowledgement, offset commit, producer transactions, and the native client lifetime for the Kafka egress sink row.
-- Accept: builder-constructed clients with fixed codec slots, awaited `ProduceAsync`, `DeliveryResult.Status` folded through `KafkaAck.FromResult`, explicit `StoreOffset`/`Commit` on a durable consumer, `Close` before dispose, `Error`-driven refusal, and transactions scoped to broker-record visibility.
-- Reject: hand-rolled Kafka wire framing, fire-and-forget `Produce` on the durable rail, auto-commit on a durable consumer, a bare `Dispose` on a group consumer, an undeclared `MessageTimeoutMs` beside a pinned `EnableIdempotence`, a settings key restating a value idempotence already forces, a raw provider outcome past the `KafkaAck` boundary, and a per-protocol ack vocabulary distinct from `Persisted`/`Indeterminate`/`Refused`.

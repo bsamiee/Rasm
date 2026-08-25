@@ -2,16 +2,7 @@
 
 `mimir-distributed` is the metrics store's fleet escalation: horizontal ingest and query past the single-store ceiling, org-isolated end to end. Its whole server configuration rides one `mimir.structuredConfig` tree, and its reverse proxy renders as `<fullname>-gateway` — `nginx` is the retired component word that survives only in the values COMMENTS, so an address spelled from it resolves to nothing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `mimir-distributed`
-- chart: `mimir-distributed` from `https://grafana.github.io/helm-charts` (AGPL-3.0), chart and `appVersion` versioned independently
-- asset: the distributor, ingester zone set, querier, query-frontend, query-scheduler, store-gateway, compactor, ruler, alertmanager, and overrides-exporter workloads with their Services and headless Services, the gossip-ring Service, the gateway Deployment, the rollout operator, and a bundled MinIO and Kafka that both ship on
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / metrics store escalation
-- crds: NONE
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                         | [CAPABILITY]                                                                         |
 | :-----: | :-------------------------------------------- | :----------------------------------------------------------------------------------- |
@@ -39,7 +30,7 @@
 [FULLNAME]: the standard collapse scaffold with flat overrides; the pin reaches every Mimir component and neither bundled subchart.
 [SERVICE_NAME]: every read and write address is `<fullname>-gateway` on port 80 — the write path at `/otlp` and the read path at `/prometheus`.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - This row is EARNED, never default: the reference single-store row answers until the ingest or query ceiling is real, and this one costs a multi-component memory footprint stated on its own `degrade` column.
@@ -59,9 +50,3 @@
 - Pair `native_histograms_ingestion_enabled` with `frontend.query_result_response_format: protobuf`, because native histograms do not survive query sharding under JSON.
 - Keep `ruler_storage` on the `local` backend with a ConfigMap-mounted group set under `<directory>/<tenant>/`; an s3 rule store is API-mutable and forks the content-is-code law.
 - Read retention off `limits.compactor_blocks_retention_period`; there is no server-level retention key on this row.
-
-[RAIL_LAW]:
-- Contract: `mimir-distributed` chart values + the Mimir server document `mimir.structuredConfig` carries
-- Owns: the horizontally scaled metrics store — component topology, object-backed block storage, the OTLP translation and histogram posture, in-store rule evaluation, org tenancy, and the gateway that fronts both addresses
-- Accept: both addresses off `<fullname>-gateway`; `common.storage` bound to the estate object plane with the bundled store disarmed; the translation triple stated whole; the native-histogram and protobuf pair; a `local` ruler store mounted from a ConfigMap; retention at the compactor limit
-- Reject: an `-nginx` address; the bundled MinIO beside the estate's object plane; a partial translation triple; native histograms without the protobuf response format; an s3 ruler store; a `label` tenancy assumption on a row whose column reads `org`

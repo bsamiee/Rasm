@@ -20,7 +20,7 @@ Carriage is per-branch and only the layout and the kernel-owned attribute slots 
 - Boundary: `sealed` proves the SHARED half and stops — layout arithmetic and the composed attribute grammar — so no arm reads a C# carrier header spelling and none can, three transport dialects riding one layout by ruling; a gate blocked on a peer minting this branch's four header keys is mis-aimed and never re-arms. `tick` mints the companion's derived presence beat strictly after every cause seen — purely logical, never the host physical mint. `transport/wire`'s codec reconstructs `Hlc`/`ElementId` from decoded op arms, admission carries the frame, and the serve enricher folds admission's projection, so the clock lives in one place. `merge`/`tick` are the join-semilattice and successor the op-log prefix replay converges through without double-counting a duplicate op, and the `transport/wire#CRDT_STATE` `converged` fold's `LwwRegister.absorbed` survivor decision reads `compare` through one `fold` call site, never a re-derived sign comparison at the adjudication seam.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from typing import Annotated, Final, Literal, NewType, Self, assert_never
 

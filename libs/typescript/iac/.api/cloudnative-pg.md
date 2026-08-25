@@ -2,15 +2,7 @@
 
 `cloudnative-pg` installs the PostgreSQL operator and its CRD estate; every cluster, database, pooler, backup, and replication object is a custom resource authored beside the chart. Chart values decide the controller's reach, webhook posture, and configuration ConfigMap — nothing here creates a database. Its webhook Service name is HARDCODED and survives every override, which is the one address a fence must not derive.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cloudnative-pg`
-- chart: `cloudnative-pg` from `https://cloudnative-pg.github.io/charts` (Apache-2.0), chart and `appVersion` versioned independently
-- asset: the controller Deployment, the webhook Service, a ServiceAccount, both RBAC pairs, the operator configuration ConfigMap or Secret, the mutating and validating webhook configurations, the monitoring queries ConfigMap, and the CRDs
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / relational plane
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                     | [CAPABILITY]                                                                         |
 | :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------- |
@@ -32,7 +24,7 @@
 [FULLNAME]: the standard collapse scaffold with flat overrides — the pin renames the Deployment, the ServiceAccount, and the RBAC objects.
 [SERVICE_NAME]: REFUTED for this chart. The webhook Service renders as `cnpg-webhook-service` VERBATIM and ignores `fullnameOverride` entirely, because the webhook configurations reference it by a fixed name. The pin therefore governs the workload and not the address, so a fence deriving the admission endpoint from the pinned name resolves to nothing — and no consumer needs that address anyway, since admission is reached by the operator's own webhook configuration.
 
-## [03]-[CR_CONTRACT]
+## [02]-[CR_CONTRACT]
 
 [CRD_ESTATE]: group `postgresql.cnpg.io`, all served and stored at `v1` — `Cluster`, `Pooler`, `Database`, `ScheduledBackup`, `Backup`, `Publication`, `Subscription`, `DatabaseRole`, `FailoverQuorum`, and the image catalogues `ImageCatalog` (namespaced) and `ClusterImageCatalog` (cluster-scoped).
 
@@ -57,7 +49,7 @@
 
 [CR_NAMES]: the `cluster.name` reference on `Database`, `ScheduledBackup`, `Pooler`, `Publication`, and `Subscription` carries the CEL rule `self == oldSelf` — "cluster reference is immutable after creation", so re-pointing one is a new resource by construction. Poolers carry a second name law: a pooler's own `metadata.name` may never equal a cluster name in the same namespace.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The chart installs the CONTROLLER; the estate authors the CRs. Every CNPG object the branch declares is a committed `crd2pulumi` class, so the operator vocabulary is compile-checked where the estate is PG-heaviest and a raw untyped `CustomResource` has no spelling.
@@ -79,9 +71,3 @@
 - State `Cluster.spec.resources` on every cluster: omitted, the operator stamps an empty envelope onto each generated container and the estate's only stateful pod schedules BestEffort.
 - Size a pooler through a container entry named `pgbouncer`, never through the pod-level `template.spec.resources` — that field is alpha, gated, and reaches the bootstrap init container alone.
 - Name a `Pooler` so it can never collide with a cluster in its namespace, and treat every `cluster.name` reference as a create-time constant.
-
-[RAIL_LAW]:
-- Contract: `cloudnative-pg` chart values + the `postgresql.cnpg.io` CRD estate
-- Owns: the PostgreSQL operator — its reach, admission webhooks, operator configuration carrier, monitoring query defaults, and the CRD estate every cluster CR is written against
-- Accept: `skipCrds: false` under a render carrier; `config.data.WATCH_NAMESPACE` as the scoping control; `failurePolicy: Fail` on both webhooks; typed CRs from the generated module; a stated `Cluster.spec.resources` envelope and a `pgbouncer` container entry sizing each pooler; the operator installed ahead of the plugin and every CR
-- Reject: an address derived from the pinned name for the fixed webhook Service; the install namespace read as the watch scope; a CRD set applied outside the chart; an untyped `CustomResource` where a generated class exists; a cluster or pooler shipped with no scheduling envelope; a pgbouncer knob spelled outside the parameter allowlist or given a non-string value; a mutated `cluster.name` reference; a database created by any means other than a CR

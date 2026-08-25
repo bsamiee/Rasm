@@ -38,10 +38,10 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 | [INDEX] | [CONCERN]                     | [USE]                                        | [REPLACE]                                 |
 | :-----: | :---------------------------- | :------------------------------------------- | :---------------------------------------- |
 |  [01]   | value-returning decision      | switch expression over the closed owner      | `if`/`else` ladder, statement switch      |
-|  [02]   | sequence head/tail/length law | list and slice patterns with `var` binding   | count guards plus index arithmetic        |
+|  [02]   | sequence head/tail/length law | list and slice patterns with typed bindings  | count guards plus index arithmetic        |
 |  [03]   | range and sign law            | relational and logical patterns              | a comparison-chain boolean block          |
 |  [04]   | span text dispatch            | constant string patterns over a `char` span  | `ToString()` then `==` comparison         |
-|  [05]   | shape probe with binding      | property and positional patterns, `out var`  | `as` plus null check, pre-declared locals |
+|  [05]   | shape probe with binding      | property and positional patterns, `out T`    | `as` plus null check, pre-declared locals |
 |  [06]   | exhaustiveness                | total switch, no `_` arm over a closed owner | a `_` default arm hiding a missing case   |
 |  [07]   | joint multi-value decision    | one tuple pattern over the discriminants     | nested switch arms, chained conditionals  |
 
@@ -86,28 +86,28 @@ public static class SpanSurface {
     extension<T>(ReadOnlySpan<T> source) {
         public bool Single => source is [_];
 
-        public Option<T> First => source is [var head, ..] ? Optional(head) : None;
+        public Option<T> First => source is [T head, ..] ? Optional(head) : None;
 
         public Option<(T Head, T Last)> Ends =>
-            source is [var head, .., var last] ? Optional((head, last)) : None;
+            source is [T head, .., T last] ? Optional((head, last)) : None;
 
-        public Option<int> Interior => source is [_, .. var trunk, _] ? Optional(trunk.Length) : None;
+        public Option<int> Interior => source is [_, .. ReadOnlySpan<T> trunk, _] ? Optional(trunk.Length) : None;
     }
 
     extension<T>(ReadOnlySpan<T>) {
         public static Option<T> operator |(ReadOnlySpan<T> head, ReadOnlySpan<T> tail) =>
-            (head.Length >= tail.Length ? head : tail) is [var lead, ..] ? Optional(lead) : None;
+            (head.Length >= tail.Length ? head : tail) is [T lead, ..] ? Optional(lead) : None;
     }
 }
 ```
 
 [PATTERN_DISPATCH_SITE]:
 - Use when: a value-returning decision states its whole law as one total pattern expression over sequence shape, range, or a closed owner.
-- Accept: a switch expression composing list and slice patterns, relational and logical patterns, property and positional patterns, constant string patterns over a `char` span, and `var` bindings inside arms; a `when` guard only to relate two pattern-bound values an arm cannot otherwise express (`head.Key == tail.Key`); the closed owner's generated `Switch` when the discriminant is a `[Union]` or `[SmartEnum]` case.
+- Accept: a switch expression composing list and slice patterns, relational and logical patterns, property and positional patterns, constant string patterns over a `char` span, and declaration-pattern bindings inside arms; a `when` guard only to relate two pattern-bound values an arm cannot otherwise express (`head.Key == tail.Key`); the closed owner's generated `Switch` when the discriminant is a `[Union]` or `[SmartEnum]` case.
 - Reject: a sequential `if (x is P v)` ladder over one subject — pattern locals declare at enclosing-block scope, so two arms binding one name fail CS0128 and the ladder is a compile-error class, not a density preference — an `if`/`else` ladder, a statement switch for a value decision, an `as`-plus-null-check probe, a switch expression nested inside another's arm over discriminants available together — one tuple, property, or list pattern over the joint discriminant states the law in one level, and only an inner discriminant the outer arm's computation produces earns a sequenced second decision — a chained conditional (`a ? b : c ? d : e`) re-spelling a relational or property pattern ladder, a `when` guard carrying the structural narrowing a list, slice, relational, or property pattern already expresses, and a `_` arm hiding a missing case of a closed owner — the `_` over an open span shape is the documented exhaustiveness floor, never a swallowed case.
 - Boundary: closed-family ownership, generated dispatch, and case exhaustiveness belong to the `shapes.md` owner; this site owns the structural-pattern grammar that probes raw or open shapes before that owner reaches them.
 
-Form spotlight: one switch expression states a span's whole banding law — `[]` empty, head and tail property probes `[{ Rank: < 0 }, ..]` and `[.., { Rank: >= 9, Key: var key }]`, the single-element capture `[{ ... } only]`, and the cross-binding `when` that relates the bound head and tail no single pattern can — collapsing an `if`/`else` ladder over `marks.Length` and `marks[0].Rank` into one total expression; the sibling `Routed` shows constant-string and `['<', .. var body, '>']` slice patterns dispatching protocol text over a `char` span with no `ToString` allocation.
+Form spotlight: one switch expression states a span's whole banding law — `[]` empty, head and tail property probes `[{ Rank: < 0 }, ..]` and `[.., { Rank: >= 9, Key: string key }]`, the single-element capture `[{ ... } only]`, and the cross-binding `when` that relates the bound head and tail no single pattern can — collapsing an `if`/`else` ladder over `marks.Length` and `marks[0].Rank` into one total expression; the sibling `Routed` shows constant-string and `['<', .. ReadOnlySpan<char> body, '>']` slice patterns dispatching protocol text over a `char` span with no `ToString` allocation.
 
 Both prove the `_` floor sits over an open shape, not a closed owner whose missing case must break the build instead.
 
@@ -119,16 +119,16 @@ public static class MarkPolicy {
         marks switch {
             [] => "<band-empty>",
             [{ Rank: < 0 }, ..] => "<band-negative>",
-            [.., { Rank: >= 9, Key: var key }] => $"<band-peak>:{key}",
+            [.., { Rank: >= 9, Key: string key }] => $"<band-peak>:{key}",
             [{ Rank: >= 0 and < 9 } only] => $"<band-single>:{only.Key}",
-            [var head, .., var tail] when head.Key == tail.Key => $"<band-wrap>:{head.Key}",
+            [Mark head, .., Mark tail] when head.Key == tail.Key => $"<band-wrap>:{head.Key}",
             _ => "<band-mixed>",
         };
 
     public static int Routed(ReadOnlySpan<char> token) =>
         token switch {
             "<token-a>" or "<token-b>" => 0,
-            ['<', .. var body, '>'] => body.Length,
+            ['<', .. ReadOnlySpan<char> body, '>'] => body.Length,
             ['/', ..] or [.., '/'] => -1,
             { Length: > 16 } => -2,
             _ => token.Length,
@@ -197,7 +197,7 @@ public static class BoardOps {
         Cells = [lead, .. body, trail],
     };
 
-    public static Option<int> Lead(int[] cells) => cells is [var head, ..] ? Optional(head) : None;
+    public static Option<int> Lead(int[] cells) => cells is [int head, ..] ? Optional(head) : None;
 }
 ```
 
@@ -233,8 +233,8 @@ public readonly ref struct Frame(ReadOnlySpan<double> values) {
 
     public TState Fold<TState, TStep>(TState seed, scoped ref TStep step)
         where TStep : IStep<TState>, allows ref struct {
-        var current = seed;
-        foreach (var value in values) {
+        TState current = seed;
+        foreach (double value in values) {
             current = step.Folded(current, value);
         }
         return current;
@@ -277,7 +277,7 @@ Run each test before keeping a local construct beside the language form that sub
 [BRANCH_REPAIR]:
 - Smell: an `if`/`else` ladder, a statement switch, a comparison chain, or an `as`-plus-null-check decides a value or probes a shape the structural patterns express as one total expression; or the decision deepens vertically — a switch arm dispatching again over a discriminant already in hand, a conditional chained into a conditional — where one pattern over the joint discriminant flattens it.
 - Collapse: state the decision as one switch expression over list, slice, relational, logical, property, and positional patterns, flattening joint discriminants into one tuple or property pattern instead of nesting dispatch; route a closed-owner discriminant through its generated `Switch`.
-- Done when: the decision is one expression one dispatch level deep over the discriminants it holds, every arm binds with `var`, and a missing case of a closed owner breaks the build rather than falling to a `_` arm.
+- Done when: the decision is one expression one dispatch level deep over the discriminants it holds, every arm binds through a declaration pattern, and a missing case of a closed owner breaks the build rather than falling to a `_` arm.
 
 [COPY_REPAIR]:
 - Smell: a `new[]` and `Concat` chain, a list-add sequence, a manual `.AsSpan()` adapter, or a per-arity overload family composes a value the collection-expression and C# 14 span-conversion forms compose in one literal.

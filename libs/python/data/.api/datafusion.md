@@ -2,17 +2,7 @@
 
 `datafusion` owns the embedded Arrow-native query and federation engine for the data rail: a `SessionContext` registering heterogeneous sources (files, batches, foreign frames, object stores, catalogs), a lazy `DataFrame` algebra compiling to `LogicalPlan`/`ExecutionPlan`, a sync/async `RecordBatchStream` interface, and a `substrait` namespace serializing SQL or a `LogicalPlan` into a portable `Plan`. `datafusion` owns `Plan` interchange for the SUBSTRAIT_PORTABILITY rail, re-implementing neither the Arrow kernels, the SQL planner, nor the Substrait codec.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `datafusion`
-- package: `datafusion`
-- import: `datafusion`
-- owner: `data`
-- rail: engine
-- entry points: library use is import-only; no console script
-- capability: SQL and DataFrame execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration, catalog providers and object-store federation, the four UDF kinds, the `functions`/`functions.spark` namespaces, lazy plan inspection with typed `MetricsSet` measurements, sync/async streaming, zero-copy pandas/polars/pyarrow export, and Substrait `Plan` serialize/deserialize
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine, frame, plan, and interchange roots
 
@@ -47,7 +37,7 @@
 |  [27]   | `substrait.Producer`      | interchange codec | `LogicalPlan` -> `Plan`                                  |
 |  [28]   | `substrait.Consumer`      | interchange codec | `Plan` -> `LogicalPlan`                                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `SessionContext` register, read, and execute
 
@@ -197,7 +187,7 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [09]   | `Plan.to_json`                 | `() -> str`                                     | `Plan` -> JSON                   |
 |  [10]   | `Plan.from_json`               | `(json: str) -> Plan`                           | JSON -> `Plan`                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `SessionContext` owns query execution and source registration; `SessionConfig`/`RuntimeEnvBuilder`/`SQLOptions` thread policy into construction or `sql_with_options`.
@@ -220,9 +210,3 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 
 [LOCAL_ADMISSION]:
 - import `datafusion` at boundary scope only; the branch admits it as the sole Arrow-native SQL/DataFrame engine over registered sources.
-
-[RAIL_LAW]:
-- Package: `datafusion`
-- Owns: Arrow-native SQL and DataFrame execution, multi-format and object-store/catalog federation, the four UDF kinds via `udf`/`udaf`/`udwf` over `Accumulator`/`WindowEvaluator`, the `functions` and `functions.spark` namespaces, lazy plan inspection, typed per-operator execution metrics via `ExecutionPlan.metrics`/`MetricsSet`, FFI physical-optimizer-rule and plan-codec extension, sync/async `RecordBatchStream` streaming, and Substrait `Plan` serialize/deserialize
-- Accept: federated query and streaming over registered sources (a `deltalake` `to_pyarrow_dataset` provider, a DuckDB Arrow reader), Spark-semantics execution via `functions.spark`/`enable_spark_functions`, and Substrait plan interchange round-tripping the same wire `Plan` with `duckdb`/`substrait` for the SUBSTRAIT_PORTABILITY rail
-- Reject: wrapper-renames of `SessionContext`/`DataFrame`/`substrait`; a hand-rolled SQL planner, execution kernel, or Substrait protobuf codec; a metrics scraper over `explain`/`display` text where `ExecutionPlan.metrics` returns a typed `MetricsSet`; a Spark-compatibility shim where `functions.spark` owns the semantics; a reader type per file format where `register_*`/`read_*` rows suffice; a parallel context type per policy where the fluent builders own the axis; a UDF builder per kind where `udf`/`udaf`/`udwf` own the axis; re-serializing a plan per engine where one portable `Plan` crosses both; raw `_internal` handles crossing the package boundary

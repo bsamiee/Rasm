@@ -2,17 +2,7 @@
 
 `RhinoDoc` owns document identity across the live and headless runtimes: one handle keyed by `RuntimeSerialNumber` projects every typed component table, and every structural change surfaces as a bound event rather than a polled state. Headless documents expose the identical table, event, and undo surface behind the `IsHeadless` discriminant, making the handle the single host-boundary seam for document geometry.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon document surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` — verified by direct decompile
-- namespaces: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.Custom`, `Rhino.Collections`
-- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root and identity
 
@@ -93,7 +83,7 @@
 - `LightTableEventArgs` — `Document -> RhinoDoc` / `EventType -> LightTableEventType` / `LightIndex -> int` / `OldState -> Light` / `NewState -> LightObject`; the prior state is a bare `Light` while the current lazily resolves `Document.Lights[LightIndex]` as a `LightObject`, so the two sides never share a `ModelComponent` shape
 - `CustomUndoEventArgs` — custom non-geometry undo payload folded into an undo record
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: identity and lifecycle
 - `RhinoDoc.RuntimeSerialNumber -> uint` — carries the stable document key
@@ -324,7 +314,7 @@ Every member below is public and settable; the constructor takes no argument and
 - `RhinoDoc.HatchPatternTableEvent -> EventHandler<HatchPatternTableEventArgs>` / `TextureMappingEvent -> EventHandler<RhinoDoc.TextureMappingEventArgs>`
 - `RhinoDoc.RenderMaterialsTableEvent` / `RenderEnvironmentTableEvent` / `RenderTextureTableEvent -> EventHandler<RhinoDoc.RenderContentTableEventArgs>` — `RenderMaterialAssignmentChangedEventArgs` derives the assignment payload
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [DOCUMENT_TOPOLOGY]:
 - one `RhinoDoc` handle keyed by `RuntimeSerialNumber` projects every table; `FromRuntimeSerialNumber` re-resolves that handle inside a host callback where the reference is not carried
@@ -343,9 +333,3 @@ Every member below is public and settable; the constructor takes no argument and
 - Document-handle admission lives at the host-boundary tier as the single owner of live and headless document identity
 - table mutation enters through the owning table accessor, never a raw component write
 - event subscription enters through one watcher composition that binds the lifecycle, object, and table families together, never a scattered per-event handler
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: document identity, the component-table roster, lifecycle and mutation events, undo records, unit and tolerance regimes, object-table mutation
-- Accept: live and headless document state, structural mutation, table query and selection
-- Reject: standalone archive I/O, block-definition graph depth, interactive command acquisition

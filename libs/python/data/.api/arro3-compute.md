@@ -2,16 +2,7 @@
 
 `arro3.compute` runs Arrow arithmetic, aggregation, selection, cast, boolean, dictionary, and temporal kernels directly on the `arro3.core` memory model, each intaking any PyCapsule producer through its declared `arro3.core.types` protocol so a `pyarrow`, `polars`, or ADBC frame flows in with no producer-named branch. Stream-overloaded kernels chain a lazy `ArrayReader`; array-only kernels take a materialized `ArrayInput`, and no path re-imports `pyarrow.compute`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `arro3-compute`
-- package: `arro3-compute` (MIT OR Apache-2.0)
-- owner: `data`
-- module: `arro3.compute`
-- asset: native extension (Rust/PyO3) over `arrow-rs` `arrow-arith`, `arrow-select`, `arrow-cast`, `arrow-ord`
-- rail: arrow-compute
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: temporal part vocabulary (`arro3.compute.enums`, `arro3.compute.types`)
 
@@ -22,7 +13,7 @@
 |  [01]   | `DatePart`  | `str`-enum    | temporal extraction vocabulary                   |
 |  [02]   | `DatePartT` | literal alias | lowercase-string form of every `DatePart` member |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: arithmetic kernels (`arro3.compute._arith`)
 
@@ -71,7 +62,7 @@ Each reduction folds an `ArrayInput | ArrowStreamExportable` to one `arro3.core.
 |  [05]   | `date_part(input, part)`                | temporal        | int32 extraction of `part` from date/time/timestamp/interval/duration |
 |  [06]   | `concat(input)`                         | consolidation   | collapse a `ChunkedArray`/stream exportable into one `Array`          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `arro3.compute` re-exports kernels from the internal `_arith`/`_aggregate`/`_cast`/`_boolean`/`_filter`/`_take`/`_dictionary`/`_temporal` extension modules beside the `enums` (`DatePart`) and `types` (`DatePartT`) vocabulary submodules
@@ -85,9 +76,3 @@ Each reduction folds an `ArrayInput | ArrowStreamExportable` to one `arro3.core.
 - `arro3-core`(`.api/arro3-core.md`): kernels consume `Array`/`ChunkedArray`/`ArrayReader`/`ArrayInput` and emit `Array`/`ArrayReader`/`Scalar` into the same memory model, so a `Table`/`ChunkedArray` round-trips through a kernel with no copy.
 - `arro3-io`(`.api/arro3-io.md`): a `read_*` `RecordBatchReader` feeds `filter`/`cast`/`date_part` streaming, and a kernel `Array` lowers back through a `write_*` on one memory model.
 - streaming spine: hold the reader and chain `filter`/`cast`/`dictionary_encode`/`date_part` lazy until a terminal `read_all`; a key-sorted materialize split drains the filtered reader, consolidates its values and numeric indices to `ArrayInput`, then `take`.
-
-[RAIL_LAW]:
-- Package: `arro3-compute`
-- Owns: arithmetic, aggregation, cast, boolean-null, selection, dictionary-encode, and temporal-part kernels over the `arro3.core` Arrow memory model
-- Accept: any PyCapsule producer through the declared `arro3.core.types` protocol; stream input only where an `ArrowStreamExportable` overload exists
-- Reject: a `pyarrow.compute` re-import where a kernel exists here; sort and order kernels, absent from this surface

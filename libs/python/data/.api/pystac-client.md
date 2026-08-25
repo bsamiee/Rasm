@@ -2,14 +2,7 @@
 
 `pystac-client` owns the live STAC API client for the data STAC-catalog rail: a `Client` — a `pystac.Catalog` bound to a STAC API root — whose one keyword-only `search` lazily pages the `/search` endpoint into `pystac.Item` objects, beside `collection_search`/`get_collections` for collection discovery. Conformance negotiation, CQL2 filtering, and result paging fold through this surface; `pystac` owns the in-memory model the results hydrate into.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pystac-client` (Apache-2.0)
-- module: `import pystac_client` (dist `pystac-client`)
-- entry points: `stac-client` console script; library use is import-only
-- rail: STAC catalog
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, search, and collection roots
 
@@ -25,7 +18,7 @@
 |  [08]   | `APIError` / `ParametersError` | error rail          | HTTP/response failure; invalid-parameter failure (`pystac_client.exceptions`) |
 |  [09]   | `PystacClientWarning`          | conformance warning | fires when the API under-declares conformance and the client degrades         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client open and search
 - open carry: `url`, `headers`, `parameters`, `modifier`, `request_modifier`, `stac_io`, `timeout`
@@ -59,7 +52,7 @@
 |  [09]   | `CollectionSearch.collection_list() -> list[Collection]` | materialize all matching collections       |
 |  [10]   | `CollectionSearch.collections() -> Iterator[Collection]` | lazily stream matching collections         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one keyword-only `search` owns item discovery — spatial selection is `bbox` vs `intersects`, predicate selection is `query` vs CQL2 `filter`/`filter_lang`, ordering and projection are `sortby`/`fields`, all parameter rows on the one method, never a `search_by_bbox`/`search_by_geometry`/`search_by_filter` family.
@@ -79,9 +72,3 @@
 
 [LOCAL_ADMISSION]:
 - `pystac-client` is the sole admitted live STAC API client; a hand-rolled `requests` loop against `/search` or `/collections` is rejected.
-
-[RAIL_LAW]:
-- Package: `pystac-client`
-- Owns: the STAC API client (`Client` over a catalog root), conformance-negotiated item search with bbox/datetime/intersects/CQL2/sortby/fields parameters, lazy result paging into `pystac.Item`, match counts, queryables/conformance introspection, and collection discovery and free-text search
-- Accept: `Client.open` with `modifier`/`request_modifier`, one keyword-only `search` discriminating by parameter, `ItemSearch.item_collection()`/`items()`/`pages()` paging, `collection_search`/`get_collections` discovery, `get_queryables`/`conforms_to` capability negotiation before a CQL2 `filter`
-- Reject: wrapper-renames of `open`/`search`; a `search_by_<axis>` method family where one `search` discriminates by parameter; a hand-rolled `next`-link paging loop where `ItemSearch` pages; a parallel API-vs-file client where `Client` extends `pystac.Catalog`; a forked signed-vs-unsigned client where `modifier` is one boundary row

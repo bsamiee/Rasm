@@ -19,7 +19,7 @@
 - Boundary: `Op.Catch` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
 
@@ -124,7 +124,7 @@ public sealed record Notice(
 - Law: `GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` are the host's own dedicated typed reads and `Read<T>` composes them by preference where the target type matches — the host publishes them beside the generic path precisely because they own their conversion, so routing those two targets through `GetPear<T>` bets on an equivalence the host never states.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
@@ -287,7 +287,7 @@ public static class GardenData {
 - Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives the typed value on `Fin`, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
@@ -461,7 +461,7 @@ public static class Coerce {
 - Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection. `ScalingTo` is the HOST's answer to a host question and never a second cross-context scale owner — a kernel-space rescale is `ModelUnit.ScaleTo` off the admitted `Context.Unit`, and a call that reaches for the host factor to convert kernel measures forks the one scale owner.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
 using Rhino;

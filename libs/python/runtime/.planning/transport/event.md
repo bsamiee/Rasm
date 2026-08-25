@@ -1,6 +1,5 @@
 # [PY_RUNTIME_EVENT]
 
-
 Specification law owns every row and `cloudevents` accelerates it: `core.v1.event.CloudEvent` is the one admitted event class and its aggregating `CloudEventValidationError` funnels through one `boundary` fence into `BoundaryFault`, while the whole `cloudevents.v1` legacy tree — its mutable dict event, its converter stack, its marshaller pair, and its pydantic mirror — is refused by ruling. Where the package's surface is narrower than the specification the branch owns the remainder outright: URI-reference and absolute-URI admission, the extension-name ceiling, the whole batch leg, and every format past JSON. Rails, faults, and the traversal dispositions arrive settled from `reliability/faults#FAULT`; the capability-subject roster from `observability/metrics#METRIC`; the W3C `Correlation` fold from `execution/admission#CONTEXT`; `ContentKey` from `evidence/identity#IDENTITY`; `Hlc` from `evidence/clock#CLOCK`.
 
 ## [01]-[INDEX]
@@ -24,7 +23,7 @@ Specification law owns every row and `cloudevents` accelerates it: `core.v1.even
 - Boundary: attribute grammar only — no transport header spelling, no filter dialect, no subscription. Rejected: a literal `BoundaryFault(...)` construction beside a rostered anchor; a hand-formatted `f"rasm.{...}"` type string beside this owner; a bare-name sequence pattern standing in for a stem comparison; a segment admitted by the mint that the grammar refuses; an event-local capability-segment roster; a `subject` spelling that is not `ContentKey.project("wire")`; a content digest in `id`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from datetime import datetime
 from typing import Annotated, Final, Self
@@ -147,7 +146,7 @@ def stamped(produced: datetime, arrived: datetime, /) -> RuntimeRail[float]:
 - Boundary: attribute algebra and its generated roster only. Composes — never re-mints — the `reliability/faults#FAULT` fences, the `execution/admission#CONTEXT` `Correlation` fold, and `evidence/identity#IDENTITY`'s key render. Rejected: the whole `cloudevents.v1` tree; a `frozendict[str, str]` extension bag; a msgspec struct restating the generated `Extensions`; a local payload wrapper around generated `Message`; a hand extension-name roster beside the descriptor; a caller-retained attribute mapping handed to the constructor; `str(error)` standing in for the aggregating map; a second propagator call site beside the admission fold; a slot whose type the pinned wire spelling cannot rebuild.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, Final, Literal, Self, cast
@@ -535,7 +534,7 @@ def creation(extensions: Extensions) -> Correlation:
 - Boundary: event-format serialization and profile admission only. Rejected: a registry frame around the CloudEvents Avro envelope; a hand AVSC constant; a tests/ asset read at runtime; an identity compression port; version-factory fallthrough; settlement inside decode; a batch media type with no publisher format.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime

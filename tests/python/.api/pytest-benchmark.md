@@ -2,14 +2,7 @@
 
 `pytest-benchmark` injects a `benchmark` fixture that runs a callable under a calibrated timer, folds robust statistics (`min`, `median`, `iqr`, `ops`), and persists each run as a JSON document under a storage URI. Rasm's testkit wraps it: `BenchCase` rows drive absolute-budget gates through `run_bench`, and the `pytest_benchmark_update_json` hook reconstructs per-subject median series to fail a session on a sustained regression. Benchmarks are deselected by default (`-m "not benchmark"`) and run in a session separate from `pytest-xdist`.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `pytest-benchmark` · license `BSD-2-Clause`
-- namespace: `pytest_benchmark`; `pytest11` entry point `benchmark = pytest_benchmark.plugin`; console `pytest-benchmark`
-- asset: `pytest_benchmark/{fixture,session,stats,hookspec,storage}.py`; the `benchmark` fixture
-- rail: the measurement lane — `benchmark`/`benchmark.pedantic` time a subject, autosave persists the series, and the update-json hook gates regressions
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]           | [KIND]         | [CAPABILITY]                                                                                   |
 | :-----: | :----------------- | :------------- | :--------------------------------------------------------------------------------------------- |
@@ -29,7 +22,7 @@ class Stats:
     min: float; median: float; mean: float; iqr: float; ops: float; rounds: int
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                          | [KIND]        | [CAPABILITY]                                                        |
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------------------------ |
@@ -48,7 +41,7 @@ class Stats:
 def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None: ...
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PYTEST_BENCHMARK_TOPOLOGY]:
 - `benchmark` times a subject once per fixture request; `pedantic` is the only path with a per-round `setup`, which the testkit uses to rebuild mutating payloads.
@@ -56,16 +49,9 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
 - `--benchmark-autosave` persists one JSON document per run under `<storage-root>/<machine>/`; the sustained-regression fold reads the ordered set of those documents and the current report.
 
 [STACKING]:
-- `bench.py`(`../_testkit/bench.py`): `BenchCase` rows carry `budget_ms`/`gate_stat`/`max_rel_iqr`; `run_bench` drives `pedantic`, writes `extra_info`, and skips or fails on dispersion or budget; `pytest_benchmark_update_json` folds `_series_from_storage` medians through the Potts/BIC step detector.
-- `conftest.py`(`../tools/assay/conftest.py`): `pytest_configure` rebinds the repo-root default `file://./.benchmarks` to the canonical `BENCHMARK_STORAGE_URI` before `BenchmarkSession` eagerly builds its `FileStorage`, so an ad-hoc `-o addopts=` escape never litters the root.
+- `bench.py`(`../testkit/bench.py`): `BenchCase` rows carry `budget_ms`/`gate_stat`/`max_rel_iqr`; `run_bench` drives `pedantic`, writes `extra_info`, and skips or fails on dispersion or budget; `pytest_benchmark_update_json` folds `_series_from_storage` medians through the Potts/BIC step detector.
 - `pyproject.toml`(`../../../pyproject.toml`): `addopts` pins `--benchmark-storage=file://.artifacts/python/benchmarks` and `--benchmark-autosave`; `-m "not benchmark"` deselects the lane and `filterwarnings` ignores the autosave `PytestBenchmarkWarning` in benchmark-free sessions.
 
 [LOCAL_ADMISSION]:
 - Admitted at the shared test tier through the `pytest11` entry point; the plugin auto-disables under `pytest-xdist`, so benchmark and parallel runs stay in separate sessions and default `addopts` carries no `-n`.
 - `required_plugins` lists `pytest-benchmark`; the testkit registers its `bench` module as `testkit-bench` from `runtime.py` only when the update-json hook is present.
-
-[RAIL_LAW]:
-- Package: `pytest-benchmark`
-- Owns: the timed measurement, robust-statistics fold, run-JSON persistence, and the storage/compare/update-json surface.
-- Accept: `BenchCase` rows over ad-hoc `benchmark()` calls; `pedantic` with a `setup` closure for fresh-per-round payloads; `extra_info`/`group` as the series metadata; the update-json hook for regression logic.
-- Reject: benchmarks in a `pytest-xdist` session; timing assertions in the default lane (deselected by `-m "not benchmark"`); the repo-root storage default; late `benchmark.group` assignment that drops the series key.

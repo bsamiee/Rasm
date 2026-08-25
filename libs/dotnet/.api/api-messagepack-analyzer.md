@@ -2,17 +2,7 @@
 
 `MessagePackAnalyzer` ships the MessagePack source generator and the Roslyn analyzer/code-fix assets gating every `[MessagePackObject]` contract in the branch. Its generator emits the AOT formatters and resolvers each folder's `[GeneratedMessagePackResolver]` landmark binds; its analyzer raises the `MsgPack###` contract diagnostics rejecting an unattributed, unkeyed, colliding, inaccessible, or AOT-incompatible contract before serialize. Both consumers — the `Rasm.Persistence` snapshot codec and the `Rasm.Materials` appearance wire — pair it build-only beside `MessagePack` (`api-messagepack.md`).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MessagePackAnalyzer`
-- package: `MessagePackAnalyzer` (MIT)
-- assembly: `analyzers/roslyn4.3/cs/MessagePack.SourceGenerator.dll`, `analyzers/roslyn4.3/cs/MessagePack.Analyzers.CodeFixes.dll`
-- namespace: `MessagePack.SourceGenerator`, `MessagePack.SourceGenerator.Analyzers`, `MessagePack.SourceGenerator.Transforms`, `MessagePack.Analyzers.CodeFixes`
-- abi: Roslyn 4.3 analyzer generation, selected by the `analyzers/roslyn4.3/cs/` asset path
-- role: analyzer-only development dependency (`<developmentDependency>true</developmentDependency>`, `PrivateAssets="all"`)
-- rail: snapshot-codec and appearance-wire build gate
-
-## [02]-[GENERATOR_ANALYZER_ASSETS]
+## [01]-[GENERATOR_ANALYZER_ASSETS]
 
 [GENERATOR_SCOPE]: incremental generators under `MessagePack.SourceGenerator`, code-fix providers under `MessagePack.Analyzers.CodeFixes`
 
@@ -37,7 +27,7 @@
 
 Generator and analyzer both read the `[MessagePackObject]` contract attributes `api-messagepack.md` owns: a wire type declares them, this package validates and emits from them.
 
-## [03]-[DIAGNOSTICS]
+## [02]-[DIAGNOSTICS]
 
 `MsgPack003`–`MsgPack018` are `DiagnosticDescriptor` fields on `MessagePack.SourceGenerator.Analyzers.MsgPack00xMessagePackAnalyzer`; `MsgPack001` and `MsgPack002` are single descriptors on `MsgPack001SpecifyOptionsAnalyzer` and `MsgPack002UseConstantOptionsAnalyzer`. Category is `Usage` for `MsgPack003`–`018` and `Reliability` for `MsgPack001`/`002`; `AnalyzerUtilities.GetHelpLink` resolves each ID's help URL.
 
@@ -84,7 +74,7 @@ Generator and analyzer both read the `[MessagePackObject]` contract attributes `
 - [17]-[MSGPACK017]: `AOTInitProperty`
 - [18]-[MSGPACK018]: `CollidingMemberNamesInForceMapMode`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `[MessagePackObject]` contract folds through one compile-time gate: the generators emit its formatter and resolver as `Transforms.*Template` bodies and `MsgPack00xMessagePackAnalyzer` refuses any contract the AOT resolver cannot construct, so a build that compiles carries a constructible resolver and no reflection fallback.
@@ -98,9 +88,3 @@ Generator and analyzer both read the `[MessagePackObject]` contract attributes `
 - Published AOT is the load-bearing path: `CompositeResolverGenerator` fills the `GeneratedMessagePackResolver` partial carrying `[CompositeResolverAttribute]` over `[GeneratedMessagePackResolverAttribute]`, and a private serialised member takes `partial` (`MsgPack011`) with `AllowPrivate = true` (`MsgPack015`).
 - `MsgPack001`/`MsgPack002` stay opt-in: one frozen `MessagePackSerializerOptions` per profile is held by review and an `.editorconfig` escalation to error at any call site passing ad-hoc options, never by their default state.
 - `ThinktectureMessageFormatterResolver` formats the value-objects, smart-enums, and keyed unions, so the generator sees only each folder's own `[MessagePackObject]` wire records; a hand-written formatter beside a generated one is the `MsgPack009` collision.
-
-[RAIL_LAW]:
-- Package: `MessagePackAnalyzer`
-- Owns: the MessagePack source generator, contract analyzers, and code-fix providers
-- Accept: generated formatter/resolver assets proving the AOT codec, `MsgPack003`–`018` enforced at build
-- Reject: a runtime dependency on the analyzer assets, a hand-written formatter colliding with a generated one, an unattributed/unkeyed/non-`partial` wire contract

@@ -25,7 +25,7 @@
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions — and the QuikGraph exemption is MEASURED at the frontier: every shortest-path extension binds a materialized vertex and edge set, while this space is implicit and its transition cost state-dependent, so the two graphs this page genuinely holds (`LinkOrder` at `Forming/sheet`, `ClosureOf` beside it) are the ones QuikGraph owns.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

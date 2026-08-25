@@ -2,17 +2,7 @@
 
 `CloudNative.CloudEvents.Avro` binds the CloudEvents Avro Event Format: one `AvroEventFormatter` over the package's embedded CloudEvents Avro record schema, reaching STRUCTURED mode alone. `Rasm` admits it as one `EventFormat` row at `Rasm/Domain/event#FORMAT_CONTRACT` whose binary and batch columns both read false, so a caller asking for either refuses on the row rather than surfacing this package's `NotSupportedException` at its own rail. `IGenericRecordSerializer` is the seat where a schema-registry-framed Avro leg binds its own reader and writer without re-spelling the envelope schema.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.Avro`
-- package: `CloudNative.CloudEvents.Avro` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.Avro`
-- namespace: `CloudNative.CloudEvents.Avro` (the formatter and its default serializer), `CloudNative.CloudEvents.Avro.Interfaces` (the serializer seat), `CloudNative.CloudEvents` (the obsolete wrong-namespace shim)
-- asset: `net10.0` beside `net8.0` and `netstandard2.0`; the consumer binds `lib/net10.0` — pure-managed AnyCPU IL, no native asset; the envelope schema ships as the embedded resource `CloudNative.CloudEvents.Avro.AvroSchema.json`
-- depends: `CloudNative.CloudEvents` (the envelope algebra, `api-cloudevents.md`), `Apache.Avro` (the `RecordSchema`/`GenericRecord` runtime), `Newtonsoft.Json` (the schema parser `Apache.Avro` itself carries)
-- rail: event format
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the formatter, its default serializer, and the serializer seat
 
@@ -29,7 +19,7 @@
 - [03]-[SERIALIZER_SEAT]: `ReadOnlyMemory<byte> Serialize(GenericRecord)` beside `GenericRecord Deserialize(Stream)`; the record handed to `Serialize` is guaranteed to match `AvroSchema`, so an implementation binds a registry-framed writer without re-validating the shape.
 - [04]-[OBSOLETE_SHIM]: `CloudNative.CloudEvents.AvroEventFormatter` sits at the top level, carries `[Obsolete]` naming its own namespace as the defect, derives from the namespaced formatter, and exists for backward compatibility alone.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `AvroEventFormatter` structured-mode codec
 
@@ -43,7 +33,7 @@
 |  [06]   | `IGenericRecordSerializer.Serialize(GenericRecord)`   | instance | record → `ReadOnlyMemory<byte>`              |
 |  [07]   | `IGenericRecordSerializer.Deserialize(Stream)`        | instance | stream → `GenericRecord`                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Structured mode is the WHOLE reach, and that matches the specification: the CloudEvents Avro event format defines a single record envelope with no batch wrapper and no binary content mode, so the four refusing overrides state a specification fact rather than a package gap.
@@ -65,9 +55,3 @@
 - Obsolete top-level `CloudNative.CloudEvents.AvroEventFormatter` never enters a fence, a using, or a manifest reasoning; the namespaced type is the only admitted spelling.
 - Legs needing a schema-registry frame bind `IGenericRecordSerializer` and never a second formatter or a transcribed envelope schema.
 - Batches of Avro-framed events ship as N structured frames the transport batches, never as a CloudEvents batch body.
-
-[RAIL_LAW]:
-- Package: `CloudNative.CloudEvents.Avro`
-- Owns: the CloudEvents Avro event format — the structured-mode codec over the package's embedded record schema and the serializer seat a registry-framed leg binds
-- Accept: structured-mode encode and decode through the shared formatter instance, a custom `IGenericRecordSerializer`, and the static `AvroSchema` where a leg builds its own record
-- Reject: a batch or binary-mode call on this format, the obsolete top-level formatter, a transcribed copy of the envelope schema, and a per-message formatter instance

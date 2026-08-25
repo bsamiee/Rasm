@@ -23,7 +23,7 @@ Every operator threads `Op` and gates finite input through the Domain validation
 - Boundary: mesh-aware Laplacians over connectivity are `Meshing/mesh`'s, this page differentiating ambient ℝ³ samplers and `CellLattice`-addressed value spans alone; the lattice arm addresses and never stores — the value span is the consumer's, the lattice the `Numerics/atoms` owner. A ZERO-SUM tap series is a difference stencil and belongs here, a non-zero-sum one to `Numerics/transform#SPECTRAL`'s `TapSeries.Convolve`, which refuses a zero-sum series at its own mint — the two owners partition on the tap sum and neither carries the other's fold. `ToroidalWrap` is a total pure fold over an admitted strictly-positive period the Domain `Period` guard gates upstream, and it is the per-axis LIFT of `Numerics/atoms`' `Reduce.Centred` — the almanac's angular wrap reads that owner's floored twin, so the general reduction has one seat below both consumers instead of homing on whichever domain spelled one first.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rasm.Domain;
@@ -167,7 +167,7 @@ public static class Nabla {
 - Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing the tensor sampler, so the tensor-field type never appears here; `Meshing/reconstruct` composes `KernelKind` and `WeightKernelFamily` for its RBF, MLS, and Levin windows — one profile mathematics, zero copies. Positive-definiteness has ONE owner: `Numerics/matrix`'s `SymmetricMatrix.Definite` is the allocation-bounded verdict this page reads, and hand-rolled leading principal minors are the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -419,7 +419,7 @@ public abstract partial record Falloff {
 - Boundary: `PermTable` and `GradientTable` are the canonical published Perlin permutation and its twelve canonical edge vectors, the sanctioned literal tables on this page — a table with a defining publication transcribes verbatim, where an authored table with no defining sequence rides as a digest-pinned content-keyed asset. The noise VOCABULARY — `NoiseKind` rows and their `CapabilitySet<NoiseTrait>` columns — is `Spatial/fields`', this page owning only the lattice mathematics those rows point at. `Rasm.Materials` `Appearance/texture#TEXTURE_UV` `ProceduralNoise` is a DELIBERATE second lattice family, split on differentiability-vs-parity: this owner hashes the canonical published permutation feeding the `NoiseTrait.Differentiable` membership (the `CurlNoise` admission gate and the `ScalarField.LipschitzBound` fold), while the Materials family holds FastNoiseLite byte-exactness for MaterialX category parity and the WGSL `f32` wrap law, with 2D arms, periodic-by-construction cell-index lattices, and the cellular return set this floor never needs — collapsing either end breaks the other's gating [branch RULINGS `[03]-[COLLAPSE]`].
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using Rasm.Domain;
 using Rhino.Geometry;
@@ -530,7 +530,7 @@ public sealed partial class SimplexBlend {
 - Boundary: consumers project the ANGLES into their own world frame — `Rasm.Compute` `Analysis/daylight` folds them into its float clash coordinate at one `SurveyRay` narrowing, `Rasm.Materials` `Appearance/environment#SKY_MODEL` projects azimuth/altitude onto its `+X`-north `WorldDirection`, and `Rasm.AppUi` `Render/pathtrace#LIGHT_RIG` seats the angles on its Sun row — so the frame convention lives at each consuming edge and the almanac states angles alone; the geodetic datum, site CRS, and any reprojection stay the app-root edge's. Consumers holding a VECTOR rotate it into the survey frame at their own edge and re-read through `OfDirection` — `Rasm.Rhino` `Render/settings#SUN_ASTRONOMY` folds the host's north bearing and its sun-toward-scene sign there — so the sign and the north datum resolve where the producing frame is still known, never inside this almanac. `Direction`/`OfDirection` close on double throughout and the round trip holds `5.7e-14°` azimuth and `7.4e-13°` altitude across the whole sphere, matching the accuracy the fold is graded against; a single-precision carrier floors that inverse at `3.9e-6°` azimuth and `1.1e-3°` altitude, so a float engine takes the narrowing at ITS edge and the bijection keeps its digits.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Immutable;
 using LanguageExt;

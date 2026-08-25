@@ -2,17 +2,7 @@
 
 `python-flint` (module `flint`) binds the FLINT and Arb C libraries into one exact-and-certified numeric rail: GMP-backed integer and rational arithmetic, word and multiprecision modular and finite-field algebra, univariate and multivariate polynomial factorization and linear algebra, and arbitrary-precision `arb`/`acb` ball arithmetic carrying certified error bounds across the full Arb special-function catalogue. Every ball result is its own error certificate, and exact types round only at the boundary. Feeds the compute exact-arithmetic and ball-arithmetic rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `python-flint`
-- package: `python-flint` (MIT)
-- module: `flint`
-- owner: `compute`
-- asset: Cython/C extension wrapping the FLINT and Arb libraries
-- rail: exact-arithmetic, ball-arithmetic
-- namespace: `flint`; every type imports directly, and `flint.ctx` is the precision/threading singleton
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exact integer and rational types
 
@@ -86,7 +76,7 @@
 |  [01]   | `dirichlet_char`  | Dirichlet character | character evaluation and properties        |
 |  [02]   | `dirichlet_group` | character group     | Dirichlet group with character enumeration |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `fmpz` exact integer operations
 
@@ -201,7 +191,7 @@
 |  [02]   | `flint.showgood(func, dps=, maxprec=)`                                     | adaptive-display | `good` plus certified-digit printing     |
 |  [03]   | `dirichlet_char.l(s)` / `dirichlet_char.hardy_z(t)` / `dirichlet_group(q)` | analytic         | Dirichlet L, Hardy Z, group enumeration  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `fmpz` and `fmpq` carry the full Python arithmetic operators; results are exact with no rounding.
@@ -223,9 +213,3 @@
 - Ball precision sets once at session scope via `flint.ctx.prec` before any `arb`/`acb` computation.
 - Polynomial factorization and root isolation route through `fmpz_poly.roots()` or `arb_poly.real_roots()` for certified intervals.
 - An `arb` result carries its own error bound; external tolerance tracking never rides alongside `rad`.
-
-[RAIL_LAW]:
-- Package: `python-flint`
-- Owns: exact integer/rational/modular/finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation, `*_mpoly_vec` Gröbner input), exact matrix linear algebra (det/rank/inv/solve/rref/nullspace/charpoly/minpoly, HNF/SNF/LLL/fflu), certified `arb`/`acb` ball arithmetic across the full Arb special-function catalogue, certified ball-matrix eigenvalues/solve/exp/DFT/DCT, rigorous truncated power series with reversion and root finding, adaptive-precision `flint.good`/`showgood`, and Dirichlet character/L-function evaluation
-- Accept: `fmpz`/`fmpq` for exact integer/rational results; `nmod`/`fmpz_mod`/`fq_default` with their context for modular and finite-field results; `arb`/`acb` for certified results carrying `mid`/`rad`; `flint.good` for adaptive-precision evaluation; the mpoly context with `*_mpoly_vec` for exact multivariate algebra
-- Reject: float/complex conversion before the boundary where exact or certified results are required; a hand-rolled precision-retry loop where `flint.good` adapts; heuristic mpmath special functions where a certified bound is required; symbolic re-derivation of factorization, resultant, or lattice reduction the FLINT exact kernels own

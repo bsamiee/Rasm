@@ -2,39 +2,7 @@
 
 These configuration-provider packages each mint one `IConfigurationSource` family per input axis and register it onto one `IConfigurationBuilder` chain; `Microsoft.Extensions.Options.ConfigurationExtensions` binds a configuration section onto an `OptionsBuilder<T>`, so validate-on-start options re-bind from configuration with no interior `IConfiguration` read. Bootstrap composition bounds the surface: sources mount in explicit precedence order on the builder and reach runtime as bound, monitored policy values.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.Json`
-- package: `Microsoft.Extensions.Configuration.Json`
-- assembly: `Microsoft.Extensions.Configuration.Json`
-- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Json`
-- rail: configuration
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.EnvironmentVariables`
-- package: `Microsoft.Extensions.Configuration.EnvironmentVariables`
-- assembly: `Microsoft.Extensions.Configuration.EnvironmentVariables`
-- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.EnvironmentVariables`
-- rail: configuration
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.CommandLine`
-- package: `Microsoft.Extensions.Configuration.CommandLine`
-- assembly: `Microsoft.Extensions.Configuration.CommandLine`
-- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.CommandLine`
-- rail: configuration
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.UserSecrets`
-- package: `Microsoft.Extensions.Configuration.UserSecrets`
-- assembly: `Microsoft.Extensions.Configuration.UserSecrets`
-- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.UserSecrets`
-- rail: configuration
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Options.ConfigurationExtensions`
-- package: `Microsoft.Extensions.Options.ConfigurationExtensions`
-- assembly: `Microsoft.Extensions.Options.ConfigurationExtensions`
-- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Options`
-- rail: options-binding
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file and stream provider family
 
@@ -74,7 +42,7 @@ These configuration-provider packages each mint one `IConfigurationSource` famil
 |  [03]   | `ConfigurationChangeTokenSource<TOptions>`         | class         | reloads bound options on section change |
 |  [04]   | `NamedConfigureFromConfigurationOptions<TOptions>` | class         | configures named options from a section |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: source registration onto the builder chain
 
@@ -109,7 +77,7 @@ These configuration-provider packages each mint one `IConfigurationSource` famil
 |  [04]   | `Configure<T>(IServiceCollection, IConfiguration)`                   | static   | binds a section onto service options    |
 |  [05]   | `Configure<T>(IServiceCollection, string, IConfiguration)`           | static   | binds a section onto named options      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each package mints one `IConfigurationSource` family per input axis; the source builds its `IConfigurationProvider`, and provider precedence follows source-registration order on the builder chain.
@@ -129,9 +97,3 @@ These configuration-provider packages each mint one `IConfigurationSource` famil
 - Environment and argument sources override file sources by source order, never by lookup code.
 - User secrets are development-shape inputs; production composition omits the source.
 - Switch mappings and prefixes are source-policy values, never call-site string handling.
-
-[RAIL_LAW]:
-- Packages: `Microsoft.Extensions.Configuration.{Json,EnvironmentVariables,CommandLine,UserSecrets}`, `Microsoft.Extensions.Options.ConfigurationExtensions`
-- Owns: configuration input sources per axis and the section-to-options-builder bind
-- Accept: ordered source mounting on one builder chain; a section bound onto an options builder with fail-closed binder policy
-- Reject: per-call-site environment or argument parsing; interior `IConfiguration` reads past bootstrap

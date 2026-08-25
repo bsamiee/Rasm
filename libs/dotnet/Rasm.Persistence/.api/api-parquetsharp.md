@@ -4,26 +4,7 @@
 
 It reads and writes Parquet from a managed `Stream` or Arrow batch with no SQL engine — the direct columnar-file lane distinct from the DuckDB `COPY ... TO` path, with `ParquetSharp.Dataset` layering a Hive-partitioned lake scanner over the same core under `Col`/`IFilter` predicate and column pushdown.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ParquetSharp`
-- package: `ParquetSharp` (Apache-2.0)
-- assembly: `ParquetSharp`
-- namespace: `ParquetSharp`, `ParquetSharp.Schema`, `ParquetSharp.Arrow`, `ParquetSharp.RowOriented`, `ParquetSharp.Encryption`, `ParquetSharp.IO`
-- admission: Parquet Modular Encryption ships INSIDE this package as the `ParquetSharp.Encryption` namespace — `CryptoFactory`, `KmsConnectionConfig`, `EncryptionConfiguration`, and `DecryptionConfiguration` all decompile out of `ParquetSharp.dll` — so no separate `PackageVersion` row and no second catalogue exist to mint; a manifest row named `ParquetSharp.Encryption` is a phantom package.
-- target: multi-target (`net8.0`, `netstandard2.1`, `net471`); the `net10.0` consumer binds `lib/net8.0`
-- native: `runtimes/<rid>/native/ParquetSharpNative.dylib` (`osx-arm64`, `osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`) — the wrapped Apache Arrow/Parquet C++ core, P/Invoke-loaded at `ParquetFileWriter`/`ParquetFileReader` handle construction, RID-resolved at load
-- rail: columnar-file-codec
-
-[PACKAGE_SURFACE]: `ParquetSharp.Dataset`
-- package: `ParquetSharp.Dataset` (Apache-2.0)
-- assembly: `ParquetSharp.Dataset`
-- namespace: `ParquetSharp.Dataset`, `ParquetSharp.Dataset.Filter`, `ParquetSharp.Dataset.Partitioning`
-- target: `net6.0`; the `net10.0` consumer binds `lib/net6.0`
-- native: none — pure-managed over the `ParquetSharp` native core and `Apache.Arrow`
-- rail: columnar-file-codec (partitioned lake scan)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file reader/writer roots
 
@@ -171,7 +152,7 @@ Two legs derive one pair of property types over the same native core: `CryptoFac
 |  [03]   | `HivePartitioning`     | hive scheme     | `sealed : IPartitioning`; `key=value` dirs; ctor takes `Schema`; nested `Factory` |
 |  [04]   | `NoPartitioning`       | flat scheme     | `sealed : IPartitioning`; single-directory scan; nested `Factory`                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: low-level column-chunk write/read
 
@@ -331,7 +312,7 @@ Callers already holding raw AES keys build the same `FileEncryptionProperties`/`
 - `DecryptionKeyRetriever.GetKey(keyMetadata)` and `AadPrefixVerifier.Verify(aadPrefix)` are abstract seats a composition subclasses, and the native core holds the GC handle on each instance — reverse of every other handle here — so the seat must outlive the reader that mounted it.
 - Both seats run behind a marshalling shim that catches every escape and hands the native side `ex.ToString()` alone, so exception type and stack are lost at the boundary and a retriever throw yields a zero key beside that message; the seat carries its own typed diagnosis or the failure reads as a corrupt-key decrypt.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - three layers terminate at one `ParquetSharpNative.dylib` handle: low-level (`ParquetFileWriter`→`RowGroupWriter`→`ColumnWriter`→`LogicalColumnWriter<TValue>`), row-oriented (`RowOriented.ParquetFile`→`ParquetRowWriter<TTuple>`), and Arrow (`Arrow.FileWriter`/`FileReader` ↔ `Apache.Arrow`).
@@ -361,9 +342,3 @@ Callers already holding raw AES keys build the same `FileEncryptionProperties`/`
 - `ParquetRowWriter<TTuple>` is the admitted path for fact-record extracts of fixed tuple/POCO shape; the low-level `LogicalColumnWriter<TValue>` path is admitted where the column type is computed at runtime through the visitor.
 - PME is the admitted at-rest encryption for sensitive extracts and the KMS leg is the admitted derivation: `CryptoFactory` wraps DEKs with a tenant KEK an `IKmsClient` adapter reaches, so no process holds a master key and rotation is `RotateMasterKeys` over the published file.
 - Explicit-key builders enter for a fixture or a recovery read whose key is already in hand; a published extract deriving from them re-homes master-key custody into process memory, which is the custody the KMS leg exists to remove.
-
-[RAIL_LAW]:
-- Packages: `ParquetSharp`, `ParquetSharp.Dataset`
-- Owns: native Parquet file read/write — low-level column chunks, typed logical batches, row-oriented tuple mapping, the `Apache.Arrow` C-Data bridge, the four-policy read and write tuning plane, Parquet Modular Encryption, and the partitioned multi-file dataset scan over that native core
-- Accept: `ParquetFileWriter`/`ParquetFileReader` over a managed `Stream`, typed `LogicalColumnWriter<TValue>.WriteBatch`/`ParquetRowWriter<TTuple>`, the `Arrow.FileReader`/`FileWriter` `RecordBatch` bridge, `CryptoFactory` PME over an `IKmsClient` adapter mounted through `WriterPropertiesBuilder.Encryption` and `ReaderProperties.FileDecryptionProperties`, and `DatasetReader.ToBatches`/`ToTable` with `Col`/`IFilter` pushdown over a partitioned directory
-- Reject: hand-rolled Parquet byte framing, a per-cell write loop where a typed batch or Arrow `RecordBatch` exists, a managed re-implementation of a codec the native core owns, a key-wrapping pass over finished Parquet bytes where PME encrypts pages and footer in place under per-column keys, a hand-rolled directory walk where `DatasetReader` owns partitioned scan, a caller-built range-request layer where `PreBuffer` and `CacheOptions` own coalescing, a `DefaultWriterProperties` write standing in for a builder row, a `using` bounding a `CryptoFactory` around a derivation, and re-declaring the `Apache.Arrow` model `api-arrow` owns

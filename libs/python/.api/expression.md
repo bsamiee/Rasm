@@ -2,15 +2,7 @@
 
 `Expression` mints the Python functional core: `Result`/`Option`/`Try` monads, `@tagged_union` discriminated unions, `pipe`/`compose` point-free composition, trampolined tail recursion, generator-driven effect builders, and persistent `Block`/`Map`/`Seq` collections. Every bounded-variant, absent-value, and error path in the branch folds through its rails instead of parallel flags, `None` sentinels, or try/except. It is the branch's sole monadic-rail owner; a second result library or a hand-rolled monad is refused.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Expression`
-- package: `Expression` (MIT)
-- module: `expression`
-- namespaces: `expression` (re-exports `core`), `expression.core`, `expression.collections`, `expression.effect`, `expression.extra`, `expression.system`
-- rail: functional-core
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core algebraic types
 
@@ -72,7 +64,7 @@
 |  [01]   | `MailboxProcessor`  | actor class   | async message loop with a serialized inbox |
 |  [02]   | `AsyncReplyChannel` | reply handle  | typed actor reply delivery                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipe, compose, and currying
 
@@ -164,7 +156,7 @@
 |  [03]   | `failwith(message)`                 | raise helper     | raise `EffectError` to short-circuit an effect block |
 |  [04]   | `default_arg(value, default_value)` | fold             | unwrap an `Option` with a default                    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Result[T, E]`/`Option[T]`/`Try` are `@tagged_union` monads: build with `Ok`/`Error`/`Some`/`Nothing`, decompose with structural `match`, chain with the `map`/`bind`/`map2`/`filter` methods or the curried `expression.result`/`expression.option` module callables under `pipe`.
@@ -182,9 +174,3 @@
 [LOCAL_ADMISSION]:
 - Compose through `pipe`/`compose` as the primary surface; `effect.*` builders own bind chains past three levels, explicit `bind`/`map2` the shorter.
 - `option.of_optional`/`Option.to_optional` ride nullable boundaries; domain code stays `Option`-native.
-
-[RAIL_LAW]:
-- Package: `Expression`
-- Owns: the branch monadic rails — `Result`/`Option`/`Try`, `pipe`/`compose`, currying and `flip`, `@tagged_union`, trampolined tail recursion, effect builders, persistent `Block`/`Map`/`Seq`/`TypedArray`, the `MailboxProcessor` actor.
-- Accept: `pipe`/`compose`, `Result`/`Option`/`Try`, `@tagged_union`+`tag`/`case`, `tailrec`/`tailrec_async`, `effect.*` builders, persistent collections, the typeclass protocols as bounds.
-- Reject: hand-rolled monads, the `returns` library, nested if-chains for absent/error paths, un-trampolined recursion, mutable list/dict accumulation in domain transforms.

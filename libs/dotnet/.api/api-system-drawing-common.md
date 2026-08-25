@@ -2,17 +2,7 @@
 
 `System.Drawing` raster, icon, graphics-context, path, and imaging types are the vocabulary Rhino host members declare across their own boundary signatures, and a consumer binds every one of them at compile time. Running Rhino owns the drawing provider and no build output ships one, so image processing, rendering, and platform graphics stay with the owners that run them.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Drawing.Common`
-- package: `System.Drawing.Common` (MIT)
-- assembly: `System.Drawing.Common`
-- namespace: `System.Drawing`, `System.Drawing.Imaging`, `System.Drawing.Drawing2D`
-- depends: `System.Drawing.Primitives` carries `Color` `Point` `PointF` `Size` `SizeF` `Rectangle` `RectangleF`
-- abi: RhinoWIP host build backs these names with AppKit and CoreGraphics; package build backs them with GDI+
-- rail: host-ui-compile
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image and pixel-memory carriers
 
@@ -65,7 +55,7 @@
 
 [ENCODER_VOCABULARY]: `EncoderValue` `EncoderParameterValueType` `ImageCodecFlags`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: image construction, IO, and metadata
 
@@ -190,7 +180,7 @@
 |  [05]   | `Color.ToArgb() -> int`                       | instance | pack to a 32-bit ARGB word      |
 |  [06]   | `Color.Empty`                                 | static   | absent-colour sentinel          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Encoder-parameter carriers and the `Heif`/`Webp` format values resolve against the package build; the RhinoWIP host build omits both.
@@ -204,9 +194,3 @@
 
 [LOCAL_ADMISSION]:
 - Boundary code names a `System.Drawing` type where a host member declares it, and converts to the kernel carrier at that same boundary.
-
-[RAIL_LAW]:
-- Package: `System.Drawing.Common`
-- Owns: compile-time `System.Drawing` raster, icon, context, path, transform, and imaging type names for the Rhino host boundary
-- Accept: host signatures declaring these carriers, the pinned-pixel pass over them, and the encoder-parameter save
-- Reject: runtime drawing execution, cross-platform image processing, and per-pixel raster walks one pinned `BitmapData` pass replaces

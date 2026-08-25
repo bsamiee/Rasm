@@ -2,15 +2,7 @@
 
 `NodaTime` owns semantic time truth: an instant is the only persisted time value, a local calendar value reaches an instant only through an explicit zone and resolver, and every text round-trip folds through a non-throwing `ParseResult<T>`. `TimeProvider` keeps elapsed timing and delay, crossing onto this surface at one lift.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NodaTime`
-- package: `NodaTime` (Apache-2.0)
-- assembly: `NodaTime`
-- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.HighPerformance`, `NodaTime.Xml`
-- rail: time
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: time value family
 
@@ -75,7 +67,7 @@
 [ZONE_PROVIDER_POLICY]: `XmlSerializationSettings` `TypeConverterSettings`
 [TEXT_FAULTS]: `InvalidPatternException` `UnparsableValueException`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: clock instant and span operations
 
@@ -207,7 +199,7 @@ Pattern types mint through their own static family and reconfigure through insta
 [BCL_INTAKE]: `DateTime.ToInstant` `DateTime.ToLocalDateTime` `DateTimeOffset.ToInstant` `DateTimeOffset.ToOffsetDateTime` `DateTimeOffset.ToZonedDateTime` `TimeSpan.ToDuration` `TimeSpan.ToOffset` `DateOnly.ToLocalDate` `TimeOnly.ToLocalTime` `DayOfWeek.ToIsoDayOfWeek`
 [BCL_EXPORT]: `Instant.ToDateTimeUtc` `Instant.ToDateTimeOffset` `ZonedDateTime.ToDateTimeOffset` `ZonedDateTime.ToDateTimeUtc` `OffsetDateTime.ToDateTimeOffset` `LocalDate.ToDateOnly` `LocalTime.ToTimeOnly` `LocalDateTime.ToDateTimeUnspecified` `Duration.ToTimeSpan` `Offset.ToTimeSpan` `IsoDayOfWeek.ToDayOfWeek`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Instant` is the only persisted time value; every local, offset, and zoned form projects from it or resolves back to it.
@@ -233,9 +225,3 @@ Pattern types mint through their own static family and reconfigure through insta
 - `DateTimeZoneProviders.Tzdb` is the zone source, its TZDB data embedded in the assembly.
 - Text persistence binds a roundtrip or invariant pattern singleton.
 - `TimeProvider` owns elapsed timing and delay, and `ToClock` is the one crossing onto calendar truth.
-
-[RAIL_LAW]:
-- Package: `NodaTime`
-- Owns: semantic instants, calendar values, zone mapping, and typed time text
-- Accept: instant-keyed results, resolver-decided local-to-zoned projection, `ParseResult<T>` parse folds
-- Reject: `DateTime` wall-clock vocabulary and hand-rolled epoch arithmetic

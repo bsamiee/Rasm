@@ -2,16 +2,7 @@
 
 `MessageFormat` interprets ICU patterns — `plural`, `selectordinal`, `select`, and variable substitution — picking the correct branch from per-locale CLDR rules, and owns the Theme/locale resolution materializing `ResolvedLocale.Plural`. One `MessageFormatter` parses a pattern against an args map and a `CultureInfo`, retiring every `n == 1 ? singular : plural` concatenation: the pattern is the localizable artifact, the formatter the authority. Its SPI stays small, deep — `IFormatter` arg-type handlers, per-locale `Pluralizer` rules, and a `CustomValueFormatter` for date/time/number coercion.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MessageFormat`
-- package: `MessageFormat` (MIT)
-- assembly: `Jeffijoe.MessageFormat`
-- namespace: `Jeffijoe.MessageFormat` (engine), `.Formatting` + `.Formatting.Formatters` (handler SPI), `.Parsing` (pattern parser)
-- depends: none — pure-managed over `CultureInfo` and `StringBuilder`
-- rail: locale
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [ENGINE_TYPES]: one `MessageFormatter` interprets patterns; extension and coercion types adapt inputs and typed values.
 
@@ -39,7 +30,7 @@
 
 - `PluralFormatter`: branches `zero` `one` `two` `few` `many` `other` and exact `=n`, `#` substituting the plural value.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [FORMAT]: every surface returns the resolved `string`; a map or reflected POCO supplies the arguments.
 
@@ -67,7 +58,7 @@
 - `MessageFormatter.CardinalPluralizers`: reads through the resolved `PluralFormatter` and is `null` until one is added.
 - `CustomValueFormatters`: settable `TryFormatDate`/`TryFormatTime`/`TryFormatNumber` delegates render forms such as `{d, date, short}` and `{n, number, percent}`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `MessageFormatter` resolves `plural`/`selectordinal`/`select`/variable branches by the per-locale CLDR rule; the ICU pattern is the one localizable artifact, retiring every inline `n == 1 ? singular : plural` branch.
@@ -81,9 +72,3 @@
 
 [LOCAL_ADMISSION]:
 - Theme/locale rail holds one cached `MessageFormatter` per active culture; a localized string resolves as `formatter.FormatMessage(pattern, args)` over a resx-carried ICU pattern.
-
-[RAIL_LAW]:
-- Package: `MessageFormat`
-- Owns: the Theme/locale ICU-MessageFormat resolution — `plural`/`selectordinal`/`select`/variable interpretation over the resx vocabulary, materializing `ResolvedLocale.Plural`.
-- Accept: one cached `MessageFormatter` per culture; the resx pattern as the sole localizable artifact; a `CustomValueFormatter` for date/time/number; a registered `Pluralizer` per added locale.
-- Reject: an inline `n == 1 ? singular : plural` ternary outside a pattern; a second formatting path for typed values beside `CustomValueFormatter`; per-call engine construction losing the pattern cache.

@@ -2,16 +2,7 @@
 
 `equinox` owns the pytree-carrier layer of the JAX rail, representing any parametrized object as a `Module` dataclass whose array fields are pytree leaves and whose `static` fields fold into the `PyTreeDef`. Its filtered transforms generalize the `jax` transforms over one array/static partition, so a `Module` mixing arrays and Python config flows through `jax.jit`/`jax.grad` with no manual `static_argnums`. It is the carrier the `optax`/`optimistix`/`diffrax` rail threads state against and the type `interpax` interpolants subclass.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `equinox`
-- package: `equinox`
-- import: `equinox` (alias `eqx`); submodules `equinox.nn`, `equinox.debug`, `equinox.internal`
-- owner: `compute`
-- rail: model
-- capability: `Module` pytree dataclasses with `field`/`static`/`AbstractVar` discipline, filter-aware JIT/grad/vmap/pmap transforms that auto-split array from static leaves, functional stateful layers (`nn.State`/`make_with_state`), pytree partition/combine/`tree_at`/serialization, and the `equinox.nn` layer library
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: module and configuration types
 - call: `field(*, converter, static, default, ...)` / `static_field(**kwargs)` declare fields; `nn.StateIndex(init)` keys a `State` bundle (`state.get(index)` / `state.set(index, v)`); `Partial(fun, *args, **kwargs)` is the pytree `functools.partial`
@@ -107,7 +98,7 @@ Dimension families ship `1d`/`2d`/`3d` variants over one dimension-parametric ow
 |  [20]   | `nn.SpectralNorm`                             | param transform        | spectral-norm reparameterization (stateful)                     |
 |  [21]   | `nn.Shared` / `nn.StateIndex`                 | weight tying / state   | tie parameters across submodules; typed handles into `State`    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model definition and transform entrypoints
 - call: `partition(pytree, eqx.is_inexact_array) -> (params, static)`, `combine(params, static) -> model`, and `tree_at(lambda m: m.layer.weight, model, new_weight)` are the canonical split/merge/surgery; `nn.make_with_state(Model)(*args, *, key) -> (model, state)` inits a stateful model
@@ -125,7 +116,7 @@ Dimension families ship `1d`/`2d`/`3d` variants over one dimension-parametric ow
 |  [09]   | `apply_updates`           | gradient apply | apply an `optax` update tree to the model               |
 |  [10]   | `nn.make_with_state`      | state init     | split a stateful model from its `State` at construction |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - namespace: `equinox` (alias `eqx`); `Module`, filter transforms, pytree ops, and predicates at top level; layers under `equinox.nn`.
@@ -145,9 +136,3 @@ Dimension families ship `1d`/`2d`/`3d` variants over one dimension-parametric ow
 - trainables are inexact-array leaves and configuration (sizes, flags, activation choices) is `static_field`/`field(static=True)`, so config never enters tracing.
 - model construction runs once outside the JIT loop with an explicit PRNG `key`; only the `(params, opt_state)` pair flows per step, recombined with the captured `static` inside the loss.
 - training retains the `(model_structure, gradient)` pair with the `optax`/`optimistix` step count; serialization is `tree_serialise_leaves` against a fresh-constructed template.
-
-[RAIL_LAW]:
-- Package: `equinox`
-- Owns: JAX-native parametric `Module` pytrees with `field`/`static` discipline, filter-aware autodiff/JIT/vmap/pmap transforms, functional state (`nn.State`/`make_with_state`), pytree partition/combine/`tree_at`/serialization, and the `equinox.nn` layer library
-- Accept: a `Module` whose trainables are inexact-array leaves, split by `partition`/`filter`, differentiated by `filter_value_and_grad`, stepped by an `optax`/`optimistix` update tree through `apply_updates`, and compiled by `filter_jit`; stateful layers threaded through `nn.State`
-- Reject: `Module` subclasses with mutable Python state outside the pytree/`State` protocol; manual `static_argnums` where `filter_jit` derives the split; filter transforms wrapping non-JAX numeric backends; Python `assert`/`if` on traced leaves where `error_if` belongs; product model serving; wrapper-renames of filter-transform callables

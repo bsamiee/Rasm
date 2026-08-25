@@ -19,7 +19,7 @@ Estimators ride a `TransportEstimator` row, never a debias flag; the iteration b
 - Law: the two floors are `Domain/context` lanes, not page constants — `ToleranceLane.Convergence` sets the residual target and `ToleranceLane.Neglect` the coupling cutoff, so a model that tightens either tightens this solve with no second knob.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance;
 using Rasm.Domain;

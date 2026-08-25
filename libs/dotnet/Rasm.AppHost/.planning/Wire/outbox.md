@@ -6,7 +6,6 @@ Decoupled domain events therefore gain at-least-once dispatch with idempotent-ke
 
 Persistence holds the committed event stream AS the outbox under `ONE_OUTBOX_EGRESS_SPINE`, and the workflow step-state row commits under the same tenant-scoped transaction (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`); this page names the seam and the relay, atomicity stays Persistence, and no table is asked for here.
 
-
 In-folder composition: `SchedulePort.Missed`, `ScheduleEntry.Spread`, and `ClockPolicy` from `Runtime/time`; `LeaseKey` from `Wire/coordination#ROLE_ELECTION`.
 
 Owned surfaces: the relay vocabulary, the `OutboxOrdinal` sign boundary, the dialled binding's `BindingTrust` declaration, the dispatch sweep, the dead-letter lane's naming, and the watermark-advancing relay; it consumes the Persistence-minted `CloudEvent`, the binding's configured `OutboundHop`, `FencingToken`, and `ILatencyContext`, and mints no envelope or eighth port.

@@ -2,17 +2,7 @@
 
 `substrait` mints the standalone typed Substrait plan IR the data branch gates before execution: a protobuf `Plan` model over raw wire bytes, an `ExtensionRegistry` resolving functions by URN and signature, and `type_inference` validating a plan by its inferred output `NamedStruct`. Package owner folds `Plan.ParseFromString`, `ExtensionRegistry.lookup_urn`, and `infer_plan_schema` into one admission gate over inbound Persistence plan bytes. `datafusion` and the DuckDB substrait extension exchange this wire `Plan`, so the owner gates the shared artifact rather than either engine's parser.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `substrait`
-- package: `substrait[extensions]`
-- import: `substrait`
-- owner: `data`
-- rail: plan-gate
-- entry points: library use is import-only; no console script
-- capability: typed `Plan` protobuf model with `ParseFromString`/`SerializeToString` byte ingress/egress, an `ExtensionRegistry` resolving functions by URN and signature, `type_inference` schema validation over plans/relations/expressions, registry-threaded plan/type/expression `builders`, a `simple_extension_utils` dict loader, a `derivation_expression` evaluator, and a `PlanPrinter` renderer
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plan model, registry, and renderer roots
 
@@ -47,7 +37,7 @@
 |  [25]   | `extension_registry.FunctionType`      | enum              | scalar/aggregate/window function kind                                 |
 |  [26]   | `utils.display.PlanPrinter`            | renderer          | plan/expression text renderer                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Plan` byte ingress, egress, and inspection
 
@@ -59,7 +49,7 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [02]   | `FromString`        | `(serialized: bytes) -> Plan` (cls) | classmethod parse to a fresh `Plan`         |
 |  [03]   | `MergeFromString`   | `(serialized: bytes) -> int`        | merge additional wire bytes                 |
 |  [04]   | `SerializeToString` | `() -> bytes`                       | canonical protobuf byte egress              |
-|  [05]   | `ByteSize`          | `() -> int`                         | wire byte length for gate diagnostics        |
+|  [05]   | `ByteSize`          | `() -> int`                         | wire byte length for gate diagnostics       |
 |  [06]   | `HasField`          | `(field_name: str) -> bool`         | presence probe (peer `WhichOneof(oneof)`)   |
 |  [07]   | `IsInitialized`     | `() -> bool`                        | required-field completeness check           |
 
@@ -153,7 +143,7 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 |  [05]   | `PlanPrinter.stringify_plan` | `(plan: Plan) -> str` (peers `print_plan`)                     | render a plan to text                 |
 |  [06]   | `pretty_print_plan`          | `(plan, indent_size=2, show_metadata=False, use_colors=False)` | print a plan with knobs               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One admission gate folds five checks over inbound bytes in cost order: `proto.Plan.ParseFromString` structural parse, a non-empty `relations`, a schema-skew probe (declarations present while `extension_urns` is empty), `ExtensionRegistry.lookup_urn` over every `extension_urns` entry (a `None` rejects), then `type_inference.infer_plan_schema` (a returned `NamedStruct` is valid, a raise is rejection). Skew precedes resolution because a retired-schema plan presents as an extension-free plan and otherwise passes an empty resolution loop vacuously; resolution precedes inference because an unresolvable extension space names its own reason where inference reports only that the shape is unknowable.
@@ -170,9 +160,3 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 
 [LOCAL_ADMISSION]:
 - import `substrait` and its submodules at boundary scope only; the branch admits it as the sole typed Substrait `Plan` model, function resolver, and schema-inference gate.
-
-[RAIL_LAW]:
-- Package: `substrait[extensions]`
-- Owns: the typed Substrait `Plan` protobuf model with byte ingress/egress, an `ExtensionRegistry` resolving functions by URN and signature over simple-extension YAML/dict definitions, `type_inference` schema validation over plans/relations/expressions, registry-threaded plan/type/expression `builders`, a `simple_extension_utils` dict loader, a `derivation_expression` evaluator, and a `PlanPrinter` renderer
-- Accept: gating inbound plan bytes pre-execution — `ParseFromString` structural parse, `ExtensionRegistry.lookup_urn` reference resolution, and `infer_plan_schema` type-check — preserving an admitted plan's relation tree and extension urns on the consuming query result, and round-tripping the same wire `Plan` with `datafusion.substrait` and the DuckDB substrait extension
-- Reject: wrapper-renames of `Plan`/`ExtensionRegistry`/`infer_plan_schema`; a hand-rolled Substrait protobuf parser, function-resolution table, or schema-inference walk; a plan trusted from an engine's internal parser where the standalone gate validates the wire artifact; a per-engine validation boundary where one `Plan` gate guards both engines; raw `substrait_antlr`/`_internal` handles crossing the package boundary

@@ -2,19 +2,7 @@
 
 `NetTopologySuite.IO.Esri.Shapefile` owns the pure-managed Esri shapefile codec: it reads and writes the `.shp`/`.shx`/`.dbf`/`.prj` quartet directly to and from `NetTopologySuite` `Feature`/`Geometry`, streaming forward-only under an MBR push-down filter over a typed dBASE attribute schema. It holds the managed shapefile leg of the geospatial exchange seam, materializing the canonical NTS feature shape with no native `libgdal` dependency; the geometry algebra, the datum transform, and the raster and non-shapefile vector formats stay with their own owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NetTopologySuite.IO.Esri.Shapefile`
-- package: `NetTopologySuite.IO.Esri.Shapefile` (BSD-3-Clause)
-- assembly: `NetTopologySuite.IO.Esri.Shapefile`
-- namespace: `NetTopologySuite.IO.Esri` (facade `Shapefile`, `ShapeType`, `ShapefileException`)
-- namespace: `NetTopologySuite.IO.Esri.Shapefiles.Readers` / `.Writers` (per-type readers/writers + options)
-- namespace: `NetTopologySuite.IO.Esri.Dbf` / `.Dbf.Fields` (standalone dBASE codec + the `DbfField` family)
-- asset: netstandard2.0 single TFM; the net10 consumer binds `lib/netstandard2.0` — IL-only AnyCPU, no P/Invoke or native binaries
-- depends: `NetTopologySuite` (`Geometry`/`GeometryFactory` algebra) + `NetTopologySuite.Features` (`Feature`/`IFeature`/`AttributesTable` shape it materializes)
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: facade and shape vocabulary
 
@@ -66,7 +54,7 @@
 
 `DbfField` carries `Name`, `FieldType` (`DbfType`), `Length`, `NumericScale`, `Value`, `IsNull`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read shapefiles
 
@@ -91,7 +79,7 @@
 
 `WriteAllFeatures` takes optional trailing `projection` (WKT) and `Encoding`; `AddField<T>` constrains `T : struct, IComparable, IConvertible, IFormattable`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Shapefile` writes the four components in lockstep — `.shp` geometry records, `.shx` record-offset index, `.dbf` attribute table, `.prj` WKT projection sidecar; the stream overloads expose all four so a non-filesystem store routes each component.
@@ -110,9 +98,3 @@
 - shapefile write enters through `Shapefile.OpenWrite` with a `ShapefileWriterOptions` carrying the fixed `ShapeType`, the `DbfField` schema, and the `.prj` projection.
 - `DbfReader`/`DbfWriter` is the standalone `.dbf` codec for an attribute-only export with no geometry.
 - this managed codec is the admitted default for shapefile I/O; the `MaxRev.Gdal.Core` OGR `ESRI Shapefile` driver is reserved for the formats only GDAL covers.
-
-[RAIL_LAW]:
-- Package: `NetTopologySuite.IO.Esri.Shapefile`
-- Owns: the Esri shapefile (`.shp`/`.shx`/`.dbf`/`.prj`) read/write codec over NTS `Feature`/`Geometry`, the streaming MBR-filtered reader, and the typed dBASE attribute schema
-- Accept: shapefile ingest/export, attribute-table (`.dbf`) read/write, spatial-windowed shapefile streaming
-- Reject: the geometry algebra (`NetTopologySuite` owns it), datum/projection transformation (`ProjNET`/OSR own it), raster and non-shapefile vector formats (`MaxRev.Gdal.Core` owns them), GeoPackage/GeoJSON (their own NTS IO codecs own them), a hand-rolled `.shp`/`.shx`/`.dbf` binary parse

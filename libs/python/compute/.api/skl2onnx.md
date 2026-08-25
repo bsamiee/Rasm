@@ -2,15 +2,7 @@
 
 `skl2onnx` converts fitted scikit-learn estimators and `Pipeline`/`ColumnTransformer` objects to `onnx.ModelProto` for the compute model-asset export rail. It owns the conversion algebra — typed `initial_types`/`final_types`, operator gating, and custom converter/parser registration — and hands its output to the `onnx` structural gate ahead of `onnxruntime` inference.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `skl2onnx`
-- package: `skl2onnx` (Apache-2.0)
-- module: `skl2onnx`
-- namespaces: `skl2onnx.algebra`, `skl2onnx.common`, `skl2onnx.common.data_types`, `skl2onnx.helpers`, `skl2onnx.operator_converters`, `skl2onnx.shape_calculators`, `skl2onnx.sklapi`
-- rail: model-asset
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: operator algebra for custom converter nodes
 
@@ -36,7 +28,7 @@
 |  [06]   | `sklapi.CastTransformer(dtype)`                | class         | dtype-cast transformer pinning float64 at the pipeline front |
 |  [07]   | `sklapi.ReplaceTransformer`                    | class         | value-replacement transformer for ONNX-safe preprocessing    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fitted-estimator export
 - `to_onnx`/`convert_sklearn` share carry: `initial_types`, `target_opset`, `options`, `white_op`, `black_op`, `final_types`, `dtype`, `naming`, `model_optim`, `verbose`
@@ -62,7 +54,7 @@
 |  [08]   | `guess_tensor_type(data_type)`                                           | static  | infer the tensor type from a dtype           |
 |  [09]   | `guess_numpy_type(data_type)`                                            | static  | infer the numpy type from a type object      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Export folds through one route pair: `to_onnx(model, X=...)` infers `initial_types` from the sample; `convert_sklearn(model, initial_types=...)` declares them explicitly and exposes the custom-hook parameters. `target_opset` is an int or a `{domain: opset}` dict, `white_op`/`black_op` gate emitted operators, `final_types` renames graph outputs.
@@ -77,9 +69,3 @@
 
 [LOCAL_ADMISSION]:
 - A fitted `Pipeline`/estimator exports via `to_onnx(model, X, target_opset=<int>)` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session; the manifest records target opset, operator list, and the inference-parity check.
-
-[RAIL_LAW]:
-- Package: `skl2onnx`
-- Owns: scikit-learn-to-ONNX conversion — fitted estimator/pipeline export to `onnx.ModelProto`, typed `initial_types`/`final_types`, operator gating, custom converter/parser/shape-calculator registration, and the `OnnxOperator`/`OnnxSubEstimator` algebra for novel operators
-- Accept: a fitted `sklearn` estimator exported via `to_onnx` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session against its opset, operator set, and inference parity
-- Reject: hand-rolled ONNX graph construction for supported estimators; unfitted models passed to `to_onnx`; opsets above `get_latest_tested_opset_version()` without validation; untyped `initial_types` dropping the dynamic batch axis

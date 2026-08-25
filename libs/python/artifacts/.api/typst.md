@@ -2,14 +2,7 @@
 
 `typst` compiles Typst markup to PDF/PNG/SVG/HTML through a statically-linked Rust typesetting engine — no LaTeX, Node, or external process — with expression `eval`, document `query`, a font/world-cached `Compiler`, and a `Fonts`/`FontInfo` resolved-face pair. That engine owns the markup vocabulary, the PDF/A + PDF/UA export profiles, and the tagged-PDF structure the lowering emits. `document/emit#DOCUMENT` composes the surface through its `PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms; layout stays in the engine and PAdES signing routes to `pyhanko`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `typst`
-- package: `typst` (Apache-2.0)
-- module: `typst`; bundles the native compiler `.so`, no system toolchain
-- rail: documents — markup compile to PDF/PNG/SVG/HTML, expression eval, document query, PDF/A + PDF/UA profiles, `sys.inputs` data injection, reproducible-timestamp pinning, resolved-font enumeration, font/world-cached batched renders
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compiler, font set, diagnostics
 
@@ -38,7 +31,7 @@ Stub aliases bind the input, format, and standard domains as closed vocabularies
 
 [PDF_STANDARD]: `"1.4"` `"1.5"` `"1.6"` `"1.7"` `"2.0"` `"a-1a"` `"a-1b"` `"a-2a"` `"a-2b"` `"a-2u"` `"a-3a"` `"a-3b"` `"a-3u"` `"a-4"` `"a-4e"` `"a-4f"` `"ua-1"`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module free functions
 
@@ -75,7 +68,7 @@ Compiled source drives these built-in markup functions. `alt` rides the inner `i
 |  [05]   | `pdf.attach`   | `pdf.attach(path, data, relationship, mime-type, description)` | associated-file embed for tagged-PDF attachments       |
 |  [06]   | `pdf.artifact` | `pdf.artifact(kind: str = "other", content)`                   | mark decorative content as a PDF artifact; AT skips it |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `compile`/`compile_with_warnings` is one render surface keyed by `format` and `output`; the owner takes `compile_with_warnings` and returns its warning count in `EmitFact.warnings`.
@@ -96,9 +89,3 @@ Compiled source drives these built-in markup functions. `alt` rides the inner `i
 
 [LOCAL_ADMISSION]:
 - `import typst` at boundary scope only, lazy so the native `.so` load defers off the import-time path; compile through one plan-minted `Compiler` offloaded as a `KernelTrait.RELEASING` kernel, never a fresh compiler per render in a batch.
-
-[RAIL_LAW]:
-- Package: `typst`
-- Owns: Typst markup compilation to PDF/PNG/SVG/HTML (single or per-page `list[bytes]`), expression evaluation and document querying, the PDF/A + PDF/UA `pdf_standards` matrix, `sys.inputs` data injection with keep/clear/replace tri-state, epoch/`datetime` reproducible-timestamp pinning, resolved-font enumeration via `Fonts`/`FontInfo`, structured `TypstError`/`TypstWarning` diagnostics, and font/world caching via `Compiler`
-- Accept: Typst-source document production feeding the `document/emit#DOCUMENT` `PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms
-- Reject: wrapper-renames of `compile`/`query`/`eval`; a per-format render function where `format` is a row; a per-operation class family where the module is a flat function set; a fresh `Compiler` per render in a batch; a narrowed `pdf_standards` subset where the engine accepts the full matrix; `.families`/`.fonts` read as attributes where they are methods; a flat-string diagnostic where `TypstError` carries structured fields; a phantom `pdf.embed` where the module exposes `pdf.attach`/`pdf.artifact`; a re-minted signer where `pyhanko` owns PAdES; identity minting the runtime owns

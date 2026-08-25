@@ -2,14 +2,7 @@
 
 `opentelemetry-processor-baggage` promotes OTel baggage onto emitted telemetry under a per-key predicate: a span processor stamps admitted baggage entries as span attributes at start, a log processor stamps them as log-record attributes at emit. Promoted keys ride every outbound `baggage` header, so the predicate admits a closed key vocabulary, never sensitive material.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-processor-baggage`
-- package: `opentelemetry-processor-baggage` (Apache-2.0)
-- module: `opentelemetry.processor.baggage`
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: baggage processors
 
@@ -20,7 +13,7 @@
 |  [03]   | `ALLOW_ALL_BAGGAGE_KEYS` | predicate constant | always-true key gate admitting every baggage key   |
 |  [04]   | `BaggageKeyPredicates`   | predicate type     | `(str) -> bool` or a sequence of such callables    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: processor registration
 
@@ -31,7 +24,7 @@
 |  [03]   | `BaggageLogProcessor(baggage_key_predicate, max_baggage_attributes=128)` | ctor     | log-side baggage gate, cap 128 |
 |  [04]   | `LoggerProvider.add_log_record_processor(BaggageLogProcessor(...))`      | instance | stamp log records at emit      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - a predicate is one `(str) -> bool` callable or a sequence; the constructor wraps a callable to a single-element list, and a baggage key promotes when any predicate admits it.
@@ -45,9 +38,3 @@
 [LOCAL_ADMISSION]:
 - `PROMOTED_BAGGAGE.__contains__` is the install predicate, a closed key set; `ALLOW_ALL_BAGGAGE_KEYS` stamps arbitrary caller baggage onto every span and outbound `baggage` header, so it is rejected in the install.
 - importing the package reifies the `_logs` tier — `log_processor` imports `opentelemetry.sdk._logs` — so the runtime install defers `BaggageLogProcessor` behind a lazy import until the first emitting install.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-processor-baggage`
-- Owns: predicate-gated promotion of baggage entries onto spans at start and log records at emit
-- Accept: a closed-key predicate, the promotion processor registered before the batch processor, the log side capped by `max_baggage_attributes`
-- Reject: `ALLOW_ALL_BAGGAGE_KEYS` in the install, an eager package import reifying `_logs` ahead of the first emitting install

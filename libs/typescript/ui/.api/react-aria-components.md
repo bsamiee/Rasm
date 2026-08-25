@@ -4,18 +4,7 @@
 
 Every component instantiates one pattern — `AriaHook ∘ StateHook ∘ RenderProps<state> ∘ ContextValue ∘ SlotProps` — shipping the uniform `Xxx`/`XxxContext`/`XxxStateContext` triple; a design composes the pattern, never a per-component API.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `react-aria-components`
-- package: `react-aria-components` (Apache-2.0)
-- module: dual ESM/CJS (`dist/exports/index.mjs`, `.cjs`) with per-component subpaths (`react-aria-components/Button`) and `./i18n` + `./i18n/*` locale bundles via `exports["./*"]`.
-- asset: `dist/types/exports/index.d.ts` with per-component `.d.ts` declarations.
-- runtime: React render-time; internalizes `react-aria` (behavior/ARIA hooks), `react-stately` (collection/selection/form state), `@internationalized/date` (calendar/date values), `@react-types/shared` (shared vocab); peer `react`/`react-dom`.
-- abi: headless core is pure — only the bundled `*.css` side-effects (`sideEffects: ["*.css"]`); a `client-only` import marks the client tier (RSC boundary).
-- plane: `plane:runtime` (W4 `ui`), folder-local to `ui` — the headless spine every `view` row composes.
-- rail: `ui/view` — the accessible component spine.
-
-## [02]-[THE_ONE_PATTERN]
+## [01]-[THE_ONE_PATTERN]
 
 `StyleRenderProps<T>` carries `className`/`style`/`render` and `RenderProps<T>` carries `children`, each a value or a function of the component's render state surfaced as `data-*` selectors; `ContextValue<T,E>` injects props for compound composition and `SlotProps` names the slot. Every [03] row varies only the state type these owners carry, and the function form is reserved for state a `data-*` variant cannot express — `render` overrides the aria element where the non-aria plane uses the radix `asChild` slot.
 
@@ -30,7 +19,7 @@ Every component instantiates one pattern — `AriaHook ∘ StateHook ∘ RenderP
 |  [05]   | `Provider({values, children})`     | factory  | collapse nested `XxxContext.Provider` towers to one `values` array |
 |  [06]   | `DEFAULT_SLOT`                     | property | the unnamed-slot key                                               |
 
-## [03]-[COMPONENT_FAMILIES]
+## [02]-[COMPONENT_FAMILIES]
 
 Each row is a family of the `Xxx`/`XxxContext`/`XxxStateContext` triple; every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps`, and each `XxxRenderProps` exposes boolean state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`) as `data-*` selectors.
 
@@ -49,7 +38,7 @@ Each row is a family of the `Xxx`/`XxxContext`/`XxxStateContext` triple; every `
 
 Stateful families bind their react-stately state: fields carry `validationBehavior` + `ValidationResult`, date/time bind `@internationalized/date` values, color binds `parseColor`/`getColorChannels`, pickers add `useFilter` locale matching. Compound composition reads the `XxxStateContext` (`ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`) rather than prop-drilling; `XxxContext` injects props via `Provider`.
 
-## [04]-[COLLECTION_ENGINE]
+## [03]-[COLLECTION_ENGINE]
 
 Collections, selection, sorting, virtualization, drag-drop, and async data are one react-stately engine the collection and picker families share; a custom item is authored through `createLeafComponent`/`createBranchComponent`, never hand-parsed `children`.
 
@@ -57,7 +46,7 @@ Collections, selection, sorting, virtualization, drag-drop, and async data are o
 
 `TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize. `keyboardNavigationBehavior` on the table and `focusMode`/`allowsArrowNavigation` on `Column`/`Cell`/`GridListItem`/`TreeItem` declare traversal per collection, and `Virtualizer`'s `shouldObserveItemSize` re-measures items whose content resizes in place.
 
-## [05]-[OVERLAYS_FORMS_DND_TOAST_INFRA]
+## [04]-[OVERLAYS_FORMS_DND_TOAST_INFRA]
 
 - Overlays: `DialogTrigger`/`Dialog`/`Modal`/`ModalOverlay`/`Popover`/`Tooltip`/`OverlayArrow` own focus-trap, dismiss, and positioning; `Placement` is the anchor axis; `OverlayTriggerStateContext`/`RootMenuTriggerStateContext`/`TooltipTriggerStateContext` expose open state. `PreviewTrigger` carries the tooltip's hover/focus/long-press opening with a dwell `delay`/`closeDelay` while admitting interactive popover content, and `PopoverProps.shouldSkipAnimation` suppresses the exit transition where a caller drives it.
 - Context menus: `MenuTriggerProps.trigger` closes over exactly `'press' | 'longPress' | 'contextMenu'`, so a right-click menu is a trigger value on the one menu pattern; the trigger state carries the invocation `point` the popover anchors at. `contextMenu` alone forces `offset: 0` on the popover — every other trigger leaves the offset defaulted — and `usePopover` folds the point into geometry as `getTargetRect: () => new DOMRect(point.x, point.y, 0, 0)`, so the menu anchors to a zero-area rect at the cursor instead of to the trigger's own box.
@@ -68,7 +57,7 @@ Collections, selection, sorting, virtualization, drag-drop, and async data are o
 - Infra: `I18nProvider`/`useLocale`/`isRTL` (locale over native `Intl`), `RouterProvider` (client-nav integration, `RouterConfig`), `SSRProvider` (id stability), `useFilter` (locale-aware `contains`/`startsWith`/`endsWith`).
 - Shared vocab (`@react-types/shared`): `Key`, `Selection`, `PressEvent`, `RangeValue`, `ValidationResult`, `RouterConfig`, and the drag-drop event union (`DroppableCollection*Event`, `DraggableCollection*Event`, `DropItem`/`FileDropItem`/`TextDropItem`/`DirectoryDropItem`).
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every component folds `AriaHook ∘ StateHook ∘ RenderProps ∘ ContextValue ∘ SlotProps`, so composing the pattern replaces every per-component API.
@@ -86,9 +75,3 @@ Collections, selection, sorting, virtualization, drag-drop, and async data are o
 - `Placement` routes an aria overlay to RAC; bespoke non-aria anchoring routes to `@floating-ui/react`, one positioner per node.
 - In-field filtering is RAC `Autocomplete`, a global command palette is `cmdk`, a touch-drag bottom sheet is `vaul`; `Label`, `Separator`, `VisuallyHidden`, and the `render` element override are RAC's outright, and the radix plane survives only where no aria part answers — `createSlot` polymorphism on a non-aria node and an element-scoped SR-only label.
 - RAC `children` rendering decoded wire HTML sanitizes through `isomorphic-dompurify` first; an async collection wraps in `react-error-boundary` around `renderEmptyState`; `SharedElementTransition` composes the `act/transition` View Transitions owner.
-
-[RAIL_LAW]:
-- Package: `react-aria-components`
-- Owns: the headless accessible component spine — the render-props/context/slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine, the collection-traversal axis, toast, and the i18n/router/SSR/filter infra.
-- Accept: composing the [02] pattern; `data-*` tailwind variants for state, the function form only where a variant cannot reach; `composeRenderProps` for styled wrappers; `Provider` for context collapse; `validationBehavior:'aria'` + `FieldError` fed by `Schema.standardSchemaV1`; controlled props bound to the atom; `I18nProvider`/`useLocale` over the intl plane; `createLeafComponent`/`createBranchComponent` for custom items; `Virtualizer` + a layout for large collections.
-- Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XxxContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix primitive standing in for a part RAC owns — the label, the separator, the visually-hidden wrapper, or the element override `render` already performs; an unprefixed toast import from the main barrel; importing the bundled `*.css`.

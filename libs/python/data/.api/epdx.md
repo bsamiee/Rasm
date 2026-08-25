@@ -2,14 +2,7 @@
 
 `epdx` normalizes an ILCD+EPD document into one common EPDx JSON shape through a single Rust/PyO3 entry, `convert_ilcd`, and carries the typed EN 15804 `EPD` model — every impact indicator broken out by life-cycle-stage module — in `epdx.pydantic` for the consumer to construct from that JSON. It owns the ILCD+EPD ingest leg of the data EPD/LCA owner: it normalizes the EPD wire format, never computing an LCA or holding the system of record.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `epdx`
-- package: `epdx` (Apache-2.0)
-- module: `epdx` — compiled Rust/PyO3 abi3 core (`epdx/epdx.abi3.so`), re-exported verbatim by `epdx/__init__.py`; `epdx.pydantic` carries the `datamodel-codegen`-generated EN 15804 model
-- rail: epd-lca (EPD interchange)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: EN 15804 EPD model — Pydantic v2, `epdx.pydantic` only, never re-exported on the top-level `epdx` namespace
 
@@ -31,7 +24,7 @@
 - `SubType`: `Generic` `Specific` `Industry` `Representative`
 - `Unit`: `M` `M2` `M3` `KG` `TONES` `PCS` `L` `M2R1` `UNKNOWN`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: conversion — one Rust/PyO3 entry, then the typed-model construction it feeds
 
@@ -45,7 +38,7 @@
 - `pyo3_runtime.PanicException` is UNNAMEABLE in a `catch` set: it derives from `BaseException` DIRECTLY (no `Exception` in its MRO), and the `pyo3_runtime` module resolves nowhere — before the panic, after it, or after importing `epdx` — because the interpreter materializes it only as the panic is raised. A fence therefore cannot list the class; the guard recognizes it by `type(cause).__name__` and re-raises every other `BaseException` untouched.
 - `EPD(**...)`: raises Pydantic `ValidationError` on a `dict` missing a required field (`declared_unit`, `published_date`, `standard`).
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `convert_ilcd` parses the ILCD+EPD JSON and emits the EPDx JSON string; `epdx` re-exports it with no Python-side `as_type` layer, so the consumer runs `json.loads` then `epdx.pydantic.EPD(**...)` to land the typed model.
@@ -62,9 +55,3 @@
 
 [LOCAL_ADMISSION]:
 - `epdx` is the sole ILCD+EPD document normalizer on the impact rail; a folder composing it registers `epdx` in the branch manifest and this catalog.
-
-[RAIL_LAW]:
-- Package: `epdx`
-- Owns: ILCD+EPD → EPDx JSON conversion through `convert_ilcd`, and the typed EN 15804 `EPD`/`ImpactCategory` indicator × stage model in `epdx.pydantic`.
-- Accept: `convert_ilcd(json)` as the conversion entry; `epdx.pydantic.EPD(**json.loads(...))` as the typed normalized carrier; the returned `str` or decoded `dict` for wire/`msgspec` handoff; a call-site guard around the `pyo3_runtime.PanicException`.
-- Reject: hand-rolled ILCD+EPD parsing that `convert_ilcd` owns; a `from epdx import EPD` top-level import when the model is `epdx.pydantic.EPD`; treating `epdx` as an LCA calculator or the EPD system of record.

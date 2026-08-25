@@ -2,17 +2,7 @@
 
 `Chr.Avro.Binary` compiles a `Schema` into a reflection-free binary Avro codec: `BinarySerializerBuilder`/`BinaryDeserializerBuilder` assemble a LINQ `Expression` tree and `Compile()` it into a `BinarySerializer<T>`/`BinaryDeserializer<T>` delegate built once per `(type, schema)` pair. Reading rides the stack-only `BinaryReader` `ref struct` over a `ReadOnlySpan<byte>`, writing the `Stream`-backed `BinaryWriter`. This leg owns the raw Avro wire with no framing or schema id; `Confluent.SchemaRegistry.Serdes.Avro` (`api-schemaregistry-serdes-avro`) owns the registry-prefixed framing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Chr.Avro.Binary`
-- package: `Chr.Avro.Binary` (MIT)
-- assembly: `Chr.Avro.Binary`
-- namespace: `Chr.Avro.Serialization`
-- bound asset: `lib/net6.0` (consumer binds; package multi-targets `net6.0`/`netstandard2.0`)
-- depends: `Chr.Avro` (`api-chr-avro`) — the schema model and abstract `*BuilderCase` framework this leg specializes; pure-managed AnyCPU, no native asset
-- rail: avro-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_FACADE_TYPES]: builder facades, contracts, and compiled delegates
 
@@ -50,7 +40,7 @@ Each `Binary<Shape>SerializerBuilderCase` (deserializer mirror) specializes the 
 
 [SCHEMA_SHAPE_CASES]: `Array` `Boolean` `Bytes` `Date` `Decimal` `Double` `Duration` `Enum` `Fixed` `Float` `Int` `Long` `Map` `Null` `Record` `String` `Time` `Timestamp` `Union`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: codec compilation and wire invocation
 
@@ -65,7 +55,7 @@ Each `Binary<Shape>SerializerBuilderCase` (deserializer mirror) specializes the 
 
 - custom cases: `new BinarySerializerBuilder(IEnumerable<Func<IBinarySerializerBuilder, IBinarySerializerBuilderCase>>)` (deserializer mirror) replaces the default case list.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Namespace `Chr.Avro.Serialization` is shared with the core's abstract framework; `BinarySerializerBuilder`/`BinaryDeserializerBuilder` ARE the `ISerializerBuilder<TContext>`/`IDeserializerBuilder<TContext>` framework (`api-chr-avro`) bound to `BinaryWriter`/`BinaryReader` leaves.
@@ -84,9 +74,3 @@ Each `Binary<Shape>SerializerBuilderCase` (deserializer mirror) specializes the 
 - `BinarySerializerBuilder` builds from a `SchemaBuilder`-derived `Schema`, never a hand-authored schema in Persistence code.
 - `BinaryReader` stays stack-resident: a deserializer capturing it into a closure or crossing an `async` await is rejected, so decode the whole record synchronously before yielding.
 - Raw Avro binary carries no schema id; a body that must self-identify routes through the registry serde (`api-schemaregistry-serdes-avro`), never a hand-prefixed magic byte here.
-
-[RAIL_LAW]:
-- Package: `Chr.Avro.Binary`
-- Owns: the Avro binary codec — schema-to-delegate compilation, zero-copy span decode, stream encode
-- Accept: `BuildDelegate<T>`/`BuildDelegateExpression<T>` compilation, cached delegate invocation, build-time schema resolution
-- Reject: per-message recompilation, heap-escaping `BinaryReader`, hand-rolled Avro varint framing

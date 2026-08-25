@@ -2,22 +2,7 @@
 
 `Editor` is the Grasshopper2 singleton shell owning the hosted canvas, open-document set, tabs, layouts, status bar, and the sole Rhino getter handoff through `BeginRhinoGetter`. Its chrome substrate — toolbar bars, category input panels, tooltip frames, stateful vector icons, and `UI.Flex` floating buttons — draws over `Eto.Drawing`, while canvas paint composition and the `IFlexControl` interaction seam ride sibling rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: host assembly `Grasshopper2`
-- package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle)
-- assembly: `Grasshopper2`
-- namespace: `Grasshopper2.UI` (`Editor`)
-- namespace: `Grasshopper2.UI.Flex` (`FloatingButton`, `FloatingButtonCollection`)
-- namespace: `Grasshopper2.UI.Icon`
-- namespace: `Grasshopper2.UI.Toolbar`
-- namespace: `Grasshopper2.UI.InputPanel`
-- namespace: `Grasshopper2.UI.Tooltip`
-- namespace: `Rhino` (`RhinoDoc` crossing at `Editor.BeginRhinoGetter`)
-- asset: `Grasshopper2.dll` under `Grasshopper2Plugin.rhp`, loaded in the Rhino assembly-load context, drawing chrome over `Eto.Drawing`
-- rail: host-grasshopper
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: editor shell
 
@@ -58,7 +43,7 @@
 |  [08]   | `BarItem`     | class         | toolbar item base      |
 |  [09]   | `LazyStrings` | class         | lazy label carrier     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: editor lifecycle, layout, and Rhino handoff
 
@@ -181,7 +166,7 @@
 - `IIcon` declares `Type`, `States`, `FindState`, `SetState`, `MoveState`, `Draw`, `DrawToBitmap` and nothing else; `CodeDiagnostic` carries `Description`/`Location`/`Length`/`Line`/`Column`/`IsWarning`/`IsError`.
 - `FloatingButtonCollection.Names` enumerates beside `Buttons`/`VisibleButtons`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Editor` is the singleton shell: `Instance` resolves the live editor, `ThisOrRhino` falls back to the Rhino host, and layouts, tabs, breadcrumbs, and status bar are shell state.
@@ -202,9 +187,3 @@
 - chrome enters through the `Editor` shell and the `UI.Toolbar`/`InputPanel`/`Tooltip`/`Icon` host types; a parallel in-folder toolbar or icon is the deleted form.
 - `Editor.BeginRhinoGetter` arbitrates the Rhino getter; a direct `RhinoDoc` getter bypassing the editor is the deleted form.
 - icon animation composes the `Animation` `Motion`/`Duration` vocabulary, never a second easing derivation.
-
-[RAIL_LAW]:
-- Package: `Grasshopper2` (host assembly)
-- Owns: the editor shell (canvas, documents, tabs, breadcrumbs, layouts, status bar), floating-button chrome, stateful vector icons, toolbars, input panels, tooltips, and the `BeginRhinoGetter` handoff
-- Accept: editor lifecycle, chrome construction, icon state animation, floating-button placement, the Rhino getter handoff
-- Reject: canvas paint composition (`api-gh2-canvas.md`), the `IFlexControl` seam internals (`api-gh2-flex.md`), document mutation, the GH1 `GH_DocumentEditor`/`ToolStrip` chrome idiom

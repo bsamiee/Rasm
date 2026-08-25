@@ -21,7 +21,7 @@
 - Boundary: `ArcOp` never wraps `ArcProjection`, so each concern has one entrypoint. Both ingress families carry tolerance, plane, requested error, and policy values in their admitted input, and every probe re-enters the forest's context — a loop proves tolerance and plane through `Compatible`, a query point proves coplanarity — so no cross-context value answers a forest question.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;

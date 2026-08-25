@@ -2,16 +2,7 @@
 
 `watchfiles` binds the Rust `notify` crate for filesystem change notification: a blocking `watch` and an anyio-backed `awatch` generator over one debounce/filter/polling schema, `Change`-classified batches, and process-restart reload drivers. It is runtime's filesystem-watch owner feeding the automation lanes; no `stat`-polling loop survives.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `watchfiles`
-- package: `watchfiles` (MIT)
-- module: `watchfiles`
-- rail: automation
-- depends-on: `anyio` (async backend over asyncio/trio)
-- namespaces: `watchfiles`, `watchfiles.main`, `watchfiles.filters`, `watchfiles.run`, `watchfiles._rust_notify`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: change classification (`watchfiles.main`)
 
@@ -40,7 +31,7 @@
 
 - `RustNotify(...)`: spawns the watch thread on construction, raising `FileNotFoundError` for a missing path; `watch`/`awatch` own the handle.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: watch operations (`watchfiles.main`)
 - watch/awatch carry: `*paths`, `watch_filter`, `debounce`, `step`, `stop_event`, `rust_timeout`, `yield_on_timeout`, `debug`, `force_polling`, `poll_delay_ms`, `recursive`, `ignore_permission_denied`; `watch` adds `raise_interrupt`. `watch_filter=None` keeps every change; `force_polling`/`debug`/`poll_delay_ms`/`ignore_permission_denied` each fall back to a `WATCHFILES_*` env var. `awatch.stop_event` is an `AnyEvent` (`anyio.Event | asyncio.Event | trio.Event`); `watch.stop_event` is any `is_set() -> bool` object.
@@ -60,7 +51,7 @@
 |  [03]   | `run.detect_target_type(target)`        | function | classify `target` as `'function'`/`'command'`           |
 |  [04]   | `run.import_string(dotted_path)`        | function | import a dotted callable for `target_type='function'`   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every filesystem watch folds through one `awatch` (or blocking `watch`) generator over the Rust `notify` backend; the consumer reads one `set[FileChange]` per debounce/step batch and matches on the `Change` enum, never a per-event callback, a `stat` loop, or an integer/string kind, and serialised forms use `Change.raw_str()`.
@@ -75,9 +66,3 @@
 - one declared `watch_filter` (a `DefaultFilter`/`PythonFilter`/`BaseFilter` subclass, a raw `Callable`, or `None` to keep all) owns ignore rules; per-event path-string filtering in the consumer is deleted.
 - process-restart workflows use `arun_process` with a typed `target`/`target_type`; the SIGTERM->`KeyboardInterrupt` handler and `sigint_timeout`/`sigkill_timeout` escalation are the restart contract, so `docker compose stop` exits cleanly.
 - this is a local filesystem watch, not a job framework or scheduler service.
-
-[RAIL_LAW]:
-- Package: `watchfiles`
-- Owns: filesystem change watching over the Rust `notify` backend, `Change` classification, ignore filters, force-polling fallback, the `RustNotify` thread handle, and process-restart reload drivers
-- Accept: `awatch` under the anyio lane with an `anyio.Event` `stop_event`, `Change`-enum matching, one declared `watch_filter` (or `None`), `debounce`/`step` batching, `arun_process` reloads with typed `target_type` and `grace_period`/`sigint_timeout`/`sigkill_timeout` control
-- Reject: `stat` polling loops, integer/string-kind comparison, per-event consumer filtering, direct `RustNotify` use where `watch`/`awatch` fits, and a second process supervisor

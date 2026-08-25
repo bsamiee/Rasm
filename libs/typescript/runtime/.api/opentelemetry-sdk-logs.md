@@ -4,16 +4,7 @@
 
 `Logger.layerLoggerProvider` builds the `LoggerProvider` under the facade, so a consumer supplies a processor and configurator, never the provider; every record mints through `Effect.log*`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/sdk-logs`
-- package: `@opentelemetry/sdk-logs` (Apache-2.0)
-- module: dual CJS+ESM — `build/src/index.js` CJS `main` + `build/esm/index.js` ESM `module`; one flat barrel, no `exports` subpath map
-- runtime: isomorphic — the `./platform` conditional swaps the node `BatchLogRecordProcessor` for the browser variant adding `disableAutoFlushOnDocumentHide`, no consumer fork; peers `@opentelemetry/api`
-- depends: `@opentelemetry/api-logs` (`SeverityNumber`/`LogBody`/`LogAttributes`/`AnyValue`), `@opentelemetry/core` (`ExportResult`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`
-- rail: observability/sdk-bridge — the log-pipeline contract behind the facade `Configuration.logRecordProcessor`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the provider, the processor/exporter contracts and their tuning options, the one record type's two views, and the per-logger policy
 
@@ -34,7 +25,7 @@
 |  [13]   | `LoggerConfigurator`                    | type          | `(InstrumentationScope) => Required<LoggerConfig>` total policy fn           |
 |  [14]   | `LoggerPattern`                         | interface     | `{ pattern; config }` seed row `createLoggerConfigurator` folds              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider construction and the flush/shutdown lifecycle
 
@@ -72,7 +63,7 @@
 - `LogRecordProcessor.enabled`: optional; `opts` is `{ context, instrumentationScope, severityNumber?, eventName? }`, and a present `enabled` rejects a record before it is built — the cheapest drop point.
 - `BatchLogRecordProcessor`: node binds `BatchLogRecordProcessorOptions` and browser `BatchLogRecordProcessorBrowserOptions` through the `./platform` conditional export.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one record type, two views: `SdkLogRecord` is the mutable builder a processor mutates on emit and `ReadableLogRecord` the frozen projection the exporter serializes, so the export shape is read-only by construction.
@@ -91,9 +82,3 @@
 - `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no other folder constructs a `LoggerProvider`, and application code logs through `Effect.log`.
 - native `OtlpLogger` is the default log lane; this SDK bridge enters only where the SDK log pipeline is required — severity gating, the `enabled?` pre-build drop, or `BatchLogRecordProcessor` tuning — recorded as an `[OTEL_PIN_BLOCK]` non-collapsed dependency, with `.api/effect-opentelemetry.md` owning the native-versus-SDK lane doctrine and the collapse.
 - `ConsoleLogRecordExporter` serves diagnostics and `InMemoryLogRecordExporter` the kit-driven specs through `getFinishedLogRecords()`.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/sdk-logs`
-- Owns: log-export pipeline — `LogRecordProcessor`/`LogRecordExporter` contracts with the `Simple`/`Batch`/`Console`/`InMemory` rows, the `LoggerProvider` factory, the `SdkLogRecord` builder + `ReadableLogRecord` read shape, and the `LoggerConfigurator` per-logger enable/severity policy
-- Accept: `BatchLogRecordProcessor` wrapping a `LogRecordExporter` for the SDK-bridge path; `createLoggerConfigurator(patterns)` for per-scope gating; the `enabled?` pre-build drop; `InMemoryLogRecordExporter` for specs; the whole surface reached through the facade `Logger.layerLoggerProvider`
-- Reject: constructing `LoggerProvider` inline under the facade (`Logger.layerLoggerProvider` owns it); `SimpleLogRecordProcessor` in production; a parallel log sink beside the composition-root one; a local severity or body type where the `@opentelemetry/api-logs` vocabulary exists; a positional exporter argument; importing outside `scope:runtime`

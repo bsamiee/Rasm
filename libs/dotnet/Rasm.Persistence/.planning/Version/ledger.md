@@ -1,6 +1,5 @@
 # [PERSISTENCE_VERSION_LEDGER]
 
-
 ## [01]-[INDEX]
 
 - [02]-[CHANGEFEED]: `OpLogEntry` projects Marten events, with the `OpSlot` sign boundary, HLC stamping, the trace slot, the closure manifest, and the `ReplayWindow` windowed read.
@@ -22,7 +21,7 @@
 - Boundary: the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR`, and `ReplayWindow.DurableOps` is that drain's parameterization; the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel and NEVER the exactly-once CDC envelope.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
@@ -686,17 +685,17 @@ public static class SyncMerge {
 }
 ```
 
-| [INDEX] | [POLICY]                | [VALUE]                                                 | [BINDING]                                          |
-| :-----: | :---------------------- | :------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | scalar default          | LWW `(Hlc, OriginStoreId)`; `FirstWriter` earliest-wins | deterministic total order across peers             |
-|  [02]   | crdt lane               | `Crdt.Apply` join-semilattice                           | converges by merge; multi-writer offline substrate |
-|  [03]   | causal fork             | equal `(stamp, origin)` divergent content               | `SyncFault.Forked` halts merge                     |
+| [INDEX] | [POLICY]                | [VALUE]                                                  | [BINDING]                                          |
+| :-----: | :---------------------- | :------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | scalar default          | LWW `(Hlc, OriginStoreId)`; `FirstWriter` earliest-wins  | deterministic total order across peers             |
+|  [02]   | crdt lane               | `Crdt.Apply` join-semilattice                            | converges by merge; multi-writer offline substrate |
+|  [03]   | causal fork             | equal `(stamp, origin)` divergent content                | `SyncFault.Forked` halts merge                     |
 |  [04]   | conservation            | `SyncOutcome.IsValid` — `ValidityClaim.All` over `Batch` | a breach is `SyncFault.Unconserved`                |
-|  [05]   | whole-relation truncate | `Kind.Ops` holds `WholeRelation` → `Truncate`           | clears `(Model, Family)`; `Held` answers the head  |
-|  [06]   | replay dedup            | `Id.Applied(frontier)` — identity, never content        | equal payloads both land; a redelivery lands once  |
-|  [07]   | commutation source      | lane `Stance.Law`; crdt arm `Crdt.Law`                  | one `OpLaw` triple, three runtime transcriptions   |
-|  [08]   | compaction admission    | `Id.Context.Dominates(Maintain.Quiescent)`              | else `SyncFault.Unobserved`; the fold cannot check |
-|  [09]   | absent conflict side    | corresponding `Conflict` side is `None`                 | never a zero stamp whose ticks leave the domain    |
+|  [05]   | whole-relation truncate | `Kind.Ops` holds `WholeRelation` → `Truncate`            | clears `(Model, Family)`; `Held` answers the head  |
+|  [06]   | replay dedup            | `Id.Applied(frontier)` — identity, never content         | equal payloads both land; a redelivery lands once  |
+|  [07]   | commutation source      | lane `Stance.Law`; crdt arm `Crdt.Law`                   | one `OpLaw` triple, three runtime transcriptions   |
+|  [08]   | compaction admission    | `Id.Context.Dominates(Maintain.Quiescent)`               | else `SyncFault.Unobserved`; the fold cannot check |
+|  [09]   | absent conflict side    | corresponding `Conflict` side is `None`                  | never a zero stamp whose ticks leave the domain    |
 
 ## [04]-[SYNC_TRANSPORTS]
 
@@ -713,7 +712,7 @@ public static class SyncMerge {
 - Boundary: Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run. `SpeckleLikeDiff` keeps `HasObjects` and `SpeckleSend` as SDK-shaped ports precisely because a hub's membership answer is not this service's `TransferSet`, and collapsing the two would make one row's marshal answer for the other's rpc.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using Google.Protobuf;
 using Grpc.Core;
@@ -1114,11 +1113,11 @@ public static class Awareness {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                         | [BINDING]                                                    |
-| :-----: | :------------------- | :---------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | lossy awareness      | `DropOldest` `DrainSpec` lane, `onDrop` tally   | never a durable changefeed row; distinct from `EphemeralMap` |
-|  [02]   | presence ttl         | stamp + `Ttl`, heartbeat sweep                  | one ephemeral row, never a transport                         |
-|  [03]   | working-set checkout | `ReplicationQuery` → key set                    | one subgraph, never the whole graph                          |
+| [INDEX] | [POLICY]             | [VALUE]                                       | [BINDING]                                                    |
+| :-----: | :------------------- | :-------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | lossy awareness      | `DropOldest` `DrainSpec` lane, `onDrop` tally | never a durable changefeed row; distinct from `EphemeralMap` |
+|  [02]   | presence ttl         | stamp + `Ttl`, heartbeat sweep                | one ephemeral row, never a transport                         |
+|  [03]   | working-set checkout | `ReplicationQuery` → key set                  | one subgraph, never the whole graph                          |
 
 ## [06]-[RESEARCH]
 

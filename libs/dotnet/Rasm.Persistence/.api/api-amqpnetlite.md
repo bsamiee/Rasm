@@ -2,16 +2,7 @@
 
 `AMQPNetLite.Core` owns the `AMQP 1.0` protocol itself: the container connection, its session multiplex, sender and receiver links, the framing model every performative and terminus lowers onto, SASL negotiation, transaction coordination, and a broker-side listener. It carries the `AMQP 1.0` leg of the op-log changefeed egress: `CloudNative.CloudEvents.Amqp` (`api-cloudevents-amqp`) maps the message envelope onto `Amqp.Message`, and this package owns everything from that message to the wire. Its message model shares no type with the `AMQP 0-9-1` `RabbitMQ.Client` surface (`api-rabbitmq`).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AMQPNetLite.Core`
-- package: `AMQPNetLite.Core` (Apache-2.0)
-- assembly: `Amqp.Net` — package id and assembly name DIVERGE, so an assembly-name probe against the package id resolves nothing
-- namespace: `Amqp` (connection, session, links, settings, exception), `Amqp.Framing` (performatives, terminus, outcomes), `Amqp.Types` (`Symbol`, `Map`, `Fields`, described types), `Amqp.Sasl` (mechanism profiles), `Amqp.Transactions` (coordinator and declared state), `Amqp.Handler` (protocol interception), `Amqp.Listener` (broker-side accept)
-- asset: pure-managed, `netstandard2.0` only — no native payload and no RID burden
-- rail: cdc-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection topology — `AmqpObject` is the shared base carrying `Error` and the close ladder, so a fault on ANY node reaches the same two members
 
@@ -48,7 +39,7 @@
 |  [13]   | `OutcomeCallback`                    | delegate       | `(ILink, Message, Outcome, object)` async ack    |
 |  [14]   | `MessageCallback`                    | delegate       | receiver-side per-message dispatch               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `SenderLink` — the complete send surface; every send lowers through one internal path, and the awaited pair is the only form whose return states an outcome
 
@@ -100,7 +91,7 @@
 - `SenderSettleMode` is `Unsettled`/`Settled`/`Mixed` and `ReceiverSettleMode` is `First`/`Second`, both `byte`-backed.
 - `ReceiverLink` grants 200 credit internally when a caller sets none, so an unset receiver is bounded and an unset sender is not.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one `Connection` owns many `Session`s and one `Session` owns many `Link`s, each constructed against its parent rather than minted by it, and every one of the three derives `AmqpObject`, so `Error`, `IsClosed`, `Closed`, and the close pair are the single fault-and-teardown vocabulary across the whole tree.
@@ -121,9 +112,3 @@
 - callback send forms refuse on a durable rail because their queue has no ceiling and their null-callback variant acknowledges nothing.
 - in-flight breadth is the composing fence's declared row value realized over a bounded channel, never a client setting, because this client publishes none.
 - connection, session, and link each register one closed-callback subscription at composition, folding `Error` into the delivery leg's out-of-band cell.
-
-[RAIL_LAW]:
-- Package: `AMQPNetLite.Core`
-- Owns: the `AMQP 1.0` protocol — container connection, session multiplex, sender and receiver links, the framing and type model, SASL, transactions, and the broker-side listener
-- Accept: awaited `SendAsync` with a caller timeout, receiver credit through `SetCredit`/`Start`, `AmqpObject.Closed` and `Error` as the out-of-band fault surface, and terminus configuration through `Source`/`Target`
-- Reject: the callback send forms on a durable rail, any claim of a sender-side credit or in-flight setting, a locally-written outgoing session window read as a bound, a timeout-free send standing in for a stated deadline, hand-built `cloudEvents_` application properties over a raw message, and conflation with the `AMQP 0-9-1` `RabbitMQ.Client` surface

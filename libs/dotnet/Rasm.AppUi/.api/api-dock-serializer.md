@@ -2,19 +2,7 @@
 
 `Dock.Serializer.SystemTextJson` owns the `IDockSerializer` JSON round-trip for the dock model graph: `$type` polymorphism over the core dock interfaces, an `IList<T>` converter binding the caller's concrete list type, and a source-generation path for trimmed and NativeAOT layouts.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Dock.Serializer.SystemTextJson`
-- package: `Dock.Serializer.SystemTextJson` (MIT)
-- assembly: `Dock.Serializer.SystemTextJson`
-- namespace: `Dock.Serializer.SystemTextJson`
-- target: `lib/net10.0`
-- asset: runtime library
-- asset: source-generator analyzer (`analyzers/dotnet/cs/Dock.Serializer.SystemTextJson.Generators.dll`)
-- depends: `Dock.Model`
-- rail: docking
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPES]: serializer, resolver, converters, registration attributes, and analyzer
 
@@ -29,7 +17,7 @@
 |  [07]   | `DockJsonSerializableAttribute`     | attribute     | registers an extra type into generation    |
 |  [08]   | `DockJsonSourceGenerator`           | class         | Roslyn `IIncrementalGenerator` in analyzer |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SERIALIZER_ENTRYPOINTS]: `DockSerializer` construction and the `IDockSerializer` round-trip
 
@@ -44,7 +32,7 @@
 |  [07]   | `Load<T>(Stream) -> T?`                       | instance | UTF-8 stream to model                        |
 |  [08]   | `Save<T>(Stream, T)`                          | instance | model to UTF-8 stream                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DockSerializer` round-trips the `IRootDock` graph, discriminating every derived type by `$type` (`Type.FullName ?? Type.Name`, `IgnoreUnrecognizedTypeDiscriminators = true`); each `GetTypeInfo` re-scans loaded assemblies, so a plugin-loaded derived type resolves without a resolver rebuild.
@@ -61,9 +49,3 @@
 
 [LOCAL_ADMISSION]:
 - `DockSerializer` is the one admitted `IDockSerializer` binding; an AOT build passes a source-generated `IJsonTypeInfoResolver`, and reflection over `DockModelPolymorphicTypeResolver` is the default otherwise.
-
-[RAIL_LAW]:
-- Package: `Dock.Serializer.SystemTextJson`
-- Owns: the `IDockSerializer` JSON round-trip, `$type` polymorphism over the core dock interfaces, and the source-generation pipeline.
-- Accept: `DockSerializer()` for reflection round-trip; a source-generated `IJsonTypeInfoResolver` for AOT-safe round-trip.
-- Reject: custom `JsonSerializerOptions` replicating the owned option set; hand-rolled polymorphism for `IDockable`/`IDock`/`IRootDock`; a second `IList<T>` converter outside `JsonConverterFactoryList`.

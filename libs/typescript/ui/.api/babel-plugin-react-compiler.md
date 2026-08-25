@@ -2,17 +2,7 @@
 
 `babel-plugin-react-compiler` compiles each component and hook at build time, inferring reactive dependencies and rewriting the body to memoize values and JSX through a `const $ = _c(n)` cache-slot array, so `ui` bans hand-written `useMemo`/`useCallback`/`React.memo`. Its surface is a build-wiring config bag (`PluginOptions`), a `"use memo"`/`"use no memo"` directive escape hatch, and a programmatic compile and diagnostic API — never a runtime import.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `babel-plugin-react-compiler`
-- package: `babel-plugin-react-compiler` (MIT)
-- module: CJS `dist/index.js`, default export `BabelPluginReactCompiler(babel) -> PluginObj`; depends `@babel/types`
-- asset: ships `dist/index.d.ts` with no `package.json` `types` field — resolution reads the declaration by path, not by field
-- runtime: build-time Babel pass emitting `_c` calls into the compiler runtime, never imported by `ui` source
-- plane: `plane:ui` (build) — enabled for the `ui` core and `ui/viewer` React projects, wired through the bundler
-- rail: ui/compiler — the memoization-compilation pass paired with `react-compiler-runtime` (`.api/react-compiler-runtime.md`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the config bag, directive vocabulary, and diagnostic and HIR algebra the package exports
 
@@ -57,7 +47,7 @@
 
 - `enableEmitInstrumentForget` carries the richer `{ fn, gating, globalGating }` payload adding a per-emit gating fn and env-var name.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the plugin default export and the programmatic compile, config-codec, and directive-probe surface — used by tooling and the `logger` sink, not `ui` source
 
@@ -70,7 +60,7 @@
 |  [05]   | `findDirectiveEnablingMemoization` / `findDirectiveDisablingMemoization`  | static  | detect the opt-in / opt-out directive |
 |  [06]   | `printHIR`                                                                | static  | HIR debug printer (tooling)           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `BabelPluginReactCompiler` runs first in the bundler's React Babel transform, emitting to the browser only `_c(N)` cache-slot allocations and, in dev, the `environment`-gated validator calls; `target: "19"` binds React's built-in `react/compiler-runtime` for `_c`, and a mismatched `target` breaks `_c` resolution.
@@ -86,9 +76,3 @@
 [LOCAL_ADMISSION]:
 - Wire the plugin first in the bundler React Babel pass with `{ target: "19", compilationMode: "infer", panicThreshold: "none" }`; never import this package from `ui` source — it is a build tool.
 - `"use no memo"` marks a rare component the compiler mishandles, a defect flag to remove; `gating` admits only a deliberate incremental rollout.
-
-[RAIL_LAW]:
-- Package: `babel-plugin-react-compiler`
-- Owns: the build-time memoization-compilation pass, the `PluginOptions` config bag, the `"use memo"`/`"use no memo"` directive control, and the programmatic compile and `CompilerError`/`LoggerEvent` diagnostic API
-- Accept: the plugin wired first in the bundler React transform with `target: "19"`; `"use no memo"` as a marked escape hatch; the `logger`/`noEmit` diagnostic path; `gating` for a deliberate rollout
-- Reject: importing this package from `ui` source; a `target` mismatched to the installed React; hand-written `useMemo`/`useCallback`/`React.memo` in `ui`; a standing `"use no memo"`; relying on an ESLint react-compiler rule

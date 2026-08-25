@@ -26,7 +26,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderMaterial.FromMaterial`/`CreateBasicMaterial`/`CreateImportedMaterial`, `ToMaterial`, `ConvertToPhysicallyBased`, `GetTextureFromUsage`/`GetTextureOnFromUsage`/`GetTextureAmountFromUsage`/`TextureChildSlotName`, `RenderMaterial.StandardChildSlots`, `TextureTypeFromSlot`, `RenderTexture.TextureGeneration`, the `SmellsLike*`/`SmellsLikeTextured*` predicate pairs); `api-rhinocommon-objects.md` (`Material`, `PhysicallyBasedMaterial`, `TextureType`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw.Forbidden`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;

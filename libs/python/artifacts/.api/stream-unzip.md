@@ -2,17 +2,7 @@
 
 `stream-unzip` owns bounded-memory streaming ZIP extraction on the bundle rail: `stream_unzip` yields `(name, size, chunks)` triples from a container's chunked `bytes` over a lazy inner `bytes` generator, decoding each member as it arrives — no central-directory seek, no whole-archive buffer. `allowed_encryption_mechanisms` bounds which ZipCrypto and WinZip-AES records decode under a `bytes` `password`. It streams the inverse of `stream-zip`, owning its ZipCrypto keystream while delegating deflate64 to `stream-inflate`, AES to `pycryptodome`, and bzip2/deflate to stdlib.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `stream-unzip`
-- package: `stream-unzip` (MIT)
-- module: `stream_unzip`
-- abi: compiled `stream_unzip._zipcrypto` extension (Rust, maturin-built) owns the ZipCrypto cipher; not pure-Python
-- depends: `pycryptodome` (WinZip-AES cipher, HMAC-SHA1, PBKDF2), `stream-inflate` (`stream_inflate64` deflate64 inflate), stdlib `zlib`/`bz2` (deflate/bzip2), stdlib `asyncio` with optional `trio` (async backends)
-- role: import-only library; no console script
-- rail: bundle
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: encryption-mechanism sentinels and the rooted error tree
 
@@ -73,7 +63,7 @@ Every mechanism sentinel is an opaque `_Encryption` singleton behind a private c
 |  [51]   | `InvalidOperationError`           | error              | `UnzipError` (NOT `ValueError`); API-misuse base                               |
 |  [52]   | `UnfinishedIterationError`        | error              | `InvalidOperationError`; advanced to next member before draining prior chunks  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: streaming extraction
 - carry: `password: bytes | None`, `chunk_size: int`, `allow_zip64: bool`, `allowed_encryption_mechanisms: Container[_Encryption]`
@@ -85,7 +75,7 @@ Both yield `(name, size, chunks)` triples over the shared carry set. `async_stre
 |  [01]   | `stream_unzip(zipfile_chunks)` | generator | stream-extract a ZIP archive member by member |
 |  [02]   | `async_stream_unzip(chunks)`   | async-gen | async mirror over async container chunks      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Single forward pass: one `stream_unzip` decodes every member as the container arrives, so peak memory stays bounded by `chunk_size` and one member window, never the whole archive.
@@ -100,9 +90,3 @@ Both yield `(name, size, chunks)` triples over the shared carry set. `async_stre
 
 [LOCAL_ADMISSION]:
 - Import `stream_unzip`, `async_stream_unzip`, and the mechanism and error symbols at boundary scope only, per the manifest import policy, and `password` is the `str.encode()` `bytes` of the profile password; this unpack arm recovers the member roster and never re-authors the container.
-
-[RAIL_LAW]:
-- Package: `stream-unzip`
-- Owns: bounded-memory streaming ZIP extraction, per-member lazy `bytes` generators, the ordered-consumption guard, ZIP local-header/data-descriptor and ZIP64 extra-field parsing, the compiled ZipCrypto keystream, WinZip-AES record framing over the `pycryptodome` cipher, Deflate/Deflate64/Bzip2/Stored decompression, the encryption-mechanism allow-list, and streamed CRC32/size/HMAC integrity verification
-- Accept: streaming unpack/list/test that consumes ordered `bytes` from a download, response, or file source and re-emits `(name, size, chunks)` triples into the `package/archive#Archive` `ZIP_STREAM` inverse and the `exchange/detect` member-roster probe, decoding lazily into the document, structured-text, and wire consumers under the shared `expression`/`anyio`/`structlog` rails
-- Reject: a `zipfile.ZipFile` whole-archive seek-and-buffer path where streaming bounds memory; a hand-rolled ZIP64 extra-field, ZipCrypto cipher, WinZip-AES record parser, or AES/HMAC/PBKDF2 backend the package and `pycryptodome` already own; a hand-rolled deflate64 inflate where `stream_inflate64` owns it; a per-scheme decrypt function the `password` row and extra-field detection cover; a hardcoded mechanism `frozenset` where the allow-list resolves trust as data; a consumer-side async executor where the package's thread-pool/trio bridge owns the boundary; archive construction, which routes to `stream-zip`

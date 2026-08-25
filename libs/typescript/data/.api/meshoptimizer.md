@@ -4,17 +4,7 @@
 
 Each JS module base64-inlines its own wasm, so NO sidecar binary ships: one file carries the whole capability, and the module picks a SIMD or baseline build at load through `WebAssembly.validate`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `meshoptimizer`
-- package: `meshoptimizer` (MIT)
-- module: subpath `exports` — `.` re-exports all five, `./encoder`, `./simplifier`, `./clusterizer`, `./tangents` resolve `.js`, `./decoder` resolves `meshopt_decoder.mjs`, and `./decoder.cjs` is the CommonJS decoder
-- runtime: both lanes — pure wasm with no native binding, no fs, and no fetch; the same module serves the browser viewer and the server pipeline
-- native: none — every module inlines its wasm as base64, so no `.wasm` file ships and no loader path is configured
-- rail: geometry codec beneath the `object` container plane; the decoder also serves the browser viewer as a static asset
-- boundary: buffers in, buffers out; the package holds no glTF vocabulary and no container knowledge
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the five module records and their shared gate
 
@@ -41,7 +31,7 @@ Each record carries `supported: boolean` and `ready: Promise<void>`; every membe
 
 `Flags` is a deprecated alias of `SimplifierFlags`; the flag arrays are optional trailing parameters, never an options record.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `MeshoptEncoder` — codec and ordering
 
@@ -107,7 +97,7 @@ Every clusterizer builder takes `(indices, positions, stride, max_vertices, …)
 
 `generateTangents` is `MeshoptTangents`' only member and answers a `Float32Array`; every other row above belongs to `MeshoptClusterizer`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Five independent modules, five `ready` gates, one import each — a consumer that only decodes imports `meshoptimizer/decoder` and never loads the encoder, simplifier, clusterizer, or tangents wasm.
@@ -128,9 +118,3 @@ Every clusterizer builder takes `(indices, positions, stride, max_vertices, …)
 - `getScale` is read before any `target_error`, so decimation is stated in the mesh's own scale; an absolute error passed as relative silently decimates by orders of magnitude.
 - `encodeVertexBufferLevel` and `encodeGltfBuffer` take a codec `version` — it is stated explicitly wherever the emitted bytes are content-addressed, because a default that moves with the package re-keys every previously encoded buffer.
 - `meshopt_decoder_reference.js` ships in the package and is absent from `exports`; the decode path is the exported subpath alone.
-
-[RAIL_LAW]:
-- Package: `meshoptimizer`
-- Owns: the wasm mesh kernel — vertex and index encode/decode with attribute filters, vertex-cache and spatial reordering, error-bounded and attribute-aware simplification, point decimation, meshlet clustering with sphere and normal-cone bounds, and tangent generation
-- Accept: per-module subpath imports, `ready` proven at layer construction, `supported` read as a capability gate, caller-owned decode targets, explicit `useWorkers` sizing, `getScale`-relative error bounds, an explicit codec `version` on content-addressed output, one shared instance across the IO dependency and the transform row
-- Reject: a member called before `ready`, an encoder in a browser bundle, a decoder path or `.wasm` sidecar configured for it, a default codec version on addressed bytes, the unexported reference decoder, glTF semantics read inside the codec

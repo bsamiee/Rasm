@@ -18,7 +18,7 @@
 - Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), and no corpus modality (a corpus diff is N parent-bound nodes, never one). Verification failure rides the rail before `BundleEvidence` exists.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from io import BytesIO
 from typing import Final
 

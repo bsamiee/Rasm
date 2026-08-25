@@ -2,16 +2,7 @@
 
 `Clipper2Lib` owns planar polygon algebra on the float production plane: every operation resolves over integer-exact `int64` coordinates, and a double entry scales in at a caller-named decimal precision and descales its result. Precision rides the call as data, so one engine plane serves both coordinate families.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Clipper2`
-- package: `Clipper2` (BSL-1.0)
-- assembly: `Clipper2Lib`
-- namespace: `Clipper2Lib`
-- asset: pure-managed AnyCPU IL carrying no native payload, so a collectible ALC loads and unloads it with no RID burden
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate and path carriers
 
@@ -63,7 +54,7 @@
 |  [12]   | `PolyPathD`                     | class         | double nesting node carrying its ring and children       |
 |  [13]   | `PolyPathBase`                  | class         | abstract node base owning depth, hole sense, traversal   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Boolean overlay — `Clipper`
 
@@ -301,7 +292,7 @@
 |  [26]   | `PointD == PointD -> bool`              | operator | ordinate equality                 |
 |  [27]   | `PointD.Negate()`                       | instance | in-place ordinate negation        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Point64.X` and `Point64.Y` are `long`, so a double entry scales in at `Math.Pow(10, precision)` and descales at the reciprocal; `ClipperD` and the `Clipper` double statics fold that pair around an int64 core, and a hand-spelled `Clipper.ScalePaths64`-clip-`ScalePathsD` sequence reproduces them exactly.
@@ -326,9 +317,3 @@
 - Hole-aware and nesting results take the `PolyTree64` or `PolyTreeD` `Execute` arm and read `Area()`, `IsHole`, and `Level` off the tree; `Clipper.PolyTreeToPaths64` and `Clipper.PolyTreeToPathsD` flatten only where nesting decides nothing downstream.
 - Double morphology enters through `Minkowski.Sum` and `Minkowski.Diff` carrying the owner's `decimalPlaces`, since the `Clipper.MinkowskiSum` and `Clipper.MinkowskiDiff` double pair pins precision at `2`.
 - `DeltaCallback64` receives the source path, its per-vertex normals, and the current and previous vertex indices, and returns that vertex's signed delta.
-
-[RAIL_LAW]:
-- Package: `Clipper2`
-- Owns: planar polygon Boolean overlay, path offsetting, rectangle windowing, Minkowski morphology, containment, and path hygiene over an int64 coordinate plane
-- Accept: `Path64` and `Paths64` int64 geometry, and `PathD` and `PathsD` double geometry carrying its decimal precision
-- Reject: hand-rolled polygon clipping, coordinate scaling spelled beside `Clipper.ScalePaths64` and `Clipper.ScalePathsD`, `ClipperBase` internals reached past `Clipper64` and `ClipperD`, triangulation the kernel triangulation owner holds, and the exact-geometry concern the kernel `Rasm` owns

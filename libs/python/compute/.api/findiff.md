@@ -2,14 +2,7 @@
 
 `findiff` owns arbitrary-order finite-difference coefficient generation; compute admits one member, `coefficients`, for the central-difference stencil weights the `Differentiation` finite-difference arm reads where automatic differentiation is unavailable. Every operator, sparse-matrix, vector-calculus, PDE, and scheme-generation surface stays declined — the AD owner is `jax`/`equinox`, field operators are the mesh and quadrature owners'.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `findiff`
-- package: `findiff`
-- module: `findiff` — the top-level `coefficients` function alone
-- rail: finite-difference derivative coefficient floor
-
-## [02]-[ENTRYPOINTS]
+## [01]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: raw stencil-weight generation on a uniform grid, `acc` and `offsets` mutually exclusive
 
@@ -21,7 +14,7 @@
 
 - `coefficients` inner shape: `acc` mode keys `{center, forward, backward}`, each `{coefficients, offsets, accuracy}` — interior under `center`, one-sided under `forward`/`backward`; `offsets` mode returns one flat `{coefficients, offsets, accuracy}`.
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every consumed call is a pure Vandermonde solve — a derivative order and accuracy width in, position-keyed weight arrays out; `findiff` assembles no operator and reads no field data.
@@ -33,9 +26,3 @@
 
 [LOCAL_ADMISSION]:
 - `findiff` admits at `coefficients` alone; a live compute fence importing an operator, matrix, vector-calculus, PDE, or scheme surface under a named consumer reopens the wider surface.
-
-[RAIL_LAW]:
-- Package: `findiff`
-- Owns: arbitrary-order finite-difference coefficient generation — `coefficients` returning position-keyed uniform-grid stencil weights, exact under `symbolic=True`
-- Accept: `coefficients(deriv, acc=acc)` for the `center` interior and `forward`/`backward` boundary stencils inside the `Differentiation` finite-difference mode where AD is unavailable
-- Reject: a hand-rolled stencil-weight table `coefficients` owns; the `Diff`/`Identity`/`Coefficient` operator algebra, `matrix(shape)`/`stencil`/`eigs`/`eigsh` sparse representation, `Gradient`/`Divergence`/`Curl`/`Laplacian` vector calculus, and `PDE`/`BoundaryConditions`/`CompactScheme`/`SymbolicDiff` solve surfaces — field operators are the mesh and quadrature owners', sparse-eigen routes to `scipy.sparse.linalg`

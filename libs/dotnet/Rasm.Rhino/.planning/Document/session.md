@@ -22,7 +22,7 @@
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
@@ -56,7 +56,7 @@ public abstract partial record DraftFault : Fault {
 - Packages: RhinoCommon `RhinoDoc`/`Worksession` (`.api/api-rhinocommon-document.md`); Riok.Mapperly for `SessionMap` (per-project, `PrivateAssets` — generator only); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.IO;
 using Rasm.Domain;
@@ -1157,7 +1157,7 @@ internal static class Admission {
 - Boundary: row delegates contain the property-set statement seam required by the host API. Failed writes restore every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation rides the kernel `Custody.Rollback` delegate arm — its faults accumulate and join the original fault — and the shared `DocumentCommit.Sealed` decides the enclosing record's seal or rollback under `RedrawPolicy.None`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 
@@ -1755,18 +1755,18 @@ public static class RegimeText {
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]               | [FORM]                            | [ENTRY]                      |
-| :-----: | :------------------- | :-------------------- | :-------------------------------- | :--------------------------- |
-|  [01]   | admission fault      | `DraftFault`          | banded closed family              | hooks / `AcceptValidated`    |
-|  [02]   | document identity    | `DocKey`              | positive generated value          | `Of` / `Census`              |
-|  [03]   | lifecycle evidence   | `SessionSnapshot`     | phase + condition set             | `DocumentSession.Snapshot`   |
-|  [04]   | capability policy    | `SessionNeed`         | four-set data rows                | `DocumentSession.Demand`     |
-|  [05]   | source admission     | `SessionSource`       | flat closed source family         | `DocumentSession.Of`         |
-|  [06]   | scoped lifetime      | `DocumentSession`     | retained lease over `SessionGate` | `DocumentSession.Of`         |
-|  [07]   | space regime         | `DocumentSpace`       | model/page behavior rows          | `Regime` / `Adjust`          |
-|  [08]   | regime mutation      | `RegimeChange`        | units/context/precision union     | `RegimeChange.Of` / `Adjust` |
-|  [09]   | unit correspondence  | `UnitText`            | encoded/semantic union            | `UnitText.Length` / `Text`   |
-|  [10]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`     |
+| [INDEX] | [CONCERN]            | [OWNER]               | [FORM]                            | [ENTRY]                              |
+| :-----: | :------------------- | :-------------------- | :-------------------------------- | :----------------------------------- |
+|  [01]   | admission fault      | `DraftFault`          | banded closed family              | hooks / `AcceptValidated`            |
+|  [02]   | document identity    | `DocKey`              | positive generated value          | `Of` / `Census`                      |
+|  [03]   | lifecycle evidence   | `SessionSnapshot`     | phase + condition set             | `DocumentSession.Snapshot`           |
+|  [04]   | capability policy    | `SessionNeed`         | four-set data rows                | `DocumentSession.Demand`             |
+|  [05]   | source admission     | `SessionSource`       | flat closed source family         | `DocumentSession.Of`                 |
+|  [06]   | scoped lifetime      | `DocumentSession`     | retained lease over `SessionGate` | `DocumentSession.Of`                 |
+|  [07]   | space regime         | `DocumentSpace`       | model/page behavior rows          | `Regime` / `Adjust`                  |
+|  [08]   | regime mutation      | `RegimeChange`        | units/context/precision union     | `RegimeChange.Of` / `Adjust`         |
+|  [09]   | unit correspondence  | `UnitText`            | encoded/semantic union            | `UnitText.Length` / `Text`           |
+|  [10]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`             |
 |  [11]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / `WorksessionOutcome` |
 
 ## [09]-[RESEARCH]

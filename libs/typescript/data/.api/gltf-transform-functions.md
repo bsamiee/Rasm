@@ -4,17 +4,7 @@
 
 Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `MeshoptEncoder`, `simplify` a `MeshoptSimplifier`, `draco` its encoder module, `unwrap` a `watlas` instance. Graph-level readers ride here too — texture channel and slot introspection, vertex counting, bounds, and the whole-document `inspect` report.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@gltf-transform/functions`
-- package: `@gltf-transform/functions` (MIT)
-- module: `exports["."]` condition-selects `dist/index.cjs` for `require` against the `dist/index.js` default; types at `dist/index.d.ts`
-- runtime: SERVER — `ndarray-pixels` is a top-level static import and binds `sharp` under the `node` export condition, so importing this package loads libvips eagerly
-- depends: `@gltf-transform/core`, `@gltf-transform/extensions`, `ktx-parse`, `ndarray`, `ndarray-lanczos`, `ndarray-pixels`
-- rail: `object` container surgery over the `Effect`-lifted `document.transform(...)` boundary
-- boundary: transforms and graph readers alone; the graph is core's, the extension vocabulary is `@gltf-transform/extensions`', and every mesh or texture codec is a caller-supplied instance
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: option records — one per transform, each the whole knob surface of its row
 
@@ -56,7 +46,7 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 - `VertexCountMethod.UNUSED` completes the roster and counts vertices no primitive reaches.
 - `InspectReport` composes `InspectSceneReport`, `InspectMeshReport`, `InspectMaterialReport`, `InspectTextureReport`, and `InspectAnimationReport`, each built from `InspectPropertyReport` rows.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the transform rows — every one folds through `document.transform(...)`
 
@@ -104,7 +94,7 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 - `TextureCompressOptions.encoder` is OPTIONAL — omitted, the row falls back to a platform implementation that ignores most quality and compression options.
 - `fitPowerOfTwo(size, method)` takes `'nearest-pot' | 'ceil-pot' | 'floor-pot'`, the same preset union `TextureCompressOptions.resize` accepts beside an explicit `vec2`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every row is `(options?) => Transform` and every `Transform` is `(doc, context?) => void`, so an optimization pipeline is an ordered ROW LIST through one fold — there is no builder, no per-row entry, and a branch-owned step is `createTransform(name, fn)` on the same shape.
@@ -127,9 +117,3 @@ Every heavy codec is injected, never imported: `meshopt` and `reorder` take a `M
 - `ndarray-pixels` binds `sharp` at module load, so this package is server-lane only and its version resolution is pinned to the catalog sharp — an unpinned resolution loads a SECOND libvips native beside the object plane's.
 - Rows requiring a codec run only after that codec's `ready` resolves, proven at layer construction rather than inside the fold, so a pipeline never fails halfway through a document mutation.
 - `draco` is NOT admitted: its `draco3d.encoder` slot demands a further unadmitted npm distribution, `meshopt` covers the same geometry-compression concern, and the viewer already serves one decoder path.
-
-[RAIL_LAW]:
-- Package: `@gltf-transform/functions`
-- Owns: the glTF transform roster over the core graph — pruning, deduplication, quantization, meshopt and Draco compression, welding, simplification, palette folding, joining, flattening, instancing, partitioning, UV unwrapping — with the graph readers for texture channels, slots, color space, vertex counts, bounds, and the whole-document inspect census, and `createTransform` for branch-owned rows
-- Accept: an ordered row roster folded through `document.transform(...)`, codecs injected as `ready`-proven instances, option records merged over their exported defaults, graph readers driving policy, `createTransform` for a branch-owned step, server-lane use alone
-- Reject: `textureCompress`/`compressTexture` as a second libvips composer, a codec imported instead of injected, a row run without its extension on the IO roster, a browser import, an unpinned transitive sharp, a second fanout spine beside the object plane's

@@ -2,18 +2,7 @@
 
 `h5netcdf` implements the netCDF-4 data model over `h5py` alone — HDF5 under the netCDF dimension-scale convention, no netCDF-C linkage. One core carries two surfaces: the native tree rooted at `h5netcdf.File` and `h5netcdf.legacyapi`, a `netCDF4`-python-shaped shim an `xarray` backend binds as a drop-in. It is the h5py-native `FieldEngine.H5NETCDF` backend beneath `xarray`, which owns CF metadata, coordinate addressing, and reductions above it; the netCDF-C quantization surface has no h5py backing and routes to `netcdf4` alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `h5netcdf`
-- package: `h5netcdf` (BSD-3-Clause)
-- import: `import h5netcdf` (native) / `import h5netcdf.legacyapi as netCDF4` (shim)
-- owner: `data`
-- rail: field-dataset — the h5py-native `FieldEngine.H5NETCDF` backend
-- asset: pure Python over `h5py`; the HDF5 native core arrives transitively through `h5py`, no netCDF-C linkage
-- depends: `h5py`, `numpy`, `packaging`; `xarray` binds it through the `h5netcdf` entry in the `xarray.backends` group, never a hard dependency here
-- capability: read/write the netCDF-4 data model over HDF5 through `h5py` — groups, unlimited dimensions, HDF5 chunking and gzip/shuffle/fletcher32/szip filters, compound/enum/vlen user types, phony-dimension synthesis for scale-free HDF5, and the `invalid_netcdf` escape hatch for h5py features outside the netCDF model
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: native surface `h5netcdf.*`
 
@@ -32,7 +21,7 @@
 
 [legacyapi]: `Dataset` `Group` `Variable` `Dimension` `CompoundType` `EnumType` `VLType` `UserType` `HasAttributesMixin` `default_fillvals`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store lifecycle and structure creation — native `File`/`Group` methods
 
@@ -51,7 +40,7 @@
 
 [File accessors]: `dimensions`/`dims` `variables` `groups` `attrs` `cmptypes`/`enumtypes`/`vltypes` `filename` `mode` `data_model` `get`/`keys`/`items`/`values`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `File` subclasses `Group`, adding file lifecycle (`close`/`flush`/`sync`/`filename`/`mode`) to the shared group surface; `Group` nests arbitrarily.
@@ -68,9 +57,3 @@
 [LOCAL_ADMISSION]:
 - Open `File`/`legacyapi.Dataset` as a context manager (`with h5netcdf.File(...) as ds:`) so `close()` flushes on exit.
 - Leave `invalid_netcdf`/`phony_dims` at their defaults for CF field IO; a CF cube is netCDF-4-valid and dimension-scaled by contract.
-
-[RAIL_LAW]:
-- Package: `h5netcdf`
-- Owns: the pure-`h5py` netCDF-4 read/write path exposed to `xarray` through the `h5netcdf` backend entry point, with the `legacyapi` `netCDF4`-compatible shim
-- Accept: `xarray` `engine="h5netcdf"` open/write as the `FieldEngine.H5NETCDF` delegates; the HDF5-shared compression band on written variables; the engine as the h5py-native alternative to `netcdf4` when netCDF-C linkage is undesirable
-- Reject: the netCDF-C quantization keys (`least_significant_digit`/`significant_digits`/`quantize_mode`), which have no h5py backing and route to `FieldEngine.NETCDF4`; authoring `File`/`legacyapi.Dataset` directly for CF cubes, where `xarray` owns CF metadata, coordinate addressing, and reductions; `invalid_netcdf=True`/`phony_dims=` on the CF field path

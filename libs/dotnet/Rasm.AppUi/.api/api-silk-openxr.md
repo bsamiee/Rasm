@@ -2,17 +2,7 @@
 
 `Silk.NET.OpenXR` binds the managed immersive-session lifecycle over the host-installed OpenXR loader — instance/session creation, the runtime-driven session-state event queue, stereo swapchain allocation, pose location, the runtime-paced frame loop, and the action-set input model — as pointer-passing calls on the `XR.GetApi()` function-table root. One `Wgpu` graphics-binding device backs both surfaces, and an absent loader folds the immersive session to the flat viewport, so the VR/AR review rail degrades to desktop rather than faults.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.OpenXR`
-- package: `Silk.NET.OpenXR` + `Silk.NET.OpenXR.Extensions.KHR` + `Silk.NET.OpenXR.Extensions.EXT` (MIT)
-- assembly: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
-- namespace: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
-- asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime
-- depends: `Silk.NET.Core`, `Silk.NET.Maths`
-- rail: viewport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and session lifecycle owners
 
@@ -85,7 +75,7 @@
 |  [13]   | `ViewLocateInfo`                                                | descriptor    | view config + display time + base space               |
 |  [14]   | `FrameWaitInfo` / `FrameBeginInfo` / `FrameEndInfo`             | descriptor    | frame-loop carriers                                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instance, system, and session creation
 
@@ -144,7 +134,7 @@ Every surface is an `unsafe Result` instance method on the `XR.GetApi()` functio
 |  [10]   | `LocateSpaces(Session, SpacesLocateInfo*, SpaceLocations*)`                       | instance | batched pose location                |
 |  [11]   | `ApplyHapticFeedback(Session, HapticActionInfo*, HapticBaseHeader*)`              | instance | controller haptic                    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every native call is a pointer-passing `unsafe Result` instance method on the `XR.GetApi()` root; a call site marshals `stackalloc`/`Span<T>` create-info structs and passes pointers, never a managed wrapper object.
@@ -168,9 +158,3 @@ Every surface is an `unsafe Result` instance method on the `XR.GetApi()` functio
 - Native handles (`Instance`, `Session`, `Swapchain`, `Space`, `ActionSet`, `Action`) release through their matching `DestroyXxx` call, not `IDisposable`; the boundary capsule pairs create-and-destroy in a scoped fold. Handles acquired AFTER session create — action sets, actions, action spaces, FB features and profiles — need a ledger the capsule can append to, not a construction-time column.
 - `Silk.NET.OpenXR` P/Invokes the host-installed OpenXR loader (`libopenxr_loader`, installed by the headset vendor runtime), so an absent loader is the no-HMD floor that folds to the flat desktop viewport and the session create is a capability probe, not a launch precondition.
 - macOS ships no OpenXR loader (visionOS binds ARKit/RealityKit), so the immersive session activates on the Windows and Linux hosts and folds to the flat viewport on macOS.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.OpenXR` (+ `Silk.NET.OpenXR.Extensions.KHR`/`EXT` command-sets)
-- Owns: the managed OpenXR binding — instance/system/session lifecycle, the runtime-driven session-state event queue, stereo swapchain allocation, reference-space and pose location, the predicted-display-time frame loop, the action-set input model, and environment-blend passthrough compositing.
-- Accept: raw-pointer create-info calls on the `XR.GetApi()` root; scoped native-handle create-and-destroy pairs against an appendable ledger; a per-frame `PollEvent` drain ahead of `WaitFrame`; the shared graphics binding to the `Wgpu` device; the host-loader-absent fold to the flat viewport.
-- Reject: a managed convenience wrapper renaming the native surface; the native plural spelling where the generator emits the singular; a second GPU device for the immersive path; a raw HID controller read bypassing the action-set model; a suggested binding never attached through `AttachSessionActionSets`; a symmetric single-angle camera standing in for the asymmetric `Fovf`; a wall-clock frame pace ignoring the runtime-predicted display time; a frame loop with no event drain, which never reaches a rendering state.

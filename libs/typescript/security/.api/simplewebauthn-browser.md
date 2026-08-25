@@ -2,15 +2,7 @@
 
 `@simplewebauthn/browser` owns the client half of the passkey ceremony `authn/webauthn` composes: two `Promise` entries fold `navigator.credentials.create()`/`.get()` over the server-issued options JSON and return the response JSON to POST back. Capability probes gate the call, `WebAuthnAbortService` holds one ceremony live, and every rejection carries a coded `WebAuthnError` naming why an opaque `DOMException` fired.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@simplewebauthn/browser`
-- package: `@simplewebauthn/browser` (MIT)
-- module: dual ESM (`import` → `esm/index.js`) and CJS (`require` → `script/index.js`); one root entry, no subpaths
-- runtime: `runtime:browser` — binds `navigator`/`window`; `@simplewebauthn/server` is the node/edge verifier half
-- rail: `authn/webauthn` client ceremony
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: call options, the coded fault rail, and the response-union alias; `@simplewebauthn/server` (`.api/simplewebauthn-server.md`) owns the JSON wire vocabulary both halves share, decoded by one `Schema.Struct` per shape at the fetch boundary.
 
@@ -24,7 +16,7 @@
 
 [WEBAUTHN_ERROR_CODE]: `ERROR_CEREMONY_ABORTED` `ERROR_INVALID_DOMAIN` `ERROR_INVALID_RP_ID` `ERROR_INVALID_USER_ID_LENGTH` `ERROR_MALFORMED_PUBKEYCREDPARAMS` `ERROR_AUTHENTICATOR_GENERAL_ERROR` `ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT` `ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT` `ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED` `ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG` `ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE` `ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the two stateful ceremonies and the probes, codecs, and abort guard bounding them
 
@@ -42,7 +34,7 @@
 
 - `startRegistration`/`startAuthentication`: two guard paths throw a plain `Error` ahead of classification — an unsupported browser and an incomplete autofill ceremony.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `WebAuthnAbortService` is a module singleton: a ceremony auto-arms a fresh `AbortSignal` and supersedes the prior one, so a client-router navigation calls `.cancelCeremony()`.
@@ -58,9 +50,3 @@
 
 [LOCAL_ADMISSION]:
 - Resolves only inside the browser-safe `authn/webauthn` subpath; a node composition binds `@simplewebauthn/server`.
-
-[RAIL_LAW]:
-- Package: `@simplewebauthn/browser`
-- Owns: the `navigator.credentials` registration and authentication ceremonies, the capability probes, the credential-field base64url codecs, the single-ceremony `WebAuthnAbortService`, and the `WebAuthnError`/`WebAuthnErrorCode` classification rail
-- Accept: `Effect.tryPromise` over each ceremony, exhaustive `Match` on `WebAuthnErrorCode`, one `Schema` per JSON shape across the fetch seam, a probe as the ceremony gate, verification delegated to `@simplewebauthn/server`
-- Reject: a raw `DOMException` in the error channel, hand-parsed credential fields, attestation or assertion verified in the browser, a ceremony call with no capability probe

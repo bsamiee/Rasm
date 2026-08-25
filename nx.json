@@ -12,23 +12,17 @@
         "production": [
             "default",
             "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}",
-            "!{projectRoot}/**/*.{pw,k6}.ts",
             "!{projectRoot}/dist/**/*"
         ],
         "sharedGlobals": [
             "{workspaceRoot}/.gitignore",
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/package.json",
-            "{workspaceRoot}/playwright.config.ts",
             "{workspaceRoot}/pnpm-lock.yaml",
             "{workspaceRoot}/pnpm-workspace.yaml",
             "{workspaceRoot}/stryker.config.json",
-            "{workspaceRoot}/tests/containers.json",
-            "{workspaceRoot}/tools/biome/*.grit",
             "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/tsconfig.json",
-            "{workspaceRoot}/tsconfig.node.json",
-            "{workspaceRoot}/tsconfig.tools.json",
             "{workspaceRoot}/vite.config.ts",
             "{workspaceRoot}/vitest.config.ts"
         ]
@@ -53,10 +47,6 @@
                 }
             ],
             "outputs": ["{projectRoot}/dist"]
-        },
-        "e2e": {
-            "cache": true,
-            "inputs": ["...", "^production"]
         },
         "test": {
             "cache": true,
@@ -87,13 +77,6 @@
             "options": {
                 "testTargetName": "test",
                 "discoverTestFiles": "glob"
-            }
-        },
-        {
-            "plugin": "@nx/playwright/plugin",
-            "options": {
-                "ciTargetName": "e2e-ci",
-                "targetName": "e2e"
             }
         },
         {

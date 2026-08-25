@@ -1164,6 +1164,7 @@
         "type": "Project",
         "dependencies": {
           "Celly.Protovalidate": "[1.2.0, )",
+          "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",

@@ -2,17 +2,7 @@
 
 `GISBlox.IO.GeoParquet` mints the managed OGC-GeoParquet columnar codec: a `.parquet` whose geometry column carries WKB/WKT payloads and whose file-level `geo` metadata names the primary column, its encoding, and its bbox, read and written over a `System.Data.DataTable` carrying `GeoFileMetadata`/`GeoColumnMetadata` — never an NTS `IFeature` collection, so the geometry-algebra bridge stays the consumer's. It feeds the `Semantics/vector#VECTOR_FOLD` fold as the managed columnar arm, the no-new-native-runtime counterpart of the row-oriented FGB/shapefile codecs and the GDAL OGR driver.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `GISBlox.IO.GeoParquet`
-- package: `GISBlox.IO.GeoParquet` (MIT)
-- assembly: `GISBlox.IO.GeoParquet` — pure-managed AnyCPU IL, sole `lib/net10.0` TFM
-- namespace: `GISBlox.IO.GeoParquet` (`GeoParquetReader`/`GeoParquetWriter`), `.Common` (the `geo` metadata model, `GeometryFormat`/`Edges`), `.Extensions` (the `DataTable`/`DataColumn` geo-schema surface)
-- depends: `NetTopologySuite`, `ParquetSharp`
-- abi: the `ParquetSharp` transitive carries the `runtimes/osx-arm64/native/libparquet` dylib, so the codec inherits ParquetSharp's RID-keyed native runtime
-- rail: `Semantics/vector#VECTOR_FOLD` managed columnar-geo arm
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec roots (`GISBlox.IO.GeoParquet`) — both static, path- or stream-based
 
@@ -36,7 +26,7 @@
 
 [GeoColumnMetadata]: `Encoding` `Bbox` `Covering` `Edges` `Epoch` `GeometryTypes` `Orientation` `AdditionalProperties`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read a GeoParquet to a `DataTable` — every static `GeoParquetReader` projection carries a `(…, GeometryFormat format, int batchSize = 65536)` tail; `ReadColumn(s)` pushes the column projection down, decoding only the geometry and the requested attribute columns of a wide dataset
 
@@ -75,7 +65,7 @@
 |  [10]   | `DataTable.AddGeoProcessingMetadata(List<string>, string)`            | bind `geo` metadata from columns + primary name |
 |  [11]   | `DataTable.AddGeoProcessingMetadata(GeoFileMetadata?)`                | attach a prebuilt `geo` metadata object         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - exchange unit is a `System.Data.DataTable`: the geometry column holds WKB `byte[]` or WKT `string` per `GeometryFormat`, attribute columns hold Parquet scalars, and `GeoFileMetadata` names the primary geometry column with per-column encoding/bbox/covering/edges — the OGC-GeoParquet shape, never an NTS `IFeature` collection
@@ -90,9 +80,3 @@
 [LOCAL_ADMISSION]:
 - GeoParquet read/write enters through `GeoParquetReader`/`GeoParquetWriter` over a `DataTable`; the geo column WKB-bridges to the canonical `GeoFeature` at the seam and the `GISBlox.*` types stay inside the `GeoVector` fold per the boundary-mapping law
 - a known column subset enters through `ReadColumns` for server-side projection, dataset extent reads through `ReadGeoMetadata` before a windowed read, and the geometry algebra stays `NetTopologySuite`
-
-[RAIL_LAW]:
-- Package: `GISBlox.IO.GeoParquet`
-- Owns: the managed OGC-GeoParquet columnar codec — `DataTable`↔`.parquet` read/write with WKB/WKT geometry columns, the `geo` file-metadata model, batched column projection, and the geo-column schema tagging
-- Accept: a `Semantics/vector#VECTOR_FOLD` managed columnar arm reading/writing a `DataTable` whose geo column WKB-bridges to the canonical `GeoFeature` via the NTS `WKBReader`/`WKBWriter`, with `ReadColumns` column push-down and `ReadGeoMetadata` metadata-first reads, composing the `ParquetSharp` native engine
-- Reject: routing GeoParquet through the GDAL OGR `"Parquet"` driver where this managed codec reads it; a second Parquet engine beside `ParquetSharp`; treating the `DataTable` geo column as canonical geometry instead of bridging it to the NTS `GeoFeature`; a whole-table `ReadAll` where a known column subset projects via `ReadColumns`; a boolean op inside the codec where `NetTopologySuite` owns the planar algebra

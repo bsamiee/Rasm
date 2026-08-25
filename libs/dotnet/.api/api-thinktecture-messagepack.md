@@ -2,16 +2,7 @@
 
 `Thinktecture.Runtime.Extensions.MessagePack` derives one MessagePack formatter per generated owner from that owner's conversion metadata and holds it in per-closed-generic static state. Its resolver reads the key type, validation-error type, and reference-or-value shape off the metadata, closes the matching formatter arm over that triple, and returns null for every type the metadata does not claim. Serialization projects the generated key through the composed options' own key formatter; deserialization runs the generated static validation rail before an owner materializes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
-- package: `Thinktecture.Runtime.Extensions.MessagePack` (BSD-3-Clause)
-- assembly: `Thinktecture.Runtime.Extensions.MessagePack`
-- namespace: `Thinktecture`, `Thinktecture.Formatters`
-- depends: `Thinktecture.Runtime.Extensions`, `MessagePack`
-- rail: wire-messagepack
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: resolver and its two generated-owner formatter arms
 
@@ -21,7 +12,7 @@
 |  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class         | codecs reference-type owners                     |
 |  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | class         | codecs value-type owners and their nullable form |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration, lookup, and codec ops — every codec op takes a trailing `MessagePackSerializerOptions` whose `Resolver` supplies the `TKey` formatter
 
@@ -42,7 +33,7 @@
 - `ThinktectureStructMessagePackFormatter.Deserialize`: throws `MessagePackSerializationException` on a nil key for an `IDisallowDefaultValue` owner and yields `default(T)` otherwise, where the reference arm returns null.
 - `ThinktectureMessageFormatterResolver.GetFormatter<T>`: throws when the metadata-selected formatter type fails to instantiate.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ThinktectureMessageFormatterResolver.Instance` binds ahead of the contract and source-generated fallbacks, so a generated owner resolves through its metadata before any contract scan reaches the type.
@@ -59,9 +50,3 @@
 [LOCAL_ADMISSION]:
 - Each wire profile registers one resolver chain, and every generated owner's formatter derives from its metadata rather than standing beside the value object or smart enum.
 - Owners carrying `[MessagePackFormatter]` keep that explicit formatter under the default ctor's skip policy; `ThinktectureMessageFormatterResolver(false)` overrides it where the generated projection wins.
-
-[RAIL_LAW]:
-- Package: `Thinktecture.Runtime.Extensions.MessagePack`
-- Owns: metadata-derived formatter resolution and key projection for generated owners on the MessagePack wire.
-- Accept: `Instance` composed into an engine resolver chain, key-projected writes, generated validation on read, and deferral for unclaimed types.
-- Reject: a hand-written MessagePack formatter beside a generated owner.

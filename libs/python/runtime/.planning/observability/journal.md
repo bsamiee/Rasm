@@ -25,7 +25,7 @@ The scope-bound `logger`, `Redaction`, and the `ScopeKey` axis arrive settled fr
 - Boundary: this family carries the retention KEY and never the window — `WINDOWS` prices the class and the ledger executes the reclaim, so no page outside this owner spells a duration. Quantities stay integral by constraint, which is what keeps the exact-decimal crossing in `[04]` free of any float: a fractional need is a smaller unit row, never a decimal quantity.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Context, Decimal, DecimalException, DivisionByZero, FloatOperation, InvalidOperation, Overflow

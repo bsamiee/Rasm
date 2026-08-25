@@ -2,17 +2,7 @@
 
 `odc-stac` folds a sequence of STAC `Item` objects into one lazy multi-band `xarray.Dataset` cube backed by a Dask graph, resolving the output `GeoBox` — CRS, resolution, anchor, extent — from the items or explicit load parameters. `load` (alias `stac_load`) is the single `CATALOG_COVERAGE_ODCSTAC` rail the `data` owner composes: items in, lazy cube out, `groupby`/`bands`/`chunks`/`resampling`/geobox controls as call rows. GeoBox math defers to `odc.geo` and pixel reads to `odc.loader`; STAC search stays upstream in the catalog client.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `odc-stac`
-- package: `odc-stac` (Apache-2.0)
-- import: `odc.stac`
-- owner: `data`
-- rail: catalog-coverage
-- entry points: none (import-only)
-- capability: STAC `Item` to `xarray.Dataset` conversion, lazy Dask cube construction, output GeoBox resolution (CRS/resolution/anchor/bbox/geopolygon), per-band metadata extraction and alias mapping, temporal and key grouping, resampling and dtype control, and GDAL/rasterio and S3 session configuration for cloud reads
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parsed item and raster metadata records
 
@@ -27,7 +17,7 @@
 |  [05]   | `RasterLoadParams`         | dataclass record | per-band load config: dtype, fill, resampling, overviews       |
 |  [06]   | `ConversionConfig`         | type alias       | `Dict[str, Any]` user collection-config passed as `stac_cfg`   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cube load
 
@@ -61,7 +51,7 @@ These surfaces expose the internal load pipeline for debugging: item parsing to 
 |  [01]   | `configure_rio`       | set GDAL/rasterio config locally or on a cluster |
 |  [02]   | `configure_s3_access` | credentialize or set public S3 access for reads  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - load axis: `load` owns items-to-cube conversion; `bands`/`groupby`/`resampling`/`dtype`/`chunks`/`pool` are call rows on that one surface, never parallel loader types or a per-collection builder; `chunks` selects the Dask-lazy row and its absence materializes eagerly through `pool`; `stac_load` is the identical callable, not a second entry point.
@@ -79,9 +69,3 @@ These surfaces expose the internal load pipeline for debugging: item parsing to 
 
 [LOCAL_ADMISSION]:
 - `load`/`stac_load` is the sole repo entry for STAC-item coverage; a folder composing it threads items, geobox controls, and the `patch_url` signer through the one call, never a per-collection loader wrapper.
-
-[RAIL_LAW]:
-- Package: `odc-stac`
-- Owns: STAC `Item` to `xarray.Dataset` cube construction, lazy Dask graph assembly, output GeoBox resolution, per-band metadata extraction, and GDAL/S3 session configuration for cloud reads
-- Accept: catalog coverage loading STAC items into a lazy or eager `xarray` cube with explicit CRS/resolution/extent/grouping controls
-- Reject: wrapper-renames of `load`/`stac_load`; a hand-rolled GeoBox or resolution computation `odc.geo`/`output_geobox` already own; a hand-rolled raster reader duplicating `odc.loader`; a parallel loader type per collection or output dtype; STAC search/discovery belonging to the upstream catalog client

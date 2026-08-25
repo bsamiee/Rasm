@@ -2,15 +2,7 @@
 
 `pydantic-settings` owns layered configuration admission: one `BaseSettings` model folds a declared source-priority chain and a CLI source into a single validated settings model, the runtime's boundary for caller-provided configuration.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pydantic-settings`
-- package: `pydantic-settings`
-- module: `pydantic_settings`
-- namespaces: `pydantic_settings`, `pydantic_settings.sources`, `pydantic_settings.sources.providers`
-- rail: validation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: settings base family
 
@@ -56,7 +48,7 @@
 |  [11]   | `ForceDecode`                  | decode marker  | force complex decode                        |
 |  [12]   | `SettingsError`                | fault          | settings-load failure                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: settings construction and source order
 - `BaseSettings()` runs the resolved source chain at instantiation; per-instance kwargs `_env_file`, `_env_prefix`, `_env_nested_delimiter`, `_secrets_dir`, `_cli_parse_args` redirect a source without subclassing.
@@ -92,7 +84,7 @@
 
 - `CliApp.run` awaits an async `cli_cmd` on a thread isolated under a running loop; `run_subcommand` and `get_subcommand` share `cli_exit_on_error` and `cli_cmd_method_name`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Caller configuration is one `BaseSettings` subclass; `settings_customise_sources` declares the source-priority chain once as a `tuple[PydanticBaseSettingsSource, ...]`, the earlier element winning.
@@ -111,9 +103,3 @@
 - Admission receives the validated settings model as a caller-owned value; the runtime resolves no host profile or global clock from it.
 - Model and validator semantics arrive settled from `pydantic`; this catalog owns only the `pydantic-settings` source chain, source classes, decode markers, and CLI surface.
 - A cloud secret-manager source is an admitted row on the priority tuple, never a separate credential fetcher, and its extra is admitted in the owning manifest before it joins the chain.
-
-[RAIL_LAW]:
-- Package: `pydantic-settings`
-- Owns: layered settings admission, source-priority customisation, env/dotenv/file/secret/nested-secret sources, cloud secret managers, and the CLI source with its `CliApp` runner
-- Accept: one `BaseSettings` model, an explicit `settings_customise_sources` tuple, `SettingsConfigDict` knobs, typed nested settings, decode markers, the CLI annotation family with `CliApp.run`
-- Reject: scattered `os.environ` reads, a global settings singleton, manual JSON env decoding, a parallel config loader, a cloud or file source placed on the chain without its admitting extra

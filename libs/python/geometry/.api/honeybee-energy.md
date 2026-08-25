@@ -2,19 +2,7 @@
 
 `honeybee-energy` owns the building-energy extension on the geometry energy-modeling rail: `import honeybee_energy` fires `_extend_honeybee` to register `*EnergyProperties` onto every `honeybee-core` object, then it owns the energy object library, abridged HBJSON serialization, the `lib` by-identifier standards loaders, the `SimulationParameter` family, the `run` CLI bridge, and the SQL/CSV `result` parsers. It rides `honeybee-core` as the spine and feeds `honeybee-openstudio` and `dragonfly-energy`, while standards data, HBJSON validation, and the simulation engine stay in siblings.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `honeybee-energy`
-- package: `honeybee-energy` (AGPL-3.0)
-- module: `honeybee_energy` (import side-effect `_extend_honeybee` attaches `.properties.energy`)
-- namespaces: `honeybee_energy.{construction,material,load,schedule,programtype,constructionset,hvac,shw,generator,internalmass,ventcool,simulation,properties,lib,run,result,measure,baseline,reader,writer,dictutil}`
-- rail: energy-modeling
-- consumer: `.planning/energy/model.md` (`.properties.energy` assignment, `lib` resolution) + `.planning/energy/simulate.md` (`SimulationParameter`, the OSW/CLI fall-through, `result.eui`)
-- asset: pure-Python `py3-none-any` wheel; no compiled payload; the simulation runs in the external EnergyPlus/OpenStudio CLI, not in-process
-- depends: `honeybee-core` (object-model spine), `honeybee-standards` (baseline data backend), optional `honeybee-energy-standards` (the large ASHRAE/DOE library); external EnergyPlus and the OpenStudio CLI are runtime requirements for the `run` rail
-- entry: `honeybee-energy` console script (`settings`/`translate`/`simulate`/`baseline`/`result`/`lib`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: constructions (`honeybee_energy.construction.*`)
 
@@ -81,7 +69,7 @@ A `ConstructionSet` resolves the per-face-type default construction; HVAC templa
 |  [03]   | `Face` / `Aperture` / `Door` | per-face construction assignment; `u_factor`/`r_factor`/`shgc`, `reset_construction_to_set`         |
 |  [04]   | `Shade`                      | shade transmittance schedule + construction                                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serialization triad and polymorphic decode
 
@@ -202,7 +190,7 @@ Convert a proposed model into its Appendix G baseline and rate the simulated pai
 |  [12]   | `result.appendix_g_summary(proposed_sql, baseline_sqls, climate_zone)` | static  | ASHRAE 90.1 Appendix G performance summary           |
 |  [13]   | `result.leed_v4_summary(proposed_sql, baseline_sqls, climate_zone)`    | static  | LEED v4 / v4.1 energy-performance summary            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `.properties.energy` exists only after `import honeybee_energy` fires `_extend_honeybee`; energy assignment routes through `obj.properties.energy`, `ModelEnergyProperties` owning the model-level resource collections and `RoomEnergyProperties` per-room assignment and the `absolute_*` resolved-load accessors, folded through one extension-keyed table and serialized via `to_dict(included_prop=['energy'])`, never a parallel object graph.
@@ -224,9 +212,3 @@ Convert a proposed model into its Appendix G baseline and rate the simulated pai
 [LOCAL_ADMISSION]:
 - Energy-property assignment feeds the energy-modeling owner; standards resolve through `lib.*_by_identifier`; result rows promote to the `numpy`/`xarray` tier and `check_all(detailed=True)` folds into the `expression` `Result` rail.
 - Consume the AGPL-3.0 stack as a process-boundary companion exchanging HBJSON and shelling out to the external EnergyPlus/OpenStudio CLI, never statically linked into a distributed proprietary artifact.
-
-[RAIL_LAW]:
-- Package: `honeybee-energy`
-- Owns: the `.properties.energy` extension; the construction/material/load/schedule/program-type/HVAC/SHW/generator/internal-mass/ventilation object library; abridged HBJSON serialization and the per-domain polymorphic decoders; the `lib` standards by-identifier loaders; ASHRAE 90.1 baseline generation; the `SimulationParameter` family; the EnergyPlus/OpenStudio `run` CLI bridge; and the EnergyPlus SQL/CSV `result` parsers
-- Accept: energy-property assignment feeding the energy-modeling owner; standards resolution through `lib.*_by_identifier`; abridged HBJSON validated through `honeybee-schema.energy` (the `pydantic` rail); the `run_idf`/`run_osw` subprocess offloaded off the event loop under the runtime `guarded` rail and the `evidence_run` weave; result rows promoted to the `numpy`/`xarray` data tier; `check_all(detailed=True)` folded into the `expression` `Result` rail
-- Reject: a parallel energy object model outside `.properties.energy`; a hand-rolled construction U-value solver, IDF writer, schedule expander, or EnergyPlus result/SQL parser; direct reads of the `honeybee-standards` JSON over the `lib.*_by_identifier` loaders; a per-kind decode branch over the `dictutil.dict_to_*` dispatchers; blocking the event loop on `run_idf`/`run_osw`; re-shipping the standard library

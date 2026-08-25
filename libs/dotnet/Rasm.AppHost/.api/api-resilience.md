@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Http.Resilience` owns the outbound HTTP resilience rail: it folds standard, hedging, and custom `Polly` pipelines onto an `IHttpClientBuilder`, resolves a pipeline per request authority, and bridges request metadata into the resilience context. Every remote hop crosses one seam-local policy chain built on `Polly.Core`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Http.Resilience`
-- package: `Microsoft.Extensions.Http.Resilience`
-- assembly: `Microsoft.Extensions.Http.Resilience`
-- namespace: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.DependencyInjection`, `Polly`, `System.Net.Http`
-- asset: runtime library
-- rail: resilience
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handler and pipeline family
 
@@ -51,7 +42,7 @@
 |  [08]   | `HttpClientResiliencePredicates`        | predicate family  | standard transient test  |
 |  [09]   | `HttpClientHedgingResiliencePredicates` | predicate family  | hedging transient test   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: handler operations
 
@@ -89,7 +80,7 @@
 |  [12]   | `GetRequestMessage`       | static   | context request read     |
 |  [13]   | `SetRequestMessage`       | static   | context request write    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Standard handler folds retry, total-request-timeout, circuit-breaker, rate-limiter, and attempt-timeout onto one `Polly` pipeline; hedging handler adds parallel endpoint attempts, each with its own timeout and breaker.
@@ -112,9 +103,3 @@
 - Routing groups are explicit package policy, never hidden URI rewriting.
 - Request metadata enters the `Polly` context through the request-message extensions.
 - Domain retry schedules and HTTP resilience pipelines never stack on one seam.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Http.Resilience`
-- Owns: outbound HTTP boundary resilience
-- Accept: seam-local retry, timeout, breaker, and hedging pipelines keyed by authority
-- Reject: nested retry loops and hand-rolled transient-error classification

@@ -2,16 +2,7 @@
 
 `FluentModbus` owns managed Modbus TCP, RTU, and ASCII client transport through one `ModbusClient` register and coil surface windowed as typed `Span<T>`. `ModbusEndianness` fixes register byte order at `Connect`, a `ModbusException` carries the reason-coded protocol fault, and every client folds behind the AppHost live-wire `TransportRow` adapter.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FluentModbus`
-- package: `FluentModbus` (MIT)
-- assembly: `FluentModbus`
-- namespace: `FluentModbus`
-- target: `netstandard2.1`
-- rail: live-wire
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and server surfaces
 
@@ -35,7 +26,7 @@ RTU line format rides `ModbusRtuClient` `BaudRate`/`Parity`/`StopBits`/`Handshak
 |  [03]   | `ModbusExceptionCode` | enum          | protocol exception codes                  |
 |  [04]   | `ModbusException`     | exception     | reason-coded protocol fault               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection lifecycle
 
@@ -105,7 +96,7 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 |  [09]   | `GatewayPathUnavailable`             |   10    | gateway cannot route to the target          |
 |  [10]   | `GatewayTargetDeviceFailedToRespond` |   11    | gateway routed, the target stayed silent    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ModbusEndianness` fixes at `Connect` — the overload sets the client's byte-swap state for the whole connection — and governs the byte order of every multi-byte register `T`; the AppHost binding carries it on the held-client composition seat that dialed the connection, never a window column or a per-read flag.
@@ -123,9 +114,3 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 
 [LOCAL_ADMISSION]:
 - `ModbusTcpClient` binds an `OutboundHop.ServerStream` direct-TCP hop and `ModbusRtuClient` an `OutboundHop.CompanionSpawn` over the serial owner; the `modbus` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with `ReadShape.Poll` and `Writable: true`, its register map binding-spec policy carried on the row.
-
-[RAIL_LAW]:
-- Package: `FluentModbus`
-- Owns: managed Modbus TCP/RTU/ASCII client transport and typed `Span<T>` register and coil windows
-- Accept: a typed register window decoded to one `ExternalValue`, and a `ModbusException`/`ModbusExceptionCode` projected to `WireFault.ReadFailed`/`WriteRejected` at the boundary
-- Reject: a hand-rolled Modbus frame codec, a boxed per-register allocation, or a FluentModbus-internal retry loop the `OutboundHop` breaker forecloses

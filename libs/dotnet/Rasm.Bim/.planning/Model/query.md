@@ -27,7 +27,7 @@ Selection composes settled owners. `Model/spatial#SPATIAL_STRUCTURE` owns the co
 - Packages: Rasm.Element (`Query/predicate#ELEMENT_PREDICATE` the whole algebra — `Predicate<TLeaf>`/`ValueMatch`/`RangeBound`/`NodeMatch<TLeaf>`/`MatchVerdict`/`Selection<TKey>`/`WalkDepth`/`ElementLeaf`/`PredicateKey`; `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`View`/`EdgeFilter`/`EdgeOrientation`/`TypedEdge`/`Bake`; `Projection/address#CONTENT_ADDRESS`), QuikGraph (`BreadthFirstSearchAlgorithm` over the memoized view, its `TreeEdge`/`GrayTarget`/`DiscoverVertex` event fan sharing ONE walk), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Error`), Rasm (`Op`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
@@ -327,7 +327,7 @@ public sealed record ElementQuery {
 - Boundary: the lowering emits SQL TEXT + parameters and never opens a connection — execution is the Persistence analytical lane's (the `ColumnarSession` refcounted anchor, the `Query/lane#READ_ROUTING` staleness gate), so the plan crosses the seam as data on the standing `BimOpenSchema` projection edge; the FACT CONVENTION is Bim's half of that seam — `GlobalId` = the node `ExternalId`, `Category` = the `"ifc"` classification code, a parameter descriptor `Name` = the `{Set}.{Name}` dot-path with `ParameterDouble.Value` the SI magnitude, and every parameter fact the EFFECTIVE value with its type→occurrence merge already resolved under the stamped `InheritanceMode` — the BIM-typed projection `columnar.md` rules Bim-implemented; that materialization is what makes the SQL phase provably a SUPERSET, because an occurrence-only projection puts a `ByProperty` lowering UNDER the in-process answer by dropping every type-inherited value, and a residue narrows but never widens; the table IDENTIFIER is the other half — the `<Stem>_<Ordinal>` name is a serializer emit-order fact the Persistence catalogue owns, so every fragment derives it from a `FactTable` row and a transcribed suffixed literal is the deleted form that survives a re-ordered projection as a name still resolving against the wrong table; the residue split is a correctness law, not an optimization: a lowering that narrows the superset silently drops rows the residue can never recover and is the deleted form — an `Any` lowered as its expressible operands alone, and a `NOT` lowered over a non-total clause, are its two standing instances, the second being why `Fragment` carries a totality verdict rather than a `NOT` wrapper trusting SQL comparison to be two-valued.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Element.Properties;
 using Rasm.Element.Query;

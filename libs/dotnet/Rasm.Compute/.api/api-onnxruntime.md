@@ -2,17 +2,7 @@
 
 `Microsoft.ML.OnnxRuntime` owns measured ONNX model-session execution for the Compute model rail: session construction, typed `OrtValue` binding, run-policy deadlines, execution-provider selection, EP-context warm-start compilation, autoEP hardware-device discovery, and the native runtime assets they bind. Every native handle is `SafeHandle`/`IDisposable` and releases deterministically. `Model/*` internalizes the managed surface into dense boot, session, provider, and run rails rather than one-to-one wrappers.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
-- package: `Microsoft.ML.OnnxRuntime` (MIT)
-- assembly: `Microsoft.ML.OnnxRuntime.Managed` — a `net10.0` non-mobile consumer binds the `lib/net8.0` asset; the `net9.0-{android,ios,maccatalyst}` assets are mobile TFMs, so the surface decompiles against the consumer-bound `net8.0` assembly
-- namespace: `Microsoft.ML.OnnxRuntime`, `Microsoft.ML.OnnxRuntime.CompileApi`, `Microsoft.ML.OnnxRuntime.Tensors`
-- asset: managed runtime library and per-RID native runtime DLLs; accelerated providers ride sibling `.Gpu`/`.DirectML` packages
-- rail: model
-- verification: the package resolves NO assay `--key` (probe: `api query OrtValue` returns `status:unsupported`), so every member here verifies against this catalog or the published API reference, never the decompile rail
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and run contracts
 
@@ -132,7 +122,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 - [05]: CoreML EP built into the base dylib.
 - [06]: mobile EPs (NNAPI/CoreML) built into the archive.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: inference operations on `InferenceSession`
 
@@ -144,7 +134,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [04]   | `RunWithBoundResults(RunOptions, OrtIoBinding)`                    | instance | OrtValue-only bound results            |
 |  [05]   | `CreateIoBinding() -> OrtIoBinding`                                | factory  | binding rooted to the session          |
 |  [06]   | `EndProfiling() -> string`                                         | instance | closes chrome-trace, returns path      |
-|  [07]   | `ProfilingStartTimeNs`                                             | property | trace epoch                           |
+|  [07]   | `ProfilingStartTimeNs`                                             | property | trace epoch                            |
 |  [08]   | `{InputMetadata, OutputMetadata, OverridableInitializerMetadata}`  | property | I/O shape/dtype introspection          |
 |  [09]   | `{InputNames, OutputNames}`                                        | property | ordered I/O names for binding/zip      |
 |  [10]   | `ModelMetadata`                                                    | property | version/producer/`CustomMetadataMap`   |
@@ -356,7 +346,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 - `ERROR_IF_NO_NODES_COMPILED` fails when no subgraph is EP-claimed; `ERROR_IF_OUTPUT_FILE_EXISTS` fails rather than overwriting.
 - delegates: `WriteBufferToDestinationDelegate(ReadOnlySpan<byte>)`; `GetInitializerLocationDelegate(string, IReadOnlyOrtValue, IReadOnlyExternalInitializerInfo) -> OrtExternalInitializerInfo`.
 
-## [04]-[CONFIG_KEYS]
+## [03]-[CONFIG_KEYS]
 
 [CONFIG_KEY_SCOPE]: EP-context session keys through `SessionOptions.AddSessionConfigEntry` (`onnxruntime_session_options_config_keys.h`)
 
@@ -497,7 +487,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [07]   | `AllowLowPrecisionAccumulationOnGPU` | `0`, `1`                                            |
 |  [08]   | `ModelCacheDirectory`                | cache-directory path string                         |
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - session/policy/run roots are `InferenceSession`/`SessionOptions`/`RunOptions`; model, node, tensor, and element classifiers own metadata; native handles release through deterministic disposal.
@@ -524,9 +514,3 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 - Model load returns `ModelIdentity`; run entries return their projected values inside the native-disposal bracket.
 - Provider selection is policy data and never hides inside model-call helpers.
 - Custom operators enter through declared session options and asset evidence.
-
-[RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntime`
-- Owns: ONNX session execution, EP-context compilation, autoEP device discovery, and native runtime assets
-- Accept: measured model inference and EP-context warm-start/fleet-compile
-- Reject: the on-device-training surface (`TrainingSession`, `CheckpointState`, `TrainingUtils`, `OrtTrainingApi`, `LRScheduler`); the ML.NET training pipeline; the `NamedOnnxValue`/`DisposableNamedOnnxValue`/`FixedBufferOnnxValue` value carriers, which the OrtValue-only law supersedes

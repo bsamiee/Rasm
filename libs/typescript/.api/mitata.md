@@ -4,15 +4,7 @@
 
 `bench`/`group`/`run` and the plot wrappers mutate a module-global registration list and render a report. The split is the branch's admission line: the measurement SHAPE derives off `measure` and lands in the interchange claim family, while the global registration surface is fenced to the bench lane the runtime and proof estates own.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `mitata`
-- package: `mitata` (MIT)
-- module: pure ESM, no `exports` map — `.` resolves `src/main.mjs` (registration/render, re-exporting `measure`/`do_not_optimize`); the state-free `src/lib.mjs` kernel resolves only by explicit `mitata/src/lib.mjs`
-- runtime: node / bun / browser; `@mitata/counters` is the dynamically-imported optional native addon gating `stats.counters`
-- rail: benchmark measurement statistics
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: shapes `measure` and `run` return, every one declared WITHOUT `export` — timing fields nanoseconds, the percentile ladder the regression basis, `gc`/`heap`/`counters` conditionally-present enrichment. Every consumer names one by deriving off the member returning it, never by importing the name.
 
@@ -32,7 +24,7 @@
 [CONTEXT]: `ctx.now` `ctx.arch` `ctx.version` `ctx.runtime` `ctx.cpu: {name;freq}` `ctx.noop: {fn;iter;fn_gc}` — the host fingerprint a claim compares within; the declaration omits `version` and the `fn_gc` baseline, and `arch` is the platform string (`arm64-darwin`) the render layer switches its counter block on.
 [COUNTERS]: the band is PLATFORM-FORKED and the two shapes share only two leaves — linux answers `cycles.avg` `instructions.avg` `cache.avg` `cache.misses.avg` `_bmispred.avg`, darwin answers `cycles.avg` `cycles.stalls.avg` `instructions.avg` `instructions.loads_and_stores.avg` `l1.miss_loads.avg` `l1.miss_stores.avg`. A reader keyed on one shape silently drops every leaf the other names, so a path table covering the linux five yields two leaves on darwin.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the module-global registration/render surface the bench lane composes; `measure` and `do_not_optimize` cross into state-free use, and the deep `src/lib.mjs` kernel carries the primitives `main.mjs` does not re-export.
 
@@ -56,7 +48,7 @@
 [SAMPLING_KNOBS]: `k_options` per-measure knob bag — `now` the clock override and `heap` a BYTE READER (not a clock), `gc`/`inner_gc`, `concurrency`, and the sample/batch/warmup/cpu-time bounds — overriding the exported defaults `k_min_samples` `k_max_samples` `k_min_cpu_time` `k_warmup_samples` `k_batch_samples` `k_concurrency` `k_batch_unroll` `k_warmup_threshold` `k_batch_threshold` `k_samples_threshold`. A supplied `heap` reader rescales the cpu-time budget and `inner_gc` doubles it.
 [INTERNAL_KNOBS]: `$counters` `params` `manual` `args` ride the same bag undeclared — `$counters` takes the addon module namespace and is the ONLY route by which the counter block reaches a `measure` call, since the registration builder is what supplies it and the defaulting pass otherwise pins it false. Every counter call in the generated loop sits inside the engine's own try and the whole block drops when init fails, so a renamed knob degrades to an absent band and never to a wrong number.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `measure` returns a pure `stats` record; the registration/render layer mutates a module-global list, so a domain folder composes the measurement shape alone.
@@ -71,9 +63,3 @@
 
 [LOCAL_ADMISSION]:
 - A domain folder reaches `measure` through the deep `src/lib.mjs` specifier and derives every shape off its own signature; the root specifier loads the registration list, so importing it into domain code is what breaks the fence, not merely using the surface behind it.
-
-[RAIL_LAW]:
-- Package: `mitata`
-- Owns: the benchmark measurement shape — the `stats` percentile ladder, `gc`/`heap` bands, and addon-gated counter block — and the state-free `measure` kernel for raw sampling.
-- Accept: the `measure`-derived `stats` record as the rung source the wire band folds; `run({ format: 'json' })` output as the codec feed; every enrichment band as optional; the deep `src/lib.mjs` `measure` for state-free sampling; the exported `k_*` anchors as the declared knob defaults; the undocumented `$counters` knob as the only state-free route to the counter block, on the strength of its absent-band failure mode.
-- Reject: the module-global registration surface in domain code; a type import naming `stats`, `trial`, `Run`, or `ctx`, none of which the package exports; comparing claims across differing host fingerprints; assuming an enrichment band present when its addon or runtime capability is absent; a counter reader keyed on one platform's leaf set; the `iter` sampler wherever any enrichment band is wanted; a heap band consumed without a finiteness guard; tinybench for durable claims, its in-suite vitest timing carrying no counter or GC band.

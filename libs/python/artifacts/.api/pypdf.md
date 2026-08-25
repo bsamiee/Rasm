@@ -2,15 +2,7 @@
 
 `pypdf` owns the pure-Python PDF read/write surface for the artifacts pdf rail: `PdfReader`/`PdfWriter` roots, `PageObject`, the `pypdf.generic` object model, and a fluent `Transformation` algebra driving merge, overlay/transform, text and image extraction, AcroForm fill, outline/annotation/attachment authoring, `ObjectDeletionFlag` pruning, and RC4/AES encryption — no native runtime. BSD-3-Clause with no native link, it is the permissive structural editor admissible where AGPL `pymupdf` is barred; rendering routes to `pymupdf`/`pypdfium2`, AES-256-R6 to `pikepdf`, OCR-to-PDF/A to `ocrmypdf`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pypdf`
-- package: `pypdf` (BSD-3-Clause)
-- module: `pypdf`
-- namespaces: `pypdf`, `pypdf.generic`, `pypdf.annotations`, `pypdf.errors`, `pypdf.constants`
-- rail: pdf — pure-Python structural read/write, merge/transform, layout-aware extraction, form fill, authoring, `ObjectDeletionFlag` pruning, RC4/AES encryption
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document roots and geometry
 
@@ -53,7 +45,7 @@
 - `ObjectDeletionFlag`: `NONE` `TEXT` `LINKS` `ATTACHMENTS` `OBJECTS_3D` `ALL_ANNOTATIONS` `XOBJECT_IMAGES` `INLINE_IMAGES` `DRAWING_IMAGES` `IMAGES` — compose by `|`; `IMAGES` OR's the three image kinds.
 - `UserAccessPermissions`: `PRINT` `MODIFY` `EXTRACT` `ADD_OR_MODIFY` `FILL_FORM_FIELDS` `EXTRACT_TEXT_AND_GRAPHICS` `ASSEMBLE_DOC` `PRINT_TO_REPRESENTATION` — compose by `|`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, write, and clone construction
 
@@ -132,7 +124,7 @@
 
 - `PdfWriter.compress_identical_objects`: `remove_duplicates` and `remove_unreferenced` (default true) select dedup and unreferenced-GC.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PdfReader` owns ingestion and `PdfWriter` emission; `clone_from=` is clone-then-edit and `(reader, incremental=True)` is append-only signature-preserving — two rows on the writer axis, never parallel writer types.
@@ -153,9 +145,3 @@
 
 [LOCAL_ADMISSION]:
 - `import pypdf` at boundary scope only; PDF is the one format, admitted as one document owner under the reader/writer split, never a per-source reader type.
-
-[RAIL_LAW]:
-- Package: `pypdf`
-- Owns: pure-Python PDF read/write, clone and incremental edit, merge/append/split/reorder, the `merge_*` overlay family, rotate/scale, layout-aware text and image extraction, AcroForm read/fill/flatten, outline/named-destination/annotation/attachment authoring, `ObjectDeletionFlag` object pruning, content-stream compression, and RC4/AES encryption with `UserAccessPermissions` flags
-- Accept: structural assembly, form fill, object pruning, and extraction feeding the document/pdf owner; the BSD-permissive editing arm for closed/distributed services
-- Reject: wrapper-renames of `add_page`/`extract_text`/`update_page_form_field_values`; a native rasterizer where `pymupdf`/`pypdfium2` render; AES-256-R6 where `pikepdf` owns it; a hand walk of the xref table where `remove_objects_from_page`/`compress_identical_objects` prune; scattered boolean permission knobs where `UserAccessPermissions` composes

@@ -2,15 +2,7 @@
 
 `apache-arrow` owns the columnar interchange the analytical lane meets at: the container values every engine row emits or accepts, the column-construction surface a schema-declared roster lands rows through, the IPC codec pair, and the streaming reader `lane/olap` lifts onto `Effect`/`Stream`. `ui`'s catalog of the same package (`libs/typescript/ui/.api/apache-arrow.md`) owns the viewer-tier `Visitor` dispatch and the per-`DataType` builder subclasses.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `apache-arrow`
-- package: `apache-arrow` (Apache-2.0)
-- module: `exports["."]` condition-selects `Arrow.node` under the `node` condition, `Arrow.dom` by default; `sideEffects: false`
-- runtime: isomorphic — the wasm row rides the dom build, the node row the node build; no peer dependency
-- rail: `lane/olap` `[08]-[ARROW_WIRE]`, the wire every engine row joins by emitting or accepting IPC
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the columnar containers the lane seams exchange
 
@@ -28,7 +20,7 @@
 - `Table` construction overloads on its argument shape — `new Table(batches)`, `new Table(columnRecord)`, and `new Table(schema, columnRecord)` where the record maps each field name to its `Vector`; the schema-carrying form is the one that fixes field order off a declaration rather than off object key insertion.
 - `DataType` leaves construct bare (`new Utf8()`, `new Float64()`, `new Uint64()`, `new Bool()`, `new TimestampNanosecond(timezone?)`) while the nested ones take child fields — `new List(new Field("item", child, true))` and `new Map_(new Field("entries", new Struct([keyField, valueField]), false), keysSorted?)`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IPC decode, encode, the streaming reader, and column construction
 
@@ -53,7 +45,7 @@
 - TRAP: `MapBuilder` declares its input as the read-side `MapRow` proxy this side never constructs, while its runtime accepts the JS `Map` a producer holds — so the declared type and the accepted value disagree and the crossing is stated as a boundary adapter at the one bank, never as a per-column cast.
 - `Uint64`/`Int64` builders take `bigint`, `Utf8` takes `string`, `Bool` takes `boolean`, `Float64` takes `number`, and `List` takes the JS array of its child cells; each `Vector` seals through `finish().toVector()` and the record of sealed vectors is what `new Table(schema, columns)` binds.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every engine row joins the analytical lane by emitting or accepting Arrow IPC; the `Table` is the one columnar value crossing every seam, never a per-engine row shape.
@@ -71,9 +63,3 @@
 [LOCAL_ADMISSION]:
 - Large interchange rides `RecordBatchReader` batch iteration; `tableFromIPC` whole-frame decode admits only where the frame is provably bounded.
 - Row-shaped egress exists only at the final consumer projection, never between engine seams.
-
-[RAIL_LAW]:
-- Package: `apache-arrow`
-- Owns: the columnar containers (`Table`/`RecordBatch`/`Vector`/`Schema`/`Field`), the `DataType` algebra and its `Builder` family, and the IPC codec pair with its streaming reader at the data-lane seams
-- Accept: IPC decode/encode at engine seams, `RecordBatchReader` streaming for bounded memory, zero-copy `Table` handoff to wasm ingest and viewer, column construction through `makeBuilder`/`Field`/`Schema` driven by ONE declared column roster
-- Reject: JSON or row-object re-encoding between engines, per-engine result shapes, whole-`Table` materialization of unbounded interchange, a second columnar vocabulary, a hand-paired column-name-and-vector roster where a declared roster mints both

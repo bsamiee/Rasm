@@ -2,17 +2,7 @@
 
 `Qdrant.Client` owns the scale-out distributed vector-store lane, the billion-scale ANN residence past the in-Postgres `pgvector` tier. `QdrantClient` fronts a `QdrantGrpcClient` gRPC channel speaking the `Qdrant.Client.Grpc` protobuf model, folding named, sparse, and multi-vector collections, server-side quantization, the universal `QueryAsync` fusion/formula retrieval API, payload push-down, and multitenant sharding onto one async surface. In-Postgres `pgvector` holds the default residence; Qdrant enters where ANN cardinality or recall tuning exceeds an HNSW index.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Qdrant.Client`
-- package: `Qdrant.Client` (Apache-2.0)
-- assembly: `Qdrant.Client`
-- namespace: `Qdrant.Client` façade, `Qdrant.Client.Grpc` protobuf model with the generated service clients
-- target: `net6.0`/`netstandard2.0`/`net462`; a `net10.0` consumer binds `lib/net6.0` — pure-managed AnyCPU, no native runtime
-- depends: `Grpc.Net.Client` channel, `Google.Protobuf` wire model, `Grpc.Net.ClientFactory` DI, each riding an existing central gRPC row
-- rail: vector-store-scaleout
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client roots
 
@@ -74,7 +64,7 @@
 |  [08]   | `ReadConsistency` / `WriteOrdering` | consistency        | read-quorum / write-ordering selector     |
 |  [09]   | `ShardKey`                          | shard partition    | multitenant shard-key partitioning        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: collection lifecycle
 
@@ -129,7 +119,7 @@
 |  [04]   | `DeleteFullSnapshotAsync(name)`                          | async snapshot | drops a whole-storage snapshot      |
 |  [05]   | `HealthAsync()`                                          | async probe    | server liveness + version           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `QdrantClient` maps friendly arguments onto `QdrantGrpcClient`, the raw `Grpc.Net.Client` channel carrying the generated `Collections`/`Points`/`Snapshots`/`Qdrant` service clients.
@@ -149,9 +139,3 @@
 - Retrieval enters through the universal `QueryAsync`, so hybrid prefetch, fusion, and formula reranking compose in one round-trip; `SearchAsync` and `RecommendAsync` serve the single-stage dense and example-guided cases.
 - Payload `Filter` builds from the canonical query vocabulary and runs on the Qdrant node as server-side push-down.
 - Multitenancy rides `ShardKey`: a tenant's points carry the shard key and queries pass a `ShardKeySelector`, binding the collection to the `Element/identity` tenancy row.
-
-[RAIL_LAW]:
-- Package: `Qdrant.Client`
-- Owns: scale-out distributed vector-store retrieval — named/sparse/multi-vector collections, server-side quantization, the universal `QueryAsync` hybrid/fusion/formula API, server-side payload filtering, multitenant sharding, and collection/snapshot lifecycle
-- Accept: the typed `QdrantClient` façade, `UpsertAsync` with its native `UpdateResult`, `QueryAsync` with `PrefetchQuery`/`Fusion`/`Formula`, server-side `Filter` push-down, and `ShardKey` multitenancy
-- Reject: client-side payload filtering after a full fetch, single-stage `SearchAsync` where `QueryAsync` expresses the hybrid pipeline, a hand-rolled gRPC retry loop the channel service config already owns, and Qdrant as the default vector residence over the in-Postgres tier

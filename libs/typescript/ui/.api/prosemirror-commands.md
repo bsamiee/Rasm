@@ -2,16 +2,7 @@
 
 `prosemirror-commands` owns the schema-neutral editing verbs: each export is a `Command` value — `(state, dispatch?, view?) => boolean` — that answers whether it applies and performs the edit only when `dispatch` is given. `chainCommands` folds fallbacks into one verb, `autoJoin` post-processes a command's result, and `baseKeymap` is the platform-resolved binding table every editor starts from.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-commands`
-- package: `prosemirror-commands` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure state functions; the optional third `view` argument is the escape hatch for bidi-aware boundary detection, so a command runs headless with degraded accuracy
-- depends: `prosemirror-model`, `prosemirror-transform`, `prosemirror-state` — `Command` itself is declared by `prosemirror-state`
-- rail: `view/content` — the base editing verbs a keymap and a toolbar both dispatch
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: this package exports no type of its own — every value here is a `Command` or a `{[key: string]: Command}` binding table, both declared by `prosemirror-state`(`.api/prosemirror-state.md`).
 
@@ -20,7 +11,7 @@
 |  [01]   | `Command`                  | type alias    | `(state, dispatch?, view?) => boolean` — re-used, not re-declared |
 |  [02]   | `{[key: string]: Command}` | interface     | the keymap binding table the three base keymaps satisfy           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: deletion and joining — the verbs backspace and delete chain through.
 
@@ -68,7 +59,7 @@
 
 - Each base table binds Enter, Mod-Enter, Backspace, Delete, and Mod-a to chained deletion, join, and split commands; extend by spreading a table into a higher-precedence `keymap` rather than by mutating it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every command carries a query arm and an action arm in one function: called with `state` alone it answers whether it applies and touches nothing; called with `dispatch` it builds a transaction and dispatches it. Toolbar enablement and click handling therefore call the same value, and a command that mutates without `dispatch` breaks every caller that asks first.
@@ -92,9 +83,3 @@
 - Bind a toolbar control's enabled state and its action to the same command value, calling it without `dispatch` for the query.
 - Extend a key binding by chaining ahead of the base table in a higher-precedence `keymap`; mutating `baseKeymap` is the rejected shape.
 - Pass the `view` argument through from a keymap so boundary detection stays bidi-aware.
-
-[RAIL_LAW]:
-- Package: `prosemirror-commands`
-- Owns: the schema-neutral editing verbs — deletion and joining (`deleteSelection`, `joinBackward`/`joinForward`, the textblock-narrowed pair, `selectNodeBackward`/`selectNodeForward`, `joinUp`/`joinDown`), block structure (`splitBlock`, `splitBlockKeepMarks`, `splitBlockAs`, `lift`, `liftEmptyBlock`, `wrapIn`, `setBlockType`, `createParagraphNear`, `newlineInCode`, `exitCode`), marks and movement (`toggleMark`, `selectParentNode`, `selectAll`, `selectTextblockStart`/`selectTextblockEnd`), and the composition surfaces `chainCommands`, `autoJoin`, and the `baseKeymap`/`pcBaseKeymap`/`macBaseKeymap` tables
-- Accept: commands dispatched as values from both keymap and toolbar, the query arm called without `dispatch` for enablement, `chainCommands` for per-key fallback, the parameterized factories bound to `schema.nodes`/`schema.marks` values, `autoJoin` for post-edit rejoining, and `baseKeymap` mounted at the lowest precedence
-- Reject: a hand-rolled transaction duplicating a verb this package owns, a command that mutates when `dispatch` is absent, a separate predicate mirroring a command's applicability, a mutated base keymap table, a branch ladder on node names where a `NodeSpec` flag decides, and a keymap that drops the `view` argument

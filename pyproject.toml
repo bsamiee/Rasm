@@ -46,9 +46,6 @@ estate = [
     "structlog",
     "tblib",                                              # [RUNTIME]: cross-process traceback fidelity for worker faults
     "tomlkit",
-    "tree-sitter<0.26",                                   # [TOOLING]: 0.26.0 Node ancestor-traversal use-after-free segfaults the assay TSDECL rail (py-tree-sitter #472)
-    "tree-sitter-python",
-    "tree-sitter-typescript",
     "trio",                                               # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles
     "wasmtime",                                           # [RUNTIME]: in-process WASM guest sandbox for the SANDBOXED worker kind
     "watchfiles",
@@ -81,7 +78,7 @@ estate = [
     "stream-zip",                                         # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
     "universal-pathlib",                                  # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
     "zlib-ng",                                            # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
-    "zstandard",                                          # [TOOLING]: zstd compression for assay logging and cache payloads
+    "zstandard",
     # --- [NUMERICS_SOLVERS]
     "array-api-compat",                                   # [COMPUTE]: array API portability shim
     "array-api-extra",                                    # [COMPUTE]: supplemental array API helpers
@@ -337,10 +334,7 @@ dev = [
     "brotli-stubs",
     "coverage",
     "dirty-equals",
-    "grimp",
     "hypothesis",
-    "import-linter",
-    "inline-snapshot",
     "moto[server]",
     "mypy",
     "pandas-stubs",
@@ -372,7 +366,6 @@ dev = [
     "types-shapely",
     "validate-pyproject[all]",
 ]
-mutation = ["mutmut"]
 
 # --- [UV] -------------------------------------------------------------------------------
 
@@ -382,7 +375,7 @@ connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
 
 [tool.uv]
-default-groups = ["estate", "dev", "mutation"]
+default-groups = ["estate", "dev"]
 
 # TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
 [tool.uv.config-settings-package]
@@ -505,11 +498,9 @@ error-on-warning = true
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
-# `ty` is the binding type gate; mypy checks `tools/assay`, `tests`, and the installed SDK modules those consumers import.
 # Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
 [tool.mypy]
-files = ["tools/assay/assay", "tests"]
-mypy_path = ["tools/assay"]  # flat layout: module names derive from the package root, matching the installed distribution
+files = ["tests"]
 python_version = "3.15"
 cache_dir = ".cache/mypy"
 strict = true
@@ -578,7 +569,7 @@ collect_imported_tests = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
     "-p",
-    "tests.python._testkit.runtime",                            # Testkit runtime plugin: profiles register at import; OTel wiring and marker auto-application ride session fixtures and collection hooks
+    "tests.python.testkit.runtime",                            # Testkit runtime plugin: profiles register at import; OTel wiring and marker auto-application ride session fixtures and collection hooks
     "-x",
     "--tb=short",
     "--import-mode=importlib",
@@ -586,7 +577,7 @@ addopts = [
     "not benchmark",
     "--disable-socket",
     "--allow-unix-socket",
-    "--benchmark-storage=file://.artifacts/python/benchmarks",  # Benchmark artifacts route through the Assay catalog URI
+    "--benchmark-storage=file://.artifacts/python/benchmarks",
     "--benchmark-autosave",                                     # Feeds the sustained-regression series; writes only when benchmarks ran
     "--hypothesis-profile=rasm",
 ]
@@ -598,7 +589,6 @@ timeout = "30"  # pytest-timeout registers this option as a string; pytest 9 TOM
 required_plugins = [
     "anyio",
     "hypothesis",
-    "inline-snapshot",
     "pytest-benchmark",
     "pytest-cov",
     "pytest-randomly",
@@ -608,24 +598,16 @@ required_plugins = [
 ]
 markers = [
     "benchmark: benchmark measurement tests",
-    "mutation: mutation-testing acceptance and survivor-triage tests",
-    "network: tests that need real INET sockets lifted (loopback servers or egress); excluded from mutation lanes",
+    "network: tests that need real INET sockets lifted (loopback servers or egress)",
     "property: property-based tests",
-    "subprocess: tests that spawn the real CLI in a child interpreter; excluded from mutation lanes (children run the unmutated tree)",
+    "subprocess: tests that spawn the real CLI in a child interpreter",
 ]
-
-# --- [INLINE_SNAPSHOT] ------------------------------------------------------------------
-
-[tool.inline-snapshot]
-default-flags = ["short-report"]  # Reports mismatches without mutating snapshots
-storage-dir = ".cache/inline-snapshot"
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage.run]
 branch = true
 relative_files = true  # Subprocess coverage combines through relative repo paths
-source = ["tools/assay/assay"]
 data_file = ".cache/coverage/.coverage"
 core = "sysmon"        # CPython 3.15 beta lacks coverage's compiled C tracer
 patch = [
@@ -650,56 +632,6 @@ output = ".artifacts/python/coverage/coverage.xml"
 
 [tool.coverage.lcov]
 output = ".artifacts/python/coverage/coverage.lcov"
-
-# --- [IMPORT_LINTER] --------------------------------------------------------------------
-
-# Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option and silently swallows unknown keys, so the flag is the only route; .claude/hooks/litter-guard.py refuses the bare form.
-[tool.importlinter]
-root_packages = [
-    "assay",
-]
-exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
-
-[[tool.importlinter.contracts]]
-name = "assay strata: model -> diagnostics -> store -> settings/aspect -> _logging -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation -> __main__"
-type = "layers"
-containers = ["assay"]
-layers = [
-    "__main__",
-    "automation",
-    "composition.registry",
-    "rails",
-    "oracle",
-    "core.exec",
-    "core.remote",
-    "core.govern",
-    "core.routing",
-    "composition.catalog",
-    "_logging",
-    "composition.settings | core.aspect",
-    "composition.store",
-    "diagnostics",
-    "core.model",
-]
-
-[[tool.importlinter.contracts]]
-name = "rails are peer-independent"
-type = "independence"
-modules = [
-    "assay.rails.api",
-    "assay.rails.bridge",
-    "assay.rails.code",
-    "assay.rails.docs",
-    "assay.rails.health",
-    "assay.rails.init",
-    "assay.rails.mutation_gate",
-    "assay.rails.package",
-    "assay.rails.provision",
-    "assay.rails.static",
-    "assay.rails.test",
-]
-# Named debt: package rides bridge's apphost lease/client seam until a neutral client owner exists.
-ignore_imports = ["assay.rails.package -> assay.rails.bridge"]
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -760,6 +692,7 @@ ignore = [
     "typing-only-standard-library-import",
     # --- [DOCSTRINGS]
     "docstring-extraneous-exception",             # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
+    "docstring-missing-returns",                  # A one-line summary names the value; a Returns block restating the signature is noise
     # --- [SEMANTIC_ORDER]
     "unsorted-dunder-all",                        # Semantic public-surface order beats alphabetical `__all__`
     "unsorted-dunder-slots",                      # Semantic slot order beats alphabetical `__slots__`
@@ -797,9 +730,9 @@ ignore = [
     "undocumented-public-function",
     "private-member-access",
     "import-private-name",
-] # PLC2701: specs import the private-by-design _testkit package
+] # PLC2701: specs import the private-by-design testkit package
 "**/conftest.py" = ["module-import-not-at-top-of-file"]
-"tests/python/_testkit/runtime.py" = ["module-import-not-at-top-of-file"]  # Hypothesis environment gates must precede imports
+"tests/python/testkit/runtime.py" = ["module-import-not-at-top-of-file"]  # Hypothesis environment gates must precede imports
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = false
@@ -961,7 +894,7 @@ ignore-variadic-names = true
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
-known-first-party = ["assay", "rasm"]  # workspace members install editable, so path heuristics read them as third-party
+known-first-party = ["rasm"]
 order-by-type = false
 
 [tool.ruff.lint.mccabe]
@@ -980,7 +913,7 @@ ignore-decorators = ["typing.overload", "typing.override"]
 property-decorators = ["pydantic.computed_field"]
 
 [tool.ruff.lint.pydoclint]
-ignore-one-line-docstrings = false
+ignore-one-line-docstrings = true
 
 [tool.ruff.lint.pylint]
 allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__"]

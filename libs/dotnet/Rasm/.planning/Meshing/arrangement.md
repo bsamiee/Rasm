@@ -23,7 +23,7 @@ Rebuilding composes each floor from its owner: the crossing lattice from `Inters
 - Boundary: ONE `ArrangementOp` `[Union]` owns all three modalities, keep and flip DERIVING from the one `Region` column; composition stops at the public seams — `Tessellation.Build`'s op and `Triangles` projection, never the interior `SimplexStore` or a page-local triangulator, and ONE batched `Spatial/index` `Winding` per operand, the 2D ring parity being the overlay's own exact classification owned here; the managed arrangement is the correctness rail, the native route a scale companion only, and the native extraction feeds `ToSpace` with NO re-weld — a tolerance-grid weld over the engine's topologically-welded output destroys the guaranteed-manifold property the route buys; `Apply` is total over the `Fin` rail; `CellComplex` retains classification un-welded while the welded boolean is terminal; shells express disconnection LANE-UNIFORMLY, the managed rail labelling components through the one admitted graph-walk owner and never a page-local flood fill, and governance is one band both routes read — the token gates the managed stage walks and the engine's own context alike, so abandonment never forks into two vocabularies.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -707,8 +707,8 @@ flowchart LR
 |  [01]   | Arrangement        | `ArrangementOp`      | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
 |  [02]   | Boolean vocabulary | `BooleanOp`          | policy rows (repair delegates)               |    4    |
 |  [03]   | Fill rule          | `PolygonFill`        | policy rows (`Inside` delegate)              |    4    |
-|  [04]   | Route evidence     | `BooleanRoute`       | census column                               |    2    |
-|  [05]   | Boolean evidence   | `BooleanCensus`     | carrier (census, guarantee, provenance)      |    —    |
+|  [04]   | Route evidence     | `BooleanRoute`       | census column                                |    2    |
+|  [05]   | Boolean evidence   | `BooleanCensus`      | carrier (census, guarantee, provenance)      |    —    |
 |  [06]   | Source attribution | `ManifoldProvenance` | `OperandOf → Option<int>`                    |    —    |
 |  [07]   | Managed governance | `AbandonWitness`     | fault-owner rows (`Done` fraction)           |    5    |
 |  [08]   | Operand side       | `Operand`            | policy rows (`Stage`/`Facing` columns)       |    2    |

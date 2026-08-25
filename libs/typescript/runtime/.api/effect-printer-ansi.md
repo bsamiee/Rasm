@@ -2,17 +2,7 @@
 
 `@effect/printer-ansi` instantiates the `@effect/printer` annotation parameter to `Ansi`, a monoid of terminal directives that `Doc.annotate` attaches and `AnsiDoc.render` lowers to escape codes. It owns the concrete-markup edge of the render rail: the terminal string is produced here and nowhere else.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/printer-ansi`
-- package: `@effect/printer-ansi` (MIT)
-- module: ESM `.d.ts` surface (`dist/dts/*.d.ts`)
-- owner: `edge`
-- rail: render
-- peer: `@effect/printer` (`Doc`/`DocStream`/`Layout`; `Ansi` is the annotation `A`), `effect` (`Match`, `Monoid`)
-- namespaces: `Ansi` (directive monoid + constructors), `Color` (8-color union + `toCode`), `AnsiDoc` (`Doc<Ansi>` alias + directive documents + `render`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Ansi annotation monoid (`Ansi`)
 
@@ -35,7 +25,7 @@
 |  [01]   | `AnsiDoc.AnsiDoc`      | type alias    | `Doc<Ansi>` — a styled terminal document                       |
 |  [02]   | `AnsiDoc.RenderConfig` | config union  | `render` discriminant: `compact` \| `pretty`/`smart` + options |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: text style + color directives (`Ansi`)
 
@@ -75,7 +65,7 @@
 |  [01]   | `AnsiDoc.render(self, config)` / `AnsiDoc.render(config)` | fold    | dual: lower + resolve `Ansi` to escape codes -> `string` |
 |  [02]   | `AnsiDoc.cursorTo`/`cursorUp`/`eraseLines`/`beep`/…       | factory | `Ansi` control directives as `Doc<Ansi>` values          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Ansi` is a monoid: accumulate directives with `Ansi.combine` and attach the composite with one `Doc.annotate`, never one `annotate` per style bit; `Ansi.stringify` projects a directive to its raw SGR/CSI string outside a document.
@@ -93,9 +83,3 @@
 [LOCAL_ADMISSION]:
 - `cli/render` folder builds every styled terminal artifact as `AnsiDoc`: semantic roles (error/warn/path/emphasis) map to reusable `Ansi` monoid values, structure composes through `@effect/printer` combinators, and the boundary folds with `AnsiDoc.render(config)`.
 - A non-TTY or `--no-color` context strips annotations with `Doc.unAnnotate` before render, so one document serves piped and interactive output, and live redraw composes the `AnsiDoc` cursor/erase directives.
-
-[RAIL_LAW]:
-- Package: `@effect/printer-ansi`
-- Owns: the `Ansi` terminal-directive monoid, the `Color` palette, the `AnsiDoc = Doc<Ansi>` alias, and the escape-code terminal renderer
-- Accept: `Ansi.combine`d directives attached via `Doc.annotate`, `color`/`bgColor` constructors over `Color`, `AnsiDoc` composed through the `@effect/printer` surface, `AnsiDoc.render` at the terminal edge, `Doc.unAnnotate` for the non-styled branch
-- Reject: raw ANSI escape strings in application code, one `annotate` per style bit, `Doc.render` for styled output, string-switch color selection, unconditional styling that ignores TTY/`--no-color` context

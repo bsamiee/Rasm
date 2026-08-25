@@ -2,16 +2,7 @@
 
 `Polly.Extensions` binds resilience telemetry onto Polly.Core pipelines: `ConfigureTelemetry` inserts a diagnostic strategy at the pipeline head, `TelemetryOptions` carries the logging, severity, formatting, and metering policy, and `PollyServiceCollectionExtensions` registers keyed pipelines into the DI container.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Polly.Extensions`
-- package: `Polly.Extensions`
-- assembly: `Polly.Extensions`
-- namespace: `Polly`, `Polly.Telemetry`, `Polly.DependencyInjection`
-- asset: runtime library
-- rail: resilience telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: telemetry configuration and enrichment family
 
@@ -24,7 +15,7 @@
 |  [05]   | `SeverityProviderArguments`                    | struct        | severity callback input         |
 |  [06]   | `PollyServiceCollectionExtensions`             | class         | DI pipeline registration        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipeline telemetry configuration
 
@@ -57,7 +48,7 @@
 |  [02]   | `AddResiliencePipelines(Action)`      | static  | bulk pipeline registration  |
 |  [03]   | `AddResiliencePipelineRegistry()`     | static  | registry-only registration  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ConfigureTelemetry<TBuilder>` inserts a diagnostic strategy at the head of the composite pipeline, so telemetry observes every downstream strategy.
@@ -92,9 +83,3 @@
 - Resilience telemetry configures the pipeline builder at composition, never inside handled operations.
 - Metric enrichment reads bounded telemetry event arguments, never arbitrary domain state.
 - Severity is a value-level callback over resilience event arguments; result formatting projects the outcome for observability and cannot mutate it.
-
-[RAIL_LAW]:
-- Package: `Polly.Extensions`
-- Owns: resilience pipeline telemetry and keyed DI pipeline registration
-- Accept: builder-level telemetry policy and keyed pipeline registration
-- Reject: per-call logging wrappers around resilience pipelines

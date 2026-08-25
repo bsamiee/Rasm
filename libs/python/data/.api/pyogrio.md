@@ -2,17 +2,7 @@
 
 `pyogrio` owns vectorized OGR-backed vector file I/O over GDAL, reading and writing geospatial layers as a GeoPandas `GeoDataFrame` or Arrow table with attribute, geometry, spatial, and SQL filters pushed into the OGR scan. Geometry, CRS, and columnar concerns delegate to their owners — the DataFrame path returns `shapely` geometry and a `pyproj.CRS`, the Arrow path yields a zero-copy ArrowStream PyCapsule — so pyogrio holds the geospatial IO edge without materializing filtered features.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyogrio`
-- package: `pyogrio` (MIT)
-- module: `import pyogrio`
-- owner: `data`
-- rail: geospatial
-- native: GDAL/OGR Cython binding bundling `libgdal`; `__gdal_version__`/`__gdal_geos_version__` report the linked native versions, and `raw.HAS_PYARROW`/`raw.HAS_ARROW_WRITE_API` gate the Arrow read/write path
-- asset: pure-Python surface over the OGR binding; the DataFrame path binds `geopandas`+`shapely`, the Arrow path binds `pyarrow`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the OGR failure rail, each error re-exported at `pyogrio.raw`
 
@@ -25,7 +15,7 @@
 |  [05]   | `FieldError`      | class         | attribute field type or access failure   |
 |  [06]   | `GeometryError`   | class         | geometry encode, decode, or type failure |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: OGR read and write, layer metadata, driver discovery, GDAL configuration, VSI virtual filesystem
 - read family carry: `layer`, `encoding`, `columns`, `read_geometry`, `force_2d`, `skip_features`, `max_features`, `where`, `bbox`, `mask`, `fids`, `sql`, `sql_dialect`
@@ -53,7 +43,7 @@
 
 [raw]: `read` `write` `read_arrow` `open_arrow` `write_arrow` `ogr_read` `ogr_write` `ogr_open_arrow` `ogr_write_arrow` `get_gdal_version` `get_gdal_version_string` `ogr_driver_supports_write` `ogr_driver_supports_vsi` `vsi_path` `get_vsi_path_or_buffer` `GDALEnv` `DRIVERS_NO_MIXED_SINGLE_MULTI` `DRIVERS_NO_MIXED_DIMENSIONS`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `read_dataframe`/`read_arrow`/`open_arrow` push `columns`, `where`, `bbox`, `mask`, `fids`, and `sql` into the OGR scan; the driver evaluates them, so a filtered feature never materializes and client-side post-filtering is the anti-pattern.
@@ -72,9 +62,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `pyogrio` as the OGR vector-IO owner on the data geospatial rail, feeding both the GeoDataFrame and Arrow egress paths rather than a per-driver or per-feature reader.
-
-[RAIL_LAW]:
-- Package: `pyogrio`
-- Owns: vectorized OGR vector file read/write, GeoDataFrame and Arrow egress, OGR-side attribute/geometry/spatial/SQL pushdown, layer and driver metadata, GDAL configuration, VSI virtual filesystem
-- Accept: `read_dataframe`/`read_arrow`/`open_arrow` with pushdown filters, `read_info` for metadata-only inspection, `write_dataframe`/`write_arrow` with extension-inferred drivers, VSI paths for archive and remote access
-- Reject: client-side filtering after a full read, per-feature iteration loops, hand-rolled OGR ctypes binding, and per-driver read/write entrypoints where the polymorphic entry covers them

@@ -4,16 +4,7 @@
 
 One parameterized pattern spans both ceremonies at two phases; registration verification folds the attestation-format verifier internally on the decoded `fmt`, so trust enters as policy rather than a consumer-written switch.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@simplewebauthn/server`
-- package: `@simplewebauthn/server` (MIT)
-- module: dual ESM/CJS over two subpaths — `.` carries ceremonies and trust services, `./helpers` the codec, parse, and crypto primitives; declarations ride each entry, so resolution is entry-relative
-- runtime: node/edge relying party; WebCrypto and ASN.1 back signature and certificate-path validation, and every dependency vendors in
-- plane: `plane:runtime` (W1)
-- rail: credential-ceremony / passkey-verification
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the RP boundary contract — wire shapes crossing to and from the browser, the verdict carriers, and the trust vocabulary
 
@@ -34,7 +25,7 @@ One parameterized pattern spans both ceremonies at two phases; registration veri
 [POLICY]: `AuthenticatorSelectionCriteria` `AuthenticationExtensionsClientInputs` `AuthenticationExtensionsAuthenticatorOutputs` `VerificationMode`
 [OPTS]: `GenerateRegistrationOptionsOpts` `GenerateAuthenticationOptionsOpts` `VerifyRegistrationResponseOpts` `VerifyAuthenticationResponseOpts` `AttestationFormatVerifierOpts`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the 2x2 ceremony grid — `{registration, authentication}` by `{mint, verify}` — each taking one options object and returning a `Promise`
 
@@ -70,7 +61,7 @@ One parameterized pattern spans both ceremonies at two phases; registration veri
 [COSE]: `COSEALG` `COSECRV` `COSEKEYS` `COSEKTY` `COSEPublicKey` `isCOSEAlg` `isCOSECrv` `isCOSEKty` `isCOSEPublicKeyEC2` `isCOSEPublicKeyOKP` `isCOSEPublicKeyRSA`
 [CERT]: `getCertificateInfo` `isCertRevoked` `convertCertBufferToPEM` `convertCOSEtoPKCS` `convertAAGUIDToString`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every ceremony folds mint then verify around one challenge the RP stores between the phases and consumes once through the `expectedChallenge` resolver.
@@ -87,9 +78,3 @@ One parameterized pattern spans both ceremonies at two phases; registration veri
 [LOCAL_ADMISSION]:
 - `authn/` admits it alone; a `runtime:browser` composition takes `@simplewebauthn/browser` instead.
 - `SettingsService` and `MetadataService` are module singletons — enterprise and direct attestation configure them once at composition, never per request.
-
-[RAIL_LAW]:
-- Package: `@simplewebauthn/server`
-- Owns: the RP-side ceremony — option minting, response verification with internal attestation dispatch, the JSON and credential boundary vocabulary, the root-certificate and MDS trust surfaces, and the `./helpers` codec, parse, and crypto primitives.
-- Accept: one options object per ceremony, the `expectedChallenge` session resolver, `Effect.tryPromise` into the typed error rail, a `Schema` decode of every browser payload before `verify*`, `Match` on the `verified` discriminant, and the journalled `WebAuthnCredential` plus `newCounter`.
-- Reject: a hand-written attestation-format switch, a boolean-plus-throw reading of the verdict, raw browser JSON reaching `verify*` without a `Schema` boundary, a discarded `newCounter`, and a hand-rolled CBOR, COSE, base64url, or certificate-path routine the `./helpers` surface already owns.

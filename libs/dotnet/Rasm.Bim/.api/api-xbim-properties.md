@@ -2,16 +2,7 @@
 
 `Xbim.Properties` owns the offline, schema-versioned buildingSMART template dataset — every `Pset_*` and `Qto_*` set with its applicable classes, member definitions, and each definition's value-type kind and scalar `DataTypeEnum`. A `Definitions<T>` catalogue loads the bundled definitions per `IfcVersion`, resolving a `PropertySetDef`/`QtoSetDef` by name; it holds no entity graph and no values, defining what a `Pset_WallCommon` IS, never a wall's `FireRating`. It feeds the `properties` owner as the network-free floor beneath live bSDD, GeometryGym owning the entity graph it lacks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Xbim.Properties`
-- package: `Xbim.Properties` (CDDL-1.0)
-- assembly: `Xbim.Properties` — the `net10.0` consumer binds `lib/netstandard2.1/Xbim.Properties.dll`; pure-managed AnyCPU IL, ALC-safe, no native asset.
-- namespace: `Xbim.Properties` (the definition model); the bundled `No.Catenda.Peregrine.Model.Objects`/`.Pset` IFD object model rides along unused.
-- transitive: `Microsoft.CSharp` and `System.Data.DataSetExtensions` are net10 in-box facades (the `dynamic` binder and `DataSet` LINQ extensions), pulling no `Xbim.Essentials` and standing up no parallel IFC model.
-- rail: `properties#PROPERTY_TEMPLATES` — the standard-Pset template source the typed property model resolves against.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the definition catalogue and its property/quantity definitions
 
@@ -37,7 +28,7 @@
 [Enums]: `DataTypeEnum` `QtoTypeEnum` `templatetype`
 [QtoTypeEnum]: `Q_LENGTH` `Q_AREA` `Q_VOLUME` `Q_WEIGHT` `Q_COUNT` `Q_TIME`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: catalogue load, query, definition read, and save
 
@@ -64,7 +55,7 @@
 - `PropertyDef.PropertyType.PropertyValueType`: a property's scalar `DataTypeEnum` lives on the single/bounded/reference `DataType.Type` and `TypeSimpleProperty.DataType.Type`; composite enumerated/list/table/complex kinds carry no scalar type, exposing the allowed-value catalogue instead — `TypePropertyEnumeratedValue.EnumList`/`ConstantList`, `TypePropertyBoundedValue.ValueRangeDef`, `TypePropertyListValue.ListValue`, `TypePropertyTableValue.DefiningValue`/`DefinedValue`.
 - `setDef.IfcVersion`: (`version`+`schema`) the per-set schema stamp read off a loaded definition, distinct from the `Version` constructor enum (`IFC2x3`/`IFC4`/`IFC4x3`).
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every set, property, and quantity resolves by name off a `Definitions<T>` loaded once per `Version` — `definitions[name]` binds a set, `DefinitionSets` enumerates, `setDef[name]` binds one member.
@@ -81,9 +72,3 @@
 [LOCAL_ADMISSION]:
 - `Definitions<PropertySetDef>(Version).LoadAllDefault` and its `QtoSetDef` twin admit the standard-Pset template, loaded once per `(schema, scope)` pair and held frozen; `LoadIFC4COBie` and `LoadIFC4AndCOBie` are the scope-selected supersets beside it — each pinned to `Version.IFC4` because the loader names fix the dataset's schema — so a COBie or handover exchange reads its own catalogue rather than the second load evicting the first behind one `Version` key; the `properties` owner reads `DefinitionSets`/`setDef[name]` and resolves each declared type off `PropertyType.PropertyValueType`, never a hand-coded `Pset_*` table.
 - bSDD (`Semantics/classification`) unions OVER this catalogue with dictionary-wins precedence; a bSDD-declared property absent here still resolves from the dictionary, so this package is the network-free floor, never the sole source.
-
-[RAIL_LAW]:
-- Package: `Xbim.Properties` (CDDL-1.0)
-- Owns: the authoritative buildingSMART `Pset_*`/`Qto_*` template dataset — the `Definitions<T>` catalogue, `PropertySetDef`/`QtoSetDef` with applicable classes and member definitions, each `PropertyDef`'s value-type kind and scalar `DataTypeEnum`, each `QtoDef`'s `QtoTypeEnum`, and the load/index/query/save API, schema-versioned by `IfcVersion`/`Version`
-- Accept: `Definitions<PropertySetDef>(Version).LoadAllDefault`, `LoadIFC4COBie`, and `LoadIFC4AndCOBie` (each with its `QtoSetDef` twin) as the frozen `TemplateScope`-selected offline source the `properties#PROPERTY_TEMPLATES` `PropertyKey` anchors read; the declared `DataTypeEnum` (off `PropertyType.PropertyValueType`) and `QtoTypeEnum` lowered into the seam-owned `PropertyValue`/`Dimension` model; the `ApplicableClasses` corroborating the `PropertyKey` domain; the catalogue unioned UNDER the bSDD live dictionary
-- Reject: a hand-coded `Pset_*` table beside `Definitions<T>`; treating this as an IFC entity reader, a property-value store, or an IDS validator (`Xbim.InformationSpecifications` owns IDS); making it the sole template when bSDD must win a collision; vendoring or modifying the CDDL-1.0 source; consuming the bundled `No.Catenda.Peregrine.*` IFD model

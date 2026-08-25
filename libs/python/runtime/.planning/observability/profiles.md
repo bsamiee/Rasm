@@ -21,7 +21,7 @@ Install custody is two-tier — per-composition `ProfilesInstall`s key by the ob
 - Boundary: profiles egress through the pyroscope push wire until that swap lands — the OTLP trio stays the telemetry owner's, and no library module below the composition root imports this page.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from enum import StrEnum

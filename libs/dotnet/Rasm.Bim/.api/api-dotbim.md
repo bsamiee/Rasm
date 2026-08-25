@@ -2,17 +2,7 @@
 
 `dotbim` is the pure-managed read+write codec for the `.bim` open exchange format: one flat `System.Text.Json` document pooling shared meshes beneath placed `Element` instances that reference a mesh by id and carry a rigid placement. Instancing is the distinguishing law — N repeated objects are N lightweight `Element` placements over one shared `Mesh`, the low-ceremony interchange beside heavyweight authoring formats. This codec owns the `.bim` object graph and file round-trip alone; it never tessellates, validates semantics, or owns materials.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `dotbim`
-- package: `dotbim` (MIT)
-- assembly: `dotbim`
-- namespace: `dotbim`
-- asset: `netstandard2.0` single TFM; the `net10.0` consumer binds `lib/netstandard2.0` forward
-- serialization: `System.Text.Json`; every public member carries a snake_case `[JsonPropertyName]`
-- rail: interchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root, shared mesh pool, placed instance
 
@@ -38,7 +28,7 @@
 [Rotation]: `Qx` `Qy` `Qz` `Qw`
 [Color]: `R` `G` `B` `A`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: file round-trip
 
@@ -51,7 +41,7 @@
 
 - `File.Save`: `format` (default `true`) selects `JsonSerializer` `WriteIndented`; both members reject a non-`.bim` path with `ArgumentException`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Geometry lives once in `File.Meshes`; an `Element` references a `Mesh` by `MeshId` under a rigid transform, so decode resolves an element to its mesh by matching `Element.MeshId == Mesh.MeshId`.
@@ -68,9 +58,3 @@
 
 [LOCAL_ADMISSION]:
 - `.bim` import enters through `File.Read`, resolving each `Element` to its pooled `Mesh` by `MeshId` and baking the `Vector`/`Rotation` placement; export enters through a canonical-to-`File` build — mesh pooling by shared geometry, placement decomposition into `Vector` and quaternion `Rotation`, `Info`-bag metadata projection — then `File.Save`.
-
-[RAIL_LAW]:
-- Package: `dotbim`
-- Owns: the `.bim` open-format read+write — the shared `Mesh` pool, the placed `Element` model, and the `System.Text.Json` file round-trip
-- Accept: lightweight mesh-and-metadata interchange, preview and issue payloads, instancing-preserving model exchange beside IFC/glTF/USD
-- Reject: BREP/parametric/schema geometry, tessellation, material and appearance systems, IFC semantics, and any `dotbim.*` type crossing the codec boundary

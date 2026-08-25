@@ -2,16 +2,7 @@
 
 `papermill` owns parameterized notebook execution for the artifacts notebook rail: it injects a typed parameters cell, translates it to the target kernel language, runs the notebook end-to-end through a registered engine, and routes notebook I/O across local and cloud path schemes through a scheme-dispatched handler registry. It drives the run over the `nbclient` kernel loop rather than owning the kernel protocol, sitting above `nbclient` and beside `jupytext`/`nbconvert` on the reports chain.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `papermill`
-- package: `papermill`
-- import: `papermill`
-- owner: `artifacts`
-- rail: notebook
-- entry points: `papermill` CLI (`click`-backed), executing over the `nbclient` engine
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: execution and engine family
 - rail: notebook — `papermill.engines`
@@ -85,7 +76,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 | :-----: | :---------- | :------------ | :--------------------------------------------------------------------- |
 |  [01]   | `Parameter` | named tuple   | `name`, `inferred_type_name`, `default`, `help` fields from inspection |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: notebook execution and inspection
 - rail: notebook — `papermill`
@@ -128,7 +119,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [05]   | `cell_exception(cell, cell_index, **kwargs)` | record cell-level exception for the manager    |
 |  [06]   | `save(**kwargs)`                             | write current notebook state to output path    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - primary axis: `execute_notebook(input_path, output_path, parameters={...})` is the single call for a parameterized run; `prepare_only=True` writes the parameterized notebook without executing; `report_mode=True` hides the injected parameters cell in the output.
@@ -151,9 +142,3 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 - `execute_notebook` returns the mutated `nbformat.NotebookNode` and writes it to `output_path` throughout the run (`request_save_on_cell_execute=True` drives autosave).
 - `progress_bar=True` emits a tqdm cell-level bar to stdout (`False` in headless/log pipelines); `log_output=True` streams cell stdout/stderr to the logger, with `stdout_file`/`stderr_file` capturing them independently; `cwd` sets the kernel working directory.
 - `papermill_io.register(scheme, handler)` registers a custom handler before `execute_notebook`; `NotebookNodeHandler` routes an in-memory `NotebookNode` with no path, `NoIOHandler` discards output for execute-only runs.
-
-[RAIL_LAW]:
-- Package: `papermill`
-- Owns: parameterized notebook execution, parameter injection, kernel-language translation across Python/R/Julia/Scala/Bash/Matlab/.NET, pluggable notebook I/O over the four-method handler protocol, `tenacity`-backed cloud retry, and execution lifecycle management with progress/autosave/typed cell faults
-- Accept: any path scheme with a registered handler; parameter dicts with kernel-serializable values; a `NotebookNode` from `nbformat` via `NotebookNodeHandler`
-- Reject: hand-rolled parameter injection outside `parameterize_notebook`/`Translator.codify`; a custom execution loop duplicating `execute_notebook` or re-implementing the `nbclient` kernel protocol; a hand-rolled cloud-IO retry where `tenacity` already backs off on `PapermillRateLimitException`; re-parsing a traceback string where `PapermillExecutionError` carries the typed cell fault; a per-scheme reader/writer split where the four-method handler protocol owns routing

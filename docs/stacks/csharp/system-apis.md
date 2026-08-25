@@ -75,17 +75,17 @@ public static class FrameCodec {
         where T : IUtf8SpanFormattable =>
         raw.ContainsAnyExcept(variant.Allowed) || !Ascii.IsValid(raw)
             ? Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(raw), Requirement: "ASCII text admitted by the selected variant"))
-            : Utf8.TryWrite(sink, CultureInfo.InvariantCulture, $"{variant.Key}{(char)variant.Separator}{raw}{value}", out var written)
+            : Utf8.TryWrite(sink, CultureInfo.InvariantCulture, $"{variant.Key}{(char)variant.Separator}{raw}{value}", out int written)
                 ? Fin.Succ(written)
                 : Fin.Fail<int>(new KernelFault.OutOfRange(Label: nameof(sink), Scalar: sink.Length, Requirement: "capacity for the complete frame"));
 
     public static Fin<T> Decode<T>(ReadOnlySpan<char> heading, ReadOnlySpan<byte> payload) where T : IUtf8SpanParsable<T> {
-        var scan = Variant.Heading.EnumerateMatches(heading);
+        Regex.ValueMatchEnumerator scan = Variant.Heading.EnumerateMatches(heading);
         if (!scan.MoveNext() || scan.Current is not { Length: > 0 } head) {
             return Fin.Fail<T>(new KernelFault.InvalidValue(Label: nameof(heading), Requirement: "a declared variant heading"));
         }
         return Admit(heading.Slice(head.Index, head.Length).ToString()).Case switch {
-            Variant variant when payload.IndexOf(variant.Separator) is var at and >= 0 && T.TryParse(payload[(at + 1)..], CultureInfo.InvariantCulture, out var value) => Fin.Succ(value),
+            Variant variant when payload.IndexOf(variant.Separator) is int at and >= 0 && T.TryParse(payload[(at + 1)..], CultureInfo.InvariantCulture, out T value) => Fin.Succ(value),
             Variant => Fin.Fail<T>(new KernelFault.InvalidValue(Label: nameof(payload), Requirement: $"UTF-8 payload parseable as {typeof(T).Name}")),
             Error error => Fin.Fail<T>(error),
             _ => throw new System.Diagnostics.UnreachableException(),
@@ -93,7 +93,7 @@ public static class FrameCodec {
     }
 
     static Fin<Variant> Admit(string key) =>
-        Op.Of().AcceptValidated<Variant>(fault: Variant.Validate(key, CultureInfo.InvariantCulture, out var variant), admitted: variant);
+        Op.Of().AcceptValidated<Variant>(fault: Variant.Validate(key, CultureInfo.InvariantCulture, out Variant? variant), admitted: variant);
 }
 ```
 
@@ -132,18 +132,18 @@ public static class Tally {
     public readonly record struct Roll(int Count, int Peak, int FirstAt);
 
     public static Fin<int> RankOf(ReadOnlySpan<char> key) =>
-        Probe.TryGetValue(key, out var rank)
+        Probe.TryGetValue(key, out int rank)
             ? Fin.Succ(rank)
             : Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(key), Requirement: "a registered tally key"));
 
     public static ImmutableArray<(int Rank, string Key, Roll Roll)> Fold(params ReadOnlySpan<(string Key, int Score)> rows) {
-        var rolls = new Dictionary<string, Roll>(rows.Length, StringComparer.Ordinal);
-        for (var i = 0; i < rows.Length; i++) {                              // Exemption: one ref probe threads count+peak+first-ordinal; AggregateBy reallocates per step and joins in a second pass
-            ref var roll = ref CollectionsMarshal.GetValueRefOrAddDefault(rolls, rows[i].Key, out var exists);
+        Dictionary<string, Roll> rolls = new Dictionary<string, Roll>(rows.Length, StringComparer.Ordinal);
+        for (int i = 0; i < rows.Length; i++) {                              // Exemption: one ref probe threads count+peak+first-ordinal; AggregateBy reallocates per step and joins in a second pass
+            ref Roll roll = ref CollectionsMarshal.GetValueRefOrAddDefault(rolls, rows[i].Key, out bool exists);
             roll = new Roll(roll.Count + 1, Math.Max(roll.Peak, rows[i].Score), exists ? roll.FirstAt : i);
         }
         return [.. rolls.Select(row =>
-            (Rank: Probe.TryGetValue(row.Key, out var r) ? r : int.MaxValue, row.Key, row.Value))];
+            (Rank: Probe.TryGetValue(row.Key, out int r) ? r : int.MaxValue, row.Key, row.Value))];
     }
 }
 ```
@@ -188,9 +188,9 @@ public static class SegmentReader {
                 : Fin.Succ(new Extent(offset, request));
 
     public static async Task<Fin<Segment>> Read(SafeFileHandle handle, Extent extent) {
-        var rented = ArrayPool<byte>.Shared.Rent(extent.Length + sizeof(uint));
+        byte[] rented = ArrayPool<byte>.Shared.Rent(extent.Length + sizeof(uint));
         try {
-            var window = rented.AsMemory(0, extent.Length + sizeof(uint));
+            Memory<byte> window = rented.AsMemory(0, extent.Length + sizeof(uint));
             return await RandomAccess.ReadAsync(handle, window, extent.Offset) != window.Length
                 ? Fin.Fail<Segment>(new KernelFault.InvalidValue(Label: nameof(extent), Requirement: "a complete frame read"))
                 : Verify(window.Span[..extent.Length], BinaryPrimitives.ReadUInt32BigEndian(window.Span[extent.Length..]));
@@ -199,7 +199,7 @@ public static class SegmentReader {
     }
 
     static Fin<Segment> Verify(ReadOnlySpan<byte> body, uint stamped) =>
-        Crc32.HashToUInt32(body) is var frame && frame == stamped
+        Crc32.HashToUInt32(body) is uint frame && frame == stamped
             ? Fin.Succ(new Segment(XxHash3.HashToUInt64(body), frame, body.Length))
             : Fin.Fail<Segment>(new KernelFault.InvalidValue(Label: "crc32", Requirement: $"{stamped:x8}; got {frame:x8}"));
 }
@@ -228,7 +228,7 @@ public static partial class HostSeam {
     public static Fin<int> Reserve(string token, uint slot, uint cap) {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(slot, cap);
-        return Probe(token, slot) is var code && Resolve(code, out var reserved)
+        return Probe(token, slot) is int code && Resolve(code, out int? reserved)
             ? Fin.Succ(reserved.Value)
             : Fin.Fail<int>(new HostFault.ProbeRefused(token, slot, code));
     }

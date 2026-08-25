@@ -4,15 +4,7 @@
 
 `prepareTools` is the sole cross-provider export, `@effect/ai-amazon-bedrock` reusing it to run Claude on Bedrock; prompt caching rides `CacheControlEphemeral` through the `Prompt`/`Response` augmentation slots.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/ai-anthropic`
-- package: `@effect/ai-anthropic` (MIT)
-- module: dual CJS+ESM, `sideEffects:[]`, one subpath export per namespace (`@effect/ai-anthropic/AnthropicLanguageModel`)
-- runtime: node|browser; peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership
-- rail: ai-provider — the Anthropic Messages-beta binding onto the ai-core tags
-
-## [02]-[CLIENT]
+## [01]-[CLIENT]
 
 [CLIENT_TYPE_SCOPE]: the `x-api-key` tag-class service and the streaming-fold union
 
@@ -38,7 +30,7 @@
 - `Service.createMessage`: `options` are `{params?, payload}` over the `Beta*` owners — the high-level surface is beta-only; `createMessageStream`'s `payload` omits `stream`.
 - `MessageStreamEvent`: brackets content-block members (`content_block_start` carrying `BetaContentBlock`, `content_block_delta`, `content_block_stop`) with lifecycle members (`ping`, `error`, `message_start` carrying `BetaMessage`, `message_delta`, `message_stop`); `content_block_delta.delta` folds a nested 5-arm union (`citations_delta`, `input_json_delta`, `signature_delta`, `text_delta`, `thinking_delta`).
 
-## [03]-[LANGUAGE_MODEL]
+## [02]-[LANGUAGE_MODEL]
 
 [LANGUAGE_MODEL_TYPE_SCOPE]: the model-id alias, the per-call config, and the provider-metadata carriers
 
@@ -80,7 +72,7 @@
 |  [07]   | `Response` | `DocumentSourcePartMetadata`                | `char_location` \| `page_location` citation                         |
 |  [08]   | `Response` | `UrlSourcePartMetadata`                     | `{ source:"url"; citedText; encryptedIndex }`                       |
 
-## [04]-[TOKENIZER]
+## [03]-[TOKENIZER]
 
 [TOKENIZER_ENTRY_SCOPE]: the bare tokenizer value and its dependency-free layer
 
@@ -91,7 +83,7 @@
 
 - `make`: `AnthropicLanguageModel.modelWithTokenizer`/`layerWithTokenizer` fold this value into the provided tags.
 
-## [05]-[TOOL]
+## [04]-[TOOL]
 
 [TOOL_TYPE_SCOPE]: the closed provider-tool schema union and the computer-use coordinate
 
@@ -119,7 +111,7 @@
 - `Bash_20241022`: versioning rides the date suffix — one tag carrying an evolving `parameters` literal; `<Mode extends Tool.FailureMode | undefined>` sets `failureMode` to `"error"` when unset.
 - Anthropic is the only family mapping a SUSPENDED turn onto the core `"pause"` finish band, which it reaches when it halts mid-tool; a refusal maps to `"content-filter"`, and a tool stop maps to `"tool-calls"` EXCEPT under a JSON response format, where it is rewritten to `"stop"` — so the object modality never observes the tool band here.
 
-## [06]-[CONFIG]
+## [05]-[CONFIG]
 
 [CONFIG_TYPE_SCOPE]: the request-scoped client transform
 
@@ -136,7 +128,7 @@
 
 - `withClientTransform`: mutates the request `HttpClient` without rebuilding transport, distinct from the layer-construction `transformClient` on `make`/`layer`.
 
-## [07]-[GENERATED]
+## [06]-[GENERATED]
 
 [GENERATED_TYPE_SCOPE]: the machine-generated Anthropic REST surface — wire `Schema.Class` owners, `Schema.Literal` enums, `Schema.Union` families, each stable owner mirrored by a `Beta*` twin carrying beta-only blocks (MCP tool, web-fetch, code-execution, container/skill)
 
@@ -158,7 +150,7 @@
 - `Client`: stable endpoints fail `ClientError<"ErrorResponse">`, beta `ClientError<"BetaErrorResponse">`, both joined with `HttpClientError | ParseError`.
 - Each domain family extends by a new `Beta*` twin, never a mutated stable owner.
 
-## [08]-[IMPLEMENTATION_LAW]
+## [07]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AnthropicLanguageModel.model(id)` resolves the shared `LanguageModel` tag, so provider choice is one `Layer` swap; the high-level client posts only `Beta*` owners.
@@ -175,9 +167,3 @@
 [LOCAL_ADMISSION]:
 - Bind Anthropic through `AnthropicClient.layer({ apiKey })` under `AnthropicLanguageModel.modelWithTokenizer(id)`, credentials resolved by `Redacted`/`Config` and `HttpClient` selected at the app root.
 - Read the per-call override through `Config`/`withConfigOverride` and prompt caching through the `Prompt` augmentation slots.
-
-[RAIL_LAW]:
-- Package: `@effect/ai-anthropic`
-- Owns: the Anthropic Messages-beta binding — `AnthropicClient` over `Generated`, `AnthropicLanguageModel` (`model`/`modelWithTokenizer` + `prepareTools` + the `Config` override + the `Prompt`/`Response` augmentations), `AnthropicTokenizer`, the `AnthropicTool` provider-defined family, `AnthropicConfig` request transform, and the `Generated` OpenAPI REST corpus with its `Beta*` mirrors
-- Accept: one `AnthropicLanguageModel.model` row resolved into the shared `LanguageModel`/`Tokenizer` tags, `prepareTools` reused by the Bedrock sibling, prompt caching via `CacheControlEphemeral` on the augmentation slots, tools discriminated on `requiresHandler`
-- Reject: a hand-rolled Anthropic HTTP client or SSE decoder, a per-provider generation API beside the shared tags, a bespoke tool schema duplicating `ProviderDefinedTools`, a raw `x-api-key` string bypassing `Redacted`

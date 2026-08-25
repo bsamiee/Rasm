@@ -70,7 +70,7 @@ public static class DenseRoute {
             .Map(Build[route])
             .Map(solver => solver.Solve(b))
             .Bind(x => Witness.Gate(route.Key, Witness.Residual(operand, x, b), cap).Map(_ => x))
-            .BindFail(_ => route.Conditioned() is var next && next != route
+            .BindFail(_ => route.Conditioned() is Route next && next != route
                 ? Solve(next, operand, b, cap)
                 : Fin.Fail<Vector<double>>(new SolveFault.Exhausted(Route: route)));
 }
@@ -148,12 +148,12 @@ public static class HeldRefinement
     public static Fin<(IterationStatus Verdict, Vector<double> X)> Refine(
         Matrix<double> a, ISolver<double> held, Vector<double> b, Vector<double> x, double tol, int cap)
     {
-        var (bNorm, scratch, dx) = (b.L2Norm(), Vector<double>.Build.Dense(b.Count), Vector<double>.Build.Dense(b.Count));
-        var settled = Range(0, cap).Fold(x, (state, _) =>
+        (double bNorm, Vector<double> scratch, Vector<double> dx) = (b.L2Norm(), Vector<double>.Build.Dense(b.Count), Vector<double>.Build.Dense(b.Count));
+        Vector<double> settled = Range(0, cap).Fold(x, (state, _) =>
             Residual(a, state, b, scratch, bNorm) <= tol
                 ? state
                 : (held.Solve(scratch, dx), state.Add(dx, state)).Item2);
-        return Residual(a, settled, b, scratch, bNorm) is var r && double.IsFinite(r)
+        return Residual(a, settled, b, scratch, bNorm) is double r && double.IsFinite(r)
             ? Fin.Succ((r <= tol ? IterationStatus.Converged : IterationStatus.StoppedWithoutConvergence, settled))
             : Fin.Fail<(IterationStatus, Vector<double>)>(new SolveFault.NonFiniteResidual(Residual: r));
     }
@@ -221,7 +221,7 @@ public sealed record FactoredOp(
     };
 
     public Fin<double[]> Solve(double[] b, double cap) {
-        var x = new double[SolutionDim];
+        double[] x = new double[SolutionDim];
         Inner.Solve(b, x);
         return Witness.Gate($"route={Kind.Key} fill={Fill}", Witness.Residual(A, x, b), cap).Map(_ => x);
     }
@@ -255,7 +255,7 @@ public static class StructuralEdit
                 ? Fin.Succ(op)
                 : Rebuild(op, edit),
         Edit.Revalue r => Fin.Succ(op with { Inner = Refactor(op.Permutation, r.Values) }),
-        var structural => Rebuild(op, structural),
+        Edit structural => Rebuild(op, structural),
     };
 }
 ```
@@ -293,7 +293,7 @@ public static class Iterative
         Matrix<double> a, Vector<double> b, IIterativeSolver<double> solver,
         IPreconditioner<double> pre, double tol, bool symmetric) =>
         Op.Of().Catch(() => {
-                var x = Vector<double>.Build.Dense(b.Count);
+                Vector<double> x = Vector<double>.Build.Dense(b.Count);
                 return Fin.Succ((Verdict: a.TrySolveIterative(b, x, solver, Stack(b.Count, tol, symmetric), pre), X: x));
             })
             .Bind(t => Witness.Gate($"verdict={t.Verdict}", Witness.Residual(a, t.X, b), tol).Map(_ => t.X));
@@ -312,7 +312,7 @@ public static class Witness
         (b - a.Multiply(x)).L2Norm() / double.Max(b.L2Norm(), double.Epsilon);
 
     public static double Residual(CompressedColumnStorage<double> a, double[] x, double[] b) {
-        var y = new double[b.Length];
+        double[] y = new double[b.Length];
         a.Multiply(x, y);
         return TensorPrimitives.Distance<double>(b, y) / double.Max(TensorPrimitives.Norm<double>(b), double.Epsilon);
     }
@@ -404,7 +404,7 @@ public static class Terminal
         {
             IterationStatus.Converged => Fin.Succ<SolveTerminal>(new SolveTerminal.Admitted(t.X)),
             IterationStatus.StoppedWithoutConvergence => Fin.Succ<SolveTerminal>(new SolveTerminal.Exhausted(t.X, budget)),
-            var v => Fin.Fail<SolveTerminal>(new SolveFault.Terminal(v)),
+            IterationStatus v => Fin.Fail<SolveTerminal>(new SolveFault.Terminal(v)),
         })
         .MapFail(e => e switch
         {
@@ -432,11 +432,11 @@ public static class Quadrature
 {
     public static Fin<QuadratureEvidence> Kronrod(Func<double, double> f, double a, double b, double floor)
     {
-        var skipped = 0;
-        var value = Integrate.GaussKronrod(
-            x => f(x) is var y && double.IsFinite(y) ? y : (++skipped, 0.0).Item2,
-            a, b, out var error, out var l1Norm);
-        return Math.Abs(value / l1Norm) is var ratio && double.IsFinite(ratio) && ratio >= floor
+        int skipped = 0;
+        double value = Integrate.GaussKronrod(
+            x => f(x) is double y && double.IsFinite(y) ? y : (++skipped, 0.0).Item2,
+            a, b, out double error, out double l1Norm);
+        return Math.Abs(value / l1Norm) is double ratio && double.IsFinite(ratio) && ratio >= floor
             ? Fin.Succ(new QuadratureEvidence(value, error, l1Norm, ratio, skipped))
             : Fin.Fail<QuadratureEvidence>(new QuadratureFault.Cancellation(Ratio: ratio, Skipped: skipped, Floor: floor));
     }
@@ -488,9 +488,9 @@ public static class SpectralOperator
 {
     public static Complex[] Apply(Complex[] field, WaveAxis axis, Symbol symbol)
     {
-        var (k, n) = (axis.K(), axis.Nyquist);
+        (double[] k, int n) = (axis.K(), axis.Nyquist);
         Fourier.Forward(field, FourierOptions.AsymmetricScaling);
-        var driven = field.Select((c, i) => c * (symbol.OddOrder && i == n ? Complex.Zero : symbol.Apply(k[i]))).ToArray();
+        Complex[] driven = field.Select((c, i) => c * (symbol.OddOrder && i == n ? Complex.Zero : symbol.Apply(k[i]))).ToArray();
         Fourier.Inverse(driven, FourierOptions.AsymmetricScaling);
         return driven;
     }

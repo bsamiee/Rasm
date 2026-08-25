@@ -4,17 +4,7 @@
 
 Structure owners stay outside: `psdtags` owns the PSD layer/channel graph, `tifffile` the TIFF directory, `psd-tools` the native PSD/PSB document, `openexr` every named-channel, multi-part, tiled, and environment-map EXR this flat surface cannot address, `pyktx` and the provisioned `ktx` CLI the whole KTX2 container, `pyvips` resampling and the fused decode path. Codec selection runs by name through one capability-discriminated boundary, each backend a `<CODEC>` object whose `.available` routes an absent core to a substitute or a `DelayedImportError`, never mid-write.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `imagecodecs`
-- package: `imagecodecs` (BSD-3-Clause)
-- module: `imagecodecs`
-- asset: `abi3` wheel; every native core statically linked and no system library required — `openexr`, `rgbe`, `libpng`/`libpng_apng`/`libspng`, `libtiff`, `libjxl`, `libavif`, `libwebp`, `lcms2`, `bcdec`, `meshoptimizer`, `openjpeg`, `openjph`, `libultrahdr`, `lerc`, `qoi`, `zfp`, `sz3`, `sperr`, `pcodec`, `libjpeg_turbo`, `jxrlib`, `charls`, `libdeflate`, `zlib`/`zlib_ng`/`zopfli`, `zstd`, `lz4`, `brotli`, `c-blosc2`, and the `imcd` PackBits/LZW/delta/float24 kernels
-- rail: compression (deep-pixel file codecs, ICC transforms, block-texture decode, and the layered-egress channel codecs)
-- target: `numpy`-shaped contiguous buffers and `bytes`/`bytearray`/`memoryview` byte streams
-- capability: 87 `<codec>_encode`/`_decode`/`_check`/`_version` quadruples, each backend a `<CODEC>` object carrying `.available`, a per-codec `<Codec>Error`, and a policy `IntEnum` family; the polymorphic `imread`/`imwrite`/`imagefileext` codec-name dispatch face; `version()` reporting every linked core, `n/a` for the eight this build ships unbuilt (`heif`, `jpegxs`, `mozjpeg`, `brunsli`, `jetraw`, `lzham`, `openzl`, `wic`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the codec quadruple, the per-codec capability object, and the fault family
 - rail: compression
@@ -57,7 +47,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `AVIF.COLOR_PRIMARIES`: `BT709 BT601 BT470M BT470BG SMPTE240 GENERIC_FILM BT2020 XYZ SMPTE431 SMPTE432 EBU3213`, `SRGB` aliasing `BT709`.
 - `ULTRAHDR.CODEC`: lists JPEG, HEIF, and AVIF, yet only JPEG encodes on this build — HEIF and AVIF raise `UltrahdrError: invalid output format`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the file image codecs, deep-pixel and display alike
 - rail: compression
@@ -91,7 +81,6 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `exr_encode(level=)`: ZIP rows take the 0..9 band and raise `EXR_ERR_INVALID_ARGUMENT` outside it, DWA rows read the same argument as quality.
 - `ultrahdr_decode`: returns linear RGBA float16 `(H, W, 4)`, and `ultrahdr_check` sniffs — both live on this build.
 
-
 [ENTRYPOINT_SCOPE]: block-compressed texture DECODE
 - rail: compression
 - [SHAPE]: static (module-level functions)
@@ -116,7 +105,6 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `cms_profile`: names the `srgb`/`rgb`/`gray`/`adobergb`/`xyz`/`null` set, yet only `srgb`/`adobergb`/`xyz` build a transform — `rgb`/`gray`/`null` construct a profile that then fails `cmsCreateTransform`, and every built transform is 3-channel.
 - `cms_transform`: profiles are ICC BLOBS and a name string raises `CmsError`; `intent` speaks `CMS.INTENT` member names; a 4-band input DROPS its alpha band, so the caller splits alpha before the call and rejoins after.
 
-
 [ENTRYPOINT_SCOPE]: vertex, array, and numeric-precision codecs
 - rail: compression
 - [SHAPE]: static (module-level functions)
@@ -129,7 +117,6 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [04]   | `float24_encode(data, /, *, byteorder=None, rounding=None)`      | 24-bit float repack; `bfloat16_encode` mirrors it               |
 |  [05]   | `quantize_encode(data, /, mode, nsd, *, out=None)`               | reduce to `nsd` significant digits before a lossless codec      |
 |  [06]   | `zfp_encode` `sz3_encode` `sperr_encode` `pcodec_encode`         | error-bounded lossy compressors for solver-grade fields         |
-
 
 [ENTRYPOINT_SCOPE]: the PSD/PSB/TIFF channel codecs the layered-egress owner composes
 - rail: compression
@@ -166,8 +153,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [03]   | `imagefileext() -> list[str]`                                               | the 66 extensions `imread` and `imwrite` dispatch on |
 |  [04]   | `version(astype=None, /)`                                                   | linked-core census; `astype=dict` keys by core name  |
 
-
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One codec is one quadruple — `<name>_encode`/`_decode`/`_check`/`_version`, never a constructed `Codec` object or per-codec wrapper; the selecting vocabulary (PSD method code, plane format, egress extension) drives a `frozendict[<Enum>, str]` discriminant to a codec NAME, never an `if/elif` chain at the call site.
@@ -199,9 +185,3 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 [LOCAL_ADMISSION]:
 - `import imagecodecs` at boundary scope only; the `export/layered` `lazy import` proxy reifies the native core on first channel-codec use, as it does `psdtags`/`tifffile`.
 - Live UI and re-rasterization stay outside this package.
-
-[RAIL_LAW]:
-- Package: `imagecodecs`
-- Owns: the native codec substrate for every raster plane the estate encodes — the deep-pixel file codecs (`exr` across all twelve compression rows, `rgbe`, `png`/`spng`/`apng` at 16-bit, float and half `tiff`, `jpegxl`, `avif` to 12-bit, `webp`, `htj2k`, `jpeg2k`, `lerc`, `ultrahdr`, `qoi`), the `lcms2` ICC profile and transform surface, block-compressed `bcn`/`dds` DECODE, the `meshopt` vertex codecs, the error-bounded float compressors, the `none`/`packbits`/`zlib`/`deflate`/`zlibng`/`lzw` channel compressors with the `delta`/`floatpred`/`bitorder`/`packints` predictors and sample-repackers, the `<CODEC>.available` build probes, and the polymorphic `imread`/`imwrite`/`imagefileext` dispatch face
-- Accept: codec selection by name through a typed-enum `frozendict` discriminant; depth carried by the caller's array dtype with the cast landing before the codec; the predictor-then-`deflate(raw=True)` chain for method 3; `<CODEC>.available` and `<codec>_version()` as the only probes safe on an absent core; `out=<nbytes>` bounded preallocation sized from `plane.nbytes`; planes passed as contiguous `numpy` arrays; the `graphic/raster/io#IO` `CODEC` array-writer column at DISPLAY depth, where an 8-bit `Frame` is the container's own referent rather than a quantized intermediate
-- Reject: a constructed `Codec` instance where the quadruple suffices; an `if/elif` codec chain where the enum `frozendict` dispatches; a `<codec>_*` call whose `<CODEC>.available` was not asserted in a non-fixed build; any attribute past `.available` on an unavailable backend; a role-bearing, multi-part, or tiled EXR authored here rather than at `openexr`; a KTX2 container or any block ENCODE claimed here, where `bcn_encode`/`dds_encode` raise `NotImplementedError`; a lossy EXR/AVIF/JXL row on a plane whose content key is minted over the SOURCE array; an 8-bit intermediate on a texture or measurement path, where quantization is silent; re-authoring a PSD layer record, TIFF directory, or container header (`psdtags`/`tifffile`/`psd-tools` own those); `@retry` around a pure `encode`/`decode`; a `tiff_decode` at its `index=0` default where the whole image is wanted; a discontiguous plane reaching a codec without `.copy()`; a duplicate `deflate`/`PackBits` owner where the general compression band (`package/bundle#BUNDLE` `CompressionAlgo`) and the universal array-chunk store own their payloads; routing an OpenRaster `ORA` PNG member here, where the container-ZIP path is `stream-zip`, not channel compression

@@ -2,15 +2,7 @@
 
 `System.Runtime.InteropServices` is the shared-framework inbox for every managed-to-native boundary the branch crosses: portable POSIX signal registration, vendored native-module resolution, source-generated P/Invoke marshalling, native handle custody, and zero-copy reinterpretation of managed storage. One owner holds each concern — the registration object, the resolver delegate, the `SafeHandle` subclass, the marshal projector — so a native seam binds, frees, and re-types through this surface instead of its own kernel.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Runtime.InteropServices`
-- package: `System.Runtime.InteropServices` (MIT)
-- assembly: `System.Runtime.InteropServices.dll`, `System.Runtime.dll`, `System.Collections.Immutable.dll` (shared framework)
-- namespace: `System.Runtime.InteropServices`, `Microsoft.Win32.SafeHandles`
-- rail: native boundary — signal traps, module binding, handle lifetime, span aliasing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: portable POSIX signal seam
 
@@ -46,7 +38,7 @@
 |  [06]   | `CollectionsMarshal`                | static facade  | refs into BCL collection storage     |
 |  [07]   | `ImmutableCollectionsMarshal`       | static facade  | `ImmutableArray<T>` array aliasing   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: signal registration and delivery
 
@@ -122,7 +114,7 @@
 - `CollectionsMarshal.AsSpan` and `GetValueRefOrAddDefault`: the span and the ref die on the next structural edit of their collection.
 - `MemoryMarshal.GetReference`: yields a compare-only reference over an empty span, never a dereferenceable one.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every managed signal handler attaches through `PosixSignalRegistration.Create` and detaches through the returned registration's `Dispose`.
@@ -146,9 +138,3 @@
 - `nint` values live only inside the call that produced them; custody crossing that call transfers to a `SafeHandle` subclass.
 - `[UnmanagedCallersOnly]` marks every managed callback crossing the boundary, and that callback stays rooted for its whole lifetime.
 - Spans and refs taken through a marshal projector consume before their owner is structurally edited.
-
-[RAIL_LAW]:
-- Package: `System.Runtime.InteropServices`
-- Owns: portable signal registration, native-module resolution and export binding, generated P/Invoke marshalling, native handle custody, and zero-copy reinterpretation of managed storage.
-- Accept: one registration per trapped signal, one resolver per assembly, one `SafeHandle` subclass per native resource kind, and span aliasing whose owner outlives the view.
-- Reject: a hand-rolled `sigaction` P/Invoke, a hand-written `DllImport` stub, a raw `nint` field held past its call, or a defensive buffer copy where an alias carries the same bytes.

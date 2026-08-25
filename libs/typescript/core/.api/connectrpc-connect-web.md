@@ -2,18 +2,7 @@
 
 `@connectrpc/connect-web` mints the two public fetch `Transport` factories `interchange/invoke` seats as its browser/Bun adapter — `createConnectTransport` and `createGrpcWebTransport`. The package has no native gRPC factory, so `web + grpc` has no supported-pair type or schema arm. Both factories accept a `fetch` override; neither implements `grpc-web-text`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@connectrpc/connect-web`
-- package: `@connectrpc/connect-web` (Apache-2.0)
-- peer: `@connectrpc/connect` (`Transport`/`Interceptor`; `.api/connectrpc-connect.md`), `@bufbuild/protobuf` (codec options; `../../.api/bufbuild-protobuf.md`)
-- effect-peer: none direct — `createClient` consumes the returned `Transport`, wrapped in `effect` at `interchange/invoke` (`.api/effect.md`)
-- catalog-verdict: KEEP — the browser/Bun transport authority
-- module: dual esm/cjs, one `.` export
-- runtime: browser-primary (fetch API), node via global `fetch`; no `grpc-web-text`
-- rail: interchange/invoke
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two public option records — one per supported web protocol, each yielding `Transport`
 
@@ -29,7 +18,7 @@
 |  [08]   | `.defaultTimeoutMs?`                | deadline         | transport-wide deadline; per-call `CallOptions.timeoutMs` overrides |
 |  [09]   | `.useHttpGet?` (Connect)            | verb             | GET for idempotent side-effect-free unary                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the two `(options) -> Transport` factories the web adapter records as its complete supported set
 
@@ -40,7 +29,7 @@
 |  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress |
 |  [04]   | `{ interceptors: [trace, auth] }` | onion          | the shared `connect` `Interceptor` chain applied to every call     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one adapter, two supported protocols: both factories return the same `@connectrpc/connect` `Transport`; `Invoke.Dial` selects one factory from the adapter's total record for each configured lane, and no client code branches on protocol.
@@ -55,9 +44,3 @@
 [LOCAL_ADMISSION]:
 - record both factories on the web adapter and invoke only the configured lane's member; `web + grpc` never reaches a guard because the discriminated lane schema cannot express it.
 - pass the host `fetch` and shared `Interceptor` chain through the options; keep `baseUrl`/`useBinaryFormat`/`defaultTimeoutMs` decoded, and keep `useHttpGet` absent while no corpus RPC declares `NO_SIDE_EFFECTS`.
-
-[RAIL_LAW]:
-- Package: `@connectrpc/connect-web`
-- Owns: the public Connect and gRPC-Web fetch factories and their option records; together they are the complete `web` adapter capability
-- Accept: both factories as a total adapter record, one selected transport per configured lane, the host `fetch` override, the shared interceptor chain, codec options, and decoded endpoint/timeout policy
-- Reject: an invocation or client concept sourced here, native gRPC on a web lane, downstream protocol branching, a hardcoded endpoint/timeout, or expecting `grpc-web-text`/XHR streaming

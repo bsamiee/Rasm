@@ -2,15 +2,7 @@
 
 `fastexcel` binds the Rust `calamine` decoder to an Arrow boundary for the data ingestion rail. One `read_excel` factory opens a workbook into an `ExcelReader`; one polymorphic `load_sheet`/`load_table` surface materializes any sheet or named table to a lazy Arrow PyCapsule (`ExcelSheet`/`ExcelTable`) or an eager `pyarrow.RecordBatch`. Windowing, dtype, and column-selection ride as call rows, and the lazy block exports zero-copy through `__arrow_c_array__` with no mandatory `pyarrow` dependency.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `fastexcel`
-- package: `fastexcel` (MIT)
-- module: `fastexcel`
-- owner: `data`
-- rail: ingestion
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reader, materialized blocks, and metadata
 
@@ -51,7 +43,7 @@
 |  [08]   | `InvalidParametersError`                | inconsistent load parameters                 |
 |  [09]   | `UnsupportedColumnTypeCombinationError` | column mixes types coercion cannot reconcile |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open factory
 
@@ -101,7 +93,7 @@ A lazy `ExcelSheet`/`ExcelTable` exports through the Arrow PyCapsule dunders, so
 |  [15]   | `sheet_name -> str`                                            | property | `ExcelTable` owning-sheet name           |
 |  [16]   | `offset -> int`                                                | property | `ExcelTable` data-start offset           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `read_excel` owns workbook opening; `source` discriminates path from `bytes` in the request value, never a per-source factory type, and `~` expands once at the boundary for `str`/`Path`.
@@ -124,9 +116,3 @@ A lazy `ExcelSheet`/`ExcelTable` exports through the Arrow PyCapsule dunders, so
 - import `fastexcel` at boundary scope only; module-level import is banned by the manifest import policy.
 - open through `read_excel(source)` and materialize through `load_sheet`/`load_table` with windowing, dtype, and selection as call args, never a per-shape wrapper.
 - calamine owns xlsx/xlsm/xlsb/xls/ods decode and the Arrow export edge; authoring, formula evaluation, and styling stay outside the package.
-
-[RAIL_LAW]:
-- Package: `fastexcel`
-- Owns: calamine-backed Excel decode into Arrow, per-column dtype control and coercion, header/skip/row windowing with int/list/callable skip predicates, Excel-letter/list/callable column selection, whitespace-tail trimming and whitespace-as-null, named-table and defined-name access, `ExcelSheet` per-cell parse-error capture, and zero-copy PyCapsule export
-- Accept: Excel workbook ingestion into Arrow record batches feeding the dataset, frame, and persistence owners
-- Reject: a wrapper-rename of `read_excel`/`load_sheet`; a hand-rolled xlsx/ods decoder; a parallel reader type per source kind or eager/lazy mode; a per-sheet column-name family; a forced `pyarrow` dependency where the polars PyCapsule export needs only the `polars` extra; a post-load row filter where the `skip_rows` predicate prunes at decode; silent dropping of unparseable cells native `CellErrors` records

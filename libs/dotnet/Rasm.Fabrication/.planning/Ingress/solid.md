@@ -25,7 +25,7 @@
 - Boundary: no provider handle, exception type, or geometry type escapes this cluster. Documented BCL file-availability exceptions lower through caused `IngressProviderUnavailable`; OCCT, Rhino3dm, and Lib3MF throws have no local provider classifier and retain the exact exceptional `Error`. Clean null/status channels rail as typed geometry or translation refusals, and `OcctRuntime.TryGetNativeVersion` gates OCCT admission so a missing native toolkit refuses typed rather than escaping as a load failure.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 extern alias R3;
 
 using System.Collections.Frozen;

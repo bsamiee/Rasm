@@ -24,7 +24,7 @@
 - Growth: a new execution posture is one `SolutionCommand` case breaking the gate's total `Switch` loudly and naming its lane on the column; a new lifecycle stream on `Watch` is one composed `GhSource` row — the gate pair never widens.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;
 using Rasm.Grasshopper.Components;
@@ -153,7 +153,7 @@ public static partial class SolutionControl {
 - Growth: a new run metric is one field on the owning value with its claim row and its generated map line; a new timeline judgment is one claim inside `SolutionTrace.IsValid` — no new species.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -226,16 +226,16 @@ public static partial class SolutionControl {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                 | [RAIL]                                                          | [CASES] |
-| :-----: | :------------------- | :---------------------- | :-------------------------------------------------------------- | :-----: |
-|  [01]   | thread custody       | `MarshalLane`           | column on `SolutionCommand`                                     |    2    |
-|  [02]   | wait budget          | `WaitPosture`           | positive by construction, typed overdue                         |    1    |
-|  [03]   | execution commands   | `SolutionCommand`       | `Drive → Fin<GateOutcome>` + herald                         |    6    |
-|  [04]   | lifecycle watching   | `SolutionControl.Watch` | kernel `Observe` over `GhSource.Of(server)`                     |    1    |
-|  [05]   | projection seam      | `SolutionMap`           | generated `Pulse`/`Audit` maps                                  |    2    |
-|  [06]   | in-flight inspection | `RunPulse`              | `Probe → Fin<RunPulse>`                                         |    1    |
-|  [07]   | completion audit     | `SolutionAudit`         | `Audit → Fin<SolutionAudit>`                                    |    1    |
-|  [08]   | phase timeline       | `SolutionTrace`         | `Trace → Fin<SolutionTrace>`                                    |    1    |
+| [INDEX] | [CONCERN]            | [OWNER]                 | [RAIL]                                      | [CASES] |
+| :-----: | :------------------- | :---------------------- | :------------------------------------------ | :-----: |
+|  [01]   | thread custody       | `MarshalLane`           | column on `SolutionCommand`                 |    2    |
+|  [02]   | wait budget          | `WaitPosture`           | positive by construction, typed overdue     |    1    |
+|  [03]   | execution commands   | `SolutionCommand`       | `Drive → Fin<GateOutcome>` + herald         |    6    |
+|  [04]   | lifecycle watching   | `SolutionControl.Watch` | kernel `Observe` over `GhSource.Of(server)` |    1    |
+|  [05]   | projection seam      | `SolutionMap`           | generated `Pulse`/`Audit` maps              |    2    |
+|  [06]   | in-flight inspection | `RunPulse`              | `Probe → Fin<RunPulse>`                     |    1    |
+|  [07]   | completion audit     | `SolutionAudit`         | `Audit → Fin<SolutionAudit>`                |    1    |
+|  [08]   | phase timeline       | `SolutionTrace`         | `Trace → Fin<SolutionTrace>`                |    1    |
 
 `DocumentGate.Run`/`Resolve`, `GateOutcome`, kernel `UiThread`/`UiEvents`/`EvidenceDrain`, `GhSource`, `GhFault`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners; the `nameof` verb strings, the unbounded `GetAwaiter().GetResult()` block, the `is`-ladder custody split, the hand projection bodies, and the fabrication-branch name collision are all deleted.
 

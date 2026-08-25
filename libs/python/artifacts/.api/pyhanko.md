@@ -2,15 +2,7 @@
 
 `pyhanko` owns PDF digital signing and signature validation for the artifacts pdf rail: CMS/CAdES/PAdES signing across the B-B/B-T/B-LT/B-LTA ladder, document certification, DSS embedding, RFC 3161 timestamp and LTV chaining, pluggable diff analysis, and two-phase HSM/remote signing. Every signer composes a `pyhanko_certvalidator.ValidationContext` for trust and revocation; CMS is never hand-built and no parallel signing path forks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyhanko`
-- package: `pyhanko` (MIT)
-- module: `pyhanko`
-- namespaces: `pyhanko.sign`, `pyhanko.sign.fields`, `pyhanko.sign.validation`, `pyhanko.sign.diff_analysis`, `pyhanko.sign.timestamps`, `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`, `pyhanko.stamp`, `pyhanko.pdf_utils`, `pyhanko_certvalidator`
-- rail: pdf — CMS/CAdES/PAdES signing + validation, document certification, DSS/LTV, RFC 3161 timestamp chaining, diff analysis, two-phase HSM/remote signing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: signing principal family — `pyhanko.sign`
 
@@ -85,11 +77,11 @@
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]                                                                  |
 | :-----: | :-------------------------- | :------------------- | :---------------------------------------------------------------------------- |
 |  [01]   | `CAdESSignedAttrSpec`       | signed-attr spec     | `commitment_type`, signature-policy, signer-attribute CAdES signed attributes |
-|  [02]   | `GenericCommitment`         | commitment-type enum | predefined ETSI commitment identifiers with `.asn1` projections       |
+|  [02]   | `GenericCommitment`         | commitment-type enum | predefined ETSI commitment identifiers with `.asn1` projections               |
 |  [03]   | `DSSContentSettings`        | DSS write policy     | `include_vri`, `placement` controlling the DSS/VRI revision write             |
 |  [04]   | `SigDSSPlacementPreference` | DSS placement enum   | `SEPARATE_REVISION` / `TOGETHER_WITH_NEXT_TS` / `TOGETHER_WITH_SIGNATURE`     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: credential loading and signers — `pyhanko.sign`
 - `SimpleSigner` loaders and `ExternalSigner` carry: `signature_mechanism=None, prefer_pss=False`; `load` adds `key_passphrase=None`, `load_pkcs12` a `passphrase=None`.
@@ -186,7 +178,7 @@
 |  [03]   | `IncrementalPdfFileWriter(input_stream, prev=None, strict=True)`         | writer open   | append-only update writer over reader   |
 |  [04]   | `ValidationContext(trust_roots=None, …, revocation_mode='soft-fail', …)` | trust context | build the cert/revocation trust context |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Signing folds `SimpleSigner.load`/`load_pkcs12` (or `ExternalSigner` for HSM/remote) -> `PdfSignatureMetadata(...)` -> `sign_pdf(pdf_out, meta, signer, timestamper)` or `PdfSigner(meta, signer, stamp_style=...).sign_pdf(pdf_out)`; the `async_` mirror is the coroutine-scope form.
@@ -209,9 +201,3 @@
 
 [LOCAL_ADMISSION]:
 - `import pyhanko` at boundary scope; sign over `IncrementalPdfFileWriter`, resolve trust/revocation through one `pyhanko_certvalidator.ValidationContext`.
-
-[RAIL_LAW]:
-- Package: `pyhanko`
-- Owns: PDF digital signature (CMS/CAdES/PAdES B-B/B-T/B-LT/B-LTA), document certification (DocMDP/FieldMDP), signature-field + seed-value management, embedded + raw-CMS validation, DSS embedding, RFC 3161 timestamp + LTV archival chaining, pluggable diff analysis, two-phase HSM/remote signing
-- Accept: PDF streams as binary I/O over `IncrementalPdfFileWriter`; certificates as PEM/DER files, PKCS#12, or `asn1crypto` objects; a `pyhanko_certvalidator.ValidationContext` for trust/revocation
-- Reject: hand-rolled CMS construction; a fresh non-incremental writer for append-only signing; a `ValidationContext` built independently of `pyhanko_certvalidator`; a manual revision byte-compare where `diff_analysis` owns the policy; wrapper-renames of the signing/validation entrypoints

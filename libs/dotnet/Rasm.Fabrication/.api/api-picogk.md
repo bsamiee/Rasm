@@ -2,18 +2,7 @@
 
 `PicoGK` (LEAP71) owns the implicit/SDF/voxel geometry kernel for additive manufacturing over an OpenVDB/boost/TBB native core. An `IImplicit` signed-distance field rasterizes to `Voxels`, the field owner of 3D SDF Boolean, distance morphology, dual-contour mesh extraction, and the grayscale-and-vector SLA/DLP/MSLA layer stack no planar FFF path reaches. Planar perimeters and 2D toolpaths stay on `Clipper2`/`CavalierContours`; the voxel/SDF/layer-stack concern stays here. `Voxels.mshAsMesh` is the wire seam handing an extracted `Mesh` to the kernel `MeshSpace` vocabulary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PicoGK`
-- package: `PicoGK` (Apache-2.0)
-- assembly: `PicoGK`
-- namespace: `PicoGK`
-- asset: `lib/net9.0/PicoGK.dll`; a `net10.0` consumer binds the net9.0 fallback. A RID-bearing native core `runtimes/<rid>/native/picogk.26.2.*` (OpenVDB/boost/TBB) firebreaks it out of any in-Rhino plugin ALC
-- abi: `Config.strPicoGKLib = "picogk.26.2"` names the P/Invoke target
-- depends: `SkiaSharp`, riding the App-UI SkiaSharp row
-- rail: fabrication companion, outside-Rhino AM
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the implicit (SDF) contract — the field-function entry
 
@@ -94,7 +83,7 @@
 - `BBox3`: `vecMin`/`vecMax` `vecSize`/`vecCenter` `Include`/`Grow`/`bContains`/`bIsEmpty` `oFitInto(bounds, out float, out Vector3)`.
 - `ImageGrayScale` is the slice target; its `nWidth`/`nHeight` and public `m_afValues` float raster are the canonical-byte payload a mask content key digests.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: implicit -> voxels rasterization
 
@@ -218,7 +207,7 @@
 
 - `OpenVdbFile.nAdd` and `oGetScalarField`/`oGetVectorField` overload on `Voxels`, `ScalarField`, and `VectorField`; `FieldMetadata.SetValue`/`bGetValueAt` carry `string`, `float`, and `Vector3` values through VDB.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - ALC FIREBREAK: `PicoGK` binds a RID-bearing native core (`picogk.26.2.*` over boost/TBB/icu/zstd) and never loads inside an in-Rhino plugin ALC; the AM rail runs it in the `Rasm.AppHost` sidecar and marshals the extracted `Mesh` and slice programs back across the wire.
@@ -234,9 +223,3 @@
 
 [LOCAL_ADMISSION]:
 - `PicoGK` admits the implicit/voxel/SDF concern — TPMS/gyroid/cellular conformal infill, overhang lattices, true-3D shell/fillet/over-offset, and the resin/powder grayscale-plus-vector layer stack, results handed back as an extracted `Mesh` or a slice program. Planar FFF perimeters and 2D toolpaths admit `Clipper2`/`CavalierContours` instead.
-
-[RAIL_LAW]:
-- Package: `PicoGK` (assembly `PicoGK`, native core `picogk.26.2`)
-- Owns: the implicit/SDF/voxel AM kernel — `IImplicit` rasterization to `Voxels`, 3D SDF Boolean and distance morphology, `Lattice` scaffold rasterization, dual-contour `Mesh` extraction, SDF ray-cast and volume/bbox metrics, the grayscale (`GetVoxelSlice`) and vector (`oVectorize`/`CliIo`/`Vdb2Cli`) SLA/DLP/MSLA layer stack, `ScalarField`/`VectorField` sampled fields with `FieldMetadata`, and `OpenVdbFile` round-trip, over a native core in the sidecar host.
-- Accept: the AM implicit/voxel concern handed back as an extracted `Mesh` or a slice program.
-- Reject: plugin-domain references; undisposed `Voxels`/field/mesh/`Library`/VDB handles; mixed-library voxel sizes; a bare `picogk.dylib` name; the planar 2D-perimeter concern `Clipper2`/`CavalierContours` own; and a hand-rolled mesh or slice hand-off the kernel `MeshSpace` and the `Query/cache` artifact index (`ContentHash.Of`) already own.

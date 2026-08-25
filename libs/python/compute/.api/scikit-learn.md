@@ -2,16 +2,7 @@
 
 `scikit-learn` owns classical-ML fitting for the compute model-asset rail: a `Pipeline`/`ColumnTransformer` of transformers and a final estimator, tuned through `model_selection`, scored through `metrics`, fit offline, and exported to ONNX (`.api/skl2onnx.md`) as the graduation candidate. Every estimator obeys one `fit`/`predict`/`transform`/`score` protocol the mixin discriminates, so a new task is a mixin, never a per-task method family.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `scikit-learn`
-- package: `scikit-learn`
-- import: `sklearn`; submodules `sklearn.base`, `sklearn.pipeline`, `sklearn.compose`, `sklearn.preprocessing`, `sklearn.impute`, `sklearn.model_selection`, `sklearn.linear_model`, `sklearn.ensemble`, `sklearn.svm`, `sklearn.tree`, `sklearn.decomposition`, `sklearn.feature_selection`, `sklearn.calibration`, `sklearn.inspection`, `sklearn.metrics`; the `from sklearn.experimental import enable_halving_search_cv`/`enable_iterative_imputer` gate import precedes the gated symbol
-- owner: `compute`
-- rail: model
-- capability: one `fit`/`predict`/`transform`/`score` estimator protocol with metadata routing and DataFrame/array output configuration; the fitted pipeline is the ONNX export source for the model-asset rail
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: estimator-protocol roots and composition
 
@@ -56,7 +47,7 @@ Each family pairs a `Classifier`/`Regressor` where both exist, importing from `l
 [CLUSTER_DENSITY] (`cluster`): `DBSCAN` `HDBSCAN`
 [CLUSTER_HIERARCHICAL] (`cluster`): `AgglomerativeClustering` `SpectralClustering`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: uniform estimator protocol
 
@@ -108,7 +99,7 @@ One protocol spans every estimator; the mixin selects the verb, and `set_output`
 [SCORER_FACTORY]: `make_scorer(score_func, *, greater_is_better)` `get_scorer(name)` `get_scorer_names()`
 [INSPECTION] (`inspection`): `permutation_importance(est, X, y)` `partial_dependence(est, X, features)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - protocol: every estimator derives from `base.BaseEstimator` exposing `fit`/`get_params`/`set_params`/`set_output`/`set_*_request`; transformers add `transform`/`fit_transform`/`get_feature_names_out`, classifiers add `predict`/`predict_proba`/`decision_function`, regressors add `predict`, clusterers add `fit_predict` — the mixin discriminates the task.
@@ -125,9 +116,3 @@ One protocol spans every estimator; the mixin selects the verb, and `set_output`
 [LOCAL_ADMISSION]:
 - submodule imports at boundary scope; the `enable_halving_search_cv`/`enable_iterative_imputer` gate import precedes the gated symbol's use.
 - classical fitting is offline; production model serving and benchmark authority stay in `Rasm.Compute`.
-
-[RAIL_LAW]:
-- Package: `scikit-learn`
-- Owns: offline classical-ML fitting, pipeline and column composition, decomposition and feature selection, probability calibration, model selection and inspection, scoring, and ONNX export sourcing for the model-asset rail
-- Accept: a fitted `Pipeline`/`ColumnTransformer` with named-column output, a `cross_validate` score over a task-appropriate splitter, inspection importances, and an ONNX export validated through `onnxruntime`
-- Reject: production model serving; hand-rolled estimators, splitters, or metrics sklearn owns; per-task method-name proliferation over the uniform `fit`/`predict`/`transform`/`score` protocol

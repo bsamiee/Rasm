@@ -17,7 +17,7 @@ Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discip
 - Boundary: no vocabulary, codec, bind row, or derivation (`drawing/regime#REGIME`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no `add_*` render (`dimension`/`annotate`/`symbol`); no color-model conversion beyond the ACI→sRGB resolve (`graphic/color/derive#DERIVE` owns model algebra over regime's LCh values); no sheet placement (`composition/sheet#SHEET`); no plan node, async, or offload (the consuming producer owns the seam); no IFC (`dotnet:Rasm.Bim`).
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Self, assert_never
 

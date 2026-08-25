@@ -2,16 +2,7 @@
 
 `ezdxf` owns DXF read/write/render for the artifacts cad-export rail: a `Drawing` document graph authored through one `GraphicsFactory.add_*` builder family, the `ezdxf.path.Path` command-segment algebra bridging DXF curves to the SVG path the figure owners speak, the `ezdxf.math` kernel the geometry seam reads, and the `addons.drawing` `Frontend`+backend family rasterizing any DXF to SVG/PDF/PNG/JSON in-process. It re-implements neither the DXF grammar, OCS/WCS transform, B-spline evaluator, nor DXF-to-SVG conversion it owns, and authors neither the IFC model (`dotnet:Rasm.Bim`) nor the placement the composition owners hold.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `ezdxf` (MIT)
-- import: `ezdxf`
-- namespaces: `ezdxf`, `ezdxf.math`, `ezdxf.path`, `ezdxf.addons.drawing`, `ezdxf.addons`
-- owner: `artifacts`
-- rail: cad-export
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and layout roots
 
@@ -97,7 +88,7 @@ Pure geometry value objects — the `Vec3`/`Matrix44` shapes the `geometry/*` an
 |  [07]   | `CustomJSONBackend` / `GeoJSONBackend`               | backend    | structured JSON / GeoJSON geometry export                           |
 |  [08]   | `layout.Page` / `layout.Settings` / `layout.Margins` | page model | output page size/units/margins/fit-to-page for the SVG/PDF backends |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document factory and IO
 
@@ -293,7 +284,7 @@ Boundary surfaces: `GfxAttribs` is the one attribute value object across the who
 |  [24]   | `acis.api.load(data)`                                              | ACIS       | parse SAT records or SAB bytes into ACIS bodies        |
 |  [25]   | `acis.api.export_dxf(entity, bodies)`                              | ACIS       | bind parsed bodies to an ACIS DXF entity               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 - import: `import ezdxf` at boundary scope; the geometry kernel imports `from ezdxf import math as ezmath` (aliased so it never shadows the stdlib `math`), the path bridge as `dxfpath`, the render stack from `ezdxf.addons.drawing`, and `ezdxf.DXF2018` and its peers carry the DXF-version literals.
 - document axis: `ezdxf.new` is the single construction factory and `readfile`/`read`/`readzip`/`decode_base64` the polymorphic ingestion family discriminating on source shape, never a per-version reader. `recover.readfile` takes a damaged file (returning `(doc, auditor)` for salvage inspection), never the conforming `readfile`; `audit()` runs before `saveas` so no structurally invalid model reaches disk.
@@ -313,9 +304,3 @@ Boundary surfaces: `GfxAttribs` is the one attribute value object across the who
 - `resvg-py`/`pymupdf`(`.api/resvg-py.md`, `.api/pymupdf.md`): `SVGBackend.get_string(...)` produces an SVG the `graphic/vector` owner composites and `resvg-py`/`vl-convert` rasterizes, while `PyMuPdfBackend.get_pdf_bytes(...)` produces a one-page PDF the `composition/imposition`/`composition/sheet` owner places — a DXF figure lowers into the document plane through the existing raster/page owners.
 - `anyio`(`libs/python/.api/anyio.md`)/`stamina`(`libs/python/runtime/.api/stamina.md`): `LanePolicy.offload(Kernel.of(_composed, KernelTrait.RELEASING), op)` owns capacity, cancellation, and boundary-fault conversion for rendering and recovery, worker-death retry riding the kernel's trait row.
 - `addons.geo`: `addons.geo.proxy(entity)` and `GeoProxy.parse(...).to_dxf_entities()` round-trip DXF geometry against the geospatial frame, so a georeferenced site plan crosses the same GeoJSON wire the geospatial owners read — ezdxf holding only the DXF<->GeoJSON conversion, never the CRS authority.
-
-[RAIL_LAW]:
-- Package: `ezdxf`
-- Owns: DXF R12->R2018 read/write/recover, the graphic-entity builder vocabulary, the `ezdxf.path.Path` command-segment algebra, the `ezdxf.math` geometry kernel, the `addons.drawing` render frontend over its backends, symbol-table/block/xref authoring, spatial `select`, affine `transform`, `query`/`groupby` selection, `bbox` extents, `addons.geo` round-trip, cross-document `addons.Importer`, `text2path` outline conversion, and the `r12writer` streaming writer
-- Accept: DXF ingestion and salvage, drawing/dimension/annotation/symbol geometry emission (the `drawing/*` AEC vocabularies lowering onto ezdxf tables + entities), DXF figure rendering into the document/composition plane, DXF<->SVG path exchange with the figure rail, the geometry-kernel wire to numpy and the C# `Rasm` seam, and DXF<->GeoJSON round-trip for georeferenced plans
-- Reject: a hand-assembled DXF tag stream where the `add_*` family + `GfxAttribs` exist; a per-entity attribute setter where the uniform `dxfattribs=` axis applies; a re-implemented affine/B-spline/OCS transform where `ezdxf.math` owns it; a re-parsed SVG `d`-string where `make_path`/`render_lines` bridge; a foreign DXF renderer where the `Frontend`+backend family renders; a `find`/`get_by_layer`/`filter` query family where `doc.query`/`groupby` discriminate; the conforming `readfile` on a damaged file where `recover.readfile` is correct; IFC semantic authoring the `dotnet:Rasm.Bim` owner holds; identity minting the runtime owns

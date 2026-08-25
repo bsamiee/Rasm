@@ -2,17 +2,7 @@
 
 `ProDiagnostics` is the maintained Avalonia-12 developer-tools UI — a MIT fork (wieslawsoltes, `github.com/wieslawsoltes/ProDataGrid`) of `Avalonia.Diagnostics` shipping under the original assembly and namespace (`Avalonia.Diagnostics.dll`, `Avalonia`/`Avalonia.Diagnostics`), so `this.AttachDevTools()` binds unchanged. It mounts visual/logical tree navigation, live property and style editing, routed-event tracking, and layout/renderer overlays on the live window. Feed-dead first-party `Avalonia.Diagnostics` has no Avalonia-12 asset, and pay-tiered Accelerate DevTools fails license admission; `ProDiagnostics` therefore owns the `Debug`-gated dev-loop inspection surface beside `HotAvalonia`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ProDiagnostics`
-- package: `ProDiagnostics` (MIT)
-- assembly: `Avalonia.Diagnostics` (`lib/net10.0/Avalonia.Diagnostics.dll` binds the `net10.0` consumer directly; `net8.0` fallback asset)
-- namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`IScreenshotHandler`/`IDevToolsPropertyEditHandler`/`DevToolsPropertyEdit`/`DevToolsResourceReferenceKind`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
-- depends: `Avalonia` (12.x), `Avalonia.Controls.ColorPicker` (the inspector's color-value editor) — both already admitted; the `ProDataGrid`/`ProCharts` sibling packages are NOT admitted
-- binding: `Debug`-only, `PrivateAssets="all"` — never flows to a downstream consumer, absent from the Release surface
-- rail: dev-loop-inspection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [INSPECTOR_OPTIONS]: `Avalonia.Diagnostics` attach configuration
 - rail: dev-loop-inspection
@@ -65,7 +55,7 @@
 
 [VISUAL_EXTENSIONS]: `RenderTo(this Control, Stream, double dpi = 96.0)` writes the control snapshot consumed by the screenshot handler.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ATTACH_SURFACE]: `Avalonia.DevToolsExtensions` — one polymorphic attach fold over `TopLevel`/`Application`
 - rail: dev-loop-inspection
@@ -87,7 +77,7 @@
 |  [01]   | `Task Take(Control control)`                  | `IScreenshotHandler`           | consumer-owned snapshot sink       |
 |  [02]   | `void OnPropertyEdited(DevToolsPropertyEdit)` | `IDevToolsPropertyEditHandler` | consumer-owned commit interception |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [DEVLOOP_LAW]:
 - Package: `ProDiagnostics`

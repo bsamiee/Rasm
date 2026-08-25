@@ -2,17 +2,7 @@
 
 `MPXJ.Net` owns project-schedule file interchange: every scheduling-tool dialect it reads materializes into one neutral `ProjectFile` graph — WBS hierarchy, typed dependency edges, unit-tagged durations, working-time calendars, resource loading — and `FileFormat` names every dialect it writes back. `ProjectCalendar` owns the working-time arithmetic and `Duration` the unit conversion, so a consumer resolves both on the surface. Scheduling math — the CPM passes, float, leveling — is the consumer's; this codec owns the round-trip.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MPXJ.Net`
-- package: `MPXJ.Net` (LGPL-2.1-or-later)
-- assembly: `MPXJ.Net`, the `lib/net6.0` asset a `net10.0` consumer binds
-- namespace: `MPXJ.Net`, IKVM-proxied over the Java `net.sf.mpxj`
-- abi: pure managed at run time — `IKVM.Maven.Sdk` translates the MPXJ jar to IL inside the consuming build, and no JVM loads after it
-- depends: `IKVM.Maven.Sdk`, `Portable.System.DateTimeOnly`
-- rail: schedule-file interchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the neutral `ProjectFile` graph, its calendar and economic rows, and the enums those rows discriminate on
 
@@ -116,7 +106,7 @@ Every duration and lag carries its `TimeUnit`; a bare magnitude has no meaning w
 
 [PROJECTPROPERTIES]: `StartDate` `FinishDate` `CurrentDate` `StatusDate` `ScheduleFrom` `DefaultCalendar` `ActivityDefaultCalendar` `DefaultDurationUnits` `DefaultWorkUnits` `DefaultStandardRate` `DefaultTaskType` `MinutesPerDay` `MinutesPerWeek` `DaysPerMonth` `WeekStartDay` `FiscalYearStartMonth` `CriticalSlackLimit` `MultipleCriticalPaths` `HonorConstraints` `CurrencyCode` `CurrencySymbol` `CurrencyDigits` `ProjectTitle` `ProjectID` `Company` `Manager` `Author` `LastSaved` `CreationDate` `FileType` `FileApplication` `CustomProperties` `BaselineTypeName` `LastBaselineUpdateDate`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the format-sniffing read, the format-targeted write, the calendar arithmetic, and the synthesis surface a written graph is built through
 
@@ -165,7 +155,7 @@ Every duration and lag carries its `TimeUnit`; a bare magnitude has no meaning w
 - `AbstractProjectReader.Read`: yields the container's first project and drops the rest, so a multi-project XER round-trips only through `ReadAll`.
 - `Duration.ConvertUnits`: both `ProjectCalendar` and `ProjectProperties` satisfy `ITimeUnitDefaultsContainer<T>`, and each carries its own minutes-per-day and days-per-month.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One neutral graph absorbs every dialect: `UniversalProjectReader` sniffs the format and dispatches to the concrete reader, so one call ingests any supported file and an upstream dialect addition costs the consumer nothing.
@@ -187,9 +177,3 @@ Every duration and lag carries its `TimeUnit`; a bare magnitude has no meaning w
 - `ProjectFile` maps once onto the canonical rows, and the proxy types and their `JavaObject` handle stop at that seam.
 - Durations and lags read through their `TimeUnit`, and working-day arithmetic runs on `ProjectCalendar`.
 - Every consuming project inherits the `IKVM.Maven.Sdk` build chain; `Directory.Build.targets` owns the design-time guard that keeps it off Roslyn loads, and `Directory.Build.props` owns the promotion carve for the closure's `IKVM0100`/`IKVM0101`/`IKVM0109` warnings, which the packed POM alone can change.
-
-[RAIL_LAW]:
-- Package: `MPXJ.Net`
-- Owns: schedule-file parse and serialize between every supported dialect and the neutral `ProjectFile` graph
-- Accept: a schedule file or stream for read; a `ProjectFile` graph with its `FileFormat` target for write
-- Reject: a hand-rolled XER, MPX, MSPDI, or MPP parser; an extension-branched ingress; a `Read` ingress truncating a container; a Java handle threaded past the row boundary; CPM or leveling math inside the codec; a second schedule-file codec

@@ -24,7 +24,7 @@ Controller syntax is posting-owned and lives in ROWS: `FamilyGrammar` carries on
 - Packages: `Thinktecture.Runtime.Extensions` generates `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, and `EmitPolicy`; `Encoding.GetBytes` and `ContentKey.Of` seal egress.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;

@@ -2,16 +2,7 @@
 
 `opentelemetry-exporter-otlp-proto-grpc` owns the OTLP/gRPC egress tail of the observability rail: `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter` each hold one persistent `grpc` channel to a `host:port` collector and reuse it across every export, sitting as the terminal sink behind an SDK processor. It is the daemon-selectable transport row, not the estate default — proto-http owns the default egress, and this gRPC row is selected only on a long-lived non-forking server where streaming throughput dominates.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-grpc`
-- package: `opentelemetry-exporter-otlp-proto-grpc` (Apache-2.0)
-- module: `opentelemetry.exporter.otlp.proto.grpc`
-- namespaces: `...grpc.trace_exporter`, `...grpc.metric_exporter`, `...grpc._log_exporter`, `...grpc.exporter`
-- abi: pure-Python runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: signal exporters over one persistent gRPC channel
 
@@ -21,7 +12,7 @@
 |  [02]   | `OTLPMetricExporter` | exporter      | OTLP/gRPC metric export (`MetricExporter`, `metric_exporter`)      |
 |  [03]   | `OTLPLogExporter`    | exporter      | OTLP/gRPC log-record export (`LogRecordExporter`, `_log_exporter`) |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: exporter construction
 - shared ctor carry: `endpoint`, `insecure`, `credentials`, `headers`, `timeout`, `compression`, `channel_options`, `retryable_error_codes`, `*`, `meter_provider`
@@ -36,7 +27,7 @@
 |  [02]   | `OTLPMetricExporter(...+metric)` | ctor    | metric exporter behind a periodic reader             |
 |  [03]   | `OTLPLogExporter(...shared)`     | ctor    | log-record exporter behind `BatchLogRecordProcessor` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Each exporter holds one persistent `grpc` channel built once by `_initialize_channel_and_stub` and reused across every export; the channel reinitializes only on an `UNAVAILABLE` reconnect, and never survives `fork()`.
@@ -63,9 +54,3 @@
 - Pinning HOLDS the specification set rather than narrowing it — the pin denies a deployment its vote over a running pipeline's re-drive policy and settles nothing about which codes OTLP calls retryable, since a narrowed roster forks a client behavior every conforming peer already agrees on.
 - Every row states `timeout`, since that one value bounds the entire retry window and an absent slot yields it to `OTEL_EXPORTER_OTLP_TIMEOUT`.
 - `Telemetry.shutdown` runs the drain, so the exporter's shutdown-abort is the flush contract's second half: the queue flushes first and a pending backoff preempts rather than outliving it.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-exporter-otlp-proto-grpc`
-- Owns: OTLP span/metric/log egress over a persistent gRPC channel to a `host:port` collector target, its retry curve, and its peer-directed backoff
-- Accept: the daemon transport row on a long-lived non-forking server, selected through the telemetry install's exporter-factory seam with `retryable_error_codes` and `timeout` both pinned
-- Reject: the estate default (proto-http owns it), selection inside a forking-worker crossing, a library-level import of an exporter class, a row leaving `retryable_error_codes` or `timeout` to the environment, a `stamina` schedule wrapped around `export` beside the exporter's own

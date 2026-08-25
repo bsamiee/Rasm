@@ -25,7 +25,7 @@ Rebuilds compose the `Rasm.Domain` rails as the solution validity floor and stay
 - Boundary: capability reads off the trait set, so a parallel `FactorKind` enum re-declaring the route space never mints, and `Transposed` is a trait on the route because the transposed behaviour binds to the concrete CSparse factor while the route item is instance-free.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
 using DoubleDouble;

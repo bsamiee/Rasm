@@ -2,17 +2,7 @@
 
 `dragonfly-core` owns the urban 2.5-D massing graph — the `Model` → `Building` → `Story` → `Room2D` hierarchy with `ContextShade` — and its translation into an array of detailed Honeybee energy models. A `Story` multiplier stands for N identical floors and the discriminated window/skylight/shading/roof families keep the graph compact, so a district stays lean until `to_honeybee` explodes it into per-room 3-D geometry. Import name is `dragonfly`, not `dragonfly_core`; importing any `dragonfly_*` plugin auto-registers its `.properties.<ext>` accessor onto every object.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `dragonfly-core`
-- package: `dragonfly-core` (AGPL-3.0)
-- module: `dragonfly` — `dragonfly.{model,building,story,room2d,context}` graph, `dragonfly.{windowparameter,skylightparameter,shadingparameter,roof,projection}` parameter families + GeoJSON projection, `dragonfly.{properties,dictutil}` extension host + polymorphic loader
-- owner: `geometry`
-- rail: energy-companion (urban massing)
-- consumer: `.planning/energy/district.md` — dfjson/GeoJSON/massing admission, ordered auto-zoning, the `to_honeybee` explosion seam
-- depends: `honeybee-core` (the building model `to_honeybee` targets; transitively `ladybug-geometry`, `ladybug-core`), `dragonfly-schema` (the Pydantic dfjson schema validating `to_dict`/`from_dict`)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the urban massing hierarchy (`dragonfly.{model,building,story,room2d,context}`)
 
@@ -30,7 +20,7 @@
 - [SHADING]: `_ShadingParameterBase` — `ExtrudedBorder` `Overhang` `LouversByDistance` `LouversByCount`
 - [ROOF]: `RoofSpecification` (`dragonfly.roof`) — sloped-roof geometry attached to a `Story`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the canonical district build/zone/translate calls. Every object carries the symmetric `from_dict(data, *, tolerance)`/`to_dict()` dfjson quartet; `dict_to_object` is the one polymorphic loader, no per-type `from_dict` selection. Run `intersect_adjacency` before `solve_adjacency` on touching rooms. `to_honeybee` `object_per_model` ∈ `District`/`Building`/`Story`, `use_multiplier` keeps story multipliers rather than instancing every floor, and `enforce_adj`/`enforce_solid` gate translation on the validation checks.
 
@@ -56,7 +46,7 @@
 - validate: `check_missing_adjacencies` `check_no_room2d_overlaps` `check_no_roof_overlaps` `check_roofs_above_rooms` `check_self_intersecting_room_2ds` `check_degenerate_room_2ds` `check_room2d_floor_heights_valid` `check_window_parameters_valid` `check_duplicate_room_2d_identifiers`
 - project: `projection.meters_to_long_lat_factors` `polygon_to_lon_lat` `lon_lat_to_polygon` `origin_long_lat_from_location` — the equirectangular helpers `to_geojson`/`from_geojson` use
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every object folds through the symmetric dfjson IO quartet and the `.properties.<ext>` extension host; a compact multiplier graph carries the whole district until `to_honeybee` instances it into 3-D Honeybee geometry carrying every registered extension's properties.
@@ -74,9 +64,3 @@
 
 [LOCAL_ADMISSION]:
 - Consume the AGPL honeybee/ladybug/dragonfly stack out-of-process as a process-boundary companion: invoke it at the edge, exchange dfjson/HBJSON/GeoJSON files across the wire, and let its typed outputs cross into the system while its code stays out of any distributed proprietary artifact.
-
-[RAIL_LAW]:
-- Package: `dragonfly-core`
-- Owns: the urban massing object graph, the discriminated window/skylight/shading/roof parameter families, the `Room2D` adjacency solvers, urban GeoJSON IO, and translation to Honeybee
-- Accept: `dict_to_object` as the polymorphic dfjson loader; `Model.to_honeybee(object_per_model=..., use_multiplier=...)` as the canonical district-to-building explode; `intersect_adjacency` then `solve_adjacency` as the auto-zoning pair; `Model.from_geojson`/`to_geojson` as the GIS exchange; `.properties.energy` (via dragonfly-energy) for energy attributes
-- Reject: importing as `dragonfly_core` (the module is `dragonfly`); hand-rolling footprint extrusion that `Building.from_footprint`/`Room2D.from_polygon` own; building geometry primitives locally instead of `ladybug-geometry`; statically linking the AGPL stack into a distributed artifact; `solve_adjacency` before `intersect_adjacency` on touching rooms

@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.Configuration` owns the AppHost configuration tree: ordered `IConfigurationSource` inputs merge into one `IConfigurationRoot` of colon-delimited string keys with provider precedence by source order, and every reload propagates through a change token. Its boundary is bootstrap — sources mount and the root builds at composition, and runtime policy binds typed projections off the binder rail, never a raw section read.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration`
-- package: `Microsoft.Extensions.Configuration`
-- assembly: `Microsoft.Extensions.Configuration`
-- contract_assembly: `Microsoft.Extensions.Configuration.Abstractions`
-- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Memory`
-- rail: configuration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration contracts
 
@@ -40,7 +31,7 @@
 |  [09]   | `ConfigurationExtensions`     | class         | value and key projection        |
 |  [10]   | `ConfigurationRootExtensions` | class         | root reload diagnostics         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: source composition, section access, and reload
 
@@ -58,7 +49,7 @@
 |  [10]   | `ConfigurationReloadToken.OnReload()`                        | instance | fires the reload signal             |
 |  [11]   | `IConfigurationSection.Exists() -> bool`                     | static   | true when value or children present |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `IConfigurationSource` builds one `IConfigurationProvider`, which answers `TryGet` and `GetChildKeys` reads and owns `Load`, `Set`, and `GetReloadToken` lifecycle.
@@ -77,9 +68,3 @@
 - Configuration sources enter bootstrap composition as ordered inputs in explicit precedence.
 - Runtime policy consumes typed projections, never a raw `IConfigurationSection`.
 - Reloads replace policy only through an owned state transition, never an ambient re-read.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Configuration`
-- Owns: the merged runtime configuration tree and its reload propagation
-- Accept: ordered sources building one root, bound to typed policy records
-- Reject: stringly local `IConfiguration.GetValue` lookups past bootstrap

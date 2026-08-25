@@ -2,20 +2,7 @@
 
 `EC3` (Building Transparency) is the embodied-carbon boundary owner of the EN 15978 LCA Assessment lane: the openEPD interchange graph of Environmental Product Declarations and a category-scoped GWP statistics engine, consumed hand-thin over `HttpClient` and a source-generated `System.Text.Json` context. Its closed-form A1-A3/A4/A5/B/C/D fold reads per-EPD `gwp` `Measurement` values (kgCO2e per declared unit) or category `StatisticsDto` percentiles, then writes an `Assessment.Result` node back content-keyed on the (OMF query, route) pair. Compute binds the GET read surface only.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `EC3` / openEPD REST
-- package: none (REST integration)
-- base url: `https://openepd.buildingtransparency.org/api` — the versioned declaration-graph surface
-- auth: bearer token — `Authorization: Bearer <token>` at READ (consumer) scope
-- versioning: `/v2/...` path prefix on search/statistics; every declaration self-describes via `doctype` (`"openEPD"`) and `openepd_version`
-- metering: each endpoint deducts a token cost from the account budget; cached by content key, never polled
-- rate limit: `429` carries `Retry-After` (seconds)
-- transport: JSON request/response, `application/json`, UTF-8
-- asset: external service; no runtime library, no native dependency
-- rail: embodied-carbon
-
-## [02]-[ENDPOINTS]
+## [01]-[ENDPOINTS]
 
 [ENDPOINT_SCOPE]: embodied-carbon read lane
 - note: search and statistics take the Open Material Filter (OMF) string, a single-EPD read the openXPD UUID; search/statistics return `{ payload, meta }`, the by-UUID read a bare `Epd`. Pagination rides `page_number`/`page_size`, and `meta.paging` reports `total_count`/`total_pages`/`page_size` for the streaming pager.
@@ -42,7 +29,7 @@
 |  [04]   | `GET /industry_epds/{uuid}`     | `IndustryEpd`                                 | industry-wide EPD; weighted ~20 product EPDs         |
 |  [05]   | `GET /industry_epds`            | `{ payload: IndustryEpdPreview[], meta }`     | paged list                                           |
 
-## [03]-[WIRE_TYPES]
+## [02]-[WIRE_TYPES]
 
 [WIRE_TYPE_SCOPE]: response message envelope and paging
 - note: search/statistics/list reads wrap the result in a generic message envelope — the decoder reads `payload` for data and `meta.paging` for the streaming cursor; the by-UUID reads return the bare document.
@@ -124,7 +111,7 @@ Vocabulary and enum leaf types carry closed value rosters:
 - [03]-[CATEGORY]: `id` (`unique_name`); `display_name`; `short_name`; `openepd_hierarchical_name`; `masterformat`; `description`; `declared_unit:Amount?`; `subcategories:Category[]` — recursive tree; MasterFormat + hierarchical name bridge a Rasm `Classification` to an OMF category leaf.
 - [04]-[OMF_QUERY]: `!EC3 search("ReadyMix") valid_until: >"2024-03-08" and specs.concrete.strength_28d: >"30 MPa" !pragma oMF("1.0/1")` — the `omf` string for search/statistics; category + field predicates + a closing `!pragma oMF(version)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One typed `HttpClient` (openEPD `BaseAddress`, bearer injected by a `DelegatingHandler`) issues GET only; every call returns `Fin<T>` and decodes once at the boundary into typed domain scalars, so the publisher verbs are unrepresentable on the typed surface.
@@ -169,9 +156,3 @@ Vocabulary and enum leaf types carry closed value rosters:
 
 [LOCAL_ADMISSION]:
 - Every category + spec OMF query enters at the EN 15978 LCA boundary and returns kgCO2e-per-declared-unit measurements decoded once into typed domain scalars; `meta.warnings[]` fold into `AssessmentResult.Facts` as soft notes, never faults.
-
-[RAIL_LAW]:
-- Package: `EC3` / openEPD REST (Building Transparency)
-- Owns: the embodied-carbon EPD graph (per-product `Epd.impacts` GWP) and category-scoped GWP statistics (`StatisticsDto` percentiles)
-- Accept: a category + spec OMF query at the EN 15978 LCA boundary, returning kgCO2e-per-declared-unit measurements decoded once into typed domain scalars
-- Reject: the publisher write verbs; forcing kgCO2e through `UnitsNet.Mass`; re-hitting a token-metered endpoint for an already-cached content key

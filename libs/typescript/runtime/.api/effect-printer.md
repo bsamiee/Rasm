@@ -2,18 +2,7 @@
 
 `@effect/printer` owns annotation-parametric Wadler/Leijen pretty-printing: `Doc<A>` is an immutable document tree whose phantom `A` a downstream renderer binds to concrete markup, composed through one combinator algebra and lowered to `string` by three width-driven layout algorithms over a `PageWidth`. It is the single document-composition owner behind every terminal render row; structured output composes as a `Doc`, never hand-joined strings or manual column math.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/printer`
-- package: `@effect/printer` (MIT)
-- asset: ESM `.d.ts` declaration surface (`dist/dts/*.d.ts`); peer `effect`
-- owner: `edge`
-- rail: render
-- peer: `effect` (typeclass instances, `Order`, `Equal`, `Match` on the `Doc` union), `@effect/typeclass` (Semigroup/Monoid derivation)
-- namespaces: `Doc` (the algebra + constructors + combinators + `render`), `DocStream` (post-layout token stream), `DocTree` (decorated tree form), `Layout` (algorithms + `Options`), `PageWidth` (width policy), `Optimize` (fusion), `Flatten` (flatten-analysis)
-- import: `import { Doc, Layout, PageWidth, Optimize } from "@effect/printer"`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Doc core algebra (`Doc`)
 - `Doc<A>` is a closed node union with `A` phantom until a renderer resolves it; every combinator preserves `A`, so annotation stays a distinct concern from layout. Refine a node with the `isX` guards or `Doc.match`, never by inspecting `_tag`.
@@ -61,7 +50,7 @@
 |  [02]   | `Doc.Covariant` / `Doc.Invariant`              | instance      | map/imap the annotation type `A`                           |
 |  [03]   | `DocStream.Functor` / `DocTree.Covariant`      | instance      | annotation map over the intermediate forms                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: primitives + character vocabulary (`Doc`)
 - Leaf constructors and punctuation constants: `string` splits embedded newlines to `hardLine` while `char`/`text` assume none; `softLine` renders a space when the group fits and a break otherwise, `line` a space when flattened, `lineBreak` nothing when flattened.
@@ -138,7 +127,7 @@
 |  [10]   | `DocTree.treeForm(stream)`                                | backend       | reparse a `DocStream` to `DocTree`                      |
 |  [11]   | `DocTree.renderSimplyDecorated(t, …)`                     | backend       | fold a `DocTree` with scope callbacks                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Doc<A>` is an immutable algebraic tree; `A` is a phantom annotation carried unchanged through every combinator and resolved only by a renderer or `reAnnotate`, so layout and annotation are orthogonal axes and markup never encodes as text nodes.
@@ -155,9 +144,3 @@
 - `cli/render` folder authors output as `Doc<Ansi>` (`AnsiDoc`): structure through the concatenation/layout/enclosure combinators, semantic markup through `Doc.annotate`, folded to a terminal string with `AnsiDoc.render`; prose columns take `reflow`/`fill`, tables `align`/`encloseSep`.
 - Reusable render helpers keep `A` abstract (`Doc<A>` in, `Doc<A>` out), resolving `A` to `Ansi` only at the leaf choosing a color or weight, so one document renders plain or styled by swapping the renderer.
 - Algorithm follows intent: `pretty` for normal terminal output, `smart` for deeply-nested structures needing earlier breaks, `compact`/`Unbounded` for machine-readable single-line emission.
-
-[RAIL_LAW]:
-- Package: `@effect/printer`
-- Owns: annotation-parametric document composition, layout algorithms over a `PageWidth`, intermediate `DocStream`/`DocTree` forms, associativity fusion, and annotation retargeting
-- Accept: `Doc<A>` combinator composition, `concatWith`/`encloseSep` parameterized folds, `group`/`nest`/`align` layout control, `annotate`/`reAnnotate` markup binding, `Doc.render` with a `RenderConfig`
-- Reject: manual string concatenation for structured output, hand-rolled line-wrapping or column math, encoding markup as literal text/escape codes, per-call `reduce` where a separator fold exists, resolving the annotation type before the terminal render edge

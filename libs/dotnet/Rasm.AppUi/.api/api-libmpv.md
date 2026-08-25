@@ -2,26 +2,7 @@
 
 `HanumanInstitute.LibMpv` owns the managed libmpv client: `MpvContext` projects the mpv command, property, and option API as typed members over an embedded OpenGL, software, and native render path, and `HanumanInstitute.LibMpv.Avalonia` binds that path into an Avalonia visual tree through the `MpvView` control. Together they own the AppUi Editing MediaSurface decode-and-playback rail — the on-screen counterpart to the `FFmpeg.AutoGen` encode-out owner.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `HanumanInstitute.LibMpv`
-- package: `HanumanInstitute.LibMpv` (MIT)
-- assembly: `HanumanInstitute.LibMpv`
-- namespace: `HanumanInstitute.LibMpv` — context, command, option, property, and event types
-- namespace: `HanumanInstitute.LibMpv.Core` — low-level `MpvApi` P/Invoke, `MpvFormat` / `MpvError` / `MpvLogLevel` / `MpvNode`
-- target: `lib/net10.0` + `lib/netstandard2.0`
-- asset: managed client over the libmpv native runtime
-- rail: media
-
-[PACKAGE_SURFACE]: `HanumanInstitute.LibMpv.Avalonia`
-- package: `HanumanInstitute.LibMpv.Avalonia` (MIT)
-- assembly: `HanumanInstitute.LibMpv.Avalonia`
-- namespace: `HanumanInstitute.LibMpv.Avalonia` — `MpvView` and render controls
-- target: `lib/net10.0`
-- asset: Avalonia control library
-- rail: media
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client context and command intake.
 
@@ -90,7 +71,7 @@
 |  [06]   | `NativeView`    | render control  | `NativeControlHost` path     |
 |  [07]   | `MpvOverlay`    | overlay surface | drawn `bgra` image overlay   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: playback commands on `MpvContext` — `MpvCommand`-projected instance methods.
 
@@ -234,7 +215,7 @@
 |  [09]   | `MpvOverlay.Hide`                    | clear the overlay          |
 |  [10]   | `IVideoView.Dispose`                 | release the render context |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `MpvContextBase` owns the raw client surface; `MpvContext` derives and projects the command set into named `MpvCommand` methods and the property/option set into typed wrappers keyed to mpv property names, so the wrapper `GetAsync` / `SetAsync` is the surface a UI binding awaits, never a base method.
@@ -256,12 +237,6 @@
 - `MpvEventLoop.Default` (the `MpvSimpleEventLoop`) is the Avalonia path: events marshal onto the `Dispatcher.UIThread` the `MpvView` lives on, so `PropertyChanged` updates bindings without a cross-thread hop; `MpvEventLoop.Thread` serves a headless host where no dispatcher pumps.
 - `LogMessage` (gated by `RequestLogMessages(minLevel)`) and `EndFile` (`MpvEndFileEventArgs.Reason` : `EndReason`) remain available for playback diagnostics; the media owner publishes the settled `LoadFile` outcome once through `AppUiFact.Media`.
 - Every `MpvContext`, view, and overlay releases through `IVideoView.Dispose` at teardown to free the render context.
-
-[RAIL_LAW]:
-- Package: `HanumanInstitute.LibMpv`, `HanumanInstitute.LibMpv.Avalonia`
-- Owns: managed libmpv playback, the typed property/command/option surface, and the Avalonia OpenGL render integration.
-- Accept: playback driven through `MpvContext` and hosted by `MpvView` on the OpenGL render path.
-- Reject: a bundled libmpv native binary; a hand-rolled mpv command/property marshaller; `NativeControlHost` airspace where the OpenGL path serves; timer-polling for position where an observed `PropertyChanged` carries it; a raw `ObserveProperty` registration plus a property-name literal where the wrapper's own `Changed` event registers and unregisters itself; a synchronous re-read of every tracked property on each raw event, which is a poll wearing an event's name.
 
 [MEDIA_BOUNDARY]:
 - Neither assembly exposes a decoded-audio (PCM) tap: every render entry is a video path (`StartOpenGlRendering`, `StartSoftwareRendering`, `StartNativeRendering`) and the audio surface is device output selection (`AudioOutput`, `AudioDevice`, `AudioChannels`, `AudioSpdif`). A consumer needing samples reads the source independently; the media-to-caption route back in is the SIDECAR pair `SubAdd`/`AudioAdd`, after which `SubText`/`SubStart`/`SubEnd` carry the player's own timing.

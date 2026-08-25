@@ -4,15 +4,7 @@
 
 `iac` composes it as sensitive `Output` material feeding the secret, kube, and data rows: one `keepers` bump rotates any credential, and one char-class policy shape drives both `RandomPassword` and `RandomString`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/random`
-- package: `@pulumi/random` (Apache-2.0)
-- module: `@pulumi/random` — flat resource-class exports over the Terraform-bridge provider plugin
-- runtime: `node`; the provider plugin auto-downloads on first resource registration and values persist in stack state
-- rail: fabric
-
-## [02]-[RESOURCE_SURFACE]
+## [01]-[RESOURCE_SURFACE]
 
 Every resource extends `pulumi.CustomResource`, carries `static get(name, id, state?, opts?)` + `static isInstance(obj)` + `constructor(name, args, opts?)`, and shares the universal `keepers?: Input<{[k]: Input<string>}>` recreation trigger. Generated values surface as `Output<T>`; `RandomPassword`/`RandomString` `result` is state-encrypted sensitive.
 
@@ -32,7 +24,7 @@ Every resource extends `pulumi.CustomResource`, carries `static get(name, id, st
 |  [10]   | `RandomUuid7`    | —               | `result` (uuid)                               | time-ordered sortable ids  |
 |  [11]   | `Provider`       | —               | —                                             | explicit provider instance |
 
-## [03]-[MATERIAL_PROJECTIONS]
+## [02]-[MATERIAL_PROJECTIONS]
 
 Three parameterized patterns own the surface; the roster above is seed data feeding them, not one recipe per resource.
 
@@ -53,7 +45,7 @@ Three parameterized patterns own the surface; the roster above is seed data feed
 [PATTERN]: `keepers` rotation — ONE recreation trigger on every resource
 - `keepers` is an arbitrary `{[k]: string}` map; changing any value forces recreation on the next `up`. Rotate a credential by bumping a keeper (`{ epoch: "<n>" }`), never by deleting the resource.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Provider-tracked resources own random material: state persistence keeps it stable and diffable across `up`, and `keepers` makes rotation explicit and audited.
@@ -69,9 +61,3 @@ Three parameterized patterns own the surface; the roster above is seed data feed
 
 [LOCAL_ADMISSION]:
 - Admitted wherever generated material must persist and diff in state and rotate under audit; an inline runtime RNG value is rejected for that role.
-
-[RAIL_LAW]:
-- Package: `@pulumi/random`
-- Owns: provider-tracked passwords, strings, ids, bytes, integers, seeded shuffles, versioned UUIDs
-- Accept: one `Schema`-decoded char-class policy for `RandomPassword`/`RandomString`; a `keepers` epoch from an Effect `Config` value; the source encoding a consumer needs
-- Reject: `RandomString` for secrets; per-resource rotation logic where one `keepers` bump suffices; post-processing an id `Output` where a native projection exists; a password recipe enumerated per resource where one policy shape dispatches

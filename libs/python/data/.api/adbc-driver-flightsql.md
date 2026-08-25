@@ -2,15 +2,7 @@
 
 `adbc-driver-flightsql` binds an Arrow Flight SQL endpoint as an ADBC database on the data partition rail: `connect` mints the native-driver-backed `AdbcDatabase`, three option-enum vocabularies key every database, connection, and statement setting by canonical `adbc.flight.sql.*` string, and two OAuth axes drive client-credentials and RFC 8693 token-exchange auth. Partition deepening rides `dbapi.connect`, fanning `execute_partitions` endpoints back as Arrow record batches over Flight RPC.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `adbc-driver-flightsql`
-- package: `adbc-driver-flightsql` (Apache-2.0)
-- module: `adbc_driver_flightsql`, `adbc_driver_flightsql.dbapi`
-- native: `libadbc_driver_flightsql.so` — the Go-built ADBC driver over the C ABI
-- rail: partition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: factory and option vocabularies
 
@@ -106,7 +98,7 @@ Owns the partition read-ahead queue, Substrait version, and per-statement overri
 |  [07]   | `OAuthTokenType.SAML2`             | `urn:ietf:params:oauth:token-type:saml2`         | SAML 2.0 assertion                   |
 |  [08]   | `OAuthTokenType.JWT`               | `urn:ietf:params:oauth:token-type:jwt`           | JSON Web Token                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection factories
 
@@ -117,7 +109,7 @@ Owns the partition read-ahead queue, Substrait version, and per-statement overri
 |  [01]   | `connect(uri, db_kwargs=None) -> AdbcDatabase`                                 | factory | low-level Flight SQL database handle |
 |  [02]   | `dbapi.connect(uri, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | factory | DBAPI 2.0 connection over Flight SQL |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - factory: one `connect` binds the endpoint to `libadbc_driver_flightsql.so`; `dbapi.connect` derives the DBAPI 2.0 connection and adds `conn_kwargs` — the database object is shared and connections derive from it.
@@ -140,9 +132,3 @@ Owns the partition read-ahead queue, Substrait version, and per-statement overri
 - Import `adbc_driver_flightsql`/`.dbapi` at boundary scope only.
 - Key every setting by option-enum value through `db_kwargs`/`conn_kwargs`/statement options.
 - Deepen remote partitions through the native `execute_partitions`/`adbc_read_partition` handoff.
-
-[RAIL_LAW]:
-- Package: `adbc-driver-flightsql`
-- Owns: Flight SQL endpoint binding, partitioned Arrow result retrieval, TLS/mTLS transport control, RPC header and timeout configuration, session-option get/set, and OAuth 2.0 client-credentials and token-exchange authentication
-- Accept: remote Flight SQL partition deepening feeding Arrow record batches to the data partition, query, and dataframe owners
-- Reject: wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled gRPC Flight client or partition loop the native driver owns; a per-setting builder type where an option-enum value keys the value; string-literal option keys bypassing `DatabaseOptions`/`ConnectionOptions`/`StatementOptions`; credential identity minting the runtime owns

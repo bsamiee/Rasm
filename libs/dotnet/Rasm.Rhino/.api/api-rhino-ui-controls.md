@@ -2,18 +2,7 @@
 
 `Rhino.UI.dll` owns Rhino's reusable Eto control library: `Rhino.UI.Controls` collapsible sections, padding/spacing-typed layouts, panels, button/label/colour widgets, unit-parsing numeric and text inputs, an embeddable viewport, and range/content-menu dialogs; the `Rhino.UI.Forms` dialog bases, colour palette, and export façade; the read-only `Rhino.UI.Theme` colour-model tree; and the `Rhino.UI.Runtime` platform-service contracts. Every widget specializes an `Eto.Forms` base; only the constructible or subclassable surface lands, the internal implementation excluded.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Rhino.UI.dll` control library
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `Rhino.UI.dll` (reusable Eto controls, themed dialogs, theme model, platform-service contracts)
-- namespace: `Rhino.UI.Controls` (collapsible sections, layouts, panels, buttons, labels, colour, list/grid, numeric/text, viewport, dialogs, menu)
-- namespace: `Rhino.UI.Forms` (dialog bases, named-colour palette, print/PDF/SVG export façade)
-- namespace: `Rhino.UI.Theme` (zone/element/state colour-model tree)
-- namespace: `Rhino.UI.Runtime` (platform-service, toolbar-service, service-locator contracts)
-- rail: host-boundary native-ui
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Rhino.UI.Controls` collapsible-section family
 
@@ -174,7 +163,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - `Rhino.UI.Forms.CommandDialog.ShowButtons`: `Close=1` `OKCancel=3` `CloseHelp=5` `OKCancelHelp=7`.
 - `Rhino.UI.Forms.SectionSource`: `ByClippingPlane` `Custom`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [COLLAPSIBLE_SECTIONS]:
 - `EtoCollapsibleSection` subclass overrides: `Caption` `SectionHeight` `Collapsible` `Hidden` `InitiallyExpanded` `SettingsTag` `CommandOptionName` `PlugInId` `ViewModelId`; state `ViewModel` `CppPointer`; events `DataChanged` `ViewModelActivated`.
@@ -361,7 +350,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - `IPlatformService.MainRhinoWindow -> Window` with bitmap/font/icon conversion, `SetWindowPos`, `ShowSemiModal`, control-padding, and `PlaySoundFile` members.
 - `HostUtils.WindowsRhinoActivated -> event WindowsRhinoActivatedEvent` / `delegate void WindowsRhinoActivatedEvent(bool)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Collapsible sections layer by capability: a plugin subclasses the narrowest base its section needs and adds it to an `EtoCollapsibleSectionHolder`.
@@ -381,9 +370,3 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - A control is trapped and mapped at the boundary; its `Eto.Forms.*` base stays behind the Rasm.Rhino UI owner, and a `nint CppPointer`/`EventInfoPtr` native handle never crosses into a domain signature.
 - Access is the ruling filter: only the genuinely-public constructible or subclassable surface lands. `Rhino.UI.Annotations`, `Rhino.UI.DialogPanels`, `Rhino.UI.ViewModels`, `Rhino.UI.ObjectProperties`, and `Rhino.UI.ObjectManager` are excluded — internal formatting helpers and Rhino's own registered dockable panels, view-models, and widgets, `public` only for the `IPanel` host and the Eto control hierarchy.
 - `ObjectPropertiesPage` in `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` owns the plugin-facing object-properties API.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon` + `Rhino.UI` (`Rhino.UI.dll` control library)
-- Owns: the `Rhino.UI.Controls` collapsible-section family, layout/panel/button/label/colour/list/numeric-text controls, the viewport control and range/content-menu dialogs, the `Rhino.UI.Forms` dialog bases and colour palette and export façade, the read-only `Rhino.UI.Theme` colour-model tree, and the `Rhino.UI.Runtime` platform-service contracts.
-- Accept: a Rhino-styled control composed from an `Eto.Forms` base and seated through the host bridge, a padding/spacing-typed layout, a unit-aware numeric field, a themed read of a `ThemeZone`, and a platform capability resolved through `IPlatformService`.
-- Reject: re-implementing an `Eto.Forms` base control (`libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` owns it), a pixel-literal layout where a `RhinoLayout` type fits, authoring a `ThemeZone` (internal-constructed, read-only), a `CppPointer`/`EventInfoPtr` native handle escaping into a domain signature, and admitting an internal panel, view-model, or object-properties type.

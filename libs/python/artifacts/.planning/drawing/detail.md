@@ -19,7 +19,7 @@ Block authoring and placement recover one identity from one registry. `DetailSou
 - Packages: `ezdxf` owns reusable blocks, `Importer.import_modelspace(target_layout=)`, `xref.attach`, and `recover.read` (the binary-stream loader salvaging non-conforming captures), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `rustworkx` owns `PyDAG`, cycle admission, traversal, stable ordering, reduction, and node-link wires; `drawsvg` owns structured SVG geometry; `expression` owns `Option`, `Block`, and `Map`; drawing owners supply layer, standard, symbol, scale, and palette vocabularies.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import io
 import math
 from builtins import frozendict

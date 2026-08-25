@@ -2,14 +2,7 @@
 
 `ifcclash` owns IFC geometry clash detection for the geometry ifc-analysis rail: it loads IFC models into the OpenCASCADE spatial index through `ifcopenshell.geom.tree`, runs intersection, collision, and clearance tests across `ClashSet` pairs selected by `ClashSource`, and emits `ClashResult` records that `smart_group_clashes` clusters spatially and `export` writes as JSON or a BCF archive. `ifcopenshell` owns the overlap tree as its OCC geometry, and `ifc/analysis.md` composes the engine into its `CLASH` and `BCF` verbs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifcclash`
-- package: `ifcclash` (LGPL-3.0-or-later)
-- module: `ifcclash.ifcclash`
-- rail: ifc-analysis / clash-detection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: clash configuration family
 
@@ -27,7 +20,7 @@
 |  [01]   | `ClashResult` | TypedDict     | GUID pair, IFC classes, names, type, points, distance |
 |  [02]   | `ClashGroup`  | TypedDict     | spatially clustered `dict[str, entity_instance]`      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Clasher lifecycle
 
@@ -84,7 +77,7 @@
 |  [09]   | `p2`          | `list[float]`                      |
 |  [10]   | `distance`    | `float`                            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `clash()` folds every `ClashSet` into its own `clashes: dict[str, ClashResult]` map in place; mode selection is the closed `ClashSet` literal, never a per-mode runner family.
@@ -104,9 +97,3 @@
 - Construct `ClashSettings`, set `output` and `logger`, pass it to `Clasher`, assign `Clasher.clash_sets` before `clash()`, and read results from each `ClashSet['clashes']`.
 - Pass `ClashSource.ifc` a pre-loaded `ifcopenshell.file` to skip `load_ifc`; derive `ClashSource.selector` only through the `IfcSelector` gate.
 - `export_bcfxml` imports `bcf.v2.bcfxml` lazily on call.
-
-[RAIL_LAW]:
-- Package: `ifcclash`
-- Owns: IFC geometry intersection, collision, and clearance detection, spatial clustering, and result export
-- Accept: `ifcopenshell`-loaded or path-based IFC sources, `ClashSet` dicts, and `IfcSelector`-validated `ClashSource.selector` sides
-- Reject: a custom intersection kernel where the OCC clash tree owns the overlap; a raw caller query threaded past the `IfcSelector` gate; a duplicate BCF export where the `ifc/analysis` `BCF` verb composes `ifcclash` and `bcf`

@@ -2,16 +2,7 @@
 
 `registerInstrumentations` binds a row set to explicit providers and answers the unload thunk its registration bracket releases; `InstrumentationBase` is the class every instrumentation row extends. Registration installs no global provider, so each omitted provider slot falls to the no-op api global and that signal dies silently — every condition's `Instrument` node passes its lane's whole exposed provider set.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation`
-- package: `@opentelemetry/instrumentation` (Apache-2.0)
-- base: peers on `@opentelemetry/api` (+ `@opentelemetry/api-logs` for the logger-provider slot)
-- consumed-by: both condition `Instrument` brackets — the server node and the browser node; every admitted instrumentation row extends its base class
-- runtime: neutral — node module-patching and browser global-patching rows both ride this base
-- rail: observability/rum
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: activation + authoring contracts
 
@@ -24,7 +15,7 @@
 |  [05]   | `SpanCustomizationHook` / `ShimWrapped`                 | hook shape       | row-author surface; consumed through each row's config |
 |  [06]   | `SemconvStability` / `semconvStabilityFromStr`          | semconv gate     | the `semconvStabilityOptIn` stable-row gate            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: activation
 
@@ -34,7 +25,7 @@
 |  [02]   | `tracerProvider`/`meterProvider`/`loggerProvider` | provider bind  | the lane's three exposed provider Tags — none omitted      |
 |  [03]   | `isWrapped` / `safeExecuteInTheMiddle`            | author util    | row-author interior; no Rasm call site                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - explicit providers only — `AutoLoaderOptions` carries `instrumentations` beside three provider slots, and every omitted slot falls to the api global the facade never registers: spans record nowhere without `tracerProvider`, series drop without `meterProvider`, and a row's log records vanish without `loggerProvider`. Binding two of three leaves the third signal silently dead, so the registration bracket passes the lane's whole exposed provider set.
@@ -48,9 +39,3 @@
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`; exactly one activation call exists per process condition, at that condition's registration node — the server node and the browser node — and no other folder calls it.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation`
-- Owns: instrumentation-row activation, the base class the rows extend, and the semconv opt-in gate
-- Accept: one `registerInstrumentations` call per process condition with explicit `tracerProvider`, `meterProvider`, and `loggerProvider`, unload thunk released on scope close
-- Reject: activation without an explicit provider on every slot, a second activation call inside one condition, authoring node require-patch definitions in Rasm code

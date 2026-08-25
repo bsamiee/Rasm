@@ -2,7 +2,6 @@
 
 `Dxf` owns the CAD-exchange editable hand-off — ONE owner over the closed `DxfOp` `tagged_union` — `New` authors a fresh document from a `DxfDocument` spec, `Read` ingests a conforming DXF, `Recover` salvages a damaged one, `Render` lowers a DXF figure into the composition/graphic plane over the in-process backend family, `Query` extracts an attribute/spatial sub-selection, `Transform` applies an affine, `Diagram` lowers a positioned `DiagramGlyph` sequence into regime-pen-layered native entities, `Bridge` crosses the DXF↔SVG↔GeoJSON↔glyph geometry wire — each arm a typed payload dispatched by one total `match` and folded ONCE into a `DxfComposed` evidence struct. `Dxf.of` is the ONE validated ingress, discriminating on input shape — a bare `DxfDocument` becomes `New`, a `DxfSource` becomes `Read`, a `DiagramLower` becomes `Diagram`, a `BridgeSpec` becomes `Bridge`, a `DxfOp` passes through — and refusing an empty ingestion source, a non-positive render/bridge scalar, degenerate spatial or bridge geometry, and an empty EQL selection into the closed `DxfFault` vocabulary before any worker runs. `ezdxf` (pure-Python, no interpreter gate) is the sole owner of the DXF R12→R2018 read/write/recover/render surface, so this owner re-implements no tag grammar, OCS/WCS transform, B-spline evaluator, or entity-to-SVG conversion.
 
-
 ## [01]-[INDEX]
 
 - [02]-[DXF]: the CAD-exchange owner over the closed `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Transform`/`Diagram`/`Bridge`) admitted at `Dxf.of` and folded once into `DxfComposed`, thread-offloaded and rail-typed, `ezdxf` the sole read/write/recover/render surface.
@@ -18,7 +17,7 @@
 - Boundary: `ezdxf` owns tag construction, affine/B-spline/OCS math, ACIS SAT/SAB decoding, rendering, querying, salvage, and DXF↔GeoJSON conversion. `DxfAttribs` replaces per-entity setters; `doc.query`/`select` replace lookup-method families; `recover.readfile` owns damaged input. `Standard.seed` owns ISO symbol-table derivation. `visualization/diagram/layout#LAYOUT` owns diagram coordinates and routes, `visualization/diagram/draw#DRAW` owns the SVG/.drawio egress, and the glyph vocabulary is `visualization/diagram/glyphset#GLYPHSET`'s — the `Diagram` arm owns only the entity lowering and the y-mirror seam. `graphic/vector/region#REGION` frames SVG, composition owns PDF assembly, typography owns shaping, and the geospatial owner owns CRS semantics.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import base64
 import io
 import math

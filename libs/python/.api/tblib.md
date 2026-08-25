@@ -2,15 +2,7 @@
 
 `tblib` carries a traceback across the pickle seam so a worker-side exception re-raises parent-side with its frames intact. `Traceback` is the explicit carrier — wrapping a live traceback, folding to a dict or parsed string for wire transport, and rebuilding a native traceback for `raise exc.with_traceback(...)`; `pickling_support.install` is the process-global `copyreg` monkeypatch that round-trips every `BaseException` and `TracebackType` through pickle with tracebacks, feeding `BoundaryFault.of` the true worker cause instead of a flattened marker.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tblib`
-- package: `tblib` (BSD-2-Clause)
-- module: `tblib`
-- namespaces: `tblib`, `tblib.pickling_support`
-- rail: cross-process traceback and fault fidelity
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: carrier types
 
@@ -28,7 +20,7 @@
 |  [01]   | `tblib.get_all_locals` | projection    | `(frame) -> dict` snapshotting `f_locals`                      |
 |  [02]   | `tblib.FRAME_RE`       | parser        | compiled regex matching one `File "...", line N, in name` line |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: carrier construction and round-trips
 
@@ -49,7 +41,7 @@
 | :-----: | :---------------------------------------------------- | :------ | :--------------------------------------------- |
 |  [01]   | `install(*exc_classes_or_instances, get_locals=None)` | static  | register traceback + exception pickle reducers |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - two rails own one concern: `Traceback` is the explicit carrier a producer wraps, transports, and re-raises by hand; `pickling_support.install` monkeypatches ordinary `pickle` to carry the traceback with no carrier code at the call site.
@@ -73,9 +65,3 @@
 - locals capture stays off unless a fault's frame locals are the diagnostic payload, because one unpicklable local breaks the whole crossing before it inflates any wire form.
 - `from_string` is the last-resort recovery lane when only formatted text survived a boundary; a producer owning the live exception uses the pickle rail or `to_dict`.
 - re-raise is `raise exc.with_traceback(tb.as_traceback())` at the owning boundary, and interior code receives the `Result`/`Option` rail.
-
-[RAIL_LAW]:
-- Package: `tblib`
-- Owns: cross-process traceback fidelity — the picklable `Traceback` carrier, dict and stacktrace-string round-trips, native-traceback reconstruction for re-raise, and the process-global `pickling_support.install` latch round-tripping any exception and traceback through pickle
-- Accept: `install()` at worker-crossing init; per-class `install(cls)` or per-instance `install(exc)` over the instance's cause/context/group graph; the explicit `Traceback` carrier for dict/string transport; `raise exc.with_traceback(tb.as_traceback())` at the owning boundary
-- Reject: a hand-rolled traceback serializer; a reconstructed frame treated as live or executable; default-on locals capture across an untrusted crossing; a per-submission install where the crossing-init latch already holds; `from_string` re-parsing over a live exception the pickle rail owns

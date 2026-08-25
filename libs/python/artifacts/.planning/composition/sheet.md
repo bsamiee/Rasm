@@ -2,9 +2,7 @@
 
 `Sheet` owns the single-sheet pipeline — placing already-emitted figures into titled, framed, field-bound architectural drawing sheets; `SheetSet` is the peer multi-sheet owner assembling N `SheetIssue` sheets into a numbered, audited, register-ready set. `Sheet` discriminates a closed `SheetOp` `expression.tagged_union` by one total `match` folded once into a `Composed` evidence struct — one typed payload per case, never a `StrEnum` over an erased `dict`; the async emission offloads that fold exactly once and returns its `Composed` value, and the sync `folded()` successor lands the same fold on the frozen `composed` field so `layers` reads the landed value rather than re-rendering. It authors the frame over three PDF engines under one `PdfProfile` conformance value, places figures, fills and stamps the title block, but re-renders no figure and re-authors no register. `SheetSet` numbers each sheet, folds the ISO 7200 conformance verdict, and PROJECTS the set outward rather than re-authoring — no OSS sheet-set library exists, so the sheet algebra is this owner's composition over the admitted engines.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[SHEET]
 
@@ -14,7 +12,7 @@
 - Growth: a new sheet format is one `SheetSize` member plus one `_SIZES` row (its zones one `_ZONES` row or the `ZoneSpec.of` derivation); an orientation is one `Orientation` member; a title-block field is one `FieldRow`, a revision one `Revision`, an ISO 7200 mandatory field one `Iso7200Field` member plus one `_ISO7200` predicate row; a frame-authoring engine is one `Engine` member plus one `_FRAME` row; a placement target is a `FigurePlacement.target` input shape and a layer behavior axis one `PlacementPolicy` field; a constraint-solved layout is one `Rule` handed to `FigurePlacement.arranged`; a graphic cell is one `TitleBlock` field; a border-grid change is the `_ZONES` table or `_zones` projection; an engine raise is one `_FAULTS` type; an archival level is one `PdfA` member (its typst token the member value, its XMP pdfaid derived from the spelling), an accessibility level one `PdfUa` member; a colour intent is the `OutputIntent` ICC threaded into the engine that owns its close; a set-level projection is one `SheetSet` method. Zero new surface.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import hashlib
 import string
 from collections import Counter

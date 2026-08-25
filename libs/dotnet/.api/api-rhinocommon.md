@@ -2,15 +2,7 @@
 
 `RhinoCommon` owns the Rhino-native geometry value substrate every host boundary crosses. Each carrier is a mutable struct whose in-place mutators report success as `bool` and whose admission rides its own `IsValid` predicate, so a fold threads the struct by value and gates on the predicate rather than the mutator's return. `Rasm` kernel algorithms compose these carriers and never re-derive their algebra.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon geometry value substrate
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino.Geometry`
-- rail: Rhino-native geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry value carriers
 
@@ -36,7 +28,7 @@
 |  [05]   | `TransformRigidType`      | enum          | rigid classification                             |
 |  [06]   | `PlaneFitResult`          | enum          | least-squares plane-fit verdict                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: point algebra
 
@@ -274,7 +266,7 @@
 - `BoundingBox.Empty`: negative-width seed failing `IsValid`, so a first `Union` yields its operand exactly and the fold gates validity at the end.
 - `BoundingBox.IsDegenerate(double)`: `0` full, `1` rectangle, `2` line, `3` point, `4` invalid.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every carrier is a mutable value struct, so a fold threads it by value and an in-place mutator's `bool` return marks the operation while admission reads the type's own `IsValid` predicate.
@@ -295,9 +287,3 @@
 - Placements compose `Transform` factories under `operator *` and invert through `TryGetInverse`; a rebasing between frames takes `ChangeBasis` and an object re-orientation takes `PlaneToPlane`.
 - Angle work takes `Vector3d.VectorAngle`, the frame overload carrying the sign; parallelism and perpendicularity read the `IsParallelTo` and `IsPerpendicularTo` verdicts.
 - Point-set hygiene runs through `CullDuplicates` and `SortAndCullPointList`, and set-level planarity through `ArePointsCoplanar`.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: Rhino-native point, vector, frame, segment, extent, affine-transform, and mesh-face value algebra at the host boundary
-- Accept: `Point3d`, `Vector3d`, `Plane`, `Line`, `BoundingBox`, `Transform`, and `MeshFace` values, and `GeometryBase` bounds derivations
-- Reject: hand-rolled 4x4 composition, hand-spelled basis change and inverse solves, per-call unit-vector copies, and the kernel-grade geometry algorithms `Rasm` owns

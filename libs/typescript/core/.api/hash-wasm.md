@@ -4,15 +4,7 @@
 
 `value/contentKey` is the branch's only import site: it composes `createXXHash128(0, 0)` into the `ContentKey` mint and the sibling factory rows into `Digest`, and every delegate imports that value, never this package.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `hash-wasm`
-- package: `hash-wasm` (MIT)
-- module: dual — `dist/index.esm.js` (ESM) + `dist/index.umd.js` (UMD); one flat `dist/lib/index.d.ts` barrel re-exporting every algorithm module, no subpaths
-- runtime: WebAssembly embedded in the JS — no `.wasm` fetch, no network; `MAX_HEAP` bounds one hashed chunk
-- rail: content-identity / cryptographic-digest
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two-type substrate every algorithm composes
 
@@ -23,7 +15,7 @@
 
 [IHASHER]: `init() -> IHasher` `update(IDataType) -> IHasher` `digest("binary") -> Uint8Array` `digest(?"hex") -> string` `save() -> Uint8Array` `load(Uint8Array) -> IHasher` `blockSize: number` `digestSize: number`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one parameterized digest pattern — `name(IDataType, …seed?) -> Promise<string>` paired with `create<Name>(…seed?) -> Promise<IHasher>` (PascalCase factory) per algorithm; the roster is seed data, a new digest is one row
 
@@ -53,7 +45,7 @@
 
 [IARGON2_OPTIONS]: `password` `salt` `secret?` `iterations` `parallelism` `memorySize` `hashLength` `outputType?: "hex"|"binary"|"encoded"`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every entry is a `Promise` — the WASM compiles on first await, so a memoized `create<Name>` factory amortizes the compile across a chunk loop while a per-call one-shot recompiles each call; `digest("binary")` returns raw bytes in the same display order the hex renders.
@@ -67,9 +59,3 @@
 [LOCAL_ADMISSION]:
 - `value/contentKey` is the one import site of `hash-wasm`; every delegate composes the `Digest`/`ContentKey` value.
 - `Uint8Array` is the direct input; a `string` is UTF-8 encoded first, so text hashes only after an explicit encode to bytes.
-
-[RAIL_LAW]:
-- Package: `hash-wasm`
-- Owns: WASM-backed digests across the xxHash, BLAKE, SHA-2/3, Keccak, MD/RIPEMD/Whirlpool/SM3, and CRC/Adler families, the streaming `IHasher` with `save`/`load` sessions, and the `createHMAC` combinator; the KDF family (`argon2*`, `bcrypt`, `scrypt`, `pbkdf2`) is the security folder's consumer surface, off the digest floor.
-- Accept: one-shot small-payload hashes; memoized factories; `IDataType`; binary digests; security-owned HMAC/KDF outside core.
-- Reject: a byte-order shuffle on the hex path — the hex is already canonical; treating any entry as synchronous — every one is a `Promise`; a second import site outside `value/contentKey`.

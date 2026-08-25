@@ -2,9 +2,7 @@
 
 `Synthesis` owns media generation through one closed `SynthOp`: harmonic oscillators, duty-cycle pulse, periodic wavetable, spectral-color noise, additive/FM/AM, sweep, unit impulse, and calibration video. Video cases cover SMPTE-style `75%` bars with PLUGE bands, ramp, grid, countdown, checker, standalone PLUGE, and radial zone plate. Audio produces `float32` mono `Pcm` blocks through `_encode_audio`, video produces `rgb24` frames through `_encode_video`, tone-bearing bars compose both through `_mux_av`, and `MediaProfile`, `MediaEvidence`, and `MediaFault` keep encode policy and evidence.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[SYNTHESIS]
 
@@ -16,7 +14,7 @@
 - Growth: a harmonic waveform is one `Waveform` and `_HARMONICS` row; a noise color is one `NoiseColor` and `_TINT` row; a distinct payload modality is one `SynthOp` case with admission, kernel, and evidence arms.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from math import ceil, isfinite
 from typing import TYPE_CHECKING, Final, Literal, assert_never

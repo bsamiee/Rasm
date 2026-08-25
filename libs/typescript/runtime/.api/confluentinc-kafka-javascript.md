@@ -4,17 +4,7 @@
 
 It carries the transactional exactly-once producer and manual-commit at-least-once consumer the `net/pubsub` Kafka engine row folds through `Effect.tryPromise`; the envelope stays transport-only octets, so no blob store rides it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@confluentinc/kafka-javascript`
-- package: `@confluentinc/kafka-javascript` (MIT)
-- module: CJS; `KafkaJS` and `RdKafka` namespaces re-exported beside the flat `RdKafka` surface
-- runtime: node and bun over a prebuilt `node-pre-gyp` native binary; no browser lane
-- abi: bundled librdkafka, the same broker core the C# `Confluent.Kafka` binds — idempotence, compression, SASL/TLS are one wire vocabulary across both hosts
-- plane: an Apache Kafka or Confluent Platform broker on the bootstrap port; partitions, replication, and retention are deploy-plane facts
-- rail: Kafka engine row of the `net/pubsub` broker plane
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: KafkaJS promise types the engine row composes; native `RdKafka` types back the throughput lanes.
 
@@ -38,7 +28,7 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 - [12]-[SASL]: only the `oauthbearer` arm carries a callback (`oauthBearerProvider: () => Promise<OauthbearerProviderResponse>`); the other three take a literal `username`/`password` pair. A mechanism set with no provider falls back to librdkafka's unsecured development token handler.
 - [13]-[LIFETIME]: `lifetime` is ABSOLUTE epoch milliseconds — librdkafka reads it as when the token expires since the epoch — so a remaining-span value dates every token to 1970. `value` is the BARE token: RFC 7628 frames `auth=Bearer <token>` itself, and an HTTP-shaped scheme prefix double-prefixes.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and the promise lifecycle; native `RdKafka` `Producer`/`KafkaConsumer`/`AdminClient` and `createReadStream`/`createWriteStream` back the stream lanes.
 
@@ -59,7 +49,7 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 |  [13]   | `sasl.oauthBearerProvider()` on the root config          | callback | librdkafka re-runs it on its own refresh cadence, in place      |
 |  [14]   | `producer.setSaslCredentials({ username, password })`    | instance | live SCRAM/PLAIN rotation; UNTYPED — absent from `kafkajs.d.ts` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `effect` (`.api/effect.md`): the `Kafka` clients are `Effect.acquireRelease` acquisitions over `connect`/`disconnect`, every promise member converts through `Effect.tryPromise` at the engine seam, and the `run` handler loop lifts each delivery callback into the effect runtime.
@@ -77,9 +67,3 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 - `setSaslCredentials` exists on the compat producer but is absent from the published types, so a fence naming it is coding against an unpublished member — the `oauthbearer` provider is the typed rotation rail.
 - Exactly-once rides the `Transaction` from `producer.transaction()`: produced records and consumed offsets pass through it, `sendOffsets()` binds the offset handoff, and `commit()` publishes both atomically.
 - Envelope `value` is opaque transport octets the consumer's own `Schema` decodes at its seam; the engine never inspects or re-addresses it, and `ContentKey` stays the one addressing vocabulary.
-
-[RAIL_LAW]:
-- Package: `@confluentinc/kafka-javascript`
-- Owns: the Kafka broker client, the promise producer/consumer/admin surface, the transactional exactly-once lane, the native throughput streams, the SASL mechanism set and its OAUTHBEARER token callback
-- Accept: one scoped `Kafka` per process, offsets committed after success, exactly-once through `transaction()` with `sendOffsets()` and `commit()`, config from `Setting` rows, a rotating credential through `sasl.oauthbearer`'s provider answering a bare token under an absolute epoch-millisecond expiry
-- Reject: per-call bootstraps, `autoCommit` where at-least-once is named, per-call transactions, hardcoded brokers or credentials, a static `username`/`password` pair where a workload principal exists, a `lifetime` carrying a remaining span, a scheme-prefixed token `value`, `setSaslCredentials` in typed code, a second content-addressing vocabulary over the `value` octets

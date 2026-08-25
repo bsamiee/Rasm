@@ -22,7 +22,7 @@
 - Boundary: solver I/O and route rosters remain in Compute. Assessment DAG links ride `DependsOn`; heavy output rides kernel `ArtifactContent`; neither becomes an edge codec or inline byte payload. The node self-hash excludes audit and lifecycle state, while the route or input key includes solver version so a tool change mints a fresh assessment.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Runtime.InteropServices;
 using Generator.Equals;
 using LanguageExt;

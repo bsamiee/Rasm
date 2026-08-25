@@ -2,16 +2,7 @@
 
 `AngouriMath` owns the managed computer-algebra surface: an immutable `Entity` expression tree that parses, canonically simplifies, solves, differentiates, integrates, takes limits, renders LaTeX, and compiles to a delegate. It is the CAS base of the Symbolic lane — `SymbolicExpr` wraps the canonical `Entity` as its content-keyed value object, and the AEC cost/QTO formula lane with the Z3 solver both consume the tree this surface canonicalizes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AngouriMath`
-- package: `AngouriMath` (MIT)
-- assembly: `AngouriMath`
-- namespace: `AngouriMath` (the `Entity` hierarchy), `static AngouriMath.MathS` (the parse/solve/build facade)
-- depends: `Antlr4.Runtime.Standard`, `GenericTensor`, `HonkSharp`, `PeterO.Numbers` — permissive; the `net7.0` asset binds on `net10.0`
-- rail: symbolic
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Entity` expression tree
 
@@ -33,7 +24,7 @@
 - `FastExpression`: `Entity.Compile(vars)` returns it; `Call(Complex[])` evaluates variadically behind the typed `Compile<…>` IL rows.
 - node records: positional-pattern-matchable sealed records over `IUnaryNode.NodeChild` and `IBinaryNode.NodeFirstChild`/`NodeSecondChild` — arithmetic `Sumf` `Minusf` `Mulf` `Divf` `Powf` `Absf` `Signumf` `Logf`; calculus `Derivativef` `Integralf` `Limitf`; comparison `Equalsf` `Greaterf` `GreaterOrEqualf` `Lessf` `LessOrEqualf`; statement `Andf` `Orf` `Xorf` `Impliesf` `Notf`; regime `Entity.Piecewise` over `Providedf(Expression, Predicate)` cases.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and build — `MathS`
 
@@ -64,7 +55,7 @@
 |  [07]   | `entity.EvalNumerical()` -> `Entity.Number.Complex`               | instance | force numeric evaluation                        |
 |  [08]   | `entity.EvalBoolean()` -> `Entity.Boolean`                        | instance | force boolean evaluation                        |
 |  [09]   | `entity.Compile<…>(…)` / `Compile(params Entity.Variable[])`      | instance | typed IL fast lane + variadic `FastExpression`  |
-|  [10]   | `entity.Latexise()` -> `string`                                   | instance | LaTeX rendering                                |
+|  [10]   | `entity.Latexise()` -> `string`                                   | instance | LaTeX rendering                                 |
 |  [11]   | `entity.Evaled` -> `Entity`                                       | property | cached non-throwing reduction                   |
 |  [12]   | `entity.Expand(int)` -> `Entity`                                  | instance | expansion normalization                         |
 |  [13]   | `entity.Factorize(int)` -> `Entity`                               | instance | factorization normalization                     |
@@ -103,9 +94,8 @@
 - `Entity.Derivativef`/`Integralf`/`Limitf`: each derives `CalculusOperator(Expression, Var)`, so `n is Entity.CalculusOperator` is the ONE residue test over all three; the extra positional slots are the per-case payload.
 - `Entity.Piecewise` is NOT a positional record — `Cases` is a property over `Providedf` rows, so its census reads the property and its predicates read `Providedf.Predicate`.
 - `Entity.Set.FiniteSet.Elements` is the only enumerable set projection; `Interval` and `ConditionalSet` carry no element census, which is what makes a set-kind discriminant load-bearing at any solve harvest.
-- Every row above verified against the installed `AngouriMath` assembly through `assay api query --key AngouriMath` (fidelity: decompiled; the pin lives in the owning manifest).
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Entity` is an immutable record tree; `Simplify()` is a deterministic pure fold to canonical normal form with no ambient-culture or hash-order dependence.
@@ -117,9 +107,3 @@
 
 [LOCAL_ADMISSION]:
 - One CAS owner; `SymbolicExpr` wraps the `Entity` as its content-keyed value object, the raw `Entity` never crossing that boundary.
-
-[RAIL_LAW]:
-- Package: `AngouriMath` (MIT)
-- Owns: the symbolic CAS — parse, canonical simplify, solve/differentiate/integrate/limit, substitution, numeric/boolean evaluation, `Compile`-to-delegate, LaTeX
-- Accept: a symbolic expression parsed/built, canonicalized for the content key, solved/integrated/differentiated for the AEC formula lane, compiled for the lowering cache, or lowered to a Z3 rule set
-- Reject: a throwing parse at admission where `Entity.TryParse` is the gate; leaking the raw `Entity` where `SymbolicExpr`'s content-keyed value object is the durable surface; re-deriving the numeric solve the `Tensor`/`Solver` owners hold

@@ -2,26 +2,7 @@
 
 `OPCFoundation.NetStandard.Opc.Ua` owns the AppHost OPC UA client stack: managed `Session`/`Subscription`/`MonitoredItem` streaming above the low-level RPC `SessionClient`, application-configuration loading, and certificate-store PKI. `OPCFoundation.NetStandard.Opc.Ua.PubSub` owns the publish-subscribe dataset transport over MQTT and UDP.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OPCFoundation.NetStandard.Opc.Ua`
-- package: `OPCFoundation.NetStandard.Opc.Ua`
-- assembly: `Opc.Ua.Core` primary, aggregating `Opc.Ua.Client`, `Opc.Ua.Server`, `Opc.Ua.Configuration`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Types` — no DLL of its own
-- namespace: `Opc.Ua`, `Opc.Ua.Bindings`, `Opc.Ua.Configuration`, `Opc.Ua.Security`, `Opc.Ua.Security.Certificates`
-- resolve: the package ships a nuspec alone, so a `--key OPCFoundation.NetStandard.Opc.Ua` query resolves nothing and proves no absence
-- resolve: `StatusCode`, `StatusCodeCollection`, `ServiceResult`, and `ServiceResultException` decompile from `Opc.Ua.Types.dll`
-- resolve: `StatusCodes`, `Profiles`, `WriteValue`, `WriteValueCollection`, `WriteResponse`, `ResponseHeader`, `ClientBase`, `SessionClient`, and every `*DataType` from `Opc.Ua.Core.dll`; `SessionClientBatched` from `Opc.Ua.Client.dll`
-- asset: runtime library
-- rail: opcua-core
-
-[PACKAGE_SURFACE]: `OPCFoundation.NetStandard.Opc.Ua.PubSub`
-- package: `OPCFoundation.NetStandard.Opc.Ua.PubSub`
-- assembly: `Opc.Ua.PubSub`
-- namespace: `Opc.Ua.PubSub`, `Opc.Ua.PubSub.Configuration`, `Opc.Ua.PubSub.Encoding`, `Opc.Ua.PubSub.PublishedData`, `Opc.Ua.PubSub.Transport`
-- asset: runtime library
-- rail: opcua-pubsub
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application and configuration — `Opc.Ua.Configuration`
 
@@ -154,7 +135,7 @@
 |  [14]   | `DataSetReaderDataType`               | data type     | one subscribed dataset and its target set                   |
 |  [15]   | `PublishedDataSetDataType`            | data type     | one published dataset and its source                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: application configuration construction
 
@@ -422,7 +403,7 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - `DataSetReaderDataType`: `Name`, `Enabled`, `Variant PublisherId`, `ushort WriterGroupId`, `ushort DataSetWriterId`, `DataSetMetaDataType DataSetMetaData`, `uint DataSetFieldContentMask`, `double MessageReceiveTimeout`, `uint KeyFrameCount`, `HeaderLayoutUri`, `SecurityMode`, `SecurityGroupId`, `SecurityKeyServices`, `DataSetReaderProperties`, `TransportSettings`, `MessageSettings`, `ExtensionObject SubscribedDataSet`.
 - `PublishedDataSetDataType`: `Name`, `StringCollection DataSetFolder`, `DataSetMetaDataType DataSetMetaData`, `KeyValuePairCollection ExtensionFields`, `ExtensionObject DataSetSource`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Opc.Ua` holds over 1000 types; configuration, certificate, channel, and address-space types coexist in this one namespace.
@@ -451,9 +432,3 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - PubSub admits one `UaPubSubApplication` per process; connections register through configuration.
 - Monitored items declare `QueueSize`, `DiscardOldest`, and their `DataChangeFilter` at the consuming seat; an unset queue is a server-side discard policy no consumer chose.
 - Per-item create verdicts read off `MonitoredItem.Status.Error`, never off an exception the create call does not raise.
-
-[RAIL_LAW]:
-- Package: `OPCFoundation.NetStandard.Opc.Ua` + `OPCFoundation.NetStandard.Opc.Ua.PubSub`
-- Owns: OPC UA application lifecycle, low-level session client, managed `Opc.Ua.Client` session/subscription/monitored-item, certificate PKI, publish-subscribe transport
-- Accept: configuration-loaded endpoints, certificate-store-backed PKI, async managed session/subscription operations, event-driven monitored-item notification
-- Reject: hand-rolled binary encoding, inline security policy strings, direct low-level channel construction outside `ApplicationConfiguration`, a hand-rolled subscription/publish loop beside the managed `Subscription`

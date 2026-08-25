@@ -17,7 +17,7 @@ The absence law shapes the whole page: a seeded product's `SectionProfile` is it
 - Boundary: IFC pairs are roster-exact with the negatives recorded — `IfcSlab` carries {APPROACH_SLAB, BASESLAB, FLOOR, LANDING, PAVING, ROOF, SIDEWALK, TRACKSLAB, WEARING} and NO `HOLLOWCORE`, so the plank rides the `IfcBeam` `HOLLOWCORE[Ifc4]` leaf; the double tee rides `IfcBeam`/`T_BEAM`; the panel rides `IfcBuildingElementPart`/`PRECASTPANEL[Ifc4]` — a REAL predefined token, so the triple is disjoint from the masonry/cmu `USERDEFINED` + ObjectType claims on the same entity. The beam/column/stair roster rows deliberately carry NO `IfcBeam`/`BEAM` or `IfcColumn`/`COLUMN` binding today: those pairs are the CIP concrete family's claims, and a second family on one pair voids the `component#CATALOGUE` reverse-election for both — a precast beam ladder lands with its own discriminated leaf when its geometry two-sources. A kind whose leaf is absent cannot seed, which the coherence census states as its own conjunct rather than leaving to a downstream lift.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

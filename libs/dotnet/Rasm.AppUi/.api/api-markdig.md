@@ -2,16 +2,7 @@
 
 `Markdig` owns Markdown-to-AST parsing, extension-configured rendering, and the block/inline syntax tree with typed descendant traversal, all through one immutable pipeline. A single `MarkdownPipeline` builds once and drives every `Parse`, `ToHtml`, and `Normalize`; `Descendants<T>` projections carrying `Span` source-mapping evidence fold the tree onto the document-outline and editor-integration rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Markdig`
-- package: `Markdig` (BSD-2-Clause)
-- assembly: `Markdig`
-- namespace: `Markdig`, `Markdig.Syntax`, `Markdig.Syntax.Inlines`, `Markdig.Parsers`, `Markdig.Renderers`, `Markdig.Renderers.Normalize`, `Markdig.Renderers.Html`, `Markdig.Extensions.Tables`, `Markdig.Extensions.TaskLists`
-- asset: runtime library (managed)
-- rail: markdown
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PIPELINE_TYPES]: pipeline, parser, and renderer surfaces.
 
@@ -65,7 +56,7 @@
 |  [10]   | `HtmlInline`      | class                     | raw HTML inline      |
 |  [11]   | `TaskList`        | class : `LeafInline`      | task-list checkbox   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [PARSE_ENTRYPOINTS]: `Markdown` owns parse and render, each overload defaulting to the built-in pipeline.
 
@@ -129,7 +120,7 @@
 |  [16]   | `TaskList.Checked`                                | property  | boolean checkbox state                                     |
 |  [17]   | `HtmlAttributesExtensions.TryGetAttributes()`     | extension | attached `HtmlAttributes` (`Id`, `Classes`, `Properties`)  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `MarkdownPipeline` builds once at composition and threads as the `pipeline` argument to every `Parse`, `ToHtml`, and `Normalize`; `MarkdownParserContext.Properties` carries cross-document state and `DocumentProcessed` hooks post-parse AST rewrites onto the same pipeline.
@@ -142,9 +133,3 @@
 
 [LOCAL_ADMISSION]:
 - `Markdig` is the branch's sole Markdown parser, renderer, and AST; one pipeline builds once and is reused across every parse.
-
-[RAIL_LAW]:
-- Package: `Markdig`
-- Owns: Markdown parsing, extension configuration, rendering, and the block/inline AST as the only document model.
-- Accept: one immutable pipeline reused across parses; document folds over `Descendants<T>` with `Span` evidence and `SetData`/`GetData` annotation, driven by node-typed evidence.
-- Reject: regex or line-split Markdown handling beside the pipeline; a parallel node model duplicating the syntax tree; regex extraction of headings or links the AST already exposes.

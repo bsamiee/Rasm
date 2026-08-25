@@ -2,15 +2,7 @@
 
 `brotli` owns the Brotli codec on the artifacts compression rail: the `compress`/`decompress` one-shot pair, the `Compressor`/`Decompressor` incremental roots, and `mode`/`quality`/`lgwin`/`lgblock` tuning against native libbrotli. `MODE_TEXT` drives the HTTP `Content-Encoding: br` transport path and `MODE_FONT` the WOFF2 per-table entropy stream, paired with `fontTools.ttLib.woff2` owning the WOFF2 container and glyph-transform layer; the `package/bundle#BUNDLE` `CompressionAlgo` discriminant routes one payload class here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `brotli`
-- package: `brotli` (MIT)
-- module: `brotli`
-- asset: native wheel; `_brotli` C extension, one wheel per interpreter minor (not abi3)
-- rail: compression
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: incremental codec roots and fault
 
@@ -24,7 +16,7 @@
 - [MODE]: `MODE_GENERIC` `MODE_TEXT` `MODE_FONT`
 - [BINDING_ID]: `brotli.version` `brotli.__version__`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot pair — `quality` 0..11 (11 densest, the default), `lgwin` 10..24 (22 default), `lgblock` 0 or 16..24 (0 derives from `quality`)
 
@@ -51,7 +43,7 @@
 
 - `Decompressor.process(data, output_buffer_limit=cap)`: once the cap is hit, drive `process(b"")` until `can_accept_more_data()` returns `True` before feeding new compressed input; the cap is block-granular, so a call may return somewhat past it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One-shot (`compress`/`decompress`) and incremental (`Compressor`/`Decompressor`) are modality rows on one codec, and `MODE_*` with the `quality`/`lgwin`/`lgblock` knobs are call arguments on it, never parallel codec owners or per-mode types; modality follows input shape and mode follows payload class.
@@ -67,9 +59,3 @@
 - `import brotli` at boundary scope only; module-level import is banned by the manifest import policy.
 - Boundary admission rejects a non-`bytes` or non-contiguous input before it reaches the native call.
 - Live UI stays outside this package.
-
-[RAIL_LAW]:
-- Package: `brotli`
-- Owns: Brotli one-shot and incremental compression/decompression with mode/quality/window/block tuning and bounded-output back-pressured decode
-- Accept: web-transport and WOFF2 font codec service feeding the compression owner, selecting modality by input shape on the one-shot pair or the two incremental roots
-- Reject: wrapper-renames of `compress`/`decompress`; a per-mode codec type where a `mode=` call row suffices; an unbounded one-shot `decompress` wrapped in a hand-rolled size guard where `Decompressor.process(output_buffer_limit=)` already bounds memory; a phantom `max_length` kwarg where the bound method is `output_buffer_limit`; treating `version` as a native libbrotli build probe; identity minting the runtime owns

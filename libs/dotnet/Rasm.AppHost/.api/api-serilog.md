@@ -2,16 +2,7 @@
 
 `Serilog` owns structured log projection: every runtime signal folds into one `LogEvent` that the `WriteTo` and `AuditTo` sink rails emit outward on the telemetry rail. Enrichers, filters, destructuring policies, and level switches shape each event at configuration time, while `LogContext` threads scoped properties into enrichment. This core owns the event model and its configuration rails; concrete sinks and host integration bind downstream.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Serilog`
-- package: `Serilog`
-- assembly: `Serilog`
-- namespace: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`
-- asset: runtime library
-- rail: telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger configuration family
 
@@ -53,7 +44,7 @@
 |  [17]   | `Matching`                | filter helpers       | property/source filters |
 |  [18]   | `SelfLog`                 | internal diagnostic  | logger diagnostics      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration and sink operations
 
@@ -104,7 +95,7 @@
 |  [17]   | `SelfLog.Enable`          | static   | internal error output     |
 |  [18]   | `CloseAndFlush`           | static   | final sink flush          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every event folds into one `LogEvent` — message template, typed properties, level, timestamp, exception, and trace/span ids — so a formatter renders identity from the template and properties, never from a pre-rendered string.
@@ -124,9 +115,3 @@
 - Context properties are scoped projection metadata, never domain state.
 - Sink failures emit diagnostics and never mutate runtime state.
 - Sink configuration binds at bootstrap composition, never at lower runtime logic.
-
-[RAIL_LAW]:
-- Package: `Serilog`
-- Owns: structured log projection
-- Accept: telemetry projected outward as `LogEvent`s
-- Reject: runtime outcomes serialized as log strings

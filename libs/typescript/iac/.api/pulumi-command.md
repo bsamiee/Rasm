@@ -4,18 +4,7 @@
 
 `local.Command` and `remote.Command` share one CRUD-slot lifecycle; the remote arm dials an SSH `ConnectionArgs`, `CopyToRemote` stages assets to a remote path, and `local.run`/`runOutput` mirror read-only shell facts as `Promise`/`Output` — every command woven into sibling lifecycles through `opts`, so ordering is graph-derived.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/command`
-- package: `@pulumi/command` (Apache-2.0)
-- module: `@pulumi/command` → `{ local, remote, types, Provider }`
-- runtime: Node deploy-host + `pulumi` CLI on PATH; the remote arm needs SSH reachability to the target
-- rail: fabric / cluster-bootstrap
-- namespaces: `local` (host `Command`, `run`/`runOutput`), `remote` (SSH `Command`, `CopyToRemote`), `types.input.remote` (`ConnectionArgs`/`ProxyConnectionArgs`), `Provider` (empty-arg marker; transport rides each `connection`)
-- depends: `@pulumi/pulumi` `CustomResource`/`Input`/`Output`/`asset` model; the Automation-API run drives the CRUD steps
-- abi: every output prop mirrors its `Args` field through `Output<T>`; `stdout`/`stderr` are always-present `Output<string>`, all other props `Output<T | undefined>`
-
-## [02]-[COMMAND_LIFECYCLE]
+## [01]-[COMMAND_LIFECYCLE]
 
 [LIFECYCLE_SCOPE]: the one polymorphic command surface
 
@@ -52,7 +41,7 @@
 
 `new CopyToRemote(name, { connection, source: Asset|Archive, remotePath, triggers? }, opts?)` stages a `pulumi.asset.Asset | Archive` onto the target — a rendered config, a `FileArchive` of manifests — and `opts.dependsOn` threads it before or after a `remote.Command`. Outputs mirror the args: `connection`/`source`/`remotePath`.
 
-## [03]-[UNCONDITIONAL_INVOKE]
+## [02]-[UNCONDITIONAL_INVOKE]
 
 [INVOKE_SCOPE]: `local.run` / `local.runOutput` — the Promise/Output mirror pair
 
@@ -64,7 +53,7 @@ Unconditional shell reads run on every preview/up with no CRUD lifecycle or stat
 |  [02]   | `local.runOutput(RunOutputArgs, InvokeOutputOptions?)` | `Output<RunResult>`; graph-threaded read (Input-typed args)                   |
 |  [03]   | `RunResult.stdout` / `.stderr`                         | `string`; both always present, plus resolved `assets`/`archive`               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `remote.Command` over `ConnectionArgs` boots the `selfhosted-k8s` row: its `create` installs the control plane (k3s/kubeadm) and its `stdout` is the kubeconfig; ordering is graph-derived through `opts.dependsOn`/`parent`.
@@ -80,9 +69,3 @@ Unconditional shell reads run on every preview/up with no CRUD lifecycle or stat
 
 [LOCAL_ADMISSION]:
 - `command` is the escape hatch, admitted only where no typed provider owns the concern — bare-metal control-plane install, one-shot host mutation; a literal key or inline password in `ConnectionArgs` is rejected for an Output-bound ref. Typed resources outrank a shell command duplicating a `@pulumi/kubernetes`, `@pulumi/docker`, or cloud-provider concern.
-
-[RAIL_LAW]:
-- Package: `@pulumi/command`
-- Owns: shell commands as CRUD-lifecycle graph resources (host + SSH-remote), remote asset staging, unconditional shell invokes with an `Output` mirror, the cluster-bootstrap row
-- Accept: `remote.Command` bootstrap over `ConnectionArgs`, `CopyToRemote` staging, `local`/`remote.Command` host mutation, `local.run`/`runOutput` reads, `triggers`-driven re-runs, Output-bound credentials
-- Reject: shell duplicating a typed provider resource, literal keys/passwords in `ConnectionArgs`, hand-sequenced ordering over `dependsOn`, credential echo without `logging: "none"`

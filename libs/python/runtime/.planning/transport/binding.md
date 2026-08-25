@@ -31,7 +31,7 @@ Specification law owns each lowering and the SDK accelerates four of them: the f
 - Boundary: protocol lowering, its policy rows, and payload residence only — the connection half seats at `[04]-[ADAPTER]` on this same page, so a row states the protocol fact and the lane realizes it. Composes — never re-mints — the message envelope, the format contract, the resilience curves, the store lane, and the hook registry. Rejected: a per-sink knob outside its row's `protocolsettings` slice; a `ce-` literal at a lowering site; a hand-spelled partition-key extractor beside `_default_key_mapper`; a global `dataref` threshold; a `retry` column on a transport row; a boolean capability knob where the `providers` axis refuses.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Iterable
 from copy import replace
 from enum import StrEnum
@@ -986,7 +986,7 @@ def _raise_missing(binding: Binding, name: str, /) -> Never:
 - Boundary: hook-fact projection and delivery fan only. Mints no hook point, no outcome semantics, no retention window, and no client connection. Rejected: an emit inside a domain fold; a `VETO` subscription over a fact stream; accepted and matched-duplicate folded into one count; batch position treated as event order; a drain that cancels the in-flight window.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Awaitable, Callable
 from typing import Self, TypeIs
 
@@ -1091,7 +1091,7 @@ def _payload[P: Struct](value: Struct, expected: type[P], /) -> TypeIs[P]:
 - Boundary: connection lifetime, membership, settlement, and drain only. Mints no message envelope, no format, no retry curve, no failure window, no outcome semantics, and no hook point. Rejected: a lane creating a loop or a thread the caller's group does not own; `loop_start`'s daemon thread; a `BlockingPortalProvider` minted per callback; an automatic offset commit; a prefetch unpaired with its limiter; work started inside a rebalance callback; a drain that cancels the in-flight window; a per-protocol adapter class beside the one row-driven lane.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
 from enum import StrEnum

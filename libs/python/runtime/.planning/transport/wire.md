@@ -1,6 +1,5 @@
 # [PY_RUNTIME_WIRE]
 
-
 Every decode rides the one `Decode` aspect — a direction-parameterized OTel span with the `reliability/faults#FAULT` `boundary` fence — and a network fetch stays its transport owner's retry concern, handing this aspect only the acquired bytes. Every lift on this page names the provider classes it reaches and takes its subject from a `RuntimeLeg.WIRE` roster row, so no codec raise crosses as a bare-`Exception` funnel and no refusal spells a coordinate the roster never declared. Op-log entries cross as ordinary explicit MessagePack arrays, distinct from the generated CRDT payload and the Connect wire; compression belongs to the carrying transport, so no peer must imitate MessagePack-CSharp's private `Lz4BlockArray` wrapper.
 
 ## [01]-[INDEX]
@@ -21,7 +20,7 @@ Every decode rides the one `Decode` aspect — a direction-parameterized OTel sp
 - Boundary: every leg crosses the `railed`/`routed` span-and-`boundary` fence and the terminal decode fault converts exactly once — never a bare exception across a handler and never a second async rail.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 
 import msgspec
@@ -89,7 +88,7 @@ class Decode:
 - Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one corpus oneof arm, one identity-aware `replayed` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the descriptor member first, the companion regenerates, never ahead of the wire; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder. Compression remains a transport concern and never changes this message shape.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Final, Literal
 
@@ -289,7 +288,7 @@ def _ordered(op: crdt_pb.CrdtOpWire, /) -> None:
 - Boundary: this owner materializes and never transports — the codec above owns the bytes, the clock owner the comparison algebra, and the durable op-log its own persistence. No column carries a wall-clock instant: ordering is the `Hlc` cell alone, so a host whose clock drifts still converges.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from typing import Final, assert_never
 
 from expression import Error, Ok, Option, Some

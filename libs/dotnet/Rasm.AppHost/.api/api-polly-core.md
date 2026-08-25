@@ -2,17 +2,7 @@
 
 `Polly.Core` mints the resilience-pipeline substrate for every shared and non-HTTP rail: builders fold ordered strategies into one executable `ResiliencePipeline`, a keyed registry resolves pipelines by policy identity, and a pooled `ResilienceContext` threads outcome, cancellation, and telemetry through each run. Every knob is a validated options property proved at `Add*` time, and `Polly.Simmy` chaos ships inside this same assembly. HTTP boundary resilience composes this substrate through its own handler package.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Polly.Core`
-- package: `Polly.Core`
-- assembly: `Polly.Core`
-- namespace: `Polly`, `Polly.Retry`, `Polly.Timeout`, `Polly.CircuitBreaker`, `Polly.Hedging`, `Polly.Fallback`, `Polly.Registry`, `Polly.Telemetry`
-- chaos namespace: `Polly.Simmy` beside `Polly.Simmy.Latency`, `Polly.Simmy.Fault`, `Polly.Simmy.Outcomes`, `Polly.Simmy.Behavior`
-- asset: runtime library
-- rail: resilience
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline, builder, and execution family
 
@@ -111,7 +101,7 @@
 |  [20]   | `FaultGeneratorArguments`             | context for the injected exception draw     |
 |  [21]   | `OutcomeGeneratorArguments`           | context for the substituted outcome draw    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder composition and identity
 
@@ -247,7 +237,7 @@
 - `PredicateBuilder<T>` reaches a `ShouldHandle` slot through four implicit operators — retry, hedging, fallback, and breaker predicate delegates — so one transient row declares once and converts into every slot; `Build()` on a builder carrying zero arms throws `InvalidOperationException`, which surfaces at the `Add*` call the conversion runs inside.
 - `HandleInner<TException>` flattens `AggregateException` and walks the whole `InnerException` chain, so a wrapped transport fault classifies without a hand-written unwrap.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Builders fold strategies in explicit order into one executable `ResiliencePipeline` with the first-added strategy outermost; `AddStrategy` admits a custom arm on the same chain and `AddPipeline` nests an already-built one.
@@ -333,9 +323,3 @@
 - Outcomes flow through predicates and strategy callbacks; policy callbacks never throw and never mutate the outcome.
 - Registry keys are policy identities, never service-locator strings, and one key type serves one registry per container.
 - Chaos rows compose below the strategies under test and arm through a runtime gate, never a build-time fork.
-
-[RAIL_LAW]:
-- Package: `Polly.Core`
-- Owns: shared and non-HTTP resilience pipelines beside their chaos plane
-- Accept: explicit strategy chains, keyed pipeline policy, and validated options rows
-- Reject: nested ad hoc retry loops

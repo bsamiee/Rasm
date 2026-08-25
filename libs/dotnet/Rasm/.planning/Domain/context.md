@@ -26,7 +26,7 @@
 - Boundary: `Tolerance.Value` is a public bare `double`, so `context.Absolute.Value`, `context.Angle.Value`, and every host read of the shape compile unchanged across the branch — the compatibility is load-bearing and deliberate, not incidental. `Rasm.Element` owns the dimensioned rendering of a tolerance.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino.Geometry.Intersect;
 using Thinktecture;
@@ -141,7 +141,7 @@ public readonly record struct Tolerance(ToleranceLane Lane, double Value) : IVal
 - Boundary: `Context` threads explicitly — a parameter on synchronous rails, inside `Env` on `Eff` pipelines (`rails.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`. `Absolute`/`Relative`/`Angle` survive as stored accessors returning `Tolerance`, so every `.Value` read across the kernel and the host plane compiles unchanged while the three deleted value-object TYPES disappear from every signature.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino;
 

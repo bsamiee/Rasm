@@ -2,15 +2,7 @@
 
 `Npgsql.EntityFrameworkCore.PostgreSQL` admits the EF Core PostgreSQL provider into the store-profile algebra: `UseNpgsql` binds the provider and every PostgreSQL-specific configuration surface attaches to the one options builder. This catalog also carries the provider-agnostic base EF Core `DbContext`, interception, and migration runtime the folder's store rails compose.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL`
-- package: `Npgsql.EntityFrameworkCore.PostgreSQL` (`PostgreSQL` license)
-- assembly: `Npgsql.EntityFrameworkCore.PostgreSQL`
-- namespace: `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore`
-- rail: store-provider
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PROVIDER_TYPES]: provider admission and options
 
@@ -76,7 +68,7 @@
 |  [20]   | `RelationalPropertyBuilderExtensions`   | class         | `Relational`; `HasComputedColumnSql` relational column config           |
 |  [21]   | `RelationalEntityTypeBuilderExtensions` | class         | `Relational`; `ToTable(Action<TableBuilder>)` table mapping             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission
 
@@ -261,7 +253,7 @@
 - [10]: signature `SqlQueryRaw<T>(string, params object[])`.
 - [11]: `AddInterceptors` takes the four `IDbCommandInterceptor`/`ISaveChangesInterceptor`/`IDbConnectionInterceptor`/`IDbTransactionInterceptor`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every PostgreSQL store op folds through one options builder: `UseNpgsql` binds the provider, `SetPostgresVersion` gates translation, and the model, migration, index, and query-translation surfaces attach to the same builder — no second provider entry.
@@ -279,9 +271,3 @@
 - `HasMethod`/`HasOperators` on `NpgsqlIndexBuilderExtensions` are the index-design surface and `AreNullsDistinct(false)` is the single-null uniqueness law; hand DDL and the partial-index workaround are the rejected forms.
 - `WebSearchToTsQuery` is the only query parser admitted for user text; `ToTsQuery` throws on malformed input.
 - Base EF Core runtime lands in this catalog: savepoints live on the `IDbContextTransaction` handle, never `DatabaseFacade`, and interceptors register once on `DbContextOptionsBuilder` across every provider.
-
-[RAIL_LAW]:
-- Package: `Npgsql.EntityFrameworkCore.PostgreSQL`
-- Owns: EF PostgreSQL provider admission and the base EF Core runtime the folder's store rails compose
-- Accept: the `UseNpgsql` store profile, the PostgreSQL model/migration/index/query-translation extensions, and the composed base EF surface
-- Reject: provider-branded service families; hand DDL where the builder extensions own the declaration

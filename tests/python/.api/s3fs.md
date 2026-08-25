@@ -1,15 +1,8 @@
 # [PY_TESTS_API_S3FS]
 
-`s3fs` is the `AsyncFileSystem` implementation of the fsspec algebra for S3: an `S3FileSystem` targets any S3-compatible endpoint through `aiobotocore`/`botocore` and exposes both the universal fsspec verbs and the S3-native surfaces — object e-tags and presigned URLs — a memory backend cannot serve. `_testkit`'s `ObjectStore` double provisions one `S3FileSystem` bound by `endpoint_url` to a `ThreadedMotoServer` loopback; `test_env.py` proves it satisfies the same filesystem algebra the `MemoryFileSystem` double does while round-tripping e-tags and presigned GET.
+`s3fs` is the `AsyncFileSystem` implementation of the fsspec algebra for S3: an `S3FileSystem` targets any S3-compatible endpoint through `aiobotocore`/`botocore` and exposes both the universal fsspec verbs and the S3-native surfaces — object e-tags and presigned URLs — a memory backend cannot serve. `testkit`'s `ObjectStore` double provisions one `S3FileSystem` bound by `endpoint_url` to a `ThreadedMotoServer` loopback; `test_env.py` proves it satisfies the same filesystem algebra the `MemoryFileSystem` double does while round-tripping e-tags and presigned GET.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `s3fs` · license `BSD`
-- namespace: `import s3fs` · `from s3fs import S3FileSystem, S3File`
-- asset: pure-Python wheel; drives `aiobotocore` over `botocore`; the `fsspec` base moves in lockstep
-- rail: object-store egress — the S3-native view every `ObjectStore` provision yields
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]       | [KIND]                                       | [CAPABILITY]                                                          |
 | :-----: | :------------- | :------------------------------------------- | :-------------------------------------------------------------------- |
@@ -26,7 +19,7 @@ class S3FileSystem(AsyncFileSystem):
                  max_concurrency=10, fixed_upload_size=False, local_expiry_check=False, **kwargs) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                   | [KIND]          | [CAPABILITY]                                                          |
 | :-----: | :------------------------------------------ | :-------------- | :-------------------------------------------------------------------- |
@@ -44,7 +37,7 @@ def call_s3(self, method, *akwarglist, **kwargs): ...
 fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"LocationConstraint": region}} if region != "us-east-1" else {}))
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [S3FS_TOPOLOGY]:
 - `S3FileSystem` is an `AsyncFileSystem`: every verb has an async core (`_ls`, `_cat_file`, `_call_s3`) with a sync facade wrapping it; `asynchronous=True` exposes the coroutines directly, `asynchronous=False` (the double's mode) drives them through the fsspec event loop.
@@ -60,9 +53,3 @@ fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"Lo
 [LOCAL_ADMISSION]:
 - Admitted at the dev-plane test tier only (`[dependency-groups] dev`, `s3fs`); never a runtime `libs/python` dependency — runtime object-store egress owns `obstore`.
 - `ObjectStore` is the sole `s3fs` consumer; specs reach S3 egress through `provision(ObjectStore()).client_factory()`, never a bare `S3FileSystem`.
-
-[RAIL_LAW]:
-- Package: `s3fs`
-- Owns: the S3-native fsspec view over a moto endpoint — the full fsspec algebra with e-tags and presigned URLs.
-- Accept: `S3FileSystem(endpoint_url=…, client_kwargs={"region_name": …}, skip_instance_cache=True)`; `call_s3` for typed bucket ops the fsspec algebra cannot express; `url`/`info(...)["ETag"]` for the S3-native egress assertions.
-- Reject: an instance-cached filesystem over an ephemeral endpoint (stale `dircache`); `s3fs.mkdir` for a `us-east-1` bucket (its unconditional `LocationConstraint` fails); any `s3fs` import outside the `_testkit` `env.py` owner.

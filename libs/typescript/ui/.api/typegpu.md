@@ -2,17 +2,7 @@
 
 `typegpu` owns typed standalone GPGPU compute — data-parallel kernels that live outside a three scene. One `TgpuRoot` owns the `GPUDevice` and every resource, the `d.*` schema types each buffer as its own WGSL layout with `d.Infer<T>` deriving the TS value, and kernels author as TS that the build transform lowers to WGSL. Scene-resident compute routes to `three/tsl`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `typegpu`
-- package: `typegpu` (MIT)
-- module: ESM, `sideEffects: false`; subpath exports `.` (the `tgpu` root), `./data` (the `d` schema namespace), `./std` (WGSL builtins as TS), `./common`
-- runtime: browser WebGPU; the shipped `.d.ts` binds `GPUDevice`/`GPUBuffer`/`GPUFeatureName` as ambient globals that resolve only with `@webgpu/types` in the consumer tsconfig `types` array
-- depends: `unplugin-typegpu` rewrites `'use gpu'` and `tgpu.fn` bodies to WGSL across every major bundler; `typed-binary` and `tinyest` carry buffer serialization and the embedded TS→WGSL AST
-- plane: `plane:runtime` (W4 `ui`, `scope:viewer`)
-- rail: standalone typed GPGPU compute
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the root, its typed resources, and the resolution-time composition plane
 
@@ -42,7 +32,7 @@
 |  [06]   | attribute | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate` | explicit layout and IO decoration |
 |  [07]   | inference | `d.Infer<T>`                                                                  | schema-to-TS typing seam          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: root construction and schema-typed resource factories
 
@@ -106,7 +96,7 @@
 |  [07]   | texture    | `textureSample` `textureLoad` `textureStore` `textureDimensions`                          | texture access          |
 |  [08]   | control    | `select` `discard`                                                                        | branch-free control     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every kernel resolves to WGSL through `tgpu.resolve`; the `d.*` schema is the sole source of buffer layout and `d.Infer<T>` the sole source of a buffer's TS type, so a hand-written shader string or a numeric bind index never appears.
@@ -125,9 +115,3 @@
 - Plain-TS kernel bodies require the `unplugin-typegpu` build transform recognizing `'use gpu'` and `tgpu.fn` bodies; absent the transform, generate WGSL through `tgpu.resolve`.
 - Admission gates on `navigator.gpu` presence and `root.enabledFeatures` membership, with the CPU/worker path as the degrade arm.
 - Render authoring — `createRenderPipeline` and the `root['~unstable']` render and render-bundle surface — stays out of scope; render belongs to three and deck.gl.
-
-[RAIL_LAW]:
-- Package: `typegpu`
-- Owns: standalone typed WebGPU compute — root and device lifecycle, schema-typed buffer/uniform/mutable/readonly resources, the `d.*` layout vocabulary, TS-authored kernels, WGSL resolution, named bind-group layouts, the slot/lazy/accessor composition plane, and `typegpu/std` builtins.
-- Accept: `d.struct`/`d.arrayOf` schemas with `d.Infer` as the one typing seam; plain-TS kernel bodies under `unplugin-typegpu`; `createComputePipeline` dispatch; `initFromDevice` plus `unwrap` at the three seam; a `Scope`-bracketed root behind a boundary adapter; capability-gated admission with a CPU/worker degrade arm.
-- Reject: hand-written WGSL where `tgpu.fn`/`resolve` own generation; numeric bind-index bookkeeping beside `bindGroupLayout`; scene-resident compute authored here instead of TSL; render-pass authoring; a second device or root beside an adoptable one; ungated construction where `navigator.gpu` may be absent.

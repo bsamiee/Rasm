@@ -23,7 +23,7 @@
 - Boundary: `MeshSpace`'s whole value is the VALIDATED HOST SNAPSHOT — the `Mesh.IsValid` gate, the defensive copy, the `Context` binding, and the Laplacian memo keyed on the snapshot's identity — so a raw-buffer arm aliasing caller memory cannot honour it; `Arena` and `Volume` therefore admit through their own `Lift` and never hand a caller's buffer to the substrate. `MeshSource.Arena` carries the `(EncodedGeometry, ImmutableArray<long>)` lane pair and NOT `ImportedGeometry`: the closed spelling names an Element-tier carrier (`Rasm.Element/.planning/Projection/projection.md:322`) the kernel cannot depend upward on, so the strata law refutes it here and the Element mint composes `MeshDraft.Close` instead — the same fact, spelled at the tier that owns it. Three further named losses ride the snapshot decision: the plural carriers' direct buffer access, bought back by `Lift` at one gate; decode-time arena pooling, which survives as `MeshDraft`'s internal and never as a public shape; and each provider's native ABI, which stays behind its own arm because the layout is the library's, not the kernel's. `Volume` publishes the LINEAR boundary hull — mid-side nodes carry no boundary corner, so a quadratic cell's curved facet flattens to its corner triangle, and a consumer needing the curved facet reads the lane arena directly. Corners are `long` end to end — the seam's own width and the `Volume` arm's — while counts narrow to `int` at `Encode.Of`, which is the one place the width disagreement is decidable and where `Close` refuses it typed. `MeshDraft` and `Meshing/edit`'s `MeshEdit` are two arenas under one law and split on ADMISSION SIDE: `MeshEdit` binds a `Context` because it mutates already-admitted geometry under a proven tolerance regime, `MeshDraft` binds none because raw decoded lanes have no regime until `Accrue` supplies one. A MISSING parent frame in the walk is a walk-order violation and refuses typed: reading it as the identity transform relocates a whole subtree to the world origin with nothing on the rail to say so. `SceneWalk`'s FRAME LAW is that a node's own frame is the HEAD of its placements and a node placing nothing inherits its parent's unchanged, which is what lets a mesh-free transform node carry its subtree; a format publishing world transforms per node ignores the threaded parent and the law is vacuous there. `MeshletBand` is NOT this owner's — the partition band seats beside `MeshBlock` at `Rasm.Element`, and `MeshBlockRange` here is the draft's own extent, never a band.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -198,7 +198,7 @@ public readonly record struct MeshSpace {
 - Boundary: the radical clip is NOT this page's arithmetic — `Predicate.ClipHalfplane` is the one convex-ring half-plane fold, and the power path supplies its `Halfplane.Affine` cut, its band, and its floor, so the guarded crossing and the fabrication channel are the same code the bounded Voronoi cell runs. A `DenomFloor` hit publishes a midpoint the aggregate tally alone could not attribute, so `PowerCell.Fabricated` and `PowerFacet.Fabricated` name the contaminated rows and a Newton step refuses them rather than the run. Cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner and the edge weight over it in `CotanEdgeWeightOf`; a consumer re-deriving `(a·b)/(2A)`, the law-of-cosines form, or the half-sum of opposite cotangents inline re-opens the collapsed duplication. Face normals ride the memoized column the same way: a consumer duplicating the native to run `FaceNormals.ComputeFaceNormals` re-opens the per-consumer copy the column collapsed, and running it on the snapshot itself mutates a frozen mesh every cached reader aliases. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. The direct-cotangent host-read window sits wholly inside `Op.Catch`: a proved over-ceiling finite ratio alone mints `GeometryFault.CotangentQuality` with face and guarded ratio evidence, a malformed reading returns the kernel invalid-result refusal, and an unknown raise remains exact. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet` carries the SIGNED dual length and the UNCLAMPED radical foot `OffsetI`, both built from the weights the clip itself ran under, so the BNOT weight-Newton Hessian reads them rather than re-deriving a site distance; a clamped foot or an unsigned length mints a wrong-sign Newton step no residual catches. `A_ij == A_ji` holds because the canonical `(min, max)` key accumulates ONCE — the FIFO frontier reaches both cell views and the two clip SEQUENCES differ by ulps, so summing both doubles every length. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; the weighted security radius tests the farthest neighbour after the list exhausts, `KNearest` is a policy row, and the signed `IntegrationResidual`, the `NeighborFacetCount`-versus-`IncidentPairCount` gap, and `QueuePeakDepth` make any under-clip observable from two independent directions. Degenerate meshes route an `Op` fault over `Fin<T>`, never a throw.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
@@ -1151,22 +1151,22 @@ flowchart LR
 
 Each `[RAIL]` cell names the one return rail; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]                               | [RAIL]                                               | [CASES] |
-| :-----: | :------------------ | :------------------------------------ | :--------------------------------------------------- | :-----: |
-|  [01]   | Mesh admission      | `MeshSource`                          | `MeshSpace.Of → Fin<MeshSpace>`                      |    3    |
-|  [02]   | Cell family         | `CellTopology`                        | row data (facet table)                               |    6    |
-|  [03]   | Decode accumulation | `MeshDraft`                           | `Close → Fin<(lanes, corners, blocks)>`              |    —    |
-|  [04]   | Scene fold          | `SceneWalk<TNode>`                    | `Accrue → Fin<MeshDraft>`                            |    —    |
-|  [05]   | Mesh handle         | `MeshSpace`                           | `MeshSpace.Of → Fin<MeshSpace>`                      |    1    |
-|  [06]   | Laplacian selection | `MeshLaplacian`                       | `Select → Fin<SparseLaplacian>`                      |    3    |
-|  [07]   | Memoization         | `LaplacianCache`                      | `Memo.Of → Fin<T>`                                   | 14+slot |
-|  [08]   | Cotangent primitive | `Cotangent`                           | pure                                                 |    2    |
-|  [09]   | Intrinsic snapshot  | `IntrinsicMesh`/`IntrinsicEdge`       | `BuildIntrinsicMesh → Fin<IntrinsicMesh>`            |    —    |
-|  [10]   | Flip settlement     | `FlipFrontier`                        | `Settle → FlipFrontier` (budget census)              |    —    |
-|  [11]   | Adjoint handle      | `MeshAdjointSnapshot`                 | `Of → Fin<MeshAdjointSnapshot>`                      |    1    |
-|  [12]   | Substrate assembly  | `MeshKernel`                          | `Fin` rails per member                               |    —    |
-|  [13]   | Tangent transport   | `SignpostPolicy` + `SignpostTransport`    | `SignpostTransportOf → Fin<...>`              |    —    |
-|  [14]   | Power diagram       | `RestrictedPowerDiagram`              | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]                                | [RAIL]                                               | [CASES] |
+| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------- | :-----: |
+|  [01]   | Mesh admission      | `MeshSource`                           | `MeshSpace.Of → Fin<MeshSpace>`                      |    3    |
+|  [02]   | Cell family         | `CellTopology`                         | row data (facet table)                               |    6    |
+|  [03]   | Decode accumulation | `MeshDraft`                            | `Close → Fin<(lanes, corners, blocks)>`              |    —    |
+|  [04]   | Scene fold          | `SceneWalk<TNode>`                     | `Accrue → Fin<MeshDraft>`                            |    —    |
+|  [05]   | Mesh handle         | `MeshSpace`                            | `MeshSpace.Of → Fin<MeshSpace>`                      |    1    |
+|  [06]   | Laplacian selection | `MeshLaplacian`                        | `Select → Fin<SparseLaplacian>`                      |    3    |
+|  [07]   | Memoization         | `LaplacianCache`                       | `Memo.Of → Fin<T>`                                   | 14+slot |
+|  [08]   | Cotangent primitive | `Cotangent`                            | pure                                                 |    2    |
+|  [09]   | Intrinsic snapshot  | `IntrinsicMesh`/`IntrinsicEdge`        | `BuildIntrinsicMesh → Fin<IntrinsicMesh>`            |    —    |
+|  [10]   | Flip settlement     | `FlipFrontier`                         | `Settle → FlipFrontier` (budget census)              |    —    |
+|  [11]   | Adjoint handle      | `MeshAdjointSnapshot`                  | `Of → Fin<MeshAdjointSnapshot>`                      |    1    |
+|  [12]   | Substrate assembly  | `MeshKernel`                           | `Fin` rails per member                               |    —    |
+|  [13]   | Tangent transport   | `SignpostPolicy` + `SignpostTransport` | `SignpostTransportOf → Fin<...>`                     |    —    |
+|  [14]   | Power diagram       | `RestrictedPowerDiagram`               | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
 
 - [01]-[MESH_ADMISSION]: `[Union]` over native, lane-arena, and FE-volume arms; every arm resolves to the one validated snapshot.
 - [02]-[CELL_FAMILY]: `[SmartEnum<string>]` carrying node/corner counts and the outward-wound reference facet table.

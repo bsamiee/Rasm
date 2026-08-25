@@ -2,16 +2,7 @@
 
 `openid-client` owns the OpenID-certified relying-party surface whole — the folder's SOLE OAuth custodian across the browser and machine-identity planes alike.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `openid-client`
-- package: `openid-client` (MIT)
-- module: ESM only (`type: module`); the root barrel carries the whole function and class surface, `openid-client/passport` a `Strategy` adapter the design never mounts
-- runtime: isomorphic — global `fetch` and WebCrypto, no native addon; `jose` and `oauth4webapi` are its only runtime deps, and it re-exports the `oauth4webapi` response, fault, and KEY types as flat root-barrel names, so `CryptoKey`/`CryptoKeyPair` are nominally the upstream types and a key crosses between this surface and `jose` uncast
-- asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `TokenEndpointResponse` carries an untyped index signature, so a `Schema` at the seam is the real gate on a grant response
-- rail: `security/authn/oauth` — the browser ceremony's provider rows; `security/authn/workload` — machine-grant and DPoP rows; catalogued at the folder tier
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the RP handle, the client-auth vocabulary, and the token accessors
 
@@ -43,7 +34,7 @@
 |  [03]   | `AuthorizationResponseError`    | class         | error params on the authorization-response leg         |
 |  [04]   | `WWWAuthenticateChallengeError` | class         | RS challenge; `cause[].parameters.error` is the arm    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolving one `Configuration` and requesting a token — token-producing members return `Promise<TokenEndpointResponse & TokenEndpointResponseHelpers>`, and a trailing `DPoPOptions` sender-constrains the issued token
 
@@ -84,7 +75,7 @@
 - [SYMBOL_KEY]: `customFetch` `modifyAssertion` `clockSkew` `clockTolerance` `skipSubjectCheck` `skipStateCheck` — symbol-keyed overrides set on a `Configuration` or passed where a signature names the sentinel.
 - `customFetch`: `CustomFetchOptions` hands the implementation `body`, `headers`, `method`, `redirect: "manual"`, an `AbortSignal` already armed from the configuration timeout, and `duplex` set to `"half"` whenever `body` is a `ReadableStream` — so forwarding the record wholesale streams a large protected-resource body rather than buffering it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `Configuration` holds the whole client state and every grant, builder, and read takes it first, so `Match` over a closed grant-kind tuple dispatches the row and one client type serves every grant.
@@ -111,9 +102,3 @@
 - Mint one DPoP key pair per principal, read `cnf.jkt` off the handle's `calculateThumbprint()`, and pass the handle as `options.DPoP` wherever the AS advertises DPoP.
 - Carry the whole authorization response into `authorizationCodeGrant` and rebase it onto the registered redirect, so `iss`, `error`, and `state` all reach the validator and the token request's `redirect_uri` stays the registered value.
 - Read every issuer capability off `serverMetadata()` — endpoints, `jwks_uri`, PKCE support, the grant roster, the revocation leg — rather than asserting it beside the row.
-
-[RAIL_LAW]:
-- Package: `openid-client`
-- Owns: RP configuration and registration, the client-auth vocabulary, the interactive browser authorization-code ceremony end to end, the machine-grant rows including token exchange and the device and CIBA legs, DPoP sender-constraint, PKCE/state/nonce mint, the authorization/PAR/JAR/end-session builders, protected-resource and userinfo reads, and token introspection and revocation
-- Accept: one `Configuration` per issuer dispatched as a `Match` grant vocabulary, provider rows as a discovery URL or a `ServerMetadata` literal over one uniform leg set, every issuer capability read off `serverMetadata()`, the deadline seated on `Configuration.timeout`, `Effect.tryPromise` around every network member, `Schema` decode of `TokenEndpointResponse` and `.claims()`, `jose` re-verification of id-token claims, `Redacted` secrets and DPoP keys, a per-principal handle whose `calculateThumbprint()` is the confirmation value
-- Reject: a client type or method family per grant, a per-issuer client class, a hand-built token-endpoint body or authorization URL, a hand-asserted copy of a readable metadata fact, a callback URL rebuilt from selected response params, a bearer machine token where DPoP is advertised, a second key custody for the DPoP proof, a thumbprint URI in a `cnf.jkt` field, a nonce arm keyed on the challenge class rather than the `use_dpop_nonce` code, a helper return trusted before `Schema` and `jose`, a `customFetch` dropping `duplex` and buffering a streamed body, a structural cast between this surface's key types and `jose`'s, a bare `Promise` reject in domain logic, the `openid-client/passport` adapter

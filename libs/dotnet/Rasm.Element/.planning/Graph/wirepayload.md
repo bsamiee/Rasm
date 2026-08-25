@@ -16,7 +16,7 @@
 - Growth: a corpus enum or oneof change breaks an exhaustive conversion here; a domain-only invariant remains at its owner's factory, never copied into a protobuf-shaped validator.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics;
 using Celly.Protovalidate;
 using Google.Protobuf;

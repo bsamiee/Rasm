@@ -2,16 +2,7 @@
 
 `Microsoft.Extensions.ObjectPool` owns bounded instance reuse for allocation-hot AppHost lanes: a policy mints and resets pooled objects, a provider caps how many survive a return, and a StringBuilder policy pools text buffers. Retention bounds live retained instances, never total allocation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.ObjectPool`
-- package: `Microsoft.Extensions.ObjectPool`
-- assembly: `Microsoft.Extensions.ObjectPool`
-- namespace: `Microsoft.Extensions.ObjectPool`
-- asset: runtime library
-- rail: pooling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pool family
 
@@ -29,7 +20,7 @@
 |  [10]   | `StringBuilderPooledObjectPolicy` | class          | StringBuilder reuse policy     |
 |  [11]   | `ObjectPoolProviderExtensions`    | static class   | StringBuilder pool extension   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool operations
 
@@ -50,7 +41,7 @@
 - `ObjectPool.Create<T>` and `ObjectPoolProvider.Create<T>` each carry a parameterless overload defaulting to `DefaultPooledObjectPolicy<T>`.
 - `ObjectPoolProvider.Create<T>` returns a disposal-aware pool for a `T : IDisposable`, disposing every instance it declines to retain.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Provider policy caps retained instances, never total allocation.
@@ -64,9 +55,3 @@
 - Pools are injected policy values on allocation-hot AppHost lanes.
 - Returned instances reset through `IResettable` or policy-owned cleanup.
 - Pooled instances carry no request, document, host, or user state across returns.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.ObjectPool`
-- Owns: bounded instance reuse on allocation-hot lanes
-- Accept: pools as injected runtime policy values
-- Reject: ad hoc static pools and per-site `StringBuilder` churn

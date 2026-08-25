@@ -230,7 +230,7 @@ public readonly record struct Stamp(ulong Word) : IComparable<Stamp> {
 
     public static Stamp Genesis(long nowMillis) => new((ulong)nowMillis << CounterBits);
     public static Option<Stamp> Parse(ReadOnlySpan<char> hex) =>
-        hex.Length == 16 && ulong.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var word)
+        hex.Length == 16 && ulong.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong word)
             ? Some(new Stamp(word)) : None;
 
     public string Serialized => Word.ToString("x16", CultureInfo.InvariantCulture);
@@ -238,8 +238,8 @@ public readonly record struct Stamp(ulong Word) : IComparable<Stamp> {
     public TimeSpan OffsetFrom(long nowMillis) => TimeSpan.FromMilliseconds(Millis - nowMillis);
 
     public Stamp Advance(Stamp inbound, long now) {
-        var l = Math.Max(Math.Max(Millis, inbound.Millis), now);
-        var c = (l == Millis, l == inbound.Millis) switch {
+        long l = Math.Max(Math.Max(Millis, inbound.Millis), now);
+        int c = (l == Millis, l == inbound.Millis) switch {
             (true, true) => Math.Max(Count, inbound.Count) + 1,
             (true, _) => Count + 1,
             (_, true) => inbound.Count + 1,
@@ -258,9 +258,9 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
     public Stamp Now() => Cell.Swap(held => held.Advance(held, Clock.GetUtcNow().ToUnixTimeMilliseconds()));
 
     public Stamp Receive(Stamp inbound, string peer) {
-        var now = Clock.GetUtcNow().ToUnixTimeMilliseconds();
-        var advanced = Cell.Swap(held => held.Advance(inbound, now));
-        return inbound.OffsetFrom(now) is var offset && offset > Bound
+        long now = Clock.GetUtcNow().ToUnixTimeMilliseconds();
+        Stamp advanced = Cell.Swap(held => held.Advance(inbound, now));
+        return inbound.OffsetFrom(now) is TimeSpan offset && offset > Bound
             ? (ignore(Facts.Swap(seen => seen.Add(new FactRecord.Skew(advanced, peer, offset, Bound)))), advanced).Item2
             : advanced;
     }
@@ -304,11 +304,11 @@ public static class EnvelopeSeam {
     private static readonly Action<Dictionary<string, string>, string, string> Put =
         static (frame, key, value) => frame[key] = value;
     private static readonly Func<Dictionary<string, string>, string, IEnumerable<string>> Take =
-        static (frame, key) => frame.TryGetValue(key, out var held) ? [held] : [];
+        static (frame, key) => frame.TryGetValue(key, out string held) ? [held] : [];
 
     public static Dictionary<string, string> Depart(StampCell cell, ActivityContext current) {
         ArgumentNullException.ThrowIfNull(cell);
-        var frame = new Dictionary<string, string>(StringComparer.Ordinal);
+        Dictionary<string, string> frame = new(StringComparer.Ordinal);
         Wire.Inject(new PropagationContext(current, Baggage.Create(new Dictionary<string, string>(StringComparer.Ordinal) {
             [OriginKey] = cell.Origin, [StampKey] = cell.Now().Serialized,
         })), frame, Put);
@@ -316,7 +316,7 @@ public static class EnvelopeSeam {
     }
 
     public static Fin<Arrival> Admit(StampCell cell, Dictionary<string, string> frame, string peer) {
-        var inbound = Wire.Extract(default, frame, Take);
+        PropagationContext inbound = Wire.Extract(default, frame, Take);
         return Optional(inbound.Baggage.GetBaggage(StampKey)).Bind(static text => Stamp.Parse(text))
             .ToFin(Error.New(7302, "<unstamped-frame>"))
             .Map(stamp => cell.Receive(stamp, peer))

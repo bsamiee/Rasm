@@ -2,16 +2,7 @@
 
 `Avalonia.Desktop` contributes one managed entry, `AppBuilderDesktopExtensions.UsePlatformDetect`, detecting the running OS and wiring the matching windowing backend and the Skia renderer from a single boot call. Per-backend `Use*` extensions and their native payloads ride as transitive dependencies it orchestrates internally, never this package's own public surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Desktop`
-- package: `Avalonia.Desktop` (MIT)
-- assembly: `Avalonia.Desktop` (bound `lib/net10.0`; `lib/net8.0` present)
-- namespace: `Avalonia`
-- asset: aggregation runtime library admitting the per-OS backend graph transitively
-- rail: desktop-shell
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `AppBuilderDesktopExtensions` (`Avalonia` namespace, static class) is the sole public managed type; its `UsePlatformDetect` method dispatches to the four backend `Use*` extensions below, each a static class owned by its own backend assembly rather than `Avalonia.Desktop`.
 
@@ -46,7 +37,7 @@
 - `RenderScaling` answers `1` on an embedded root regardless of the host's backing scale, so a DPI-aware mount reads scale from the host, never from the root.
 - `StorageProviderImpl` answers `CanOpen`, `CanSave`, and `CanPickFolder` all true on an embedded root, yet a picker launched while the root's native view has no window returns a task that stays `WaitingForActivation` — no exception, no sheet, no completion — so a caller gates on a shown host window beside the capability read.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one boot entry mounts any admitted desktop substrate
 
@@ -91,7 +82,7 @@
 - `TopLevelImpl.SetTransparencyLevelHint`: maps `None -> Opaque`, `Transparent -> Transparent`, `AcrylicBlur -> Blur`; `Blur` and `Mica` map to nothing and the walk skips to the next hint, and a list mapping nothing at all resets the root to `Opaque`.
 - `IAvnTopLevel.SetTransparencyMode`: UNPROVEN on a host-owned `NSView` — the managed call lands and `ActualTransparencyLevel` updates, while no run confirms the foreign view composites the requested mode.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `UsePlatformDetect` collapses host-substrate selection into the shared AppUi boot, so the standalone, sidecar, and companion-window modalities all enter the one `SurfaceMount` axis with no per-host boot fork.
@@ -107,9 +98,3 @@
 [LOCAL_ADMISSION]:
 - One package reference transitively admits the backend graph; the desktop shell composes only `UsePlatformDetect`, never a backend `Use*` at a call site.
 - In-host embedding takes the one carve: a mount under a foreign macOS run loop names `UseAvaloniaNative` beside `UseSkia` because it must seat `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values `UsePlatformDetect` never exposes, and it does so from one admission fold (`Shell/hosts#EMBED_CAPSULE` `EmbedOptions.Admit`), never from a boot-code knob.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Desktop`
-- Owns: the one umbrella boot entry that detects the OS and wires the matching windowing backend and the Skia renderer
-- Accept: standalone, sidecar, and companion desktop hosts enter the AppUi shell rail through `UsePlatformDetect`, backend selection staying internal to it
-- Reject: a host-specific boot fork, or a standalone shell calling `UseWin32`/`UseX11`/`UseAvaloniaNative`/`UseSkia` directly — the embed admission fold is the one seat that names a backend, because the options it must seat have no `UsePlatformDetect` route

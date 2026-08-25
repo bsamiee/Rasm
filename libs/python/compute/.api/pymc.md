@@ -2,16 +2,7 @@
 
 `pymc` owns PyTensor-backed probabilistic programming for the compute Bayesian-study rail: a declarative `Model` context where named random variables become symbolic PyTensor nodes, ~60 distribution families, gradient-based and gradient-free step methods, variational families, SMC, and posterior/prior-predictive sampling. `pm.sample` compiles the joint log-probability, dispatches NUTS to a pluggable backend, and returns an `xarray.DataTree` the `arviz` catalog reads; it never re-implements a distribution, sampler, or PyTensor graph operation the package owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pymc`
-- package: `pymc`
-- import: `pymc` (alias `pm`); submodules `pymc.gp`, `pymc.math`, `pymc.distributions`, `pymc.step_methods`, `pymc.variational`, `pymc.smc`
-- owner: `compute`
-- rail: Bayesian-study
-- capability: PyTensor-backed probabilistic programming — declarative `Model` context, ~60 distribution families across continuous/discrete/multivariate/mixture/truncation/time-series, NUTS/HMC/Metropolis/SMC step methods with pluggable `nutpie`/`numpyro`/`blackjax` NUTS backends, ADVI/FullRank/SVGD variational families, causal `do`/`observe` graph surgery, a Gaussian-process module, and `xarray.DataTree` posterior/prior-predictive output
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model and context types
 
@@ -89,7 +80,7 @@
 |  [03]   | `SVGD` / `ASVGD` | particle VI   | Stein variational gradient descent / amortized SVGD  |
 |  [04]   | `Empirical`      | trace VI      | empirical approximation built from an existing trace |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: sampling and inference entrypoints
 
@@ -149,7 +140,7 @@
 
 - [09]-[MATH]: `logsumexp`, `invlogit`, `dot`, `stack`, `switch`, ... PyTensor tensor primitives.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Random variables are symbolic PyTensor nodes bound inside a `pm.Model()` context; the joint log-probability is one compiled graph, and every sampler, VI, predictive, and causal-surgery op consumes that same graph. `pm.math`/`Deterministic`/`Potential` build differentiable graph expressions PyTensor lowers to C/Numba/JAX — never NumPy-eager numerics inside the model context.
@@ -161,9 +152,3 @@
 
 [LOCAL_ADMISSION]:
 - pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` on its C# model rail; no production runtime imports pymc.
-
-[RAIL_LAW]:
-- Package: `pymc`
-- Owns: PyTensor-backed probabilistic model construction, ~60 distribution families, MCMC/SMC/VI inference with pluggable NUTS backends, causal `do`/`observe` graph surgery, and posterior/prior predictive sampling
-- Accept: a model defined inside a `pm.Model()` context with named sample sites, run through `pm.sample`/`pm.sample_smc`/`pm.fit`, returning a `DataTree` with captured draws, tune steps, chains, and `arviz` convergence checks
-- Reject: hand-rolled distributions or samplers pymc owns; a model outside a `Model()` context; NumPy-eager numerics where a PyTensor graph is required; a posterior claim without a `DataTree`

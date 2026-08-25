@@ -2,18 +2,7 @@
 
 `Minio` dials any S3-protocol endpoint — a self-hosted MinIO cluster, Ceph RadosGW, R2, B2, Wasabi — through one fluent `IMinioClient` built once and reused, so the self-hosted object plane rides the same provider axis as the cloud SDK rows behind one placement contract. Its whole operation surface is the `*Args` request algebra, and the conditional builder tier with `CopyConditions` supplies the optimistic-concurrency edge a content-addressed write-once store rides. `ObjectStat.ETag` with `ObjectStat.MetaData` is the content-hash descriptor a reader binds back to the content key.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Minio`
-- package: `Minio` (Apache-2.0)
-- assembly: `Minio`
-- namespace: `Minio`, `Minio.ApiEndpoints`, `Minio.Credentials`, `Minio.DataModel`, `Minio.DataModel.Args`, `Minio.DataModel.Encryption`, `Minio.DataModel.ILM`, `Minio.DataModel.Notification`, `Minio.DataModel.ObjectLock`, `Minio.DataModel.Replication`, `Minio.DataModel.Response`, `Minio.DataModel.Result`, `Minio.DataModel.Select`, `Minio.DataModel.Tags`, `Minio.DataModel.Tracing`, `Minio.Exceptions`, `Minio.Handlers`
-- target: `net8.0`
-- depends: `System.Reactive`, `System.IO.Hashing`, `CommunityToolkit.HighPerformance`, `Microsoft.Extensions.Logging`, `Microsoft.Extensions.DependencyInjection.Abstractions`
-- asset: managed AnyCPU; S3 wire protocol over `HttpClient`
-- rail: object-store, self-hosted S3
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CLIENT_TYPES]: the client contract, its state carrier, and the pluggable credential and handler seams.
 
@@ -91,7 +80,7 @@
 [INTEGRITY_FAULTS]: `EntityTooLargeException` `InvalidContentLengthException` `UnexpectedShortReadException` `PartialContentException`
 [OPERATION_FAULTS]: `DeleteObjectException` `SelectObjectContentException` `MissingBucketReplicationConfigurationException` `CredentialsProviderException`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [BUILDER]: `MinioClientExtensions` chains off `new MinioClient()`, and `Build()` validates the config and yields the ready client.
 
@@ -195,7 +184,7 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 [LIST_INCOMPLETE_UPLOADS_ARGS]: `WithPrefix` `WithDelimiter` `WithRecursive`
 [LISTEN_BUCKET_NOTIFICATIONS_ARGS]: `WithEvents` `WithPrefix` `WithSuffix` `WithNotificationObserver`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One client is built once and reused for the process; the builder validates endpoint, credential, and region at `Build()`, so a per-operation construction re-pays region discovery and abandons the pooled `HttpClient`.
@@ -219,9 +208,3 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 - Every lifted exception folds once at the object-store edge into the closed local fault family, so no provider exception type crosses into domain code.
 - Hop retry belongs to the AppHost `OutboundHop` owner, so the client is built with no retry handler and a transient S3 failure re-drives there.
 - Self-hosted endpoints are provisioned infrastructure, so their reachability probe joins the same host degradation grade as the database and cache endpoints.
-
-[RAIL_LAW]:
-- Package: `Minio`
-- Owns: the S3-protocol self-hosted object lane — bucket lifecycle and policy, object put, get, head, remove, copy, multipart resume, presigned URLs and POST policies, SSE, versioning, object-lock and legal hold, ILM and replication, server-side `SELECT`, and the Reactive bucket-event feed.
-- Accept: one client built once and shared, the `*Args` builders carrying every per-request policy, `ObjectStat.ETag` as the content descriptor, the conditional tier and `CopyConditions` as the write-once seal, an injected pooled `HttpClient`.
-- Reject: a second code path beside the provider union, per-operation client construction, a hand-rolled S3 signing or multipart loop the builders own, a second retry owner beside the outbound hop, credential material as a fence member, an unwrapped provider exception crossing the boundary.

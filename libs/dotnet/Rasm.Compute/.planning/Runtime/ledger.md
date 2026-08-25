@@ -50,7 +50,7 @@ public readonly partial record struct CostVector(
 - Boundary: no rate literal lives in the package — the generated factory is the only mint and the composition root supplies the rows. Pricing reads the RESULT: `Price` opens the `ComputeOutput` case for the units its lane measured (`GenerationOutcome.Tally.Tokens`, `RemoteReply.Elapsed`) and never a side stream, so a lane cannot bill a unit its own value does not state.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using static Rasm.Element.Projection.AdmissionSlots;
 
 [ComplexValueObject]

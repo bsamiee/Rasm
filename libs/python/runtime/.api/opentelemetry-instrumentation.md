@@ -2,20 +2,7 @@
 
 `opentelemetry-instrumentation` owns the contracts every `opentelemetry-instrumentation-*` sibling implements: the `BaseInstrumentor` lifecycle, the dependency gate deciding whether a patch may install, the monkeypatch-reversal helper, the ambient suppression scopes, the response-header propagator, and the semconv stability opt-in. It patches nothing itself — the train rides it, and the composition root reaches it through the sibling instrumentors rather than directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-instrumentation`
-- package: `opentelemetry-instrumentation` (Apache-2.0)
-- module: `opentelemetry.instrumentation`
-- namespaces: `.instrumentor`, `.distro`, `.dependencies`, `.propagators`, `.utils`, `.log_utils`, `.environment_variables`, `._semconv`, `._labeler`, `.cidict`, `.sqlcommenter_utils`, `.auto_instrumentation`, `.bootstrap`
-- requires: `opentelemetry-api~=1.4`, `opentelemetry-semantic-conventions` pinned equal, `packaging`, `wrapt<3`
-- commands: `opentelemetry-instrument`, `opentelemetry-bootstrap`
-- abi: pure-Python runtime library
-- rail: observability
-
-`opentelemetry.instrumentation` is a namespace package the whole train shares, so a sibling distribution's sub-package sits beside these owned modules under one import root and `pip` ownership, never import path, decides which distribution ships a name.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: instrumentor lifecycle and its admission gate
 
@@ -46,7 +33,7 @@
 |  [03]   | `_StabilityMode`                            | enum          | `default`, `http`, `http/dup`, `database`, `database/dup`    |
 |  [04]   | `_OpenTelemetrySemanticConventionStability` | class         | reads the stability env var once per process                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the lifecycle a sibling instrumentor subclasses and a composition root calls
 
@@ -101,7 +88,7 @@
 |  [04]   | `OTEL_SEMCONV_STABILITY_OPT_IN`                              | env     | picks the `_StabilityMode` per signal family |
 |  [05]   | `OTEL_PYTHON_AUTO_INSTRUMENTATION_EXPERIMENTAL_GEVENT_PATCH` | env     | patches gevent ahead of the train            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `BaseInstrumentor.__new__` returns `cls._instance`, so every subclass is a PROCESS singleton and its installed latch is process state: two call sites constructing the same instrumentor hold one object, and a second `instrument()` logs a warning and returns `None` rather than re-patching or raising.
@@ -124,9 +111,3 @@
 - Instrumentors install with the gate ARMED and the raising arm selected, so a version drift refuses with typed evidence instead of returning a silently unpatched process.
 - `opentelemetry-instrument` and `bootstrap` stay out of the estate: the branch composes its providers explicitly, and an auto-loader picking rows off installed distributions re-mints the roster the composition root declares.
 - Response propagation stays off unless a server surface exposes the header deliberately, since `TraceResponsePropagator` publishes trace identity to the client.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-instrumentation`
-- Owns: the `BaseInstrumentor` lifecycle, the dependency admission gate, `wrapt` patch reversal, ambient suppression scopes, response-header propagation, the semconv stability opt-in, and the shared HTTP and DB attribute projections
-- Accept: one `instrument()` per train row at the composition root with the gate armed, `unwrap` for reversal, `suppress_instrumentation` around an exporter's own egress, `std_to_otel` and `http_status_to_status_code` as the projections
-- Reject: instrumentor activation inside a library module, `skip_dep_check` standing in for a version pin, the `opentelemetry-instrument` auto-loader, a hand-rolled monkeypatch reversal beside `unwrap`

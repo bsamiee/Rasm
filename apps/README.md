@@ -33,7 +33,7 @@ Root config estates reach every island already, so an app invents no configurati
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position.
 - Nested estate files under an island open with the upward chaining import, whose canonical line rides a comment in `Directory.Build.props`.
-- Omitting that import erases the whole root estate while the build stays green, and `tests/dotnet/_architecture` refuses the file.
+- Omitting that import erases the whole root estate while the build stays green.
 
 [PYTHON]:
 - Root `pyproject.toml` owns resolution, dependency groups, and the one `uv.lock`; member manifests carry membership and bare-name edges.
@@ -41,22 +41,12 @@ Root config estates reach every island already, so an app invents no configurati
 
 [TYPESCRIPT]:
 - `pnpm-workspace.yaml` seats app packages through its `apps/*/*` glob, and its catalog holds every version.
-- Project `tsconfig.json` extends `tsconfig.base.json` (`tsconfig.node.json` for node runtimes) and declares only `references`.
+- Project `tsconfig.json` extends `tsconfig.base.json` and declares only `references`; a node runtime adds `types: ["node"]`.
 - Root `tsconfig.json` is the solution shell `tsc --build` drives, so a project absent from its `references` never typechecks in the estate sweep.
 
 ## [04]-[MINTING]
 
 Blessed per-project file sets are minimal, and what the init rail emits is the whole set.
 
-- `uv run assay init python-app apps/<app-name>/<project>` writes the manifest, the package seat, and its workspace member row.
-- `uv run assay init check` closes uv's silent-orphan hole both ways, refusing an undeclared manifest on disk and a member row resolving to nothing.
 - C# projects mint by hand as an identity-only `.csproj` joined through `dotnet sln add`, under the parity and shape guards.
 - TypeScript projects mint by hand as `package.json` beside `tsconfig.json`, composed by the root presets.
-
-## [05]-[VERIFICATION]
-
-Every claim runs from the repo root on the `assay` rail and emits one JSON `Envelope`; `tools/assay/README.md` owns the claim and verb rosters.
-
-- `uv run assay static --project <csproj>` grades a C# project, and `--folder <dir>` grades a Python or TypeScript project.
-- `uv run assay docs check <paths>` grades markdown under an island.
-- `uv run assay package plan` and `publish` drive Yak output, whose per-slug metadata lives at `tools/yak/<slug>/manifest.yml`.

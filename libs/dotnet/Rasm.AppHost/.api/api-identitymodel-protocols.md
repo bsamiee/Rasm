@@ -2,19 +2,7 @@
 
 `Microsoft.IdentityModel.Protocols` owns the protocol-agnostic configuration-refresh substrate: `ConfigurationManager<T>` caches a discovery document, refreshes it on interval or demand, and falls back to last-known-good. `BaseConfigurationManager` and the OIDC vocabulary are sibling-owned; this assembly holds the concrete manager and retrievers. `ConfigurationManager<OpenIdConnectConfiguration>` assigned to `TokenValidationParameters.ConfigurationManager` feeds the JWT validation rail its refreshed `JsonWebKeySet` for rotating signing keys.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols`
-- package: `Microsoft.IdentityModel.Protocols` (MIT)
-- assembly: `Microsoft.IdentityModel.Protocols`
-- namespace: `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Protocols.Configuration`
-- asset: runtime library
-- abi: native `lib/net10.0` asset (consumer-bound); also `net9.0`/`net8.0`/`net6.0`/`netstandard2.0`/`net462`/`net472`
-- admission: transitive via `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- depends: `Microsoft.IdentityModel.Tokens` (supplies `BaseConfigurationManager`, `BaseConfiguration`)
-- rail: protocols-config
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: refresh manager and configuration contracts
 
@@ -37,7 +25,7 @@
 |  [02]   | `HttpDocumentRetriever` | HTTP retriever | `HttpClient` metadata fetch over HTTPS |
 |  [03]   | `FileDocumentRetriever` | file retriever | local-file metadata fetch              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: manager construction and refresh â€” `ConfigurationManager<T>`
 
@@ -80,7 +68,7 @@ Every constructor takes `(string metadataAddress, IConfigurationRetriever<T>, â€
 |  [08]   | `IConfigurationValidator<T>.Validate(T)`                                           | instance | signing-key sufficiency            |
 |  [09]   | `StaticConfigurationManager<T>(T)`                                                 | ctor     | pinned fixed config                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ConfigurationManager<T> : BaseConfigurationManager, IConfigurationManager<T>` serves the cached configuration through `GetConfigurationAsync`, re-fetches past `AutomaticRefreshInterval`, and exposes `GetBaseConfigurationAsync` as the `BaseConfiguration`-typed validation source; `RequestRefresh` flags a refetch throttled by `RefreshInterval`.
@@ -100,9 +88,3 @@ Every constructor takes `(string metadataAddress, IConfigurationRetriever<T>, â€
 - Pass the host's resilient/service-discovery `HttpClient` to `HttpDocumentRetriever` and keep `RequireHttps = true`; reserve `FileDocumentRetriever`/`StaticConfigurationManager<T>` for tests and pinned-metadata offline paths.
 - Add the validating ctor overload with the OIDC `OpenIdConnectConfigurationValidator` so a discovery document without sufficient signing keys is rejected before trust; branch on `ConfigurationValidationResult.Succeeded`.
 - Treat `RequestRefresh()` as the forced-refresh hook on signature-key-not-found, throttled by `RefreshInterval` and invoked by the validators through `RefreshBeforeValidation`; construct `ConfigurationManager<T>`, never `BaseConfigurationManager`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.IdentityModel.Protocols`
-- Owns: the concrete refreshing/LKG configuration manager (`ConfigurationManager<T>`), the pinned `StaticConfigurationManager<T>`, document retrieval (`IDocumentRetriever`/`HttpDocumentRetriever`/`FileDocumentRetriever`), and the configuration parse/validate contracts (`IConfigurationRetriever<T>`/`IConfigurationValidator<T>`/`ConfigurationValidationResult`)
-- Accept: `ConfigurationManager<OpenIdConnectConfiguration>` as the `TokenValidationParameters.ConfigurationManager` source, fed by the OIDC `IConfigurationRetriever<T>` over an `HttpDocumentRetriever`; LKG fallback through the inherited `BaseConfigurationManager` knobs; sufficiency through an `IConfigurationValidator<T>`
-- Reject: direct `BaseConfigurationManager` subclassing, a pinned static `IssuerSigningKey` for a rotating provider, bare-client discovery fetch, `RequestRefresh` per validation, hardcoded refresh intervals ignoring the provider's rotation cadence

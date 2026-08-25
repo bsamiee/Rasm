@@ -143,34 +143,6 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
-      "Verify.DiffPlex": {
-        "type": "Direct",
-        "requested": "[3.3.1, )",
-        "resolved": "3.3.1",
-        "contentHash": "CKw4JXVkslj7iHinFXGs+VXNXW2xV9ptFFfdlLIDhQCkviEz/j7yUx/tXlDg4cGen5CtsAPAqtP/N26gC8E4Ng==",
-        "dependencies": {
-          "Argon": "0.35.1",
-          "DiffEngine": "19.3.2",
-          "DiffPlex": "1.9.0",
-          "EmptyFiles": "8.18.2",
-          "SimpleInfoName": "3.2.0",
-          "Verify": "31.24.1"
-        }
-      },
-      "Verify.XunitV3": {
-        "type": "Direct",
-        "requested": "[31.28.0, )",
-        "resolved": "31.28.0",
-        "contentHash": "E9kEDGGBWI+5O9bMvRWNfC3nmfYD8goatFN8+e39TJD+gi7pIhFbg/R/rZBmy1BF1EOrT3zV9ghclwirfVtxlg==",
-        "dependencies": {
-          "Argon": "0.35.2",
-          "DiffEngine": "19.3.3",
-          "Microsoft.Bcl.AsyncInterfaces": "10.0.10",
-          "SimpleInfoName": "3.2.0",
-          "Verify": "31.28.0",
-          "xunit.v3.extensibility.core": "3.2.2"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[4.0.0, )",
@@ -182,28 +154,10 @@
           "xunit.v3.core.mtp-v2": "[4.0.0]"
         }
       },
-      "Argon": {
-        "type": "Transitive",
-        "resolved": "0.35.2",
-        "contentHash": "o0I9+qxk1r4EB8vqRaC49kHog8/UUuFPSqpUwi5husDuqTBbbWIhLOwO2uhzA6pdM4UJoz+owN/c1p05YxAs3A=="
-      },
-      "DiffEngine": {
-        "type": "Transitive",
-        "resolved": "19.3.3",
-        "contentHash": "9dgeYqMOYA5BREQj5PNEuNHOe3q8xmkLj9jPPbxrJ2roxupVmJ3LlUgForWlxXgt0zoutfPE+sbVjif3YHC3zw==",
-        "dependencies": {
-          "EmptyFiles": "8.18.2"
-        }
-      },
       "DiffPlex": {
         "type": "Transitive",
-        "resolved": "1.9.0",
-        "contentHash": "Z4IDEH6iOb6d+Y2QUjsbq1Fp5I/kwZzNdr/evBTbCGq+ShAjE4baLm7lX1tfjV2p34QI3V9kctCQziFuuKqeCA=="
-      },
-      "EmptyFiles": {
-        "type": "Transitive",
-        "resolved": "8.18.2",
-        "contentHash": "9TKkDyiREYxgTDeoBrVlmBP83w7Hjhj5sDACQhketSgRhgaXRKpjPW7sazx3PEOg0i5PbrwLjoJG9caavf69hg=="
+        "resolved": "1.7.2",
+        "contentHash": "qJEjdxEDBWSFZGB8paBB9HDeJXHGlHlOXeGX3kbTuXWuOsgv2iSAEOOzo5V1/B39Vcxr9IVVrNKewRcX+rsn4g=="
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
@@ -220,8 +174,8 @@
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "TFI6OKYE1XZz4SGuTSH70c6SBdPpFktXsoa1gCxTr3mKrhmXirnvaS0tKz+J3ZWICEAmMpEGn59nO4ICtUpQXA=="
+        "resolved": "6.0.0",
+        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
       },
       "Microsoft.Bcl.HashCode": {
         "type": "Transitive",
@@ -365,11 +319,6 @@
           "NuGet.Protocol": "7.0.3"
         }
       },
-      "SimpleInfoName": {
-        "type": "Transitive",
-        "resolved": "3.2.0",
-        "contentHash": "K8ivHRbPWfncijk62Dan/r/z55gwq3aFzqB6yFlD9X0bbpIaacHyHH2cpcIdz0FECUpERUZTwxts0z4gRWpQpA=="
-      },
       "System.ComponentModel.Composition": {
         "type": "Transitive",
         "resolved": "4.5.0",
@@ -407,16 +356,6 @@
         "type": "Transitive",
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
-      },
-      "Verify": {
-        "type": "Transitive",
-        "resolved": "31.28.0",
-        "contentHash": "rPmMCEEcTzui+yGYQfrloUutPC5ZK0NOBdP1tpTbf+TzU35lWSlzmDzD78Os2eN5FAWPwXy89LxQLqNqEDaVaw==",
-        "dependencies": {
-          "Argon": "0.35.2",
-          "DiffEngine": "19.3.3",
-          "SimpleInfoName": "3.2.0"
-        }
       },
       "xunit.analyzers": {
         "type": "Transitive",

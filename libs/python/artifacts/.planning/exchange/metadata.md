@@ -2,9 +2,7 @@
 
 `Metadata` is the descriptive-metadata read/write owner at the exchange boundary — ONE `tagged_union` binding and recovering the EXIF/IPTC/XMP/ICC/KTX2 standards (title, creator, copyright, keyword, camera, exposure, GPS, rights, the full ICC profile header, the xmpMM asset identity/lineage, and the raster, media, and deep-texture container structures) on an already-emitted raster, PDF, media, or KTX2 artifact, discriminating the `read`/`write` verb over its `(MetaCarrier, payload)` shape — the carrier riding as the verb payload's leading field, not a tag multiplier, so the op is two cases over four carriers, not eight. Those standards are field-namespace facets every carrier read folds into ONE `MetaFacts` through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence, never five parallel per-standard key tables.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[METADATA]
 
@@ -14,7 +12,7 @@
 - Growth: a new metadata carrier is one `MetaCarrier` member plus one `_CARRIER` `CarrierPolicy` row plus its two carrier functions — zero new op cases; a new descriptive field one field on the owning `MetaFacts` facet plus one `_FIELD_KEYS` row, the `_flat`/`from_logical` derivation reaching every provider and `_NUMERIC` deriving its ValueConv-vs-PrintConv request from the declared type; a new provider spelling for a carrier is one more column on the `FieldKeys` row plus one fold in that carrier's reader/writer; a new write disposition one `MetaBind` member plus one writer arm; a new writable facet (the `History` xmpMM row) one nested `Struct` plus one `from_logical` convert leg plus its `_flat` rows; a new read-only structured facet (the `MediaInfo`/`RasterInfo` reads) one nested `Struct` plus its reader population plus one `Option`-typed `from_logical` keyword and one `map`/`default_value(0)` `populated` term, never a `_flat` write leg and never a defaulted facet whose zeros a reader cannot tell from the container's own; a new ICC-header fact one `Color` field plus one `ICC_Profile:` read; a new binary-path or worker knob one `MetaSettings` field; zero new surface.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import atexit
 import re
 import shutil

@@ -2,15 +2,7 @@
 
 `RhinoCommon` owns the annotation-model boundary: `DimensionStyle` drafting config with its per-`Field` override inheritance and the `DimStyleTable` transaction, `AnnotationBase` RTF run editing and property-override projection, `TextEntity`/`Leader` construction and text-to-geometry outlining, the six-kind `Dimension` family over one per-instance override surface, and `TextFields` formula evaluation feeding the rich-text tokens. Every live document-bound annotation resolves inside the owning session before a detached value crosses the boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon annotation-model surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.Geometry`, `Rhino.Runtime`
-- rail: annotation-boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: style config and its table
 
@@ -64,7 +56,7 @@
 - `Rhino.DocObjects.Tables.ModifyType` — `Modify` `Override` `NotSaved`; `DimStyleTable.Modify(DimensionStyle, AnnotationBase)` outcome.
 - Edge-mapped external owners: `Rhino.DocObjects.TextOrientation`, `TextVerticalAlignment`, `TextHorizontalAlignment`, `TextJustification` carry text placement `DimensionStyle`/`AnnotationBase`/`Dimension` reference.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [STYLE_IDENTITY]: `DimStyleTable` reads.
 
@@ -242,7 +234,7 @@
 
 [GEOMETRY_ACCESSORS]: `LinearDimensionObject.LinearDimensionGeometry` `AngularDimensionObject.AngularDimensionGeometry` `RadialDimensionObject.RadialDimensionGeometry` `OrdinateDimensionObject.OrdinateDimensionGeometry` `CentermarkObject.CentermarkGeometry` `TextObject.TextGeometry` `LeaderObject.LeaderGeometry` — each casts `RhinoObject.Geometry` to its kind.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DimensionStyle` is the shared drafting config and a `Field` is the atom the override algebra addresses; inheritance is per-field, a child holding a value only for fields marked via `SetFieldOverride` and inheriting every other through `ParentId`. Per-object customization mints a child style, marks the differing fields, and points `DimensionStyleId` at it.
@@ -260,9 +252,3 @@
 [LOCAL_ADMISSION]:
 - A style enters through `DimStyleTable.Add`/`Modify`; per-object overrides enter through `AnnotationBase.SetOverrideDimStyle` after the differing fields are marked, never by mutating a shared style in place. `DimStyleTable.Modify(style, annotation)` is the sole reverse-projection from a live annotation to a style, its `ModifyType` inspected before the write is treated as durable.
 - Live `DimensionStyle`, `AnnotationBase`, `Dimension`, and `*Object` values stay inside the document grant; downstream code receives bounded owners, detached geometry, resolved formula strings, detached facts, or explicitly owned bitmap leases.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: drafting-style config and field-override inheritance, the style-table transaction, annotation RTF run editing and property overrides, text/leader construction and text outlining, the six-kind dimension family, and text-field formula evaluation.
-- Accept: style authoring and field-override algebra, annotation and dimension construction and display-line resolution, text outlining, and formula evaluation projected onto `Fin`/`Option`/`Seq` rails with host enums mapped to bounded owners at the edge.
-- Reject: shared-style mutation standing in for a per-object override, assumed inheritance state, exception-style table outcomes, string-concatenated field text where `TextFields.TryFormat` evaluates, and a live document-bound annotation crossing the session boundary.

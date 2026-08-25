@@ -406,7 +406,6 @@ InstrumentSet instruments = provider.GetRequiredService<InstrumentSet>();
 Fin<Unit> roster = provider.GetRequiredService<CapabilityRegistry>().Mount(instruments);
 ```
 
-
 ## [07]-[RESEARCH]
 
 <!-- source-only: research row template:

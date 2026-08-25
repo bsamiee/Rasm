@@ -4,18 +4,7 @@
 
 CLI encode is the FLOOR and this binding the acceleration row: a plane that must be encoded where no toolchain is provisioned refuses at the tool probe, while a plane encoded here saves the process spawn and the intermediate file. Neither leg reads or writes pixel FORMATS — a plane arrives as raw bytes already at its declared `VkFormat`, produced by `imagecodecs` or `pyvips`, and block-decode read-back for verification is the `imagecodecs` `bcn_decode`/`dds_decode` pair.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyktx`
-- package: `pyktx` (Apache-2.0, KTX-Software)
-- module: `pyktx`
-- asset: sdist with a `cffi` glue layer linking an INSTALLED `libktx`; the Forge `ktxTools` row supplies it and the wrapper exports `LIBKTX_VERSION`, `LIBKTX_INCLUDE_DIR`, and `LIBKTX_LIB_DIR` that the build consumes. That built extension records the store `libktx.0.dylib` as an ABSOLUTE path, so the wrapper is a build-time input alone and never a runtime one
-- rail: raster (GPU texture container)
-- target: raw `bytes` per image, already at the declared `VkFormat`
-- capability: KTX2 and KTX1 create, read, and write; per-level, per-layer, and per-face image placement; Basis UASTC and ETC1S encode; Zstd supercompression (ZLIB reads on ingest, no deflate member writes it); ASTC encode across 24 block dimensions AT AN EIGHT-BIT STORE ALONE, every block encoder refusing a u16/f16/f32 texture; Basis transcode to twenty-one target formats; key-value metadata; and the offset and size geometry of every image in the payload
-- store depth: block encode is 8-bit-input; a DEEP texture ships as an uncompressed `VkFormat` under `deflate_zstd`, which is the one HDR route this binding carries
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the texture roots and their parameter records
 - rail: raster
@@ -49,7 +38,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 |  [11]   | `KtxPackAstcEncoderMode`    | `DEFAULT` `LDR` `HDR`                                                                      |
 |  [12]   | `KtxErrorCode`              | 21 rows including `TRANSCODE_FAILED` and `LIBRARY_NOT_LINKED`                              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container lifecycle
 - rail: raster
@@ -97,7 +86,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 
 - `KtxHashList` IS NOT A MAPPING: it carries `add_kv_pair(key: str, value: bytes) -> None`, `find_value(key: str)` answering the buffer or `None`, `delete_kv_pair(key: str) -> None`, and `copy() -> Dict[str, bytes]`, and nothing else. Subscript assignment raises `TypeError: 'KtxHashList' object does not support item assignment` and no `__getitem__`/`__setitem__`/`__iter__` exists, so a mapping-shaped write against the property is a runtime fault the property's own name invites. A pair written with `add_kv_pair` round-trips a `write_to_named_file`/`create_from_named_file` crossing and reads back through `find_value`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Containers are authored, never converted: `KtxTexture2.create(KtxTextureCreateInfo(...), ALLOC)` reserves the whole store from `num_levels` times `num_layers` times `num_faces`, then one `set_image_from_memory(level, layer, face_slice, data)` per image fills it. KTX2 create-info carries `gl_internal_format=None` — `vk_format` is the format vocabulary, and supplying a GL enum instead is the KTX1 shape.
@@ -125,9 +114,3 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 [LOCAL_ADMISSION]:
 - `import pyktx` at boundary scope only, behind the `lazy import` proxy the native container owners use.
 - `KtxTexture1` and `GlInternalformat` are the legacy GL-keyed container; the estate authors KTX2 alone, and a KTX1 file admits only for ingest.
-
-[RAIL_LAW]:
-- Package: `pyktx`
-- Owns: the in-process KTX2 container — create-info authoring, per-level, per-layer, and per-face image placement, Basis UASTC and ETC1S encode, ASTC encode across every block dimension, Zstd supercompression, Basis transcode to the twenty-one target formats, key-value metadata, and the payload offset and size geometry
-- Accept: one create-info record sized for the whole pyramid with `ALLOC`; caller-built mip levels placed one call each; encode policy as a stored `KtxBasisParams` or `KtxAstcParams` row selected by channel role; a payload class resolved from the STORE DEPTH before the encode, block at 8-bit and the uncompressed `VkFormat` under `deflate_zstd` at every deeper one; `needs_transcoding` as the transcode predicate; a file round-trip between `deflate_zstd` and `transcode_basis`; images passed as contiguous `bytes` at the declared `VkFormat`; `add_kv_pair`/`find_value` as the key-value write and read; `bytes(texture.data())` as the store read; provisioning evidence asserting presence and the subcommand roster
-- Reject: `transcode_basis` on a texture still holding its Zstd supercompression, which raises `TRANSCODE_FAILED`; a reader branching on `vk_format` where `needs_transcoding` is the predicate; a block encode over a u16/f16/f32 store, which every block dimension refuses; an `ASTC_*_SFLOAT_BLOCK` or BC6H float payload treated as reachable, where no encoder for either exists on any leg; the in-memory `supercompression_scheme` read as the FILE's scheme, which the load inflates away; `generate_mipmaps` read as a CPU mip fold; a bare `int` where the parameter record carries the policy; a mapping-shaped `kv_data[key] = value`, which raises on the `KtxHashList`; an unparenthesized `texture.data`, which is the bound method; a strided or wrong-dtype buffer reaching `set_image_from_memory`, which no boundary check catches; any pixel-format encode or image decode claimed here, which belongs to `imagecodecs` and `pyvips`; a `--version` assertion against a `ktx` binary; KTX1 authoring; an import-time `libktx` version check, which this binding never performs

@@ -2,23 +2,7 @@
 
 `Svg.Controls.Skia.Avalonia` mints Avalonia SVG and Android-VectorDrawable asset controls over the `Svg.Skia` `SKSvg` document engine, folding every source path onto one asset rail beside raster and generated evidence. `SKSvg` owns a retained element-addressable scene graph whose mutation API re-renders only the dirty region, and drives SMIL animation, interaction, the built-in viewer transform, text selection, and `SKPicture` output composited into Avalonia through the SkiaSharp draw-lease. Control types are the public surface; every render impl below the lease stays internal.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Svg.Controls.Skia.Avalonia`
-- package: `Svg.Controls.Skia.Avalonia` (MIT)
-- assembly: `Svg.Controls.Skia.Avalonia` (control, image, source, draw-op, markup extensions)
-- namespace: `Avalonia.Svg.Skia`
-- asset: managed runtime library; Skia natives bind through the central SkiaSharp pin, not this package
-- rail: assets
-
-[PACKAGE_SURFACE]: `Svg.Skia`
-- package: `Svg.Skia` (MIT)
-- assembly: `Svg.Skia` (`SKSvg` engine, scene, selection, and interaction model); `Svg.SceneGraph`, `Svg.Animation`, `Svg.Model`/`Svg.Custom`, Fizzler-CSS, and `ShimSkiaSharp` restore transitively
-- namespace: `Svg.Skia`, `Svg.Skia.TypefaceProviders`
-- asset: managed runtime library
-- rail: assets
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Avalonia control, image, source, and draw-operation surfaces (`Avalonia.Svg.Skia`)
 
@@ -60,7 +44,7 @@
 - `SvgTextSelectionDirection`: `None` `Forward` `Backward`.
 - `SvgParameters` homes in `Svg.Model`, never `Svg.Skia` or `Avalonia.Svg.Skia`: `readonly record struct SvgParameters(Dictionary<string, string>? Entities, string? Css, Color? CurrentColor = null, SvgDocumentLoadOptions? LoadOptions = null)`, its `Color` the `System.Drawing.Color` the parser reads — the `Avalonia.Media.Color` a control or `SvgImage` carries converts at the boundary.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Svg` control properties and operations
 
@@ -177,7 +161,7 @@
 
 - `SvgImage.SourceProperty`/`CssProperty`/`CurrentCssProperty`/`CurrentColorProperty` are `StyledProperty<T>` on an `AvaloniaObject`, so each takes a `DynamicResource` and a theme-variant swap; a change to any of the three overrides calls `SvgSource.ReLoad` on the bound source in place and raises `Invalidated`, re-rendering every `Image`/`ImageBrush` holding it.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region result a viewport invalidation keys on. Every single-element and attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
@@ -198,9 +182,3 @@
 - Vector assets enter the shared asset rail retaining `SvgSource` (`Svg`/`Picture`/`Parameters`) and a live `SKSvg` engine, never an opaque blob.
 - Theme-driven recolor rides the declared surfaces: an `Svg` subtree takes one inherited `Svg.CurrentColor`/`Svg.Css` `Setter` at its highest common ancestor, and an `SvgImage` takes a `DynamicResource` on `Css`/`CurrentCss`/`CurrentColor`.
 - UI-thread path and URI loads take `SvgSource.LoadAsync` and live restyles take `ReLoadAsync`; the synchronous twins parse and record on the calling thread.
-
-[RAIL_LAW]:
-- Package: `Svg.Controls.Skia.Avalonia` over `Svg.Skia`
-- Owns: SVG and Android-VectorDrawable asset controls — source loading (path, stream, string, URI, pre-parsed document, `IServiceProvider` base-URI), retained-scene incremental render, SMIL animation, pointer/access-key interaction, built-in viewer pan/zoom, text selection, and `SKPicture` output for panels, companion windows, sidecars, diagnostics, and downstream shells
-- Accept: vector assets retain document, scene, animation, interaction, viewer-transform, selection, and picture state; the control's `Zoom`/`PanX`/`PanY` + `ZoomToPoint` drive the built-in `SKSvg` viewer model, `AnimationBackend` selects the animation host with `ActualAnimationBackend`/`AnimationBackendFallbackReason` reporting the resolved tier, and recolor rides the inherited `Svg` attached properties or the `SvgImage` styled properties
-- Reject: a bitmap-only or opaque-blob SVG policy without `SvgSource`/`SKSvg` state; a full-picture re-render on a single-element change that `TryApplyRetainedSceneMutationAndRender` renders dirty-region-only; a hand-rolled pan/zoom or animation loop over the owned viewer-transform and SMIL surfaces; drawing through a private bitmap instead of the `ISkiaSharpApiLease` canvas; a per-variant duplicate asset or a string-rewritten stylesheet where one CSS override recolors in place

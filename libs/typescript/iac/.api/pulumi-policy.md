@@ -4,18 +4,9 @@
 
 [EXPORTS]: `unknownCheckingProxy` `UnknownValueError`
 
-## [01]-[PACKAGE_SURFACE]
+## [01]-[PUBLIC_TYPES]
 
-[PACKAGE_SURFACE]: `@pulumi/policy`
-- package: `@pulumi/policy` (Apache-2.0)
-- module: `@pulumi/policy` (re-exports `./policy` + the `./proxy` unknown guard)
-- asset: the pack, the resource/stack validation-policy shapes, the typed `*ResourceOfType` helper family, the inspection bag, the `EnforcementLevel`/`Severity`/compliance vocabularies, `ReportViolation`, remediation `Secret`, and the proxy guards
-- runtime: `node` — runs as the `pulumi-analyzer-policy` plugin the engine invokes during `preview`/`up`, not a resource in the graph; speaks the analyzer gRPC service through bundled `@grpc/grpc-js` + `google-protobuf`
-- rail: iac / policy
-
-## [02]-[PUBLIC_TYPES]
-
-### [02.1]-[POLICYPACK_THE_PACK_ENFORCEMENT_VOCABULARY]
+### [01.1]-[POLICYPACK_THE_PACK_ENFORCEMENT_VOCABULARY]
 
 [PUBLIC_TYPE_SCOPE]: pack + vocabularies
 
@@ -31,7 +22,7 @@
 
 [POLICY_PACK_ARGS]: `policies: Policies` `enforcementLevel: EnforcementLevel` `description: string` `displayName: string` `readme: string` `provider: string` `tags: string[]` `repository: string`
 
-### [02.2]-[POLICY_BASE_SHARED_METADATA_CONFIG_SCHEMA]
+### [01.2]-[POLICY_BASE_SHARED_METADATA_CONFIG_SCHEMA]
 
 [PUBLIC_TYPE_SCOPE]: policy base
 
@@ -44,7 +35,7 @@
 
 [POLICY]: `name: string` `description: string` `enforcementLevel: EnforcementLevel` `configSchema: PolicyConfigSchema` `displayName: string` `severity: Severity` `framework: PolicyComplianceFramework` `tags: string[]` `remediationSteps: string` `url: string`
 
-### [02.3]-[RESOURCEVALIDATIONPOLICY_PER_RESOURCE_CHECK_REMEDIATION]
+### [01.3]-[RESOURCEVALIDATIONPOLICY_PER_RESOURCE_CHECK_REMEDIATION]
 
 [PUBLIC_TYPE_SCOPE]: resource validation
 
@@ -62,7 +53,7 @@
 
 [RESOURCE_VALIDATION_ARGS]: `type: string` `props: Record<string,any>` `urn: string` `name: string` `opts: PolicyResourceOptions` `provider: PolicyProviderResource` `stackTags: ReadonlyMap<string,string>` `isType(Class) -> boolean` `asType(Class) -> Unwrap<NonNullable<TArgs>>|undefined` `getConfig() -> T` `notApplicable(reason?) -> never`
 
-### [02.4]-[THE_TYPED_RESOURCEOFTYPE_HELPER_FAMILY_THE_PARAMETERIZED_NARROWING_PATTERN]
+### [01.4]-[THE_TYPED_RESOURCEOFTYPE_HELPER_FAMILY_THE_PARAMETERIZED_NARROWING_PATTERN]
 
 [PUBLIC_TYPE_SCOPE]: typed helpers
 
@@ -78,7 +69,7 @@ One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped type
 |  [06]   | `TypedResourceRemediation<TProps>`           | type          | typed twin of `ResourceRemediation`                                |
 |  [07]   | `TypedResourceValidationRemediation<TProps>` | type          | typed twin feeding `validateRemediateResourceOfType`               |
 
-### [02.5]-[STACKVALIDATIONPOLICY_WHOLE_STACK_DEPENDENCY_AWARE]
+### [01.5]-[STACKVALIDATIONPOLICY_WHOLE_STACK_DEPENDENCY_AWARE]
 
 [PUBLIC_TYPE_SCOPE]: stack validation
 
@@ -91,7 +82,7 @@ One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped type
 
 [POLICY_RESOURCE]: `type: string` `props: Record<string,any>` `urn: string` `name: string` `opts: PolicyResourceOptions` `provider: PolicyProviderResource` `parent: PolicyResource` `dependencies: PolicyResource[]` `propertyDependencies: Record<string,PolicyResource[]>` `isType(Class) -> boolean` `asType(Class) -> q.ResolvedResource<T>|undefined`
 
-### [02.6]-[REPORTING_REMEDIATION_SECRETS_PREVIEW_GUARD]
+### [01.6]-[REPORTING_REMEDIATION_SECRETS_PREVIEW_GUARD]
 
 [PUBLIC_TYPE_SCOPE]: reporting / secret / proxy
 
@@ -102,7 +93,7 @@ One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped type
 |  [03]   | `unknownCheckingProxy` | re-export     | preview-unknown props guard re-exported from `./proxy`; empty `.d.ts`, runtime-only     |
 |  [04]   | `UnknownValueError`    | re-export     | paired guard export; same empty-`.d.ts` caveat, no declared shape                       |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PolicyPack` instantiates once per plugin process; `policies` mixes `ResourceValidationPolicy` and `StackValidationPolicy`. Pack `enforcementLevel` is the default each policy overrides; `PolicyPackConfig`/`initialConfig` sets per-policy config and level at registration. `"remediate"` runs `remediateResource` and applies returned props, `"mandatory"` blocks the run, `"advisory"` warns, `"disabled"` skips.
@@ -117,9 +108,3 @@ One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped type
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`), `@pulumi/gcp`(`.api/pulumi-gcp.md`), `@pulumi/postgresql`(`.api/pulumi-postgresql.md`): `validateResourceOfType(Class, cb)` narrows against the exact exported class — `kubernetes.apps.v1.Deployment`, `gcp.storage.Bucket`, `postgresql.Role` where `role.superuser` gates app roles.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): a `"remediate"` policy returning credential material wraps it in `new Secret(value)` for engine encryption, sourcing the value from Doppler.
 - within-lib: policies stay pure functions and the pack a plain value the `program`/`automation` composition passes into the run; `unknownCheckingProxy` guards preview-time reads so a validator never asserts on an unresolved `Output`.
-
-[RAIL_LAW]:
-- Package: `@pulumi/policy`
-- Owns: the CrossGuard analyzer plugin — per-resource and whole-stack validation with pre-validation remediation, gating `preview`/`up`.
-- Accept: typed `validateResourceOfType`/`validateStackResourcesOfType` narrowing; `ReportViolation` as the violation channel; `new Secret(value)` for remediated credentials; the pack as a plain value the run composes.
-- Reject: hand-written `isType`/`asType` plumbing where the typed helper narrows; a validator asserting on an unresolved `Output`; an authored `PulumiPolicy.yaml`.

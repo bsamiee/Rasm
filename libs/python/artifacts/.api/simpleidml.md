@@ -2,16 +2,7 @@
 
 `simpleidml` (import `simple_idml`) owns in-process Adobe InDesign IDML template mutation for the artifacts `export/indesign` rail: one `IDMLPackage` — a `zipfile.ZipFile` subclass over the unzipped `.idml` archive — exposes the whole InDesign structure through a lazy lxml introspection surface and rewrites it through a `@use_working_copy` mutation algebra. This owner authors the editable `.idml` by mutating a designer template along its named XML tag tree, feeding placed content in rather than synthesizing page geometry. Rejected for the host-free engine: the InDesign-Server SOAP path and the native print-package inspector.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `simpleidml`
-- package: `simpleidml` (BSD-3-Clause)
-- module: `simple_idml`
-- owner: `artifacts`
-- rail: `export/indesign`
-- depends: `lxml` owns the `xml_structure`/`_Element` tag-tree algebra and every designmap/spread/story rewrite, shared with the `document/emit#DOCUMENT` arms; `suds-py3` binds only the rejected InDesign-Server SOAP path, never the in-process mutation rail
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the IDML document root and the lxml tag tree it exposes
 
@@ -37,7 +28,7 @@
 |  [04]   | `BACKINGSTORY`      | `"XML/BackingStory.xml"`                                 | in-archive backing-story path (`xml_structure` root)    |
 |  [05]   | `IdPkgNS`           | `"http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging"` | the IDML packaging XML namespace URI                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and the non-mutating reads
 
@@ -105,7 +96,7 @@ Lazy memoized properties are the structural inventory the consumer reads off the
 |  [12]   | `graphic -> Graphic`              | Resources graphic object (writable)                 |
 |  [13]   | `referenced_layers -> list[str]`  | designmap layer ids a spread item references        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `IDMLPackage` opened over a real filesystem path is the whole surface; every `@use_working_copy` verb returns a fresh instance (extract, rewrite, repackage, `os.unlink(self.filename)`, `shutil.move`, reopen), so the fold threads the returned instance forward and a dropped reference leaks an unclosed backing file the platform cannot unlink. Base open and `prefix` run once; the step fold runs over the one threaded package, never a per-op re-open.
@@ -121,7 +112,3 @@ Lazy memoized properties are the structural inventory the consumer reads off the
 [LOCAL_ADMISSION]:
 - Pure-Python over `zipfile`+`lxml` with no compiled extension, so the dist binds on cp315 with no `python_version` gate and no source build; `BSD-3-Clause` permissive and commercial-safe, admitted for the `export/indesign` rail.
 - Import lazily at boundary scope (`from simple_idml import idml`, then `idml.IDMLPackage(str(path))`); the `simple_idml.indesign`/`commands` SOAP modules and the transitive `suds-py3` are never imported on the rail — a `suds` import signals the rejected server arm leaked in, and a missing import here is a packaging fault, never a host-capability gate.
-
-[RAIL_LAW]:
-- Package: `simpleidml`
-- Owns: in-process IDML open, lazy introspection, and the `@use_working_copy` mutation algebra over one threaded `IDMLPackage` — namespace prefix/suffix merge, sub-template and page composition, tagged-content population, linked-PDF placement, page-item attribute and `href` relink, editorial notes, designmap-layer surgery, story creation, subtree clear, `Rectangle`-to-`TextFrame` promotion, and tagged-content egress; the entrypoint tables own the member roster.

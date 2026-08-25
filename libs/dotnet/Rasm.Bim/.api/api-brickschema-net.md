@@ -2,17 +2,7 @@
 
 `BrickSchema.Net` owns the Brick ontology graph and its JSON-LD codec: `BrickEntity` nodes on a `BrickSchemaManager`, each carrying `Properties`, typed `BrickRelationship` edges, `BrickShape` rules, and timer-driven `BrickBehavior` analytics. Its canonical entry is the polymorphic `AddEntity<T>` / `GetEntities<T>` / `SearchEntities` triad discriminating by type argument, with `AddEquipment*`/`AddCollection*` factories as sugar over it. Owned scope is building-systems semantics — BMS metadata, BACnet/Modbus point binding, conformance analytics — never geometry, IFC authoring, or simulation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `BrickSchema.Net`
-- package: `BrickSchema.Net` (MIT)
-- assembly: `BrickSchema.Net`
-- namespace: `BrickSchema.Net` (core graph), `.Classes` (+ `.Equipments` → `.Equipments.HVACType` → `.HVACType.Chillers`/`.HVACType.TerminalUnits` — nested, not siblings; `.Points`, `.Locations`, `.Measureable`, `.Collection`/`.Loop`, `.Devices`), `.Relationships`, `.Behaviors`, `.EntityProperties`, `.Shapes`, `.Helpers`
-- asset: `net7.0`; the `net10.0` consumer binds `lib/net7.0` (single TFM, binds forward)
-- depends: `Newtonsoft.Json` (JSON-LD codec), `Microsoft.Extensions.Logging.Abstractions` (`ILogger` behavior diagnostics)
-- rail: building-systems
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph manager and entity base
 
@@ -86,7 +76,7 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 [HVAC_TYPE]: `AHU` `Boiler` `Chiller` `Compressor` `Condenser` `CoolingTower` `Damper` `Economizer` `Fan` `Filter` `HeatExchanger` `Humidifier` `Pump` `Thermostat`, plus the damper, fan, filter, valve, and deck families
 [TERMINAL_UNITS]: `AirDiffuser` `CAV` `ChilledBeam` `FCU` `FanCoilUnit` `InductionUnit` `RVAV` `RadiantPanel` `Radiator` `VAV` `VariableAirVolumeBox` `VariableAirVolumeBoxWithReheat` `ConstantAirVolumeBox`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: graph build, persist, query (`BrickSchemaManager`); `AddEntity<T>` constrains `where T : BrickEntity, new()`
 
@@ -135,7 +125,7 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 |  [05]   | `SetLogger(ILogger?)`                                              | instance | bind `ILogger` diagnostics                    |
 |  [06]   | `IsRunning` / `Description` / `Insight` / `Resolution` / `Weight`  | property | run-state flag and insight/conformance fields |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One polymorphic entry owns each mutation, discriminated by `<T>`: `AddEntity<T>()` creates a node, `AddRelationship<T>(parentId)` wires a directed edge (`where T : BrickRelationship, new()`), `AddShape<T>()` attaches a rule shape; the `AddEquipment*`/`AddCollection*`/`AddRelationship*`/`AddShape*` named helpers are sugar over them, so a call discriminates by type argument, never a hand-picked factory name.
@@ -157,9 +147,3 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 [LOCAL_ADMISSION]:
 - A Brick graph enters through `BrickSchemaManager.LoadSchema` or a build via `AddEntity<T>` with typed `AddOrUpdateProperty`/relationship wiring, then maps onto the canonical Bim systems carriers keyed by entity `Id`; `BrickSchema.Net.*` types stay at the systems-exchange boundary.
 - A Brick graph exports through canonical→entity construction — location/equipment/point nodes, `Fedby`/`PointOf`/`LocationOf` edges, IFC-seeded `EntityProperty` values — then `SaveSchema`.
-
-[RAIL_LAW]:
-- Package: `BrickSchema.Net`
-- Owns: the Brick ontology runtime graph and JSON-LD codec — the `BrickEntity` taxonomy, typed `BrickRelationship` edges, `BrickShape` analytic/validation rules, `BrickBehavior` runtime analytics, and the BACnet/Modbus device and point-binding model
-- Accept: building-systems semantic metadata, BMS/digital-twin graphs, systems classification, runtime conformance analytics, live point binding
-- Reject: geometry and meshes (the kernel and GeometryGym own them), IFC authoring (GeometryGym is the system of record — Brick overlays, never re-authors), energy simulation (Dragonfly/Honeybee/OpenStudio), protocol transport (the AppHost OPC UA/MQTT/Modbus owners), and leaking `BrickSchema.Net.*` types past the systems-exchange boundary

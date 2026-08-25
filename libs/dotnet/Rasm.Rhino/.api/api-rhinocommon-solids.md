@@ -2,17 +2,7 @@
 
 `Rhino.Geometry` `Brep`, `Extrusion`, and `DevelopableSrf` construction P/Invokes `rhcommon_c`, so every static returns geometry bit-compatible with Rhino's own kernel commands and this catalog stands at the host boundary, not the kernel. Host-neutral robust construction, booleans, and offsets live in the `Rasm` kernel and compose by altitude; brep intersection, mass/area measure, contour/iso extraction, and native custody stay with their own catalogs. Every native `bool`/`out`-param/array outcome projects onto the `LanguageExt` rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon Brep-construction surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Geometry`
-- kernel: `Rasm` (host-neutral robust construction and numeric owners composed by altitude)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: solid-construction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: construction owners
 - rail: solid-construction
@@ -63,7 +53,7 @@
 - `enum Rhino.Geometry.SweepMiter` — `None`, `Trimmed`, `Untrimmed`.
 - `enum Rhino.Geometry.SweepRebuild` — `None`, `Rebuild`, `Refit`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [BREP_BOOLEANS]:
 - `Rhino.Geometry.Brep.CreateBooleanUnion(IEnumerable<Brep> breps, double tolerance, bool manifoldOnly, out Point3d[] nakedEdgePoints, out Point3d[] badIntersectionPoints, out Point3d[] nonManifoldEdgePoints) -> Brep[]` — unions a set; a null result signals failure and the three point arrays diagnose it, while the `(breps, tolerance)` and `(breps, tolerance, manifoldOnly)` overloads drop the diagnostics.
@@ -141,7 +131,7 @@
 - `Rhino.Geometry.DevelopableSrf.UntwistRulings(NurbsCurve rail0, NurbsCurve rail1, ref IEnumerable<Point2d> rulings) -> bool` — adjusts a ruling set toward developability in place, feeding `Brep.CreateDevelopableLoft`'s fixed-ruling overload.
 - `Rhino.Geometry.SurfaceFilletBase` — section-profile factory set `CreateRationalArcsFilletSrf`, `CreateNonRationalCubicArcsFilletSrf`, `CreateNonRationalQuarticArcsFilletSrf`, `CreateNonRationalQuinticArcsFilletSrf`, `CreateNonRationalCubicFilletSrf`, `CreateNonRationalQuarticFilletSrf`, `CreateNonRationalQuinticFilletSrf`, and `CreateG2ChordalQuinticFilletSrf`, each `(BrepFace faceA, Point2d uvA, BrepFace faceB, Point2d uvB, double radius, double tolerance, List<Brep> trimmedBrepsA, List<Brep> trimmedBrepsB, int rail_degree, [double TanSlider, double InnerSlider,] bool bTrim, bool bExtend, List<Brep> Fillets) -> bool` filling caller-owned lists; the concrete `SurfaceFillet`/`SurfaceToRailFillet` engines are internal.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [SOLID_TOPOLOGY]:
 - `Brep` static construction returns `null` for a single result or `null`/empty for an array on failure, never throws; boolean unions emit the naked-edge, bad-intersection, and non-manifold point arrays as failure diagnostics, and index-map overloads carry the result-to-source correspondence booleans and joins destroy.
@@ -157,9 +147,3 @@
 [LOCAL_ADMISSION]:
 - construction enters through the op union: each arm binds its native static, projects the `Brep[]`/`Brep`/`bool`+`out` outcome onto the rail, and pairs parallel-array inputs (edge indices with radii, rail parameters with radii, geometry with attributes) into one row sequence proving equal cardinality before the native call.
 - native `Brep`, `Extrusion`, and configuration carriers stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease, and `FilletSurfaceResults`/`VariationalPatchResult` project into detached result records.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Geometry` `Brep`/`Extrusion`/`DevelopableSrf` host-fidelity construction
-- Owns: solid and polysurface booleans, edge and surface fillet/chamfer/blend, offset/shell/pipe, sweep/loft/patch, from-primitive and from-curve generation, join/split/merge/match editing, and the extrusion lightweight solid.
-- Accept: native construction outcomes projected onto `Fin`/`Option`/`Seq` rails, parallel-array inputs paired into equal-cardinality rows, index maps and diagnostic point arrays folded into typed build facts, and cancellation/progress patch builds on the effect rail.
-- Reject: re-deriving kernel-altitude robust construction, exception-style handling of null construction results, unpaired parallel-array inputs, and leaking host `Brep`/`Extrusion`/configuration types past the boundary.

@@ -2,16 +2,7 @@
 
 `OpenTelemetry.Extensions` owns the span and log processors the SDK core omits: predicate-scoped `Baggage` promotion onto spans and log records, a per-second head cap on recorded traces, and log-record attachment as activity events.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Extensions`
-- package: `OpenTelemetry.Extensions`
-- assembly: `OpenTelemetry.Extensions`
-- contract assembly: `OpenTelemetry.Api`
-- namespace: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Logs`, `Microsoft.Extensions.Logging`
-- rail: telemetry composition
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: baggage promotion, head sampling, and log-to-event conversion
 
@@ -23,7 +14,7 @@
 |  [04]   | `RateLimitingSampler`                 | class         | `Sampler` capping recorded traces per second            |
 |  [05]   | `LogToActivityEventConversionOptions` | class         | delegate seats shaping the log-to-event projection      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: span-side registration and the seats it takes
 
@@ -59,7 +50,7 @@
 - `StateConverter` and `ScopeConverter` default to `DefaultLogStateConverter.ConvertState`/`ConvertScope`, so a composition overriding one seat keeps the shipped projection on the other; that converter type is `internal`, so an override REPLACES the shipped projection whole and can neither delegate to it nor wrap it.
 - `Filter` reads a throw as `false` — the record is dropped from the span, never surfaced as a conversion fault.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Promotion is opt-in per key: `AllowAllBaggageKeys` admits every entry, a narrower `Predicate<string>` admits the propagated tenant and correlation keys alone, and an unmatched key reaches neither span nor log record.
@@ -74,9 +65,3 @@
 [LOCAL_ADMISSION]:
 - One `Predicate<string>` serves both promotion legs, so span tags and log attributes never carry divergent allowlists.
 - `AttachLogsToActivityEvent` projects each admitted record onto the ambient span, so its `Filter` seat narrows attachment to the records a trace view reads.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Extensions`
-- Owns: predicate-scoped baggage promotion onto spans and log records, rate-limiting head sampling, and log-to-activity-event attachment
-- Accept: promotion, head sampling, and attachment seated through the registration verbs on the provider builders
-- Reject: a hand-rolled `BaseProcessor<Activity>` re-reading `Baggage.Current` at span start; per-call-site tag writes standing in for promotion

@@ -2,17 +2,7 @@
 
 `psd-tools` owns in-process Adobe PSD/PSB parse, inspect, blend-faithful composite, structural authoring, and round-trip for the artifacts layered-raster rail. `PSDImage` is the document root and top-of-tree `GroupMixin`; every node discriminates over the closed `Layer` family, and `composite`/`topil`/`numpy` egress its pixels, masks, effects, and text across the Pillow/NumPy seam. `export/layered` composes it as the SOLE native `.psd`/`.psb` owner — the `_psd` arm authors the channel-stack document and that same owner reopens the finished bytes as structural evidence — never re-implementing the record parser, compositor, RLE/ZIP codec, or PIL/NumPy bridge it owns, nor re-authoring the IFC/semantic models the C# boundary holds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `psd-tools`
-- package: `psd-tools` (MIT)
-- module: `psd_tools`
-- asset: pure Python but for one `abi3` stable-ABI extension (`compression/_rle.abi3.so`) backing RLE; the optional `composite` extra (`aggdraw`/`scipy`/`scikit-image`) rasterizes vector `ShapeLayer` fills during `composite`, never for pixel authoring or round-trip
-- rail: layered
-- target: `.psd`/`.psb` path/stream/bytes in, `PIL.Image.Image` and `numpy.ndarray` band arrays across the raster seam
-- capability: `open` a PSD/PSB from path/stream/bytes, `new`/`frompil` a blank canvas, walk the tree through the `GroupMixin` algebra, discriminate each node over the closed `Layer` family, read per-node pixels/masks/effects/text/shapes/smart-objects with native blend and ICC, author layers/groups/masks and relocate/lock them, and `save` back with a per-channel `Compression`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root + the closed layer family
 
@@ -53,7 +43,7 @@
 |  [09]   | `ProtectedFlags` | lock vocabulary    | `COMPLETE`/transparency/composite/position — `Layer.lock(flags)` argument           |
 |  [10]   | `TextType`       | text layout        | `POINT`/`PARAGRAPH` — `TypeLayer.text_type`                                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document construction (one factory family, source-discriminated)
 
@@ -115,7 +105,7 @@ Every mint factory shares the tail `(name, top=0, left=0, compression=Compressio
 |  [20]   | `numpy_io.get_layer_data(...)`                                     | static   | per-layer band extraction            |
 |  [21]   | `numpy_io.get_image_data(...)`                                     | static   | merged-image band extraction         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PSDImage.open` is the single decode factory across path/stream/bytes/`PathLike`; PSD versus PSB discriminates internally and surfaces on `version`. `max_alloc_bytes` bounds the decompression-bomb allocation for an untrusted blob, and the `PSDDecompressionWarning`/`PSDLargeImageWarning` pair rides as a structured evidence signal.
@@ -144,9 +134,3 @@ Every mint factory shares the tail `(name, top=0, left=0, compression=Compressio
 [LOCAL_ADMISSION]:
 - `import` at boundary scope only — `from psd_tools import PSDImage`, `from psd_tools.constants import BlendMode, Compression, ColorMode, ChannelID`, `from psd_tools.api.layers import Layer, Group, PixelLayer, TypeLayer, ShapeLayer, SmartObjectLayer`; the `export/layered` lazy-import proxy reifies the module on first use. No native or JRE gate binds — the one abi3 RLE extension loads on any supported interpreter, so a missing import is a packaging fault, never a host-capability gate.
 - `composite`'s optional extra binds only where a vector `ShapeLayer` fill must rasterize; a pixel-only document needs none.
-
-[RAIL_LAW]:
-- Package: `psd-tools`
-- Owns: in-process PSD/PSB parse, inspect, blend-faithful composite, structural authoring, and round-trip — `open`/`new`/`frompil` construction; the `GroupMixin` tree algebra; the closed `Layer` family discrimination (pixel/group/type/shape/smart-object/adjustment/fill); per-node/per-document `composite`/`topil`/`numpy` egress with native blend and ICC; layer masks (`Mask`), styles (`Effects`), live text (`TypeLayer`), and smart objects (`SmartObject`); `create_pixel_layer`/`create_group`/`frompil`/`Group.new` authoring, `move_*`/`lock`/`create_mask` lifecycle, and `save` with a per-channel `Compression`
-- Accept: native PSD/PSB authoring in `export/layered` and the structural readback of its own emitted bytes; reading an incoming `.psd`/`.psb` layer tree, text, smart-object payloads, masks, and effects into the document model; PIL rasters from `pyvips`/`pillow` via `frompil`/`create_pixel_layer`; NumPy band arrays via `numpy()`/`get_array`; `BlendMode`/`Compression`/`ColorMode` typed rows from editor workflows; the `ICC_PROFILE`/`XMP_METADATA`/`RESOLUTION_INFO` resource blocks for the metadata owners
-- Reject: a wrapper-rename of `open`/`save`/`composite`/`topil`; a manual `LayerRecord`/`ChannelDataList` build where `create_pixel_layer`/`PixelLayer.frompil`/`create_group` exist; an `isinstance` ladder re-deriving layer kind where `Layer.kind` and the subclass family discriminate; a layer-by-layer `Image.paste` discarding `BlendMode`/`clipping`/`mask`/`effects` where `composite` renders them; a `topil().convert('RGB')` dropping the embedded ICC where `apply_icc=True` applies it; a raw PSD int/byte where a `BlendMode`/`Compression`/`ColorMode`/`ChannelID` member exists; an unbounded `max_alloc_bytes`-free decode of an untrusted blob; an `imagecodecs` capability probe gating a channel method this package codes itself; a second native PSD/PSB writer beside this one on the interpreter; an RGB document where the layers carry alpha, a `header.version` poke where `new` derives the container, or a `PSDImage.save` tail on a compositing caller — it re-derives a preview that caller owns and imports the api-tier PSD cap onto PSB; re-authoring the layered-TIFF container (`psdtags`/`tifffile`), the raster pixel edge (`pyvips`/`pillow`), or the IFC/semantic model (`Rasm.Bim`)

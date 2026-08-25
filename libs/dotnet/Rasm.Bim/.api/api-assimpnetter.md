@@ -2,17 +2,7 @@
 
 `AssimpNetter` wraps the native Open Asset Import Library, owning scene and mesh exchange for the formats no other Bim codec covers: FBX (`.fbx`) and Collada (`.dae`) import and export with the standalone 3MF read leg. Every call funnels through one disposable `AssimpContext` driving the `Scene`→`Node`→`Mesh`→`Material` model, with `PostProcessSteps` the post-import transform algebra and `PostProcessPreset` its common packagings.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AssimpNetter`
-- package: `AssimpNetter` (MIT)
-- assembly: `AssimpNetter` (XML doc `AssimpNet.xml`)
-- namespace: `Assimp`
-- asset: multi-target; the net10.0 consumer binds the `lib/net6.0` asset forward with zero managed dependencies
-- native: one osx-arm64 `libassimp.dylib` ships and loads at context construction — RID-coupled, no managed fallback
-- rail: scene-exchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and post-processing
 
@@ -76,7 +66,7 @@
 
 - `ExportDataBlob.NextBlob`: chains to the next `ExportDataBlob` in a multi-format export; `HasData` guards `Data`, `ToStream`/`FromStream` bridge a `Stream`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `AssimpContext` import
 
@@ -113,7 +103,7 @@
 |  [07]   | `SetIOSystem(IOSystem)` / `RemoveIOSystem()`                        | instance | route IO through a custom VFS    |
 |  [08]   | `Scale`, `XAxisRotation`, `YAxisRotation`, `ZAxisRotation`          | property | root transform applied on import |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AssimpContext` owns native handles as `IDisposable`; construct once per ingest, reuse for a batch, dispose in a `using`, and never share one instance across threads.
@@ -131,9 +121,3 @@
 [LOCAL_ADMISSION]:
 - FBX/Collada/3MF import enters through `AssimpContext.ImportFile*` then maps onto the canonical carrier in `Exchange/import`; export builds a canonical→`Assimp.Scene` then `ExportFile`/`ExportToBlob` in `Exchange/export`.
 - Format capability resolves once through `GetSupported{Import,Export}Formats` into the `InterchangeFormat` table; the context is per-ingest and disposed.
-
-[RAIL_LAW]:
-- Package: `AssimpNetter`
-- Owns: FBX (`.fbx`) and Collada (`.dae`) import/export with the standalone 3MF read leg over the assimp `Scene`/`Mesh`/`Node`/`Material` model and the `PostProcessSteps` transform algebra.
-- Accept: scene and mesh exchange for formats no other Bim codec covers, post-import normalization, PBR-material slot extraction.
-- Reject: glTF (`SharpGLTF`), PLY (`Ply.Net`), OBJ/STL (`geometry3Sharp`), DWG/DXF (`ACadSharp`), IFC/STEP semantics (`GeometryGym`), mesh-compression encode (`Openize.Drako`, `Alimer.MeshOptimizer`), and any `Assimp.*` type crossing the exchange boundary.

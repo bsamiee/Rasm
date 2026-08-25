@@ -2,17 +2,7 @@
 
 `Microsoft.IdentityModel.JsonWebTokens` owns the allocation-conscious JWT engine: `JsonWebTokenHandler` creates, signs, encrypts, and validates JWS/JWE compact tokens, and `JsonWebToken` parses one into typed, span-friendly header and payload accessors. That handler validates inbound tokens against the `Microsoft.IdentityModel.Tokens` validation contract and mints host-issued tokens from a `SecurityTokenDescriptor`, serving the AppHost auth rail its token-reading leg.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.IdentityModel.JsonWebTokens`
-- package: `Microsoft.IdentityModel.JsonWebTokens` (MIT)
-- assembly: `Microsoft.IdentityModel.JsonWebTokens`
-- namespace: `Microsoft.IdentityModel.JsonWebTokens`
-- asset: pure-managed runtime library; net10.0 assembly, no native/RID asset
-- depends: `Microsoft.IdentityModel.Tokens` (validation contract, keys, credentials, `TokenValidationResult`)
-- rail: jwt
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handler, parsed token, and constants
 
@@ -26,7 +16,7 @@
 |  [06]   | `JwtConstants`            | constants class | JWS/JWE token-type and delimiter constants  |
 |  [07]   | `JsonClaimValueTypes`     | constants class | JSON claim value-type URIs                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: token creation — `JsonWebTokenHandler`
 
@@ -80,7 +70,7 @@
 - `[STRUCTURAL]`: `IsEncrypted` `IsSigned` `InnerToken` — JWE/JWS discrimination and nested token
 - `[SEGMENTS]`: `EncodedHeader` `EncodedPayload` `EncodedSignature` — base64url segments for re-emission
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - handler contract: `JsonWebTokenHandler : TokenHandler, IResultBasedValidation`; `ValidateTokenAsync` is the async-first path returning `Task<TokenValidationResult>` (`IsValid`, `ClaimsIdentity`, `SecurityToken`, `Issuer`, `TokenType`, `Exception`, `Claims`) — a validation failure lands on `Exception`, never thrown from the validate path
@@ -102,9 +92,3 @@
 - Read claims through `TryGetPayloadValue<T>` and the typed registered properties (`Subject`, `Audiences`, `ValidTo`).
 - Feed `TokenValidationParameters.ConfigurationManager` from the OIDC discovery rail so `IssuerSigningKeys` and decryption keys track JWKS rotation.
 - Mint host-issued tokens through `CreateToken(SecurityTokenDescriptor)` with `SigningCredentials` (and `EncryptingCredentials` for confidential payloads), supplying `Claims`/`Subject` and lifetime on the descriptor rather than hand-assembling a payload string.
-
-[RAIL_LAW]:
-- Package: `Microsoft.IdentityModel.JsonWebTokens`
-- Owns: JWS/JWE creation, signing, encryption, compression, parsing, and validation of compact JWTs
-- Accept: `JsonWebTokenHandler` over `SecurityTokenDescriptor` (create) and `TokenValidationParameters`/`ValidationParameters` (validate); typed claim and header access through `JsonWebToken`
-- Reject: the legacy `JwtSecurityTokenHandler`, hand-rolled base64url JWT splitting or JSON parsing, reading claims before `IsValid`, string-keyed claim parsing where a typed `Get*Value<T>` exists

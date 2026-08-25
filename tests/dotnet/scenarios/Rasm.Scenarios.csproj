@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssayTestShell>true</AssayTestShell>
+        <IsTestShellProject>true</IsTestShellProject>
         <RasmHost>grasshopper;platform</RasmHost>
     </PropertyGroup>
 </Project>

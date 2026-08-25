@@ -2,17 +2,7 @@
 
 `nbconvert` owns notebook-to-document conversion for the artifacts report rail: `get_exporter` resolves an export name or dotted import path to an `Exporter` class, `export` dispatches one `NotebookNode`/file/stream to it, and every conversion returns `(output, resources)` — rendered text or bytes paired with its extracted-asset dict. Rendering drives the Jinja template, preprocessor chain, filter map, and LaTeX/Chromium/Qt assembly in-process; `document/report#REPORT` composes it into the `ReportKind.NOTEBOOK` arm.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `nbconvert`
-- package: `nbconvert` (BSD-3-Clause)
-- import: `nbconvert`
-- owner: `artifacts`
-- rail: report
-- deps: `jinja2` drives the template and filter map; the `[webpdf]` extra pulls `playwright` (headless Chromium) and `[qtpdf]`/`[qtpng]` pull `pyqtwebengine`, gating those exporters
-- capability: resolve an export target by name or dotted import path, instantiate the `Exporter`, and convert a `NotebookNode`/file/stream to a registered document target paired with a resources dict, driving the Jinja template, preprocessor chain, filter map, and LaTeX/Chromium/Qt assembly in-process; behavior shapes through traitlets `config=`/`**kw`, persistence through the `writers` family
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exporter classes and resolution failures
 
@@ -40,7 +30,7 @@
 |  [18]   | `ExporterNameError`     | error          | unknown/unresolvable export-name failure (from `get_exporter`) |
 |  [19]   | `ExporterDisabledError` | error          | export-name resolves but is config-disabled                    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module resolution and export functions
 
@@ -150,7 +140,7 @@ Each concrete exporter adds its assembly-backend traits: `HTMLExporter` inlines/
 |  [07]   | `add_anchor` / `add_prompts` / `wrap_text`              | inject heading anchors / `In/Out` prompts / wrap long lines                  |
 |  [08]   | `path2url` / `posix_path` / `strip_files_prefix`        | path normalization for embedded-resource links                               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - resolution: one `get_exporter` owns export-target resolution; every enabled name and a dotted import path resolve through it, never a per-format selector.
@@ -170,9 +160,3 @@ Each concrete exporter adds its assembly-backend traits: `HTMLExporter` inlines/
 
 [LOCAL_ADMISSION]:
 - `document/report#REPORT` composes `get_exporter`, exporter classes, and `from_notebook_node` into the `ReportKind.NOTEBOOK` arm; admission accepts enabled and plugin exporter names and rejects the `notebook` round-trip target whose `NotebookNode` result violates the `str`/`bytes` contract, already owned by `jupytext.writes`.
-
-[RAIL_LAW]:
-- Package: `nbconvert`
-- Owns: export-target resolution, the `Exporter`/`TemplateExporter` class family, and notebook-to-PDF/HTML/LaTeX/Markdown/RST/AsciiDoc/slides/script conversion with its `(output, resources)` contract
-- Accept: notebook-node export feeding the report, document, and visuals owners
-- Reject: wrapper-renames of `get_exporter`/`export`/`from_notebook_node`; CLI subprocess conversion; per-format render functions; hand-rolled Jinja, LaTeX, Chromium, or cell-stripping pipelines; per-config exporter subclasses; inline blocking render; loose trait kwargs outside `ExportPolicy.exporter_kwargs()`; escaping registry faults; export-name output routing; and the `notebook` round-trip target owned by `jupytext.writes`

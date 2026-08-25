@@ -4,24 +4,7 @@
 
 Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visual folds through the compiled `Themes/` control themes and their variant resource keys.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NodeEditorAvalonia.Model`
-- package: `NodeEditorAvalonia.Model` (MIT)
-- assembly: `NodeEditorAvalonia.Model`
-- namespace: `NodeEditor.Model`
-- asset: managed library carrying no dependency; `lib/net10.0` binds the `net10.0` consumer, `lib/net6.0` and `lib/netstandard2.0` fall back
-- rail: graph-editing
-
-[PACKAGE_SURFACE]: `NodeEditorAvalonia`
-- package: `NodeEditorAvalonia` (MIT)
-- assembly: `NodeEditorAvalonia`
-- namespace: `NodeEditor.Controls`, `NodeEditor.Behaviors`, `NodeEditor.Converters`, `NodeEditor.Services`
-- asset: managed library with compiled AXAML under `avares://NodeEditorAvalonia/Themes/`; `lib/net10.0` binds the consumer, `lib/net8.0` falls back
-- depends: `NodeEditorAvalonia.Model`, `Avalonia`, `Avalonia.Skia`, `Avalonia.Controls.PanAndZoom`, `Avalonia.Xaml.Behaviors`
-- rail: graph-editing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [GRAPH_CONTRACTS]: `NodeEditor.Model` graph algebra, editing engine, and validation rail
 
@@ -203,7 +186,7 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 |  [01]   | `StorageService` | static class  | `FilePickerFileType` presets, provider lookup |
 |  [02]   | `ExportRenderer` | static class  | Skia raster and vector control export         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [DRAWING_OPERATIONS]: `IDrawingNode` editing surface — the model implements each against `DrawingNodeEditor`
 
@@ -299,7 +282,7 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 [GUIDE_KEYS]: `GuideLineBrush` — the theme binds it to both `GuidesAdorner.Stroke` and `ConnectorSelectedAdorner.Stroke`, so a selected-connector recolour splits the key first
 [HOST_KEYS]: consumed by the templates yet defined nowhere in the package, so the host supplies each — `EditorBackground` `DrawingBackground` `EditorCutIcon` `EditorCopyIcon` `EditorPasteIcon` `DeleteIcon`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `NodeEditorAvalonia.Model` owns the graph algebra host-free and `NodeEditorAvalonia` binds it to Avalonia. Every mutation folds through the `IDrawingNode` command surface and the `DrawingNodeEditor` engine, never a repositioned control; connection policy rides `IDrawingNodeSettings` with `IConnectablePin.Direction`/`BusWidth` typing the ports, and every visual rides a `ControlTheme` or a variant resource key.
@@ -320,13 +303,3 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 - `InkLayer` renders `IDrawingNode.InkStrokes` UNCONDITIONALLY and captures only while `Settings.EnableInk && Settings.IsInkMode`, so a host driving its own stroke fold leaves ink mode false and keeps the layer as renderer alone. Its capture writes a constant `1.0` pressure and reads `GetCurrentPoint`, discarding the coalesced burst; `RenderStroke` builds ONE `ImmutablePen` at `Math.Max(0.5, stroke.Thickness)` for the whole stroke and reads `InkPoint.Pressure` nowhere, so a pressure-varying line renders as a per-run stroke sequence or not at all. Capture wraps `BeginUndoBatch`/`EndUndoBatch` when the drawing implements `IUndoRedoHost`.
 - `NodeEditor.SnapHelper` is `internal static` and unreachable: `Snap(double value, double snap)` returns `value` when `Math.Abs(snap) <= 0.0` and otherwise `Math.Round(value / Math.Abs(snap), MidpointRounding.AwayFromZero) * Math.Abs(snap)`, and `Snap(Point, snapX, snapY, enabled)` applies it PER AXIS. A host committing its own coordinates transcribes that body to land on the lattice the interactive drag quantizes to; calling it, or approximating with `Math.Round` at the default banker's midpoint, converges two peers to two positions for one gesture.
 - Host resources resolve `EditorBackground`, `DrawingBackground`, and the four icon keys before `NodeEditorTheme.axaml` composes; an unresolved `DynamicResource` renders that chrome blank rather than faulting.
-
-[RAIL_LAW]:
-- Package: `NodeEditorAvalonia.Model`
-- Owns: the framework-agnostic graph core — `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin`, the `DrawingNodeEditor` engine, `IDrawingNodeSettings` policy, `INodeSerializer` round-trip, `IUndoRedoHost`, the `INodeTemplate`/`INodeFactory` palette contracts, the ink carriers, the enums, and the typed event-args family
-- Accept: product models implement the contracts on the ReactiveUI rail; editing drives through the `IDrawingNode` operations and their bound `ICommand` twins; connection rules ride `IDrawingNodeSettings` with `IConnectablePin` typing the ports and `ConnectionValidator` carrying domain refusals
-- Reject: hand-rolling a node, pin, or connector graph type the model owns; mutating the graph by repositioning controls instead of the `IDrawingNode` operations; a bespoke undo stack where `IUndoRedoHost` owns coalesced history; a second clone path beside `Clone<T>` over `INodeSerializer`
-- Package: `NodeEditorAvalonia`
-- Owns: the Avalonia layer — the `*Source`-bound controls, the `Xaml.Behaviors` interaction set, `NodeZoomBorder`, the ink layer and adorners, `ExportRenderer`/`StorageService` IO, and the compiled `Themes/` control themes with their variant resource keys
-- Accept: `Editor.DrawingSource` binds an `IDrawingNode` and `Toolbox.TemplatesSource` a palette; connector shape is `ConnectorStyle` with `IDrawingNodeSettings.RoutingAlgorithm` selecting the lattice; pan and zoom is `NodeZoomBorder`; restyling is a `ControlTheme` keyed on the control type or a redefined resource key
-- Reject: hosting the canvas in a second pan-and-zoom border; re-implementing connector routing or hit-testing the package already runs internally; a parallel export path beside `ExportRenderer`; a code-side colour or brush property where the theme owns the visual; `NodeZoomBorder` as the viewport wherever saved views, view history, discrete zoom, the grid, rotation, or state export are wanted

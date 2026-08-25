@@ -18,7 +18,7 @@
 - Boundary: `Rasm.Element` owns the representation identifier vocabulary and this page COMPOSES it — a local slot roster is the deleted fork, exactly as an index-local `ArtifactKind` is (`Query/cache#ARTIFACT_BLOB_INDEX`) — so this page holds only the slot→kind correspondence, and a measured `Node.Coverage` grid stays off that roster because it is no representation slot. Asset class is the DISCRIMINANT and retention its derived column, so every catalog storing bytes stores the kind and reads `Kind.Retention`; the taxonomy seats HERE because the object-plane catalog and the artifact index are strata peers and a concept two peers reach seats at the lowest stratum either reaches. Each lane names its durable home, so sweep budgets and the deletion executor route by row, never a `cls.Key == "blob"` compare. Budget breach truncates and records the truncation (capture must succeed degraded) while a ceiling breach rejects outright (security never degrades) — the two overflow responses never interchange. Class `stream` IS the Marten system of record and never evicts, while class `blob` is full-history-reachable, so an aged blob cold-tiers and only never-referenced debris collects (`#SWEEP_AND_GC`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using NodaTime;

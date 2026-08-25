@@ -24,7 +24,7 @@ Rasm.Persistence stores admitted artifacts as content-addressed bytes through on
 - Growth: one `ObjectStore` row absorbs a new provider with zero new surface — one row, one leg, one capability set (`presigned` exercised it); a new presigned domain is one minter value, a new grant modality one `GrantRequest` case the collapsed signer already spells a verb for, a new capability one `StoreCapability` row every row then answers; a per-provider upload service, a second presigner beside the endpoint-parameterized one, a row delegate re-discriminating the union, a second HTTP uploader, a client-type guard, or a prose degrade clause beside the capability set is the deleted form because the union case IS the dispatch.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 

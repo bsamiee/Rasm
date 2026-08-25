@@ -2,16 +2,7 @@
 
 `Eto.Forms` ambient runtime is a process-wide singleton set, so this boundary registers it whole and adds no carrier: one Rhino process holds one application instance and one clipboard, shared with the Grasshopper boundary rather than partitioned from it. This partition states how the Rhino host boundary reaches that runtime — the dispatch every background producer crosses, the keyed payload a document transfer carries, the tray and toast a long-running operation reports through, and the screen capture a boundary read takes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto.Forms` — Rhino host-boundary runtime reach
-- package: `Eto.Forms` (host-provided; resolved from the Rhino host assembly set, never a central `PackageReference`)
-- assembly: `Eto` (`Eto.dll`)
-- namespace: `Eto.Forms`
-- asset: the `Eto` assembly the Rhino host loads; `macOS`, `WinForms`, and `Wpf` platform handlers back one managed surface
-- rail: eto-runtime
-
-## [02]-[BOUNDARY_REACH]
+## [01]-[BOUNDARY_REACH]
 
 - Registers the `Eto.Forms` ambient runtime (`libs/dotnet/.api/api-eto-runtime.md`): `Application` dispatch and lifecycle, `UITimer`, `Keyboard`/`Mouse`/`Cursors` live input, `Clipboard`/`DataObject`/`IDataObject`/`DataFormats` typed transfer, `Notification`/`TrayIndicator`, and `Screen` display state carry their algebra there. A process singleton admits no per-folder partition, so this boundary adds no carrier and states its reach and composition law over the registered surface.
 
@@ -25,7 +16,7 @@
 |  [06]   | display resolution and grab  | `Screen.FromPoint`, `Screen.FromRectangle`, `Screen.GetImage(RectangleF)`            |
 |  [07]   | pointer and modifier probe   | `Mouse.IsSupported`, `IsAnyButtonPressed`, `SetCursor`, `Keyboard.IsKeyLocked`       |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every control-tree read or write at this boundary executes on the UI thread and a background producer crosses through exactly one registered dispatch shape; `EnsureUIThread` guards a UI-only method and `RunIteration` pumps the loop where a synchronous wait is unavoidable.
@@ -43,9 +34,3 @@
 [LOCAL_ADMISSION]:
 - Runtime state is host-provided and never re-declared; this boundary internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload.
 - The application singleton and a stringy MIME key never cross into a domain signature.
-
-[RAIL_LAW]:
-- Partition: `Eto.Forms` ambient runtime, Rhino host-boundary reach
-- Owns: the composition law placing background-producer dispatch, keyed document transfer, tray and toast reporting, and display resolution on the registered singletons
-- Accept: marshalled effects, keyed transfer payloads, resource-scoped clocks and tray icons, display resolution and region capture
-- Reject: a re-tabling of the registered singleton algebra, control and window construction (`libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md`), custom painting (`libs/dotnet/Rasm.Rhino/.api/api-eto-drawing.md`), document output (`libs/dotnet/.api/api-eto-printing.md`), platform selection and native hosting (`libs/dotnet/Rasm.Rhino/.api/api-eto-platform.md`), and leaking the application singleton or a stringy MIME key past the owning rail

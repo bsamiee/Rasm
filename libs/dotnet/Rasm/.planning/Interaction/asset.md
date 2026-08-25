@@ -32,7 +32,7 @@ Both boundaries carried an origin family and an icon record; the AppUi product s
 - Boundary: the kernel never CACHES a resolved asset — a host image cache, a `DisplayBitmap` table, and a platform image list are the boundary's own custody, because their eviction policy is the host's and a kernel cache would outlive the surface that asked.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Reflection;
 using EtoBitmap = Eto.Drawing.Bitmap;
@@ -175,7 +175,7 @@ public abstract partial record AssetOrigin {
 - Boundary: the FILTER is declarative and the kernel applies none of it — a host draws the disabled state its platform draws, `Custom` hands that host the map it must apply, and the case names which state was asked for rather than prescribing a pixel operation.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Text.Json.Serialization;
@@ -238,7 +238,7 @@ public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> 
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino bitmap table registration and its `.rui` icon binding, the Grasshopper2 canvas glyph atlas, and the AppUi theme asset cache each keep their own registration and eviction, and each hands this owner a value rather than a name.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Interaction;
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -2,22 +2,13 @@
 
 `pollination-handlers` (import `pollination_handlers`) owns execution-time IO coercion for the recipe rail: the flat `inputs.*`/`outputs.*` catalog a recipe's queenbee `IOAliasHandler` addresses by `module`+`function`, that `importlib` resolves and the runtime invokes at the two recipe-run boundaries — a job input coerced to the artifact the `queenbee local run` subprocess expects, and the result folder read back into ladybug `DataCollection`s. queenbee owns the addressing schema, `lbt-recipes` the resolver and invocation sites.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pollination-handlers`
-- package: `pollination-handlers` (AGPL-3.0)
-- module: `pollination_handlers`
-- abi: pure-Python (`py2.py3-none-any`, purelib; no native extension)
-- rail: recipe-execution / io-coercion
-- depends: `lbt-dragonfly` — the honeybee/ladybug/dragonfly domain classes the handlers read and write
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: module-tree layout (resolution targets)
 
 No classes: two function module-trees rooted at `pollination_handlers.*`, addressed by dotted `module`+`function` — `inputs.*` coerces values to recipe-input artifacts, `outputs.*` reads result folders to ladybug objects, and `inputs.helper`/`outputs.helper` carry the shared tempfile, CSV, and per-grid-reader primitives.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: input-coercion handlers (invoked by `RecipeInput.handle_value`)
 
@@ -40,7 +31,7 @@ Each reader turns the joined result folder into the typed ladybug object or summ
 - [04]-[OTHER] `outputs.{comfort,eui,summary}`: comfort percent, EUI, and summary properties/contents — `comfort.read_comfort_percent_from_folder` `eui.eui_json_from_path` `summary.json_properties_from_path` `summary.contents_from_folder`
 - [05]-[PRIMITIVE] `outputs.helper`: shared per-grid result readers over `(result_folder, extension, grid_key, is_percent=True, factor=1)` — `read_sensor_grid_result` `read_grid_results` (`read_grid_results` for one value per grid)
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - resolution: a handler binds by address, never a static import — `lbt-recipes` `_RecipeParameter` resolves `importlib.import_module(module)` + `getattr(module, function)` from the queenbee `IOAliasHandler`, whose `module`+`function` is the sole handler address.
@@ -57,9 +48,3 @@ Each reader turns the joined result folder into the typed ladybug object or summ
 [LOCAL_ADMISSION]:
 - AGPL-3.0: network-copyleft — handlers run in the recipe-execution process bracketing a subprocess, never linked into a distributed library surface; the license is the binding admission flag.
 - authoring boundary: the geometry energy domain authors which handler each input uses; this catalog owns the execution-time resolution and invocation of the same package.
-
-[RAIL_LAW]:
-- Package: `pollination-handlers`
-- Owns: the input-coercion and result-reader handler functions the recipe executor binds at the IO boundary — value-to-artifact before the subprocess, result-folder-to-`DataCollection` after it
-- Accept: `module`+`function` addressing from a queenbee `IOAliasHandler`, `importlib` resolution by `lbt-recipes`, `index`-ordered chained handlers, invocation at `RecipeInput.handle_value`/`RecipeOutput.value` bracketing the `queenbee local run` subprocess, a handler `ValueError` lifted into the boundary-fault rail
-- Reject: a static handler import, re-implemented handler resolution or chain ordering, a handler run inside the luigi worker, a parallel result-folder parser, a swallowed handler `ValueError`

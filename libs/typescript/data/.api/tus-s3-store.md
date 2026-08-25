@@ -2,15 +2,7 @@
 
 `@tus/s3-store` binds the `@tus/utils` `DataStore` contract to S3 multipart uploads: the tus resumable offset IS the multipart high-water mark, so the store holds no cross-process state and resume re-derives from S3. It serves the object plane's STAGING band beneath `@tus/server` on the shared `@aws-sdk/client-s3` provider vocabulary; the finalize fold re-homes staged bytes to their content key and expiration grooms what it never re-homed.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tus/s3-store`
-- package: `@tus/s3-store` (MIT)
-- module: ESM, single root export
-- runtime: node/bun server plane
-- rail: object-plane STAGING band beneath `@tus/server`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the store, its `Options` policy record, and the staged metadata record
 
@@ -29,7 +21,7 @@
 |  [11]   | `MetadataValue`                          | object                        | staged record `{ file, "upload-id", "tus-version" }`    |
 |  [12]   | `S3Store.maxUploadSize`                  | const                         | 5 TiB ceiling (`5497558138880`)                         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the `DataStore` members `@tus/server` drives, with the finalize and groom reads the rail owns
 
@@ -45,7 +37,7 @@
 |  [08]   | `getExpiration() -> number`                            | instance | the one SYNCHRONOUS member; staging TTL window         |
 |  [09]   | `declareUploadLength(string, number) -> Promise<void>` | instance | tus `Upload-Defer-Length` — size set after creation    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - confirmed offset sums consecutive uploaded parts and any incomplete-part object, so resume never re-uploads past the high-water mark.
@@ -62,9 +54,3 @@
 [LOCAL_ADMISSION]:
 - staging binds the object plane's provider `Config`, one endpoint and credential vocabulary shared with the content client.
 - part arithmetic lives in the `partSize` and `minPartSize` policy fields, computed from declared length rather than hardcoded beside the store.
-
-[RAIL_LAW]:
-- Package: `@tus/s3-store`
-- Owns: multipart-backed offset persistence, `${id}.info` metadata objects, incomplete-part carry, part-size arithmetic, staging expiry, and the `Options` policy record
-- Accept: one store per staging band on the object plane's provider facts, `read` as the finalize byte source, expiry-swept staging, part policy as `Options` fields
-- Reject: staging keys as content identity, a second provider vocabulary, an unswept band, driving the store outside the tus server except `read`, `remove`, and `deleteExpired`

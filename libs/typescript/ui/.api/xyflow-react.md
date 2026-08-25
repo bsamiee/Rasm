@@ -2,16 +2,7 @@
 
 `@xyflow/react` owns the node-flow canvas: a pan-zoom viewport, handle-anchored connection machine, and a node/edge render tree the consumer drives as controlled state through pure change folds. Node and edge appearance is a component record keyed by type string, and the recognizer knobs surrender pan, wheel-zoom, and pinch individually, so the canvas hosts whatever geometry, gesture, and layout owners the estate already carries.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@xyflow/react`
-- package: `@xyflow/react` (MIT)
-- module: ESM (`dist/esm/index.js`) + UMD, `sideEffects` on CSS alone; `.` re-exports the whole `@xyflow/system` type algebra, and `./dist/base.css` / `./dist/style.css` are the only other subpaths
-- runtime: React DOM in the browser — DOM measurement, `ResizeObserver`, and pointer capture; peer `react`/`react-dom` through the folder React spine
-- depends: `@xyflow/system` (framework-free engine — pan/zoom, drag, handle, minimap, resizer kernels), `zustand` (per-provider store), `classcat`
-- rail: view canvas plane — the node-flow engine `view/canvas`'s `Canvas.edge` adapter atom drives
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the graph value model — the shapes a consumer stores, renders, and folds
 
@@ -56,7 +47,7 @@
 |  [07]   | `ReactFlowState<NodeType, EdgeType>`             | struct        | the internal store snapshot `useStore` selects over          |
 |  [08]   | `ReactFlowInstance<NodeType, EdgeType>`          | interface     | the imperative handle `useReactFlow` and `onInit` return     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the canvas root, its store provider, and the in-viewport slots
 
@@ -128,7 +119,7 @@
 |  [11]   | `getIncomers(node, nodes, edges)` / `getOutgoers(...)`        | static  | adjacency reads over a stored graph                            |
 |  [12]   | `getConnectedEdges(nodes, edges)` / `ResizeControlVariant`    | static  | the incident edge set; handle-versus-line resize marks         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Controlled state is the one regime: `nodes`/`edges` are consumer-owned arrays, the canvas emits `NodeChange[]`/`EdgeChange[]` through `onNodesChange`/`onEdgesChange`, and `applyNodeChanges`/`applyEdgeChanges` fold a batch into the next array — every interaction (drag, select, measure, resize, delete) reaches state through that one fold, so undo, persistence, and remote authority all sit on a single seam.
@@ -155,10 +146,3 @@
 - Wrap any tree reaching `useReactFlow` outside `ReactFlow` in `ReactFlowProvider`; reach the store through `useStore`/`useStoreApi` and never through a `zustand` import.
 - Import `@xyflow/react/dist/base.css` for the structural layer and let the token plane own every visual rule; `style.css` ships opinionated defaults the token bridge re-decides.
 - Switch off a recognizer at the canvas before binding a sibling gesture engine to that gesture class.
-
-[RAIL_LAW]:
-- Package: `@xyflow/react` (over `@xyflow/system`)
-- Owns: the pan-zoom viewport, the handle-anchored connection machine, node measurement and drag, selection and lasso, the `NodeChange`/`EdgeChange` algebra and its pure folds, the `nodeTypes`/`edgeTypes` renderer records, the in-viewport slots (`Panel`, `ViewportPortal`, `EdgeLabelRenderer`, `NodeToolbar`, `EdgeToolbar`, `NodeResizer`), the chrome trio (`Background`, `Controls`, `MiniMap`), and the edge-path geometry functions
-- Accept: controlled `nodes`/`edges` folded through `applyNodeChanges`/`applyEdgeChanges`, a controlled `viewport` through `onViewportChange`, reference-stable node projections from an atom-backed domain graph, hoisted type records, solver geometry landing as replace changes, per-class recognizer surrender to a sibling gesture engine, RAC primitives inside node bodies
-- Reject: an uncontrolled canvas holding graph truth, a whole-array node rebuild per render, inline `nodeTypes`/`edgeTypes` objects, a `zustand` import reaching the interior store, a second recognizer bound to a gesture class the canvas still claims, a hand-rolled layout pass where `elkjs` answers, hand-written cubic path math where the `get*Path` family answers, and a node kind branched at the canvas root instead of a type-record row
-

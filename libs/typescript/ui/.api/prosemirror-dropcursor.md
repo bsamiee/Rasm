@@ -2,16 +2,7 @@
 
 `prosemirror-dropcursor` owns the drop-target indicator: `dropCursor(options)` draws a cursor at the position a dragged slice lands, tracking the pointer through the drag and clearing on drop or leave. Placement respects the schema — the cursor appears only where the drop is admissible — and a node opts its interior out through the `disableDropCursor` spec key this package declares.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-dropcursor`
-- package: `prosemirror-dropcursor` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: browser drag events — the cursor renders as an absolutely positioned element the plugin styles inline, so no stylesheet ships
-- depends: `prosemirror-state`, `prosemirror-view`, `prosemirror-transform`
-- rail: `view/content` — the drop-position indicator during a drag
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one options interface and one module augmentation this package contributes to the schema surface.
 
@@ -24,7 +15,7 @@
 - `color` defaults to `black` and takes `false` to drop the inline colour so a `class` rule owns appearance; `width` defaults to 1 pixel.
 - Importing this package augments `NodeSpec` globally through a `declare module "prosemirror-model"` block, so `disableDropCursor` becomes a typed spec key everywhere in the compilation.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the one exported surface.
 
@@ -32,7 +23,7 @@
 | :-----: | :-------------------------------------------- | :------ | :-------------------------------------------------------- |
 |  [01]   | `dropCursor({color, width, class}) -> Plugin` | static  | tracks the drag and draws the cursor at the drop position |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `dropCursor` layers presentation over the view's own drag handling: it watches drag events, resolves the pointer to a drop position, and draws an indicator there. It performs no drop — the view applies the change, so removing the plugin costs the indicator and nothing else.
@@ -53,9 +44,3 @@
 - Mount `dropCursor()` in every document class with draggable nodes, styling it through `color: false` and a `class` on the token scale.
 - Declare `disableDropCursor` on the owning `NodeSpec` where a node's interior rejects drops, rather than filtering drag events.
 - Keep drop behaviour on the view and its `handleDrop` prop; this plugin owns the indicator alone.
-
-[RAIL_LAW]:
-- Package: `prosemirror-dropcursor`
-- Owns: the drop-position indicator — the `dropCursor({color, width, class})` plugin tracking a drag and drawing a schema-aware cursor at the admissible drop position, and the `NodeSpec.disableDropCursor` augmentation letting a node suppress it inside its own interior
-- Accept: one plugin instance per document class with draggable nodes, `color: false` and a `class` styled on the token scale, `disableDropCursor` declared as a boolean or a positional predicate on the owning spec row, and drop handling left to the view's own pipeline
-- Reject: a hand-drawn drop indicator, drag-event filtering where a `disableDropCursor` row decides, drop behaviour implemented in this plugin instead of `handleDrop`, and the hardcoded default colour on a token-scaled surface

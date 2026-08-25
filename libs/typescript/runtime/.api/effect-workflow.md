@@ -2,17 +2,7 @@
 
 `@effect/workflow` owns durable execution: a `Workflow` is a `Schema`-typed, idempotency-keyed computation that suspends and replays; an `Activity` a once-executed step whose exit persists; and the durable primitives are the replay-durable analogs of their in-memory `effect` peers. Every definition binds the `WorkflowEngine` Tag, so one workflow rides the memory engine for specs or the sharded cluster engine for durable execution by Layer choice at the app root.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/workflow`
-- package: `@effect/workflow` (MIT)
-- asset: ESM `.d.ts` (`dist/dts/*.d.ts`); peer `effect` + `@effect/platform` + `@effect/rpc` + `@effect/experimental`
-- owner: `work`
-- runtime: isomorphic; the durable engine rides node/bun
-- rail: durable-execution
-- modules: `Workflow`, `Activity`, `DurableDeferred`, `DurableClock`, `DurableQueue`, `DurableRateLimiter`, `WorkflowEngine`, `WorkflowProxy`, `WorkflowProxyServer`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Workflow` + `Activity` definitions — Schema-typed durable computations
 - A `Workflow` and its `Activity` steps carry closed payload/success/error `Schema`s under the decode-once law of `journal/append`; an `Activity` IS an `Effect`.
@@ -36,7 +26,7 @@
 |  [05]   | `WorkflowEngine`                                     | engine Tag      | `layerMemory` (spec) / `ClusterWorkflowEngine.layer` (durable) |
 |  [06]   | `WorkflowEngine.WorkflowInstance`                    | instance Tag    | per-run executionId, scope, suspend/interrupt flags, cause     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: define, drive, and compensate a workflow
 
@@ -92,7 +82,7 @@
 |  [03]   | `WorkflowProxy.toRpcGroup(workflows, { prefix? })`                      | wire expose    | workflow set → `RpcGroup` (`edge`)           |
 |  [04]   | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer` | wire expose    | `HttpApiGroup`; execute/discard/resume       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One definition binds one Tag, the app root selects the engine: `layerMemory` runs specs, `ClusterWorkflowEngine.layer` (over `Sharding` + `MessageStorage`) runs durable sharded execution, so spec-to-durable promotion is a Layer swap.
@@ -114,9 +104,3 @@
 - Derive the replay key from `idempotencyKey`/`executionId`, and register rollback through top-level `withCompensation`.
 - Source retry and timeout budgets from `core/value/fault` `Schedule`s, and resolve external waits by a `DurableDeferred` `Token`.
 - Compose `DurableQueue`/`DurableRateLimiter` over the `@effect/experimental` `PersistedQueue`/`RateLimiter`.
-
-[RAIL_LAW]:
-- Package: `@effect/workflow`
-- Owns: the `Workflow`/`Activity` durable definitions, the `Result` suspend/complete ADT, `withCompensation` saga folds, the `SuspendOnFailure`/`CaptureDefects` failure annotations, `DurableDeferred` token-addressed signals, `DurableClock` timers, `DurableQueue` persisted jobs, `DurableRateLimiter` throttles, the `WorkflowEngine`/`WorkflowInstance` Tags, and `WorkflowProxy` wire exposure
-- Accept: definitions bound to the `WorkflowEngine` Tag (memory for specs, `ClusterWorkflowEngine` for durable), Schema-typed payload/success/error, deterministic `idempotencyKey`/`executionId`, top-level `withCompensation` finalizers, `Schedule`-sourced retry budgets, `DurableDeferred` `Token` resolution, `DurableQueue`/`DurableRateLimiter` over the `@effect/experimental` primitives, `WorkflowProxy` edge exposure
-- Reject: a hand-rolled saga, state-machine, or retry-persistence loop; a definition hardcoding its engine; a re-run of an activity for its side effect; compensation nested inside an activity; a manual poll for an external signal; a second persisted-queue or distributed-rate-limiter implementation; a hand-rolled durable timer

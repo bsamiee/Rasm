@@ -2,15 +2,7 @@
 
 `pydantic` owns model-class validation and serialization, compiling a per-class core schema once at class creation and dispatching every validate/dump into the C-extension `pydantic-core`. It binds `BaseModel`/`RootModel` records, a `TypeAdapter` validating any annotated type with no model class, the four-mode validator/serializer algebra, callable-tag discriminated unions, alias routing, and a constrained/network/secret scalar catalogue. It is the validation rail's model owner — a cross-field-validated record mints as a `BaseModel`, a schemaless shape as a `TypeAdapter`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pydantic`
-- package: `pydantic` (MIT)
-- module: `pydantic`
-- namespaces: `pydantic` (public API), `pydantic.dataclasses` (stdlib-dataclass integration), `pydantic.json_schema` (`GenerateJsonSchema`), `pydantic.experimental.pipeline`, `pydantic.experimental.missing_sentinel`, `pydantic.experimental.arguments_schema`
-- rail: validation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model base types
 
@@ -112,7 +104,7 @@
 |  [05]   | `{Aware,Naive,Past,Future}Datetime` / `{Past,Future}Date`                          | temporal      | tz-aware/temporal-bound datetimes  |
 |  [06]   | `{File,Directory,New,Socket}Path` / `ImportString`                                 | path/import   | existence path; dotted-path import |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model operations on `BaseModel`
 - `model_validate*` carry: `strict, from_attributes, context, by_alias, by_name`; `model_dump*` carry: `mode, include, exclude, by_alias, exclude_*, round_trip, context, serialize_as_any, fallback, warnings`
@@ -164,7 +156,7 @@
 |  [07]   | `missing_sentinel.MISSING`                                 | sentinel  | absent-vs-`None` sentinel, omitted from dump    |
 |  [08]   | `arguments_schema.generate_arguments_schema(func, *, ...)` | builder   | core schema for a callable's argument signature |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A `BaseModel` subclass compiles its core schema once at class creation into the C-extension `pydantic-core` (`SchemaValidator`/`SchemaSerializer`); every `model_validate*`/`model_dump*` dispatches into that compiled validator, never a Python-level field loop.
@@ -189,9 +181,3 @@
 - Boundary intake catches `ValidationError` and maps `.errors()` to domain error rails before domain logic; `model_construct` re-hydrates only data validated upstream.
 - Wire-to-domain field renaming routes through `AliasPath`/`AliasChoices`/`AliasGenerator`; internal code holds canonical field names and emits `by_alias=True` at egress alone.
 - `model_dump(mode='json')` yields JSON-safe primitives without per-field serializers; `SerializeAsAny` serializes a base-typed field via the runtime subclass schema.
-
-[RAIL_LAW]:
-- Package: `pydantic`
-- Owns: model/field validation, the validator/serializer mode algebra, discriminated-union resolution, type adapters, constrained/network/secret types, JSON Schema generation, function-argument validation
-- Accept: `BaseModel`, `RootModel`, `TypeAdapter`, `Field`, `Discriminator`/`Tag`, `model_validator`/`field_validator`, `Annotated[..., BeforeValidator/AfterValidator/WrapValidator/PlainValidator]`, `validate_call`
-- Reject: hand-rolled dict-key validation, `isinstance` cascades replacing `TypeAdapter.validate_python`, a post-construction `match` over a discriminant field, a parallel DTO type for one wire shape, `str(ValidationError)` where `.errors()` carries the structured path

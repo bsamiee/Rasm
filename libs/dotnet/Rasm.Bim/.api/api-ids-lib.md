@@ -4,17 +4,7 @@
 
 Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schema graph — class hierarchy, attributes, standard Psets/Qtos, and measure/unit metadata — a self-contained schema authority the Bim property, quantity, and classification owners read directly without the audit path.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ids-lib`
-- package: `ids-lib` (MIT)
-- assembly: `ids-lib`
-- namespace: `IdsLib`, `IdsLib.IfcSchema`, `IdsLib.SchemaProviders`
-- asset: net10.0; the net10.0 consumer binds `lib/net10.0` and ships `ids-lib.xml`
-- diagnostics: `Microsoft.Extensions.Logging.ILogger?` — the caller-owned issue sink
-- rail: ids-validation — `.ids` conformance audit and the offline IFC schema-reflection authority
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: IdsLib — audit engine, result status, schema seam
 
@@ -85,7 +75,7 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 [`DimensionType`]: `Length` `Mass` `Time` `ElectricCurrent` `Temperature` `AmountOfSubstance` `LuminousIntensity`
 [`SingleValuePropertyType`]: `DataType` the IFC datatype string; ctor `(string name, string dataType)`; a `PropertySetInfo.Get` result that is NOT this type carries no declared datatype
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Audit — run
 
@@ -128,7 +118,7 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 |  [09]   | `AllDataTypes -> IEnumerable<IfcDataTypeInformation>`                            | property | every defined data type            |
 |  [10]   | `StandardConversionUnits -> IEnumerable<IfcConversionUnitInformation>`           | property | the standard conversion units      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Audit.RunAsync` returns `Status` flags — `Ok`(0) passes, any error flag (or `IdsStructureWarning` when `XmlWarningAction` escalates it) rejects; `OmitIdsSchemaAudit`/`OmitIdsContentAudit` drop the XSD vs implementation-agreement legs and `SchemaProvider` pins the IDS-XSD source.
@@ -146,9 +136,3 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 [LOCAL_ADMISSION]:
 - IDS file audit enters through `Audit.RunAsync(stream, SingleAuditOptions, logger)`; the IDS-XSD source is selected once via the `SchemaProvider` option.
 - IFC schema queries enter through the static `SchemaInfo.SchemaIfc*` graphs and `PropertySetInfo.GetSchema` — pure offline lookups with no audit dependency.
-
-[RAIL_LAW]:
-- Package: `ids-lib`
-- Owns: buildingSMART-official `.ids` audit (XSD + implementation-agreement validation → `Status` flags) and the embedded offline IFC2x3/IFC4/IFC4x3 schema-reflection graph
-- Accept: IDS conformance auditing, IFC schema/class/attribute/property/measure resolution, facet-against-schema validation
-- Reject: authoring the IDS spec object model (`Xbim.InformationSpecifications`), the IFC instance graph (`GeometryGym`), value unit conversion (`UnitsNet`), BCF issue authoring (`Smino.Bcf.Toolkit`)

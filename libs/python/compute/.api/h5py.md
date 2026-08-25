@@ -2,17 +2,7 @@
 
 `h5py` maps the HDF5 container to Python. Compute composes it as the exchange-container surface alone — sparse-operator archives, graduation drift envelopes, and waveform corpora — never as a field store: the gridded field rail and its full h5py surface belong to `libs/python/data/.api/h5py.md`, and this folder's admission covers only the group/dataset/attribute members its exchange fences spell.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `h5py`
-- package: `h5py` (BSD-3-Clause)
-- module: `import h5py`
-- namespaces: `h5py`
-- owner: `compute`
-- rail: exchange — the HDF5 container carrying the .NET-peer sparse-operator, drift-envelope, and waveform crossings
-- capability: file IO, group namespace, typed dataset storage, attribute metadata, vlen string dtype
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: container tree objects this folder touches
 
@@ -33,7 +23,7 @@
 
 `h5py` exports NO exception symbol of its own — the HDF5 error stack surfaces entirely as builtins, so a `catch` tuple over this lane is `(KeyError, OSError)` and nothing narrower exists to name.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: exchange-container IO
 
@@ -46,7 +36,7 @@
 |  [05]   | `AttributeManager[name]` / `[name] = value`       | operator | read and write typed attributes |
 |  [06]   | `string_dtype(encoding, length)`                  | factory  | vlen or fixed string dtype      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `File` is a context manager; a `with` block flushes and closes the handle, and a leaked handle locks or corrupts the file.
@@ -59,9 +49,3 @@
 
 [LOCAL_ADMISSION]:
 - Consumers are the exchange fences alone: `solvers/linear#EXCHANGE` (scipy-convention sparse archives), `experiments/model#ENVELOPE` (drift envelopes), and `analysis/signal#WAVEFORM_EXCHANGE` (two-axis waveform publication); a compute field, ensemble, or CF store routes to the data branch owners instead.
-
-[RAIL_LAW]:
-- Package: `h5py`
-- Owns: the HDF5 exchange-container IO this folder's .NET-peer crossings spell
-- Accept: a context-managed `File`, create-only `x` mode, explicit dtype pins at every dataset and attribute write, `string_dtype` for vlen categories
-- Reject: a file handle leaked outside `with`, an implicit int64 index dataset where the exchange convention pins int32, and any field-store or CF use the data branch owns

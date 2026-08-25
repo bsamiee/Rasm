@@ -23,7 +23,7 @@ SI reprojection rides the kernel `Op.Catch` funnel so the `UnitsNet` boundary th
 - Boundary: `QuantityType` is the ONE discriminator and `Dimension` the physical signature — a closed kind enum and dimension-as-discriminator are the two deleted forms; exponents come from `BaseDimensions` or the generated factory, and a hand table drifting from the registry — or a name parsed at a call site rather than admitted through `Of` — is the named defect; `PlaneAngle` participates in unit coercion through the `Angle` TYPE arm alone (its SI exponent vector is zero), the discriminant stated on its row.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using LanguageExt;

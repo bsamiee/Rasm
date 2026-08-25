@@ -2,45 +2,7 @@
 
 `Apache.Arrow.Adbc` drives driver-based query execution over Arrow streams; `Apache.Arrow.Flight` carries the Flight RPC `RecordBatch` transport over gRPC, `Apache.Arrow.Flight.Sql` folds a SQL dialect over it, `Apache.Arrow.Flight.AspNetCore` binds a served node onto an ASP.NET Core gRPC endpoint, and `Apache.Arrow.Compression` binds the IPC LZ4-frame and Zstandard codec factory. Persistence composes the five with the core columnar substrate whose member truth is the branch catalogue (`libs/dotnet/.api/api-arrow.md`) — `RecordBatch`, `Schema`, the IPC readers/writers, and `IArrowArrayStream`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Adbc`
-- package: `Apache.Arrow.Adbc` (Apache-2.0)
-- assembly: `Apache.Arrow.Adbc`
-- namespace: `Apache.Arrow.Adbc`
-- rail: analytical-egress
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Flight`
-- package: `Apache.Arrow.Flight` (Apache-2.0)
-- assembly: `Apache.Arrow.Flight`
-- namespace: `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Client`, `Apache.Arrow.Flight.Server`
-- rail: analytical-egress
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Flight.Sql`
-- package: `Apache.Arrow.Flight.Sql` (Apache-2.0)
-- assembly: `Apache.Arrow.Flight.Sql`
-- namespace: `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Flight.Sql.Client`
-- depends: `Apache.Arrow.Flight`
-- rail: analytical-egress
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Flight.AspNetCore`
-- package: `Apache.Arrow.Flight.AspNetCore` (Apache-2.0)
-- assembly: `Apache.Arrow.Flight.AspNetCore`
-- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.AspNetCore.Builder`
-- depends: `Apache.Arrow.Flight`, `Grpc.AspNetCore.Server`
-- asset: two static extension classes and nothing else; it holds the SOLE `Apache.Arrow.Flight` `InternalsVisibleTo` grant, so no peer assembly reaches the server adapter
-- rail: analytical-egress (host binding)
-
-[PACKAGE_SURFACE]: `Apache.Arrow.Compression`
-- package: `Apache.Arrow.Compression` (Apache-2.0)
-- assembly: `Apache.Arrow.Compression`
-- namespace: `Apache.Arrow.Compression`
-- asset: pure-managed AnyCPU, no native RID; the managed `K4os`/`ZstdSharp` transitives carry the codec bodies
-- rail: analytical-egress (IPC compression)
-
-[REGISTRATION]: `Apache.Arrow` — branch substrate at `libs/dotnet/.api/api-arrow.md`; the columnar format, builders, `IArrowType` system, IPC readers/writers, `IpcOptions`, and `IArrowArrayStream` resolve there, and this file adds only the five egress packages above.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ADBC family
 
@@ -121,7 +83,7 @@
 | :-----: | :------------------------ | :------------ | :---------------------------------------------------------------------------------- |
 |  [01]   | `CompressionCodecFactory` | codec factory | the only public type, `sealed : ICompressionCodecFactory`; `Lz4Frame`/`Zstd` codecs |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IPC compression enable
 - `CompressionLevel` (`int?`) forwards to `CreateCodec(type, level)`, called per batch.
@@ -231,7 +193,7 @@
 |  [13]   | `CancelFlightInfoAsync` / `CancelQueryAsync`                      | cancel        | `Task<FlightInfoCancelResult>`             |
 |  [14]   | `DoActionAsync(FlightAction)` / `GetExecuteSchemaAsync`           | action/schema | action stream and result-schema probe      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `AdbcConnection.GetObjectsDepth` discriminates `All`/`Catalogs`/`DbSchemas`/`Tables`; `AdbcStatement.SqlQuery` and `SubstraitPlan` are mutually-exclusive query inputs.
@@ -253,9 +215,3 @@
 - `FlightClient` constructs from a gRPC `ChannelBase`/`CallInvoker` (no static factory), connection lifetime/TLS/credentials caller-owned; a Flight read is `GetInfo` → pick a `FlightEndpoint` → `GetStream(endpoint.Ticket)`, a write is `StartPut(descriptor, schema)` then batches on the duplex `RequestStream`.
 - Flight SQL rides that one served node over a single gRPC listener: `FlightSqlServer` reuses the `DoGet` ticket redemption, `PreparedStatement` binds a parameter `RecordBatch`, and a `Transaction` bounds a commit/rollback unit.
 - Hosting a served node is exactly two host calls — `services.AddGrpc().AddFlightServer<TServer>()` binds the subclass scoped, then `app.MapFlightEndpoint()` maps the adapter; the subclass's own constructor dependencies resolve from the same container because the adapter takes `FlightServer` by injection.
-
-[RAIL_LAW]:
-- Packages: `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.AspNetCore`, `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Compression`
-- Owns: ADBC query execution (partitioned, transactional, Substrait), Flight `RecordBatch` transport, its ASP.NET Core host binding, the Flight SQL dialect over it, and the IPC LZ4-frame/Zstandard codec factory
-- Accept: ADBC driver-level queries and bulk ingest read back as `IArrowArrayStream`, Flight `GetStream`/`StartPut`/`DoExchange`, `AddFlightServer<T>` beside `MapFlightEndpoint` for the served node, IPC compression through the package factory
-- Reject: a custom `ICompressionCodecFactory` where `Apache.Arrow.Compression.CompressionCodecFactory` owns both codecs; `CompressionCodec` set without a factory; raw gRPC Flight Protobuf without `FlightClient`; `MapGrpcService<T>` over a `FlightServer` subclass, which carries no bind attribute; a hand-written `FlightService.FlightServiceBase` adapter where the grant-holding package owns the only reachable one; a per-transport reader where `IArrowArrayStream` unifies IPC, ADBC, and Flight; a core-Arrow member re-tabled here instead of the branch catalogue

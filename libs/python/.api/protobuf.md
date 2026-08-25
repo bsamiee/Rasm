@@ -2,16 +2,7 @@
 
 `protobuf` owns the `google.protobuf` message runtime beneath the two foreign IRs the branch decodes — the Substrait plan and the ONNX model — whose `_pb2` classes derive from `Message`. It folds binary, JSON, and text codecs over those messages beside the well-known value carriers, and hands the estate's own wire vocabulary to `protobuf-py`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `protobuf`
-- package: `protobuf` (BSD-3-Clause)
-- module: `google.protobuf`
-- namespaces: `...message`, `...proto`, `...json_format`, `...text_format`, `...unknown_fields`, `...runtime_version`, `...internal.api_implementation`, `...<wkt>_pb2`
-- abi: native `upb` C extension by default, `cpp` or pure `python` elected at import through `api_implementation`
-- rail: data + compute IR
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message family
 
@@ -51,7 +42,7 @@
 |  [01]   | `unknown_fields.UnknownFieldSet` | field set     | iterable of `field_number`/`wire_type`/`data` records a decode kept |
 |  [02]   | `runtime_version.VersionError`   | exception     | gencode-to-runtime skew refusal                                     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Message instance operations
 
@@ -145,7 +136,7 @@
 
 - [03]-[GENCODE_GATE]: `runtime_version.ValidateProtobufRuntimeVersion(gen_domain, gen_major, gen_minor, gen_patch, gen_suffix, location)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `api_implementation.Type()` reports the backend elected at import and the native `upb` extension backs every instance method; that backend refuses `Message.UnknownFields()`, so `unknown_fields.UnknownFieldSet(message)` is the branch's one unknown-field reader.
@@ -176,9 +167,3 @@
 - Codec fences name every refusal root their leg touches, since `message.Error` and `json_format.Error` stand disjoint and a catch naming one alone lets the other past the rail.
 - Emit reads `MessageToDict(preserving_proto_field_name=True)` so the mapping keys match the proto field names the interior model already spells.
 - Unknown-field census rides `unknown_fields.UnknownFieldSet`, and `DiscardUnknownFields()` marks the deliberate erase a re-emit declares.
-
-[RAIL_LAW]:
-- Package: `protobuf`
-- Owns: `google.protobuf` binary, JSON, and text codecs with the well-known value carriers beneath the Substrait plan and ONNX model IRs, on the native `upb` backend
-- Accept: `_pb2` messages from `substrait` and `onnx`, `proto.serialize`/`parse` and their length-prefixed pair, `json_format.ParseDict` at intake, `MessageToDict(preserving_proto_field_name=True)` at emit, well-known types as value carriers
-- Reject: first-party `_pb2` emission, `google.protobuf` on the estate wire rail, hand-rolled binary encoding, a positional `deterministic`, `Message.UnknownFields()` where the `upb` backend refuses it, the pure-`python` backend where the native extension loads

@@ -2,16 +2,7 @@
 
 `TextureCompressor` is the pure-managed GPU texture-format engine: a `TextureFormat` value record describes any block or packed layout, a `TextureCoderManager` registry maps each format to an `ITextureCoder`, and every coder encodes and decodes generically over `IPixel<TSelf>` so a float HDR plane reaches BC6H and an 8-bit plane reaches BC7 through the one member. Its `TextureConverter` facade sits above that rail and is 8-bit-bound, so a texture-grade path binds the coder registry directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TextureCompressor`
-- package: `TextureCompressor` (MIT)
-- assembly: `TextureCompressor`
-- namespace: `TextureCompressor.Formats`, `.Bitmaps`, `.Colors`, `.Codecs`, `.Registry`, `.Conversion`, `.FileFormats`, `.Options`, `.Utilities`
-- asset: `lib/net10.0` managed only, no native runtime
-- rail: gpu texture payload
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: format description and texture carriers — `TextureCompressor.Formats`
 
@@ -115,7 +106,7 @@
 |  [13]   | `IFileFormatOptions`                                             | interface     | the per-format options contract                    |
 |  [14]   | `BigEndianByteSwap` / `SwizzledHelper` / `TextureCodingParallel` | static class  | byte-order, swizzle, and parallel coding utilities |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: format description and size math — `TextureFormat` / `TextureFormatCatalog`
 
@@ -208,7 +199,7 @@
 |  [14]   | `TextureImage.Subresources -> IReadOnlyList<TextureSubresource>`                        | property | the whole ordered slot list       |
 |  [15]   | `TextureImage.Width` / `Height` / `Depth` / `Payload` / `Data`                          | property | subresource-zero projections      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `TextureFormat` is a VALUE, not an enum: name, kind, components, value kind, per-channel bit counts, block extent, and bits-per-block fully describe a layout, so a format the standing catalogue omits is a `BlockCompressed`/`Uncompressed`/`Paletted` construction rather than a library change, and `GetByteCount`/`GetRowByteCount` size any payload from that description alone.
@@ -233,9 +224,3 @@
 - `Global` registries are process-static; a folder composing this engine binds its own `TextureCoderManager` and `TextureFileFormatManager` instances so a registration made for one bake never leaks into another's format resolution.
 - Video chroma coders (`PlanarYuv*`, `PackedYuv*`, `PackedRgb422*`), the depth-stencil coder, and the palette and index coders describe layouts outside the texture-channel vocabulary; they stay unregistered rather than reachable-but-unused.
 - This is a pre-1.0 single-maintainer surface pinned exact at the manifest: it composes behind ONE internal gate in the composing folder, the provisioned `ktx` CLI holds the encode floor beneath it, and a version bump re-verifies that gate's members before it lands.
-
-[RAIL_LAW]:
-- Package: `TextureCompressor`
-- Owns: the managed GPU-texture payload engine — the `TextureFormat` value description and its size math, the coder registry, and pure-managed block encoders for BC1-BC7 including BC6H, ASTC LDR/sRGB/HDR, ETC1/ETC2/EAC, Basis UASTC and ETC1S, PVRTC, ATC, and FXT1, beside packed, palette, depth-stencil, and chroma layouts, mip-chain generation, and the `TextureImage` subresource pyramid.
-- Accept: `ITextureCoder.Encode<TPixel>`/`Decode<TPixel>` over a `BitmapView<TPixel>` at the plane's own depth; per-bake `TextureCoderManager` and `TextureFileFormatManager` instances; family-coder registration over `(TextureFormat, TextureCompressionOptions)`; `TextureFormat.GetByteCount` for every payload sizing; `TextureImage` for the mip, layer, and face pyramid.
-- Reject: `TextureConverter.EncodeTexture`/`DecodeTexture` on a float or 16-bit channel plane; the `Global` registries in a composing folder; a hand-rolled BCn or ASTC block encoder; a mip law beyond `Box`/`Triangle` expressed as a knob here rather than a fold over `BitmapView` rows; a registration scope dropped rather than disposed.

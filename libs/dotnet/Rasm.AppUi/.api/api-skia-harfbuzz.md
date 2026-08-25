@@ -2,17 +2,7 @@
 
 `SkiaSharp.HarfBuzz` owns HarfBuzz-backed text shaping for Skia: `SKShaper` shapes a run through `HarfBuzzSharp`, then `CanvasExtensions` builds an `SKTextBlob` and draws it through `SkiaSharp`. A managed-only bridge holding no glyph data of its own, it feeds the typography rail across every AppUi text surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
-- package: `SkiaSharp.HarfBuzz` (MIT)
-- assembly: `SkiaSharp.HarfBuzz`
-- namespace: `SkiaSharp.HarfBuzz`
-- depends: `SkiaSharp` (`SKCanvas`/`SKFont`/`SKTextBlobBuilder`), `HarfBuzzSharp` (`Blob`/`Buffer`/`Font`)
-- native: managed-only bridge; `libHarfBuzzSharp` (`api-harfbuzz-native.md`) backs shaping and faults at first shape on a missing-RID asset
-- rail: typography
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [SHAPING_TYPES]: shaping owner, its result record, and the draw and interop extension classes
 
@@ -37,7 +27,7 @@
 |  [07]   | `SKRawRunBuffer<SKPoint>` | `SkiaSharp`     | per-glyph `Glyphs`/`Positions` spans |
 |  [08]   | `SKTextBlob`              | `SkiaSharp`     | built shaped blob to draw            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SHAPING_ENTRYPOINTS]: shape a run from a transient string or a caller-prepared buffer, returning a `Result`
 - root: `SKShaper`
@@ -79,7 +69,7 @@
 |  [04]   | `Width`      | `float` total advance for line-break, align, column flow                 |
 |  [05]   | `Result`     | `(uint[], uint[], SKPoint[], float)` synthesize a run outside the shaper |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SKShaper(SKTypeface)` opens the typeface stream through `ToHarfBuzzBlob`, builds a `Face`/`Font`, sets the internal 512 HarfBuzz scale, and selects OpenType functions — face setup runs once per shaper.
@@ -95,9 +85,3 @@
 [LOCAL_ADMISSION]:
 - `ToHarfBuzzBlob` is the single admitted path from an `SKStreamAsset` to HarfBuzz face bytes, binding blob release to the asset `Dispose`; `SKShaper` owns this internally, so a caller keeps the `SKStreamAsset` alive for the shaper's lifetime.
 - One-shot `string` overloads reload the face per draw and admit only incidental labels; a reused per-face `SKShaper` is the admitted form for repeated text.
-
-[RAIL_LAW]:
-- Package: `SkiaSharp.HarfBuzz`
-- Owns: HarfBuzz-backed shaping and shaped-text draw for every AppUi typography surface — custom controls, chart labels, SVG text, diagnostics, rendered evidence
-- Accept: one `SKShaper` per typeface reused across draws, the `SKFont`/`SKTextAlign` overloads, `Result` as the shared shaped-run record
-- Reject: per-control glyph placement, per-control face reloads, re-shaping a stable string per frame

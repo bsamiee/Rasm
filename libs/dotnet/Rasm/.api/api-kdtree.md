@@ -2,18 +2,7 @@
 
 `Supercluster.KDTree.Net` owns the kernel's generic, array-backed exact-k-NN kd-tree: a build-once balanced binary tree over `INumber<TDimension>` coordinates serving `NearestNeighbors` k-nearest and `RadialSearch` radius queries under a `DistanceMetrics`-selected or custom `Func` metric. It is the discrete point-nearest leaf for static point clouds, feeding the fit and registration rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Supercluster.KDTree.Net`
-- package: `Supercluster.KDTree.Net` (MIT)
-- assembly: `KDTree.dll` — the package id differs from assembly and namespace; the import is `using SuperClusterKDTree;`
-- namespace: `SuperClusterKDTree`
-- target: `net8.0` only, bound forward by the `net10.0` consumer
-- asset: pure-managed AnyCPU, zero package dependencies
-- abi: `System.Numerics` generic math over `INumber`/`IMinMaxValue`, binding any conforming scalar coordinate with no adapter
-- rail: exact low-dimensional point k-NN and radius search under a coordinate-monotone metric
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the factory, the tree, and the metric vocabulary
 
@@ -27,7 +16,7 @@
 
 - `DistanceMetrics` rosters FOUR rows and only the three Lp rows are sound through this structure. Pruning drops a subtree by `Metric(rect.GetClosestPoint(target), target)` against the incumbent worst priority — valid for a coordinate-monotone metric alone. `Cosine` is scale-invariant, so a point inside a rejected halfspace sits arbitrarily nearer in cosine terms and the result set is APPROXIMATE, not the exact set the `[01]` rail line promises.
 
-## [03]-[CONSTRUCTION]
+## [02]-[CONSTRUCTION]
 
 [CONSTRUCTION_SCOPE]: the factory, the raw constructors, and the built tree's state
 
@@ -47,7 +36,7 @@
 |  [07]   | `InternalNodeArray`         | property | parallel payload storage |
 |  [08]   | `Metric`                    | property | swappable metric         |
 
-## [04]-[QUERY]
+## [03]-[QUERY]
 
 [QUERY_SCOPE]: exact k-nearest, radius search, and the static distance functions
 
@@ -65,7 +54,7 @@
 - The three Lp statics bound `TDimension : INumber<TDimension>` alone and stay in `TDimension` end to end; `CosineDistance` additionally demands `IMinMaxValue<TDimension>` for the sentinel it returns, so the narrower bound is itself the tell.
 - `CosineDistance` breaks the generic contract twice over. Its tail reads `TDimension.CreateChecked(double.Sqrt(double.CreateChecked(zero2 * zero3)))`, so the norm product round-trips through `double` whatever `TDimension` is and a `ddouble` cosine tree silently answers at 53 bits; and it returns `TDimension.One` on a zero dot product and `TDimension.One + TDimension.One` on a zero-norm operand — sentinel verdicts, not distances, so the priority ordering a search folds over is not a metric ordering. Neither defect touches the three Lp statics.
 
-## [05]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - representation: a static-balanced binary tree stored as flat parallel arrays (`InternalPointArray`, `InternalNodeArray`) with implicit children at `2i+1`/`2i+2`; a point is an `IReadOnlyList<TDimension>` of any dimensionality fixed at build via `Dimensions`, so the tree is generic N-dimensional.
@@ -83,9 +72,3 @@
 - admitted for `Solving/fit` (MLESAC primitive-fit, normal estimation via local k-NN PCA) and the `registration/ICP` per-iteration nearest-source query over a static cloud.
 - `Rasm.Spatial` points map to `IReadOnlyList<TDimension>` at the boundary with the `Rasm` index or payload carried as `TNode`, recovered from the `(point, payload)` tuple; the tree never holds a kernel type.
 - `KDTree.Create(points, nodes, DistanceMetrics.EuclideanDistance)` is the admitted build; the raw constructor is reserved for a custom metric or search window.
-
-[RAIL_LAW]:
-- Package: `Supercluster.KDTree.Net`
-- Owns: the generic N-dimensional exact-k-NN kd-tree over `INumber<TDimension>` coordinates and an arbitrary `TNode` payload — build-once balanced tree, k-nearest and radius queries returning `(coordinate, payload)`, built-in or custom metric.
-- Accept: exact k-NN or radius search over a static low-dimensional cloud (sample sets, normal-estimation neighbourhoods, ICP correspondence) under `EuclideanDistance`, `ManhattanDistance`, or `ChebyshevDistance`; a `Rasm.Spatial` cloud mapped to `IReadOnlyList<TDimension>` with the index or payload as `TNode`; a `ddouble`/`float`/`Half` coordinate bound through generic math on an Lp row; a swapped `Metric` on a built tree whose function is proven coordinate-monotone.
-- Reject: `DistanceMetrics.Cosine` or `KDTree.CosineDistance` anywhere on this structure — the prune is unsound under it, it narrows through `double`, and it returns sentinels for degenerate operands, so a directional-similarity query is a brute-force fold or a different index, never this one; treating it as a primitive broad-phase or ray-query structure (the kernel BVH/octree owns those); expecting incremental insert or delete (build-once, rebuild on change); passing an un-squared radius under `EuclideanDistance`; hand-writing a Euclidean `Func` the enum already wires; re-implementing continuous curve/surface closest-point (the `Parametric/nurbs` engine's `ClosestParameter` owns it).

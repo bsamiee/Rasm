@@ -2,17 +2,7 @@
 
 `ifctester` owns buildingSMART IDS authoring, parsing, and validation: it serializes IDS XML into `Ids`/`Specification` models, validates each specification against an `ifcopenshell.file` to a tri-state per-spec `status` and per-spec entity sets, and reports the outcome as a `Results` graph or a rendered artifact. `Ids.validate` mutates each `Specification` in place, so the consumer reads the `applicable`/`passed`/`failed` entity sets for per-element evidence, never the boolean verdict alone; IFC parse stays `ifcopenshell`, feeding the geometry ifc-analysis rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifctester`
-- package: `ifctester` (LGPL-3.0-or-later)
-- module: `import ifctester` re-exports `open`; the document/facet/reporter families import from `ifctester.ids`, `ifctester.facet`, `ifctester.reporter`
-- owner: `geometry`
-- rail: ifc-companion / ids-validation
-- depends: `ifcopenshell`, `xmlschema`
-- capability: parse/author/serialize IDS XML, validate every `Specification` against an `ifcopenshell.file` to a tri-state per-spec `status` and per-spec entity sets, and report the result as a `Results` graph, rendered HTML, ODS/summary spreadsheets, coloured console/text, or a BCF issue archive
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: IDS document family (`ifctester.ids`)
 
@@ -66,7 +56,7 @@
 |  [07]   | `OdsSummary` | ODS reporter     | `Json` subclass; `to_file(path)` writes a summary spreadsheet                                         |
 |  [08]   | `Bcf`        | BCF reporter     | `Json` subclass; `to_file(path)` writes a BCF issue archive of failures                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IDS document I/O (`ifctester.ids`)
 
@@ -123,7 +113,7 @@ Facet constructors carry a `cardinality="required", instructions=None` tail — 
 |  [04]   | `<reporter>.to_string() -> str`        | instance | the in-memory string product (Json/Console/Html)                |
 |  [05]   | `<reporter>.to_file(filepath) -> None` | instance | write the report artifact (Json/Html/Ods/OdsSummary/Bcf/Txt)    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - document axis: `Ids` holds `specifications: list[Specification]`; each `Specification` holds `applicability`/`requirements: list[Facet]`; `ids.open`/`from_string` parse via `xmlschema` against the bundled `ids.xsd`, raising `IdsXmlValidationError` (wrapping `XMLSchemaValidationError`) under `validate=True`.
@@ -139,9 +129,3 @@ Facet constructors carry a `cardinality="required", instructions=None` tail — 
 
 [LOCAL_ADMISSION]:
 - `ifctester` owns IDS parse/author/validate; IFC parse stays `ifcopenshell`, clash stays `ifcclash`, BCF clash-issue authoring stays `bcf-client`. A custom IDS XML parser or a manual entity filter duplicating `Facet.filter` is the deleted form.
-
-[RAIL_LAW]:
-- Package: `ifctester`
-- Owns: IDS document authoring/parsing/serialization, facet-based IFC compliance validation to a tri-state per-spec `status` and per-spec entity sets, and structured report export (the `Results` graph with HTML/ODS/BCF/console artifacts)
-- Accept: an `ifcopenshell.file` target for `Ids.validate`/`Specification.validate`; an IDS XML path/string for the loaders
-- Reject: a hand-rolled IDS parser or entity filter duplicating `Facet.filter`; a `Specification.validate(..., filepath=)` call (only `Ids.validate` carries `filepath`); a `Reporter.write`/`report(ids)` output path (subclasses use `report()` then `to_string`/`to_file`); a plain-bool `status` read conflating `None` (skipped) with `False`

@@ -28,7 +28,7 @@ Validation composes `normalization.md`'s `Kind` roster, `Capability` rows, and `
 - Packages: Thinktecture.Runtime.Extensions and LanguageExt.Core drive the smart-enum delegate rows and the applicative fold; RhinoCommon carries the check-matrix members.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 
 namespace Rasm.Domain;
 
@@ -182,7 +182,7 @@ public sealed partial record Requirement {
 - Boundary: `OpAcceptance` is internal; the oracle never crosses the package seam, and the assembly-public gates are `Op`'s acceptance members and the readiness algebra.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using System.Linq.Expressions;
@@ -276,7 +276,7 @@ internal static partial class OpAcceptance {
 - Boundary: `AdmissionProjection` owns pure render/admit conversion; refusal posture, held state, fallback, and presentation compose after its `Fin`, and every bidirectional boundary composes it rather than re-minting generated validation.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 
 namespace Rasm.Domain;
@@ -464,7 +464,7 @@ public static class OpExtensions {
 - Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`), NodaTime (`Interval`), and the kernel `Band` vocabulary.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using LanguageExt.Traits;
 using NodaTime;
@@ -576,7 +576,7 @@ public static class AdmissionSlots {
 - Boundary: consumers are `Analysis/measure.md` conformance pairs and `Analysis/relations.md` intersection, classification, and deviation pairs; `Kind` and `KindOf` are `normalization.md`'s.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -615,7 +615,7 @@ internal static class RequirementContext {
 - Packages: BCL frozen collections carry the membership store and the vocabulary index; the vocabulary rows themselves are Thinktecture `[SmartEnum<string>]` owners at each instantiating page.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -690,7 +690,7 @@ public sealed record CapabilityLaw<TCapability>(Seq<CapabilitySet<TCapability>> 
 - Packages: Thinktecture.Runtime.Extensions generates the closed unions and the `Symbol` admission; LanguageExt.Core carries the `Fin`/`Option` probe outcomes and the `Error` a refusal parks.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Thinktecture;
@@ -757,7 +757,7 @@ public static class Evidence {
 - Boundary: `Numerics`, `Spatial`, and `Meshing` owners compose these gates at their boundaries; their value objects admit through the `[04]` bridge.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
 using LanguageExt;

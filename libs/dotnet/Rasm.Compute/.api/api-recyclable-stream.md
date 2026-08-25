@@ -2,17 +2,7 @@
 
 `Microsoft.IO.RecyclableMemoryStream` owns pooled byte-buffer staging for the Compute remote and model lanes: a `RecyclableMemoryStreamManager` renting from small-block and large-buffer pools, and a `RecyclableMemoryStream` that is at once a `MemoryStream` and an `IBufferWriter<byte>` — a zero-copy serialization sink and a `ReadOnlySequence<byte>` source. Capacity and retention ride one `Options` policy, and a lifecycle-event and ETW-counter surface turns pool pressure and leaks into staging evidence.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.IO.RecyclableMemoryStream`
-- package: `Microsoft.IO.RecyclableMemoryStream` (MIT)
-- assembly: `Microsoft.IO.RecyclableMemoryStream`
-- namespace: `Microsoft.IO`
-- abi: `RecyclableMemoryStream : MemoryStream, IBufferWriter<byte>` — the buffer-writer face is the load-bearing serialization-sink contract
-- asset: emits ETW under `EventSource` name `Microsoft-IO-RecyclableMemoryStream`
-- rail: staging
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stream ownership and policy
 
@@ -22,7 +12,7 @@
 |  [02]   | `RecyclableMemoryStream`                | sealed class  | staging byte carrier; zero-copy sink and source         |
 |  [03]   | `RecyclableMemoryStreamManager.Options` | class         | block size, buffer multiple, pool/capacity caps, flags  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `RecyclableMemoryStreamManager` factory and configuration
 
@@ -114,7 +104,7 @@ Each event is `event EventHandler<<Event>EventArgs>?` on the singleton manager; 
 
 [RecyclableMemoryStreamManager]: live pool metrics — `SmallPoolInUseSize` `SmallPoolFreeSize` `LargePoolInUseSize` `LargePoolFreeSize` `SmallBlocksFree` `LargeBuffersFree`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One `RecyclableMemoryStreamManager` per COMPOSITION owns the small-block and large-buffer pools behind the `Tensor/memory#STREAM_POOL` capsule; every staged buffer rents through `GetStream` and returns on `Dispose`. Composition grain rather than process grain is load-bearing: a plugin host loading the assembly into a second load context holds a second composition, and a process-wide claim breaks there while a per-composition capsule owns its own manager and disposal.
@@ -132,9 +122,3 @@ Each event is `event EventHandler<<Event>EventArgs>?` on the singleton manager; 
 [LOCAL_ADMISSION]:
 - Every Compute remote and model payload byte buffer rents from the singleton manager; `ToArray`/`GetBuffer` are explicit edge copies that fire `StreamConvertedToArray` and carry the grant's copy reason, while `GetSpan`/`Advance`/`GetReadOnlySequence` remain the default zero-copy path.
 - `SafeRead`/`SafeReadByte` are the only admitted concurrent-read path, taking the position by `ref` without touching the shared `Position`.
-
-[RAIL_LAW]:
-- Package: `Microsoft.IO.RecyclableMemoryStream`
-- Owns: pooled recyclable byte streams, the `IBufferWriter<byte>`/`ReadOnlySequence<byte>` zero-copy face, capacity policy, and pool-lifecycle telemetry
-- Accept: bounded staged payloads rented from the singleton manager, stacked as the `Google.Protobuf` serialize sink and parse source under the `XxHash128`/`Crc32` content-identity law
-- Reject: an ad hoc `MemoryStream`; unbounded pools with retention caps left at the `0` default; a silent `ToArray` edge copy on the zero-copy path; per-caller `Options` re-tuning

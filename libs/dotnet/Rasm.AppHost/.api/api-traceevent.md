@@ -2,18 +2,7 @@
 
 `Microsoft.Diagnostics.Tracing.TraceEvent` (perfview) owns managed ETW/EventPipe stream decode: an `EventPipeEventSource` reads a runtime-event stream and dispatches strongly-typed `TraceEvent` records through provider parsers under `Process()`, and `TraceLog` post-processes a stream into a stack-resolved `.etlx` index. It is the sole decoder for the nettrace `EventPipeSession.EventStream`, turning raw runtime events into typed CPU/GC/exception/allocation records for the support-bundle event artifact.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Diagnostics.Tracing.TraceEvent`
-- package: `Microsoft.Diagnostics.Tracing.TraceEvent` (MIT)
-- assembly: `Microsoft.Diagnostics.Tracing.TraceEvent`
-- namespace: `Microsoft.Diagnostics.Tracing` (source/session), `Microsoft.Diagnostics.Tracing.Etlx` (TraceLog), `Microsoft.Diagnostics.Tracing.Parsers` (provider parsers), `Microsoft.Diagnostics.Tracing.EventPipe` (sample profiler), `Microsoft.Diagnostics.Tracing.Session` (live ETW)
-- target: `netstandard2.0`
-- depends: `Microsoft.Diagnostics.FastSerialization` (`IFastSerializable` stream format), `Microsoft.Diagnostics.NETCore.Client` (EventPipe session producer), `Dia2Lib`/`TraceReloggerLib` (native-symbol and relogger interop, Windows)
-- asset: runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: source and dispatch surfaces, namespace `Microsoft.Diagnostics.Tracing`
 
@@ -44,7 +33,7 @@
 - `Microsoft.Diagnostics.Tracing.EventPipe` seats the whole sample-profiler family, never the `Parsers` namespace the CLR and dynamic parsers share, so a prelude reaching the CPU rows carries a second `using`.
 - `ProviderName` is `Microsoft-DotNETCore-SampleProfiler` and `ProviderGuid` its static pair, so the `EventPipeProvider` row and the parser read one identity rather than a hand-spelled provider string.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stream decode (EventPipe path)
 
@@ -80,7 +69,7 @@
 - `InstructionPointer(index)` returns a raw code address, never a symbolized frame name: this package resolves no symbols on a live stack walk. Frame names come from `Etlx.TraceLog.OpenOrConvert`'s stack-resolved index or from a module-and-offset projection the bundle stamps; an artifact presenting raw pointers as a call stack claims symbolization it does not have.
 - `FrameCount` derives from the payload length, so a truncated record yields a short count rather than a fault, and an index at or above it reads adjacent event memory — a decoder bounds every read against `FrameCount`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Decode is subscribe-then-pump: construct a `TraceEventDispatcher` (`EventPipeEventSource` for nettrace, `ETWTraceEventSource` for `.etl`), register typed callbacks on a parser (`source.Clr.GCHeapStats += ...`, `source.Dynamic.All += ...`), then `Process()` drives the stream to EOF firing every callback synchronously on the pump thread. Callbacks reuse one `TraceEvent` record per event, so a retained field copies through `e.Clone()`.
@@ -100,9 +89,3 @@
 - Decode runs on a dedicated pump inside the capture window's `DeadlineClass` bound; a malformed or truncated stream ends `Process()` with the partial events dispatched and a typed `SupportFault` manifest entry.
 - Decoded event summary output — GC pause histogram, allocation top-N, exception counts — passes the redaction and truncation law before entering the manifest; raw event payloads never cross the wire un-redacted.
 - Profile artifacts state their symbolization posture on the row: a streaming `SampleProfilerTraceEventParser` decode yields instruction pointers alone, so the artifact carries module-relative addresses and names the absent symbol source rather than presenting pointers as frames.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Diagnostics.Tracing.TraceEvent`
-- Owns: ETW/EventPipe event-STREAM decode into typed `TraceEvent` records for the support-bundle event artifact
-- Accept: the `EventPipeSession.EventStream`, a policy-driven parser and provider set, and a bounded pump inside the capture window
-- Reject: a `.gcdump` heap-graph claim (routes to `dotnet-gcdump`), a retained un-cloned `TraceEvent` record, an unbounded live ETW session on the host-neutral path, or a thrown decode fault crossing the bundle pipeline

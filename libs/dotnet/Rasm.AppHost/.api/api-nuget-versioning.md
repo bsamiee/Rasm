@@ -2,16 +2,7 @@
 
 `NuGet.Versioning` owns the SemVer-2.0 grammar, the `[min,max)` interval algebra, and mode-scoped version comparison — the version leg of the `SupplyChainGate.Admit` supply-chain decision that `System.Version` cannot express. `NuGetVersion` parses the host plugin-contract version, `VersionRange.Satisfies` decides admission, and `FindBestMatch` resolves the newest compatible candidate among several. Only the version, range, and comparer surface is admitted; package-graph resolution and framework compatibility stay out of scope.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NuGet.Versioning`
-- package: `NuGet.Versioning` (Apache-2.0)
-- assembly: `NuGet.Versioning`
-- namespace: `NuGet.Versioning`
-- asset: runtime library; multi-target `net8.0`/`net472`, the `net10.0` consumer binds `lib/net8.0` by TFM precedence
-- rail: supply-chain
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: version values, range algebra, and comparison
 
@@ -31,7 +22,7 @@
 [VersionComparison]: `Default` `Version` `VersionRelease` `VersionReleaseMetadata`
 [NuGetVersionFloatBehavior]: `None` `Prerelease` `Revision` `Patch` `Minor` `Major` `AbsoluteLatest` and the `Prerelease*` variants
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: version and range parsing, the admission decision, comparison, and formatting
 
@@ -58,7 +49,7 @@
 |  [19]   | `VersionRange.PrettyPrint()`                                                   | instance | readable fault range            |
 |  [20]   | `VersionRange.ToLegacyShortString()`                                           | instance | legacy short range              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `SemanticVersion` models SemVer-2.0 with `Major`/`Minor`/`Patch`, an ordered `ReleaseLabels` prerelease segment, and `Metadata`, comparing by precedence that ignores build metadata across the full `<`/`<=`/`>`/`>=`/`==`/`!=` operator set. `NuGetVersion : SemanticVersion` adds a fourth `Revision` with `System.Version` interop through `Version` and `IsLegacyVersion` (`Revision > 0`), flags SemVer-2.0 payloads via `IsSemVer2`, and preserves the verbatim input as `OriginalVersion`; `TryParseStrict` rejects the legacy 4-part form that `TryParse` admits. `System.Version` carries no prerelease ordering, metadata, or range syntax, so the admission decision routes through `NuGetVersion`.
@@ -73,9 +64,3 @@
 [LOCAL_ADMISSION]:
 - Admission enters through `VersionRange.TryParse` and `NuGetVersion.TryParse` (never `Parse`) at the artifact/host boundary, decided by `Satisfies`; the total fold lowers the `bool` onto the `Validation`/`Fin` rail, so a malformed contract range is a typed denial rather than a throw.
 - Only the version/range/comparer surface is admitted; package-graph resolution, framework-compatibility, and the wider NuGet client surface stay out of scope.
-
-[RAIL_LAW]:
-- Package: `NuGet.Versioning`
-- Owns: SemVer-2.0 parsing, the `[min,max)` range algebra, and version comparison for the `SupplyChainGate` version leg
-- Accept: `VersionRange.TryParse` and `NuGetVersion.TryParse` at the artifact/host boundary, decided by `VersionRange.Satisfies` and resolved by `FindBestMatch`
-- Reject: a `System.Version`-based semver check, a hand-split `lower-upper` range string, a throwing `Parse` in the admission fold, and a string-compare version ordering

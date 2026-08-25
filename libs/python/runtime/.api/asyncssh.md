@@ -2,15 +2,7 @@
 
 `asyncssh` is the pure-Python asyncio SSHv2/SFTP client over the `cryptography` backend; runtime dials it once at `RemoteEndpoint.dialed` in two slices: SFTP reads (`roots.md` `_sftp_session`) open `connect` -> `start_sftp_client` -> `SFTPClient.open`, and the workers arm (`workers.md` `WorkerPool._remote`) opens per-submit `create_process` sessions carrying the sealed kernel to a host. Both ride one `SSHClientConnectionOptions`; server sessions, forwarding, SCP, key-mint, and the ssh-agent stay out of scope.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `asyncssh`
-- package: `asyncssh` (EPL-2.0 OR GPL-2.0-or-later)
-- module: `asyncssh`
-- rail: transport, worker crossing
-- namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.known_hosts`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection, options, and SFTP-read family
 - rail: transport
@@ -36,7 +28,7 @@
 |  [04]   | `SFTPError`                                                  | fault base    | SFTP operation error (status-coded base)                 |
 |  [05]   | `SFTPNoSuchFile` / `SFTPNoSuchPath` / `SFTPPermissionDenied` | fault         | SFTP status subtypes for a read (POSIX-shaped)           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection and SFTP-read chain
 - rail: transport
@@ -70,7 +62,7 @@
 |  [05]   | `process.exit_status`                               | evidence  | far-process exit code on a torn verdict          |
 |  [06]   | `conn.is_closed()` / `close()` / `abort()`          | lifecycle | channel liveness read, graceful close, hard tear |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - connection law: SFTP reads run `async with connect(..., options=...)` -> `start_sftp_client()` under the anyio lane, both contexts on one `AsyncExitStack` that closes the connection and SFTP client deterministically on exit (`roots.md` `_sftp_session`).
@@ -89,9 +81,3 @@
 - Transport composes asyncssh for the SFTP-read companion seam only; the runtime owns no second SSH client (`paramiko` is not admitted) and no durable remote store.
 - `cryptography` backs asyncssh as its crypto kernel, reached only through asyncssh's surface, never instantiated in parallel.
 - Copyleft (`EPL-2.0`/`GPL-2.0-or-later`) constrains redistribution: asyncssh is consumed as an unmodified library dependency over its public API, never vendored, embedded, or modified in-tree.
-
-[RAIL_LAW]:
-- Package: `asyncssh`
-- Owns: the SFTP-read companion seam — the `connect`/`start_sftp_client`/`SFTPClient.open` read chain, one `SSHClientConnectionOptions` (password, verified host keys), `read_known_hosts` host-key-database loading — and the workers remote-exec crossing's `create_process` sessions
-- Accept: `RemoteEndpoint.dialed` as the one `connect` site, verified host keys via `read_known_hosts`/`SSHKnownHosts`, settings-model password, `SFTPClient.open(...).read()` whole/chunked reads, per-submit `create_process(command, encoding=None)` sessions on the workers REMOTE arm, transient faults retried through `stamina`
-- Reject: disabled host-key verification (`known_hosts=None`), inline password/key literals, scattered `connect(...)` keyword soup beside one options object, a second dial spelling past `RemoteEndpoint.dialed`, leaked connections, a second SSH client (`paramiko`), vendoring or modifying the copyleft source, and the unconsumed server/forwarding/SCP/key-mint/agent surfaces

@@ -2,16 +2,7 @@
 
 `lxml` owns the libxml2/libxslt-backed XML and HTML surface for the artifacts structured-documents rail: tunable parsing, tree building and mutation, compiled XPath and XSLT with Python extensions, schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, and incremental event/pull parsing over the native core it never re-implements. It is the XML third of the structured-text triad — `ruamel.yaml` owns YAML, `tomlkit` owns TOML — consumed by the OOXML/ODF Office owners and SimpleIDML for document-part parsing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `lxml`
-- package: `lxml` (BSD-3-Clause)
-- module: `lxml.etree`
-- namespaces: `lxml.etree`, `lxml.html`, `lxml.objectify`, `lxml.builder`, `lxml.isoschematron`, `lxml.sax`, `lxml.ElementInclude`
-- owner: `artifacts`
-- rail: structured documents
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: element, tree, parser, and query roots (`lxml.etree`)
 
@@ -64,7 +55,7 @@
 |  [07]   | `etree.ParserError` / `etree.XIncludeError`            | structure fault    | parser-target / XInclude expansion failed               |
 |  [08]   | `etree.LxmlError`                                      | fault root         | base of the lxml fault hierarchy                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse, build, and serialize
 
@@ -145,7 +136,7 @@ Tag filters accept `*`, a tag name, a `{ns}local` Clark name, or an `etree.Eleme
 |  [05]   | `lxml.isoschematron.Schematron` | full ISO-Schematron (phases, abstract patterns, SVRL report)                  |
 |  [06]   | `lxml.sax.saxify`               | drive an element tree into a SAX `ContentHandler` (egress bridge)             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `from lxml import etree` (and `html`/`objectify`/`builder`/`isoschematron`/`sax` for the submodules) at boundary scope only; module-level import is banned by the manifest import policy.
@@ -168,9 +159,3 @@ Tag filters accept `*`, a tag name, a `{ns}local` Clark name, or an `etree.Eleme
 - diagnostics: `EmitFact.errors` carries the `error_log` count; `etree.PyErrorLog` routes libxml2 diagnostics into `structlog` (`libs/python/.api/structlog.md`).
 - retry: a network-touching parse (DTD/XInclude over a URL) wraps `stamina.retry` (`libs/python/runtime/.api/stamina.md`).
 - incremental scale: `etree.iterparse(source, tag=qname)` with per-element `.clear()` is the bounded-memory ingest of a large OOXML/IDML part and `etree.xmlfile(out)` the emit — both over the `anyio` streaming lanes (`libs/python/.api/anyio.md`).
-
-[RAIL_LAW]:
-- Package: `lxml`
-- Owns: XML/HTML parse/serialize, element building, the lazy iteration-axis family, compiled XPath with Python extensions and smart-string provenance, XSLT with extensions/access-control/recursion-bound, XML Schema/RelaxNG/Schematron (ISO + libxml2)/DTD validation with structured `error_log`, DTD-ID-aware parsing, C14N canonicalization, incremental event/pull parsing, incremental serialization, namespace cleanup, tree-mutation helpers, typed `objectify` access, and the SAX egress bridge
-- Accept: a hardened-parser parse -> validate -> namespaced-xpath-fold -> `msgspec`/`pydantic` boundary-model decode; a Clark-notation `Element`/`SubElement` build -> `tostring`/`xmlfile` emit feeding a downstream byte sink; `_Element.xpath` anchor resolution against a live structure tree; `iterparse`+`.clear()`/`xmlfile` for bounded-memory large-document I/O; `isoschematron.Schematron` for phase/abstract-pattern Schematron; results on the `expression` `Result` rail with `error_log` rows as positional diagnostics
-- Reject: a wrapper-rename of `parse`/`fromstring`/`tostring`; a call-site `resolve_entities`/`no_network`/`recover` flag where the parser owns the policy; a parallel parse-function family where one tunable parser discriminates; a manual `getchildren()` recursion where the iteration-axis family owns traversal; an `xpath("//*[@id=...]")` scan where `XMLID`/`parseid` collect the DTD-ID map; a flattened-message diagnostic where `error_log`/`_LogEntry` carry positional rows; a hand-rolled serializer/pretty-printer where `tostring`/`indent`/`canonicalize` own emission; a `.cssselect`/`lxml.html.clean` citation as lxml-owned; a full-tree read where the document exceeds memory; an `_Element`/`_ElementTree` node crossing the owner boundary uncollapsed

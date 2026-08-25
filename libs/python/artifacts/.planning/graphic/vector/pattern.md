@@ -18,7 +18,7 @@
 - Boundary: `PatternFault.degenerate` accumulates independent admission failures, `unlowerable` preserves target grammar limits, and `geometry` carries `RegionFault` whole. Material binding, ezdxf entity mutation, color derivation, and identity remain consumer-owned.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from fractions import Fraction
 from itertools import accumulate, pairwise

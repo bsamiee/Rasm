@@ -2,16 +2,7 @@
 
 `rhino3dm` is the OpenNURBS Python binding that reads, writes, and constructs Rhino `.3dm` model data with no Rhino install: `File3dm` owns the typed component tables and a `CommonObject`/`GeometryBase` hierarchy roots curve, surface, Brep, mesh, SubD, extrusion, annotation, and instance geometry. `Encode`/`Decode` JSON dicts are the host-neutral wire shared with Rhino.Compute and the rhino3dm.js binding, so this binding is the headless 3dm IO and lightweight-construction layer beneath the Rhino-MCP and bridge owners.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `rhino3dm`
-- package: `rhino3dm` (MIT)
-- module: `import rhino3dm`
-- owner: `data`
-- rail: aec
-- asset: pybind11 native binding over OpenNURBS; each overload carries its concrete signature in `__doc__`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document owner, geometry root, and the value/kernel types a caller dispatches on
 
@@ -36,7 +27,7 @@
 [MATERIALS_RENDER]: `Material` `PhysicallyBasedMaterial` `Texture` `TextureMapping` `RenderContent` `RenderMaterial` `RenderTexture` `RenderEnvironment` `RenderSettings` `RenderChannels` `Light` `Decal` `EarthAnchorPoint` `GroundPlane` `Skylight` `Sun` `Dithering` `LinearWorkflow` `SafeFrame` `PostEffect`
 [ENUMS]: `ObjectType` `MeshType` `ActiveSpace` `ObjectColorSource` `ObjectMaterialSource` `ObjectLinetypeSource` `ObjectPlotColorSource` `ObjectPlotWeightSource` `ObjectMode` `ObjectDecoration` `UnitSystem` `LoftType` `ComponentIndexType` `CoordinateSystem` `CurveOrientation` `CurveEvaluationSide` `CurveKnotStyle` `CurveOffsetCornerStyle` `CurveExtensionStyle` `BlendContinuity` `LightStyle` `TextureType` `TextureUvwWrapping` `InstanceDefinitionUpdateType` `TransformRigidType` `TransformSimilarityType` `AnnotationTypes` `ArrowheadTypes`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document IO, typed table mutation and lookup, attributes, layers, instances, construction factories, evaluation, intersection, and transform
 
@@ -55,7 +46,7 @@
 [GEOMETRY_MUTATION]: `geom.Transform(xform) -> bool` `geom.Translate(v)` `geom.Rotate(angle, axis, center)` `geom.Scale(factor)` `geom.Duplicate() -> CommonObject` `geom.GetBoundingBox()`/`GetTightBoundingBox()` `geom.ObjectType` — every mover on `GeometryBase` mutates the receiver
 [COMPRESSION]: `DracoCompression.Compress(geometry, options)` `DecompressByteArray(bytes)` `DecompressBase64String(str)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `File3dm` is the sole document owner; geometry enters and leaves only through the typed component tables, and `f.Objects.Add(geometry, attributes)` is the polymorphic add folding every `Add*` shortcut.
@@ -78,9 +69,3 @@
 
 [LOCAL_ADMISSION]:
 - Admit `rhino3dm` as the headless OpenNURBS `.3dm` IO and lightweight-construction owner on the data AEC rail, constructing primitives, Breps-from-primitives, NURBS, meshes, and SubD control nets and reading/writing the document.
-
-[RAIL_LAW]:
-- Package: `rhino3dm`
-- Owns: OpenNURBS `.3dm` read/write and byte/JSON round-trip, typed document tables, NURBS/Brep/Mesh/SubD/Extrusion construction and evaluation, the `Intersection` kernel, geometry value types and transforms, annotation and instance geometry, object attributes and user strings, render content, meshing parameters, and Draco compression
-- Accept: `File3dm` as document owner with typed table mutation, the polymorphic `Objects.Add(geometry, attrs)`, static `Create*` factories under null-result checks, `Encode`/`Decode`/`FromByteArray` for the transport bridge, `ObjectAttributes` alongside geometry on add, user strings for round-trip metadata, the `Intersection` kernel and `Is*`/`TryGet*` predicates, and Draco for mesh transport
-- Reject: loose geometry outside the document tables, assuming non-null factory results, hand-rolled 3dm archive parsing where `Read`/`Encode`/`Decode` apply, manual vertex re-encoding where Draco applies, hand-derived intersection or shape detection where the kernel and predicates resolve, and substituting this binding for a live Rhino kernel on boolean solids or advanced filleting

@@ -2,15 +2,7 @@
 
 xunit.v3 packages carry the whole .NET proof estate: `xunit.v3.assert` is the assertion surface the kit gates throw through, `xunit.v3.extensibility.core` owns the fact/theory/collection attribute model, `xunit.v3.common` is their shared substrate, and `xunit.v3.mtp-v2` is the metapackage that turns each test project into a self-hosting Microsoft.Testing.Platform executable. `Directory.Build.props` injects the three sub-packages into `IsTestKitProject` and `mtp-v2` into `IsTestProject`, all `PrivateAssets="all"`, with a global `Using Include="Xunit"`; a csproj never re-wires them.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `xunit.v3.assert` / `xunit.v3.common` / `xunit.v3.extensibility.core` / `xunit.v3.mtp-v2`
-- license: `Apache-2.0`
-- namespace: `Xunit` (assertions + attributes), `Xunit.Sdk` (exception and formatting internals), `Xunit.v3` (output plumbing)
-- asset: `xunit.v3.assert.dll` (`netstandard2.0` + `net8.0`), `xunit.v3.common.dll`, `xunit.v3.core.dll` (both `netstandard2.0`); `mtp-v2` ships no assembly — it aggregates `xunit.v3.core.mtp-v2` (MSBuild entry-point generation + in-proc console runner), `xunit.v3.assert`, and `xunit.analyzers`
-- rail: evidence — every spec, kit gate, architecture law, and snapshot verb executes on this spine
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                                         | [KIND]             | [CAPABILITY]                                                 |
 | :-----: | :----------------------------------------------- | :----------------- | :----------------------------------------------------------- |
@@ -28,7 +20,7 @@ xunit.v3 packages carry the whole .NET proof estate: `xunit.v3.assert` is the as
 |  [12]   | `ITestOutputHelper` / `TestContext`              | service            | per-test output sink and ambient test state                  |
 |  [13]   | `Xunit.Sdk.XunitException` family                | exception          | typed failures: `AllException`/`CollectionException`/...     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                                   | [KIND]    | [CAPABILITY]                                                   |
 | :-----: | :---------------------------------------------------------- | :-------- | :------------------------------------------------------------- |
@@ -72,7 +64,7 @@ public interface ITestOutputHelper {
 }
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [RUNNER_CONFIG]: the runner json is MSBuild-emitted, never a checked-in file — `Directory.Build.targets` holds the `_XunitRunnerJsonContent` literal and writes it to `$(IntermediateOutputPath)/xunit.runner.json` per test project.
 - `parallelAlgorithm: "conservative"` — caps concurrently scheduled threads instead of oversubscribing when tests block.
@@ -86,8 +78,6 @@ public interface ITestOutputHelper {
 
 [STACKING]:
 - `CsCheck` (`cscheck.md`): no xunit dependency edge; property failures throw inside `[Fact]` bodies and surface as failed tests through the kit `Spec` gates.
-- `Verify.XunitV3` (`verify.md`): depends on `xunit.v3.extensibility.core`; binds the snapshot verb to the v3 discovery model.
-- `TngTech.ArchUnitNET.xUnitV3` (`archunitnet.md`): depends on `xunit.v3.assert`; architecture rules sink failures through `Assert`.
 - `Avalonia.Headless.XUnit` (`libs/dotnet/Rasm.AppUi/.api/api-headless.md`): depends on `xunit.v3.extensibility.core`; `[AvaloniaTest]` derives from the v3 fact model.
 - `coverlet.MTP` (`coverlet-mtp.md`): no xunit edge; attaches at the MTP extension layer beside the mtp-v2 bridge.
 - `Microsoft.Testing.Platform` stack (`testing-platform.md`): the execution host the mtp-v2 entry point registers into.
@@ -95,9 +85,3 @@ public interface ITestOutputHelper {
 [LOCAL_ADMISSION]:
 - Test and kit projects receive the family through the `Directory.Build.props` classifier rows; a csproj adding its own xunit reference is the named defect.
 - Assertion access outside kit gates is unconstrained; kit `Spec`/`Approx` owners wrap the float and rail regimes so specs never hand-roll tolerance logic.
-
-[RAIL_LAW]:
-- Package: `xunit.v3.*`
-- Owns: discovery, assertion vocabulary, parallelism policy, and the MTP entry-point bridge for every C# spec.
-- Accept: `[Fact]`/`[Theory]` specs composing kit gates; `Explicit = true` for hygiene walks; assembly-level parallelism policy via `CollectionBehaviorAttribute`.
-- Reject: a second assertion library, checked-in `xunit.runner.json` files, or per-csproj runner wiring.

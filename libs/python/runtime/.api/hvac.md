@@ -2,15 +2,7 @@
 
 `hvac` binds the HashiCorp Vault read client on the `SecretTier.cloud` family beside the GCP and Azure arms: one `hvac.Client(url=, token=, namespace=, verify=)` whose `secrets.kv.v2.read_secret_version` reads a versioned KV-v2 payload, whose `auth.approle.login`/`auth.kubernetes.login` mint a deployment-portable token without an inline root secret, and whose `exceptions.VaultError` taxonomy maps each Vault HTTP status through `VaultError.from_status`. `SecretTier.cloud` reads it once through the gated `execution/admission#SETTINGS` leg and lifts the value to `SecretStr`, never a bare `str`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `hvac`
-- package: `hvac` (Apache-2.0)
-- module: `hvac`
-- rail: secrets
-- namespaces: `hvac`, `hvac.adapters`, `hvac.exceptions`, `hvac.api`, `hvac.constants`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client + adapter family
 
@@ -53,7 +45,7 @@
 |  [10]   | `exceptions.VaultDown`           |   503    | sealed or unreachable cluster — a transient                 |
 |  [11]   | `exceptions.UnexpectedError`     | default  | unmapped status fallthrough                                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction
 
@@ -83,7 +75,7 @@
 |  [02]   | `client.auth.kubernetes.login(role, jwt, mount_point=)`        | token mint  | in-cluster service-account-JWT leg       |
 |  [03]   | `client.auth.token.lookup_self(mount_point=)`                  | token query | resolved token TTL and policy set        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - consume law: the runtime builds the `Client` inside `execution/admission#SETTINGS` `CloudVault.read` with the ADMITTED token (`vault_token: SecretStr` settings field — the Vault Agent / mounted-token-file pattern, composing with the `secrets_dir` source), reads the KV-v2 payload through `read_secret_version` at call time, and projects the selected value through `SecretStr` into `BasicCredential`; the rung folds OUT of the ladder when no token is admitted rather than defaulting; the admin surface (`sys.enable_secrets_engine`, `create_or_update_secret`, policy CRUD) stays unadmitted — the runtime reads secrets, never mints or rotates them.
@@ -101,9 +93,3 @@
 - admission admits `Client` construction, one gated auth-leg mint, the KV read whose payload lifts to `SecretStr`, and the `adapter.close()` release that ends it; `read_secret_version` and the auth legs ride the ladder row, never a scattered runtime call.
 - lazy import defers the `hvac`/`requests` stack to the gated arm's first fire; the sync client offloads through `anyio.to_thread.run_sync` under `_PROBE_BAND`.
 - TLS `verify`, per-request `namespace`, and token TTL arrive settled from the client and auth leg; this page owns only the read-slice the cloud-tier ladder row consumes.
-
-[RAIL_LAW]:
-- Package: `hvac`
-- Owns: the HashiCorp Vault read client on the cloud secret-resolution provider family beside the GCP and Azure arms
-- Accept: one `Client` (namespace-scoped, TLS-verified) whose token mints through `auth.approle.login`/`auth.kubernetes.login`, the KV-v2 `read_secret_version` read naming its `mount_point` against the `'secret'` default and lifting `["data"]["data"]` to `SecretStr`, `client.adapter.close()` as the release, the `SecretTier.cloud` Vault `TierRow` gated by `Feature.SECRET_MANAGER` and retried under `RetryClass.SECRET`, `InvalidPath` as a ladder MISS with `VaultDown`/`BadGateway`/`InternalServerError`/`RateLimitExceeded` as retried transients, the sync read offloaded through `anyio.to_thread.run_sync`
-- Reject: a scattered `read_secret_version` call bypassing the ladder row, a `mount_point` left to the `'secret'` default for an engine mounted elsewhere, a `with`-bracketed `Client` the type supports no protocol for, a client left for GC where `adapter.close()` is the release, the admin surface (`sys.enable_secrets_engine`/`create_or_update_secret`/policy CRUD) the runtime does not own, an inline root token beside the auth-leg mint, a bare-`str` resolved secret beside `SecretStr`, a shared mutable process-global `Client` colliding across tenants, a parallel cloud-secret owner beside the one `SecretTier.cloud` discrimination

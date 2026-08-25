@@ -2,16 +2,7 @@
 
 `RabbitMQ.Client` owns the AMQP 0-9-1 routing-rich egress lane backing the `rabbitmq` binding row: async connection and channel lifecycle, publisher-confirm publish, ack-based consume, and exchange/queue/binding topology, every op `Task`/`ValueTask`-returning and `CancellationToken`-aware. Exchange routing across topic, direct, fanout, and headers types, per-message TTL and priority, and ack-based work-queue dispatch are its owned capability; the `CloudNative.CloudEvents` message envelope rides the body, owned here for publish, consume, and ack, never for its shape.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `RabbitMQ.Client`
-- package: `RabbitMQ.Client` (Apache-2.0 OR MPL-2.0)
-- assembly: `RabbitMQ.Client`
-- namespace: `RabbitMQ.Client`, `RabbitMQ.Client.Events`, `RabbitMQ.Client.Exceptions`
-- target: multi-target (`net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0` — pure-managed AnyCPU, no native runtime
-- rail: amqp-egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection and channel roots
 
@@ -63,7 +54,7 @@
 |  [10]   | `Events.FlowControlEventArgs`                  | flow event       | channel-level broker flow control        |
 |  [11]   | `IChannelExtensions` / `IConnectionExtensions` | extensions       | reduced-arity convenience overloads      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connect and open channel
 
@@ -118,7 +109,7 @@
 |  [07]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry  | W3C trace-context via headers        |
 |  [08]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry  | `ActivitySource` names for OTel      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every connection, channel, publish, consume, and topology op returns `Task`/`ValueTask` and takes a `CancellationToken`; `BasicAckAsync`/`BasicNackAsync`/`BasicRejectAsync`/`GetNextPublishSequenceNumberAsync`/`BasicPublishAsync` return `ValueTask` on the hot path, topology and consume return `Task`.
@@ -145,9 +136,3 @@
 - `BasicQosAsync` prefetch and manual `BasicAckAsync`/`BasicNackAsync(requeue)` keep the ack from outrunning durable downstream apply; `autoAck` is rejected on the durable work-queue path.
 - Durable topology declares queues `durable: true` with `x-queue-type=quorum` and a dead-letter exchange in `arguments`, per-message TTL and priority riding `BasicProperties.Expiration`/`Priority`; the declaration is idempotent and replayed by topology recovery.
 - RabbitMQ owns routing-rich egress — topic and headers exchange, RPC `ReplyTo`, priority — and the partitioned append-log changefeed stays on Kafka (`api-kafka`); the two are distinct binding roster rows, never collapsed.
-
-[RAIL_LAW]:
-- Package: `RabbitMQ.Client`
-- Owns: AMQP 0-9-1 routing-rich egress — connection and channel lifecycle, exchange/queue/binding topology, publisher-confirm publish, ack-based consume, and built-in trace-context propagation
-- Accept: the async `IConnection`/`IChannel` surface, `CreateChannelOptions` publisher confirms with an explicitly passed rate limiter, generic `BasicPublishAsync<T>` under a stated `mandatory`, `PublishException.IsReturn` as the refusal discriminant, manual `BasicQosAsync` with `BasicAckAsync`/`BasicNackAsync`, and `RabbitMQActivitySource` propagation
-- Reject: a hand-rolled AMQP framing or confirm-tracking loop, AMQP `Tx*` on the durable path where confirms apply, `autoAck` on the durable work queue, a confirm channel opened without its rate limiter, a return folded onto a nack, and a hand-rolled trace-context or retry implementation where the client owns it

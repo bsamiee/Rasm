@@ -2,16 +2,7 @@
 
 `@modelcontextprotocol/sdk` is the outbound MCP client `ai/tool.ts` drives to consume external servers: a `Client` over a pluggable `Transport`, the OAuth 2.0 client flow, and the Zod protocol wire. `ai/tool.ts` transcribes that Promise + Zod surface to `Effect` + `Schema` and leaves hosting native on `@effect/ai`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@modelcontextprotocol/sdk`
-- package: `@modelcontextprotocol/sdk` (MIT)
-- module: named subpaths `./client`, `./validation{,/ajv,/cfworker}`, `./experimental/tasks` beside a `./*` wildcard resolving every remaining module; `./server` never imported
-- in-scope: `client/{index,stdio,streamableHttp,sse,websocket,auth}`, `shared/{protocol,transport,auth,stdio,mediaType}`, `types`, `inMemory`, `validation/*`, `experimental/tasks/client`
-- runtime: node/bun for `Stdio` local spawn; isomorphic for HTTP and websocket transports
-- rail: mcp-client
-
-## [02]-[CLIENT]
+## [01]-[CLIENT]
 
 [PUBLIC_TYPE_SCOPE]: the MCP client and its capability calls
 
@@ -38,7 +29,7 @@
 [CLIENT_IDLE]: verified members no fence composes yet — `client/middleware` (`withOAuth`/`withLogging` fetch-middleware composition; the branch's `Remote` lane owns its own budget and log rails, so declined with reason), `client/auth-extensions` `ClientCredentialsProvider` (a machine-to-machine `OAuthClientProvider` that enters through the http transport's existing `auth` slot as an app-passed value — no fence edit needed), `SSEClientTransport` (superseded by streamable HTTP; declined), `WebSocketClientTransport` (a third locality row the day a ws-only server earns it), `shared/uriTemplate` `UriTemplate.expand(variables)` (the template-expansion primitive `ai/tool`'s resource law names).
 [CLIENT_OPTIONS]: `ClientOptions = ProtocolOptions&{…}`
 
-## [03]-[TRANSPORTS]
+## [02]-[TRANSPORTS]
 
 [PUBLIC_TYPE_SCOPE]: one `Transport` interface, four client implementations, and an in-memory pair; `ai/tool.ts` selects by server locality — `Stdio` spawns a local process under a framing bound, `StreamableHTTP` POSTs and SSE-streams a remote server with OAuth, reconnection, and session resumption, `InMemory` pairs client and server in-process for specs.
 
@@ -52,7 +43,7 @@
 - `StdioServerParameters.maxBufferSize`: bounds one stdio read in bytes and falls back to `STDIO_DEFAULT_MAX_BUFFER_SIZE`; a message past the bound makes the transport emit an error and close rather than grow the buffer.
 - `mediaTypeEssence`: parses the RFC 9110 media type — lowercased `type/subtype`, parameters stripped — and falls back to the segment before the first `;` on a malformed parameter section.
 
-## [04]-[PROTOCOL_AND_AUTH]
+## [03]-[PROTOCOL_AND_AUTH]
 
 [PUBLIC_TYPE_SCOPE]: the base `Protocol` every call rides and the OAuth 2.0 client authenticating to remote servers.
 
@@ -60,7 +51,7 @@
 
 [SURFACES]: `DEFAULT_REQUEST_TIMEOUT_MSEC` `RequestOptions` `ProtocolOptions` `RequestHandlerExtra` `OAuthClientProvider` `auth` `discoverAuthorizationServerMetadata` `startAuthorization` `exchangeAuthorization` `refreshAuthorization` `registerClient` `UnauthorizedError`
 
-## [05]-[WIRE_SCHEMAS]
+## [04]-[WIRE_SCHEMAS]
 
 [PUBLIC_TYPE_SCOPE]: the MCP wire — `types` Zod schemas over every request, result, and notification; the boundary reads their inferred result types and re-parses each payload through `effect/Schema`.
 
@@ -78,7 +69,7 @@
 |  [10]   | `AjvJsonSchemaValidator`      | class         | default tool output-schema validator                              |
 |  [11]   | `CfWorkerJsonSchemaValidator` | class         | edge/workers tool output-schema validator                         |
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ai/tool.ts` transcribes the Promise + Zod surface to Effect + Schema: every call wraps `Effect.tryPromise`, the transport rides a `Scope`, and each result re-parses through `effect/Schema` — no raw Promise or Zod inferred type crosses the seam.
@@ -96,9 +87,3 @@
 - Consume external servers only — the `./server` subpath is never imported; Rasm hosts MCP on `@effect/ai` `McpServer.toolkit` + `layerStdio`/`layerHttp`.
 - Own every connection as a `Scope`d resource releasing the process or HTTP session on interruption; re-parse `structuredContent` through the tool's own `effect/Schema`, never a Zod inferred type.
 - Every spawned server states its own stdio framing bound as a dial-spec value, so a hostile or runaway local process is bounded by policy rather than by the package default.
-
-[RAIL_LAW]:
-- Package: `@modelcontextprotocol/sdk`
-- Owns: the outbound MCP client — capability calls, pluggable transports, the stdio framing bound, media-type parsing, protocol lifecycle, OAuth 2.0 client flow, the Zod wire schemas
-- Accept: `Effect.tryPromise`-wrapped calls under a `Scope`d transport, a policy-stated `maxBufferSize` on every spawned server, `listTools` projected into the `@effect/ai` toolkit, results re-parsed through `effect/Schema`, hints mapped onto native `Tool` annotations
-- Reject: raw Promise or Zod escaping the seam, an unbounded stdio read buffer, a substring probe over a raw `Content-Type` header, the `./server` hosting subpath, a second OAuth notion beside the session lane

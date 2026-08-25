@@ -2,16 +2,7 @@
 
 `opentelemetry-instrumentation-dbapi` owns the generic PEP-249 tracing seam every driver-specific DBAPI instrumentor delegates to: patching a connect callable so each cursor execution emits a db-semconv client span and records the two db-client metric histograms — operation-duration and returned-rows. It carries no `BaseInstrumentor` — a driver without a dedicated contrib instrumentor rides `wrap_connect`/`instrument_connection` directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-instrumentation-dbapi`
-- package: `opentelemetry-instrumentation-dbapi`
-- module: `opentelemetry.instrumentation.dbapi`
-- namespaces: `opentelemetry.instrumentation.dbapi`
-- rail: observability
-- abi: pure-Python runtime library
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: integration factory, cursor tracer, wrapt proxies
 
@@ -22,7 +13,7 @@
 |  [03]   | `TracedConnectionProxy`  | wrapt proxy         | connection proxy yielding traced cursors                    |
 |  [04]   | `TracedCursorProxy`      | wrapt proxy         | cursor proxy tracing `execute`/`executemany`/`callproc`     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connect patching, per-connection instrumentation, wrapt proxy construction
 - config carry: `connection_attributes`, `tracer_provider`, `meter_provider`, `capture_parameters`, `enable_commenter`, `commenter_options`, `enable_attribute_commenter`, `db_api_integration_factory`
@@ -37,7 +28,7 @@
 |  [06]   | `get_traced_connection_proxy(connection, db_api_integration, *args, **kwargs)`             | proxy      | build a connection proxy     |
 |  [07]   | `get_traced_cursor_proxy(cursor, db_api_integration, *args, **kwargs)`                     | proxy      | build a cursor proxy         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - factory law: a driver-specific span shape subclasses `DatabaseApiIntegration` passed as `db_api_integration_factory`; the subclass overrides attribute derivation, and `CursorTracer` retains execution spans and metric recording.
@@ -54,9 +45,3 @@
 
 [LOCAL_ADMISSION]:
 - one `Instrumentation.install` train row wraps a dedicated-instrumentor-less driver; `instrument_connection` covers a connection built before the patch ran, and `capture_parameters` stays `False` outside an explicit redacted diagnostic opt-in.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-instrumentation-dbapi`
-- Owns: db-semconv client spans and db-client metric histograms around any PEP-249 cursor execution, and the `DatabaseApiIntegration`/`CursorTracer` substrate the driver instrumentors delegate to
-- Accept: a train row wrapping a dedicated-instrumentor-less driver (duckdb, ADBC DBAPI) through `wrap_connect`/`instrument_connection`, a `DatabaseApiIntegration` subclass for a driver-specific span shape
-- Reject: direct use against a driver that already carries a contrib instrumentor, activation inside a data or sibling library module, hand-rolled cursor spans beside the patched connect, a second DBAPI wrap stacked on the same connect callable

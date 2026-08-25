@@ -2,15 +2,7 @@
 
 `pikepdf` binds libqpdf through nanobind and owns qpdf-grade PDF structure for the artifacts pdf rail: open/repair, linearization, AES-R6 encryption with granular permissions, page assembly and overlay, content-stream tokenization and authoring, object-model editing, image extraction, XMP/docinfo metadata, and declarative qpdf jobs. It never re-implements the PDF parser, the qpdf object model, or the affine `Matrix` the package already binds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pikepdf`
-- package: `pikepdf` (MPL-2.0)
-- module: `pikepdf`
-- namespaces: `pikepdf`, `pikepdf.models`, `pikepdf.canvas`, `pikepdf.settings`, `pikepdf.sanitize`
-- rail: pdf — qpdf-backed structure repair, encryption, content tokenize/author, object-model edit, image extract, qpdf jobs
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, page, and policy types
 
@@ -20,7 +12,7 @@
 |  [02]   | `Page`             | class         | media/crop/art/bleed/trim boxes, contents, resources, overlay               |
 |  [03]   | `Encryption`       | class         | `owner`/`user` passwords, `R` level, `aes`, `allow=Permissions`             |
 |  [04]   | `Permissions`      | class         | `accessibility`/`extract`/`modify_*`/`print_highres`/`print_lowres`         |
-|  [05]   | `Job`              | class         | run job JSON; expose exit, warnings, encryption, and output                |
+|  [05]   | `Job`              | class         | run job JSON; expose exit, warnings, encryption, and output                 |
 |  [06]   | `JobBuilder`       | class         | fluent job-JSON assembler to `.build()` dict                                |
 |  [07]   | `AcroForm`         | class         | `add_field`/`fields`/`remove_fields`/`disable_digital_signatures`           |
 |  [08]   | `AcroFormField`    | class         | one interactive field; `FormFieldFlag` bit policy                           |
@@ -78,7 +70,7 @@
 |  [17]   | `DecompressionBombError`             | exception     | image pixel count exceeds `PdfImage.MAX_IMAGE_PIXELS`                         |
 |  [18]   | `DecompressionBombWarning`           | warning       | image pixel count nears the decode cap                                        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open, create, and save
 
@@ -152,7 +144,7 @@
 
 - [06]-[SANITIZE]: `Sanitizer` chains `remove_javascript` `remove_external_access` `remove_multimedia` `remove_attachments` `remove_private_app_data`, applied by `.apply(pdf)` — strip active or privacy-bearing content.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `pikepdf.open` is the single open factory across path and stream and `Pdf.save` the single emission surface; `attempt_recovery` repairs damaged files, `access_mode` selects mmap vs stream IO, and linearization and encryption ride `save` keyword arguments, never a parallel linearizer or encryptor.
@@ -174,9 +166,3 @@
 
 [LOCAL_ADMISSION]:
 - `import pikepdf` at boundary scope only; PDF is the only format, admitted as one document owner, never a per-source reader type.
-
-[RAIL_LAW]:
-- Package: `pikepdf`
-- Owns: qpdf-backed open/repair, linearization, AES-R6 encryption with permission flags, page assembly and overlay, content-stream tokenization + `TokenFilter` + `externalize_inline_images` + `get_objects_with_ctm`, native authoring (`canvas` + `ContentStreamBuilder`), object-model editing with typed scalars, Separation/DeviceN plate authoring, XMP/docinfo metadata, image extraction with color/codec evidence and `/SMask`·`/Mask`·`/Decode` compositing under a `MAX_IMAGE_PIXELS` decompression-bomb cap, attachments, outlines, AcroForm and annotation flatten, `sanitize`, and declarative qpdf jobs via `JobBuilder`/`Job`
-- Accept: structure repair, linearization, encryption, sanitize, and content authoring feeding the document and export-bundle owners; `PdfImage.as_pil_image` feeding the image rail
-- Reject: wrapper-renames of `open`/`save`; scattered permission booleans where `Permissions` rows exist; a hand-rolled tokenizer where `parse_content_stream`/`TokenFilter` exist; a hand-written job-JSON string where `JobBuilder` assembles it; a byte-concatenated colorspace where the typed `Array`/`Dictionary`/`Name` object model builds it; a second renderer where `pymupdf` covers it; simple text/graphic placement routed to `reportlab` where `canvas.Canvas` suffices; a `draw_image` call where raster placement is `draw_xobject`

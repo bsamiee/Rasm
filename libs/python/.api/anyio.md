@@ -2,16 +2,7 @@
 
 `anyio` mints one backend-agnostic structured-concurrency layer over asyncio and Trio; every concurrent, networked, or offloaded effect the boundary tier runs folds through its task groups, cancel scopes, and streams instead of a raw event loop, so domain code never imports a backend.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `anyio`
-- package: `anyio` (MIT)
-- module: `anyio`
-- asset: runtime library
-- rail: concurrency
-- namespaces: `anyio`, `anyio.abc`, `anyio.lowlevel`, `anyio.streams.{memory,buffered,text,tls,file,stapled}`, `anyio.to_thread`, `anyio.from_thread`, `anyio.to_process`, `anyio.to_interpreter`, `anyio.pytest_plugin`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: task, cancellation, and run lifecycle
 - rail: concurrency
@@ -140,7 +131,7 @@
 |  [04]   | `abc.AsyncBackend`  | interface     | pluggable backend dispatch contract                 |
 |  [05]   | `abc.TestRunner`    | interface     | test-fixture event-loop runner                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: event loop entry, tasks, and backend query
 - rail: concurrency
@@ -255,7 +246,7 @@
 |  [05]   | `lowlevel.current_token()`              | backend query  | opaque token identifying the running loop            |
 |  [06]   | `lowlevel.get_async_backend()`          | backend query  | current running backend instance                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [ANYIO_TOPOLOGY]:
 - `run(backend=...)` or the `anyio_backend` pytest fixture selects `asyncio` (default) or `trio`; domain code imports neither backend module.
@@ -285,9 +276,3 @@
 [LOCAL_ADMISSION]:
 - Offload by workload: `to_thread.run_sync` for CPU-light blocking I/O, `to_interpreter.run_sync` for CPU-bound shareable-payload work, `to_process.run_sync` for process isolation or GIL-hostile native calls — each with an explicit `CapacityLimiter` per bounded subsystem.
 - `lowlevel.checkpoint` in a tight loop or polling body keeps cancellation and fairness live.
-
-[RAIL_LAW]:
-- Package: `anyio`
-- Owns: structured concurrency, cancel scopes, memory streams, networking + TLS, file/process async I/O, thread/process/subinterpreter offload, blocking-portal bridges, sync primitives, signal receivers, typed-attribute introspection
-- Accept: `create_task_group`, `fail_after`/`move_on_after`, `connect_tcp`/listeners, `to_thread`/`to_process`/`to_interpreter.run_sync` with explicit `CapacityLimiter`, `create_memory_object_stream`, `BlockingPortalProvider`, `open_signal_receiver`
-- Reject: direct `asyncio.gather`/`create_task`/`wait_for`, raw `socket`/`signal`/`subprocess`/`time.sleep`/`ThreadPoolExecutor`/`ProcessPoolExecutor`, swallowing cancellation without a shielded scope

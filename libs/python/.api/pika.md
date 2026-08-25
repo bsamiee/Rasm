@@ -2,18 +2,7 @@
 
 `pika` is the reference AMQP 0-9-1 client. Its admitted arm is `BlockingConnection`/`BlockingChannel` — a synchronous facade over the `SelectConnection` ioloop where nearly every method blocks on its own `*-Ok` method frame, exactly one method is thread-safe, and every consumer callback, timer, and heartbeat fires only inside `process_data_events` or `start_consuming`. `spec.BasicProperties` is the AMQP content header the CloudEvents RabbitMQ binding lowers onto, carrying `headers` as an AMQP field table and `content_type` as its own slot. `pika`'s package root imports `asyncio` transitively and unconditionally through its adapter roster — an import-graph fact, never a claim about the blocking arm's runtime.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pika`
-- package: `pika` (BSD-3-Clause)
-- module: `pika`
-- namespaces: `pika.{spec,connection,channel,exceptions,credentials,frame,delivery_mode,exchange_type,data}`, `pika.adapters.{blocking_connection,select_connection,asyncio_connection,base_connection}`, `pika.adapters.utils`
-- target: pure-Python wheel, no native asset
-- rail: broker-transport
-
-`pika.__all__` is `adapters` `AMQPConnectionWorkflow` `BaseConnection` `BasicProperties` `BlockingConnection` `ConnectionParameters` `DeliveryMode` `PlainCredentials` `SelectConnection` `SSLOptions` `URLParameters`.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [BLOCKING_SCOPE]: `pika.adapters.blocking_connection` — the admitted arm
 
@@ -84,7 +73,7 @@ AMQP field-table values admit `str`, `bytes`, `int`, `float`, `Decimal`, `dateti
 
 `ConnectionClosed` and `ChannelClosed` each expose `.reply_code` and `.reply_text`; `UnroutableError` and `NackError` each carry `.messages` as a `ReturnedMessage` sequence.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection lifecycle
 
@@ -147,7 +136,7 @@ AMQP field-table values admit `str`, `bytes`, `int`, `float`, `Decimal`, `dateti
 
 `ConnectionParameters` defaults: host `localhost`, port 5672 (5671 when `ssl_options` is truthy), virtual host `/`, credentials `PlainCredentials('guest', 'guest')`, frame max 131072, connection attempts 1, retry delay 2.0, socket timeout 10.0, stack timeout 15.0, locale `en_US`, heartbeat `None` meaning the broker's proposal is accepted. Any unrecognized keyword raises `TypeError`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `import pika` imports `asyncio` UNCONDITIONALLY and transitively — `pika/__init__.py` imports `pika.adapters`, whose `__init__` eagerly imports `AsyncioConnection`, whose module imports `asyncio` — and there is no lazy path, no extra, and no escape, because `blocking_connection` itself reaches `pika.connection` and so the package root. That import stays inert: the adapter class is merely defined, no loop is created, no loop policy is touched, and nothing runs until that class is instantiated.
@@ -173,9 +162,3 @@ AMQP field-table values admit `str`, `bytes`, `int`, `float`, `Decimal`, `dateti
 - `pika`'s transitive `asyncio` import admits as an import-graph fact: the branch ban governs the branch's own module-scope imports and a dependency's inert class definition creates no loop.
 - Publisher confirms arm at composition, so a publish either round-trips or the composition declared at-most-once.
 - Every AMQP raise crosses one `boundary` fence into `BoundaryFault`; `ChannelError` and `ReentrancyError` are caught by name rather than through the `AMQPError` root that excludes them.
-
-[RAIL_LAW]:
-- Package: `pika`
-- Owns: the AMQP 0-9-1 protocol, its content-header vocabulary, topology and transaction verbs, and publisher confirms
-- Accept: `BlockingConnection`, `BlockingChannel`, `spec.BasicProperties`, `ConnectionParameters`/`URLParameters`, `PlainCredentials`/`ExternalCredentials`, `SSLOptions`, `DeliveryMode`, `ExchangeType`
-- Reject: every non-blocking adapter; a manipulation off the connection's own thread that is not `add_callback_threadsafe`; a bare integer where `DeliveryMode` or `ExchangeType` states the value; `except AMQPError` standing in for the two roots outside it

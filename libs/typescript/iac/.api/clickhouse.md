@@ -2,15 +2,7 @@
 
 `clickhouse` is the analytics residence the deploy plane installs as one Helm chart. This chart renders no workload itself — it emits a `ClickHouseInstallation` custom resource the Altinity operator reconciles, so chart values decide the CR and the OPERATOR decides every rendered object name. That split is the whole contract: a values key pins the installation, and its rendered Service name is the operator's own decoration over it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `clickhouse`
-- chart: `clickhouse` from `https://helm.altinity.com` (Apache-2.0), bundling `altinity-clickhouse-operator` as an optional dependency
-- asset: one `ClickHouseInstallation`, its operator-rendered Services, StatefulSets, ConfigMaps, and PVCs, beside an optional `ClickHouseKeeperInstallation`
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / analytics-residence
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                             | [CAPABILITY]                                                                              |
 | :-----: | :-------------------------------- | :---------------------------------------------------------------------------------------- |
@@ -41,7 +33,7 @@
 
 [SERVICE_NAME]: the operator renders the CHI-level Service as `clickhouse-<chi>`, where `<chi>` is the installation name `fullnameOverride` pins, so a values-side name pin alone never yields the address; the decoration is configurable only through `.spec.templates.serviceTemplates[].generateName`, which this chart does not surface, so an endpoint projection carries the prefix explicitly.
 
-## [03]-[QUERY_CONTRACT]
+## [02]-[QUERY_CONTRACT]
 
 Grafana reads this residence through `grafana-clickhouse-datasource`, a third-party plugin the Foundation SDK never bundles. Its query record and its config record are the two wire shapes a board fence transcribes; both are plugin-owned TypeScript, not an npm dependency, so the plugin release is the pin and every field below reads off it.
 
@@ -68,7 +60,7 @@ Grafana reads this residence through `grafana-clickhouse-datasource`, a third-pa
 [CONFIG_TRAPS]: the driver dials `host` and `port` and IGNORES the datasource `url` a provisioner sets, so an address alone provisions a door nothing connects through; `enableMapKeysDiscovery` defaults ON and issues `SELECT DISTINCT arrayJoin(col.keys) … LIMIT 1000` per `Map` column, which is a full-table probe on an OTel logs table; `rowCapacityHint` pre-allocates every frame at that width on EVERY query, so a value above the typical result wastes memory on all of them.
 [CONFIG_VERSION_AXIS]: `version` names the PLUGIN release and never the ClickHouse server's, despite sitting among the connection coordinates — the config editor overwrites it with the plugin's own package version unconditionally on save, so a server release spelled there is silently rewritten and every reader gating on it answers for a version nothing pinned. It is therefore the SAME axis the query record's `pluginVersion` carries, which makes one anchor filling both sites correct rather than a conflation; the server release reaches a fence through the chart's `clickhouse.image.*` rows alone.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One residence per stack owns wide-event evidence under a branch-owned schema. Its writing exporter runs `create_schema: false`, so DDL lands before the first INSERT — this chart's init-script hook is the one place that ordering holds without minting a job the estate then owns and reconciles.
@@ -83,9 +75,3 @@ Grafana reads this residence through `grafana-clickhouse-datasource`, a third-pa
 [LOCAL_ADMISSION]:
 - Only the k8s arm admits these keys: `operate/observe#DEV_ROW` runs one all-in-one image with no residence at all, so the dev loop's analytics posture is absence, stated on the row rather than discovered on an empty query.
 - Chart versions arrive as `Lgtm.Versions` args rather than a workspace-manifest row, because a Helm chart is a deploy-time reference and not a build dependency.
-
-[RAIL_LAW]:
-- Contract: `clickhouse` chart values + the `ClickHouseInstallation` the operator reconciles
-- Owns: the columnar analytics residence — server placement, storage claims, credential custody, Keeper posture, and the init-script hook the branch DDL rides
-- Accept: `operator.enabled` matching whether the operator is already cluster-wide; `initScripts` as the one DDL carrier with idempotent statements, running on the loopback-masked default user; `defaultUser.password_secret_name` for every credential; a scoped `clickhouse.users` row with an EXPLICIT `hostIP` mask and the exact grants its callers run, for every identity dialed from another pod; the explicit `clickhouse-` Service prefix in every endpoint projection
-- Reject: a credential in a values literal; `allowExternalAccess`, which opens the ACCESS-MANAGING default user to every source address; a `clickhouse.users` row omitting `hostIP`, whose absence renders that same reach one user down; a remote caller pointed at the default user, which the shipped `127.0.0.1/32` mask refuses; `create_schema: true` on the writing exporter, which replaces the owned sort key with an attribute map outside it; replicas above one without Keeper, which the CR refuses; a `version` config field carrying the server release, which the plugin overwrites on save

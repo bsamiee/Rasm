@@ -2,18 +2,7 @@
 
 `Meshopt` binds Arseny Kapoulkine's native `meshoptimizer` as one in-process algorithmic surface across two tiers — a first-class managed generic `Span<T>` rail that pins internally, over a raw `unsafe static extern` P/Invoke twin for caller-pinned buffers. It constructs no mesh topology and interpolates no attributes: geometry arrives welded and leaves cache-optimized, simplified, meshletized, and wire-encoded. Two folders compose it against one shared carrier algebra — `Rasm.Bim` drives the glTF `EXT_meshopt_compression` interchange leg and the per-element BIM LOD pyramid, `Rasm.Compute` the runtime tile/payload codec streams and the cluster-LOD residency pyramid — and the codec's process-global format-version state makes a per-folder partition of this assembly structurally impossible, so the whole surface homes here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Alimer.Bindings.MeshOptimizer`
-- package: `Alimer.Bindings.MeshOptimizer` (MIT)
-- assembly: `Alimer.Bindings.MeshOptimizer`
-- namespace: `MeshOptimizer`
-- asset: `lib/net10.0`, `lib/net9.0` — the `net10.0`-only TFM firebreaks it out of any `net48` in-Rhino plugin ALC
-- asset: native `runtimes/<rid>/native/` for `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx` (universal arm64+x64 fat `libmeshoptimizer.dylib` — the `osx-arm64` consumer binds it), `android-arm`, `android-arm64`, `android-x64`
-- abi: `Meshopt.MESHOPTIMIZER_VERSION = 1000u`; `Meshopt.LibraryName = "meshoptimizer"`
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `Meshopt` facade and its value types — stream input, meshlet geometry, options, and by-value analysis results
 
@@ -35,7 +24,7 @@
 - `SimplificationOptions`: `None=0`, `SimplifyLockBorder=1` (freeze open edges), `meshopt_SimplifySparse=2` (sparse attribute-discontinuity reduction), `meshopt_SimplifyErrorAbsolute=4` (`target_error` in world units via `SimplifyScale`).
 - `EncodeExpMode`: `None`/`EncodeExpSeparate`=0 (per-value), `EncodeExpSharedVector`=1, `EncodeExpSharedComponent`=2 (per-column), `EncodeExpClamped`=3.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every surface is a static method on `Meshopt` in two forms. The MANAGED form pins internally and derives counts from span length — generic over `TVertex`/`TIndex`/`T: unmanaged`, returning `out float error`/`Bounds`/`*Statistics` by value — so a `[SURFACE]` cell carries only the member and the args that vary from its scope-lead convention. The EXTERN twin takes `uint*` (indices, remap), `void*` (interleaved vertices), `float*` (positions, attributes), or `byte*` (triangle, codec, and lock buffers) with `nuint` sizes/counts and serves only an already-pinned caller buffer (`stackalloc`/`NativeMemory`/`fixed`); every `nuint` return is a written element count and every `int` return a status code (`0` = ok).
 
@@ -130,7 +119,7 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 |  [11]   | `QuantizeFloat(float v, int N) -> float`                                 | quantize float to N mantissa bits           |
 |  [12]   | `SetAllocator(allocate, deallocate)`                                     | route native scratch through a pool         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - every algorithm ships a managed `Span<T>`/`ReadOnlySpan<T>` overload — the first-class rail, pinning internally, generic over `TVertex`/`TIndex`/`T: unmanaged`, returning `out float error`/`Bounds`/`*Statistics` by value — over the raw `unsafe static extern` twin (`meshopt_*` entry points, dual `[LibraryImport]`/`[DllImport]`) it forwards to.
@@ -155,9 +144,3 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 - meshlet path: `BuildMeshlets` sized by `BuildMeshletsBound` → `OptimizeMeshlet` per meshlet → `ComputeMeshletBounds` for culling.
 - simplify path: `Simplify` / `SimplifyWithAttributes` (`SimplificationOptions` + `out float error`) → optional `SimplifyPrune`, normalizing the budget with `SimplifyScale`.
 - size every encode and meshlet destination through its `*Bound` op first; drop to the extern twin solely for an already-pinned caller buffer; subscribe `Meshopt.ResolveLibrary` or `SetAllocator` before first call when deploying outside the standard NuGet native layout.
-
-[RAIL_LAW]:
-- Package: `Alimer.Bindings.MeshOptimizer`
-- Owns: index/vertex optimization, `EXT_meshopt_compression` encode/decode, LOD simplification, meshlet generation, spatial clustering/partitioning, quantization, and cache/overdraw/fetch/coverage analysis.
-- Accept: canonical interleaved vertex structs as `Span<TVertex>`/`ReadOnlySpan<TVertex>` (`TVertex: unmanaged`) through the managed tier; caller-pinned pointers through the extern twin only when the buffer is already pinned.
-- Reject: hand-rolled vertex-cache optimization, meshlet partition algorithms, custom half-float/octahedral/quaternion filter encode, manual pinning around a managed overload that already owns it, a folder-tier re-tabling of this surface; mesh topology construction, Boolean operations, attribute interpolation, and Draco encoding stand outside this binding.

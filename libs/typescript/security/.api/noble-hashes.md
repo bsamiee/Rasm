@@ -2,15 +2,7 @@
 
 `@noble/hashes` owns the audited synchronous symmetric primitives the crypto authority composes: HMAC over any hash value, the SHA-1/2/3 digest roster, and a WebCrypto-backed `randomBytes`. It carries no asymmetric surface — ECDSA and RSA verification ride WebCrypto `subtle.verify` at `crypt/verify` — and no constant-time equality worth trusting, so the timing-safe compare and the unbiased alphabet sampler home folder-local. Version 2.x publishes explicit-extension ESM subpaths (`@noble/hashes/<sub>.js`), so a tree-shaker drops every unreached digest.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@noble/hashes`
-- package: `@noble/hashes` (MIT)
-- module: ESM with explicit-extension subpaths — `/hmac.js` `/sha2.js` `/sha3.js` `/legacy.js` `/utils.js` `/hkdf.js` `/pbkdf2.js`; the root `.` re-exports the roster
-- runtime: neutral — pure JS, zero dependencies, no `node:*`; `randomBytes` reads WebCrypto `getRandomValues`
-- rail: `crypt/sign` — the HMAC and SHA digest primitives `sign/crypto` folds, and the entropy `randomBytes` the `Entropy` port draws
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `/hmac.js` `/sha2.js` `/legacy.js` — the hash value contract and the streaming MAC carrier. Every `CHash` is a callable `(msg) -> Uint8Array` that also constructs an incremental instance, so the algorithm crosses as a value the fold ranges over rather than a per-name call family.
 
@@ -20,7 +12,7 @@
 |  [02]   | `Hash { update(buf), digest(): Uint8Array }`  | interface     | incremental digest and MAC contract                    |
 |  [03]   | `TRet<T>`                                     | type wrapper  | TS 5.6/5.9 byte-output compat; values stay synchronous |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `/hmac.js` — MAC, synchronous over raw bytes, one-shot and streaming off one owner.
 
@@ -42,7 +34,7 @@
 |  [01]   | `randomBytes(number) -> Uint8Array`  | static  | WebCrypto `getRandomValues` fill, one buffer   |
 |  [02]   | `equalBytes(Uint8Array, Uint8Array)` | static  | length-and-content compare — NOT constant-time |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Hashes cross as values — `hmac(sha256, key, body)` and `sha256(bytes)` take the algorithm as the `CHash` itself, so a new digest is a row on the standing `_HASHES` fold, never a `hmacSha256` name fork.
@@ -57,11 +49,5 @@
 - `sign/crypto` (in-folder owner): one seam folds the HMAC webhook row, the `session/token` compare, and the `authn/apikey`/`authn/otp` mints; the constant-time compare `_sameBytes`, the unbiased alphabet sampler `_sample`, and the `Entropy` port are folder-owned beside these primitives because no member here supplies a timing-safe equality or a bounded-alphabet mint.
 
 [LOCAL_ADMISSION]:
-- `crypt/sign` imports this package alone; the `tests/typescript/_architecture` audit catches an `authn`, `secret`, or `session` rail reaching it directly.
+- `crypt/sign` imports this package alone.
 - One-shot `hmac`/`sha*` carry the default; `hmac.create` serves the chunked prefix-then-body input that must not buffer.
-
-[RAIL_LAW]:
-- Package: `@noble/hashes`
-- Owns: HMAC one-shot and streaming over the `CHash` value contract, the SHA-1/2/3 digest roster, and the `randomBytes` entropy read
-- Accept: the hash as the one dispatch value, `hmac.create` for a signed prefix ahead of a held body, `sha1` from `/legacy.js` for RFC-6238 compatibility alone, this package as the HMAC backend of an `otplib` `CryptoPlugin`, `randomBytes` behind the folder `Entropy` port
-- Reject: a `hmacSha*` per-name call family, `equalBytes` on secret bytes (it is not constant-time — the folder `_sameBytes` XOR-fold is the equality for every secret, digest, and token compare), an asymmetric verify or key decode claimed here, a system-RNG read bypassing the `Entropy` port, an import outside `crypt/sign`

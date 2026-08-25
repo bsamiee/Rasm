@@ -2,24 +2,7 @@
 
 `Avalonia.Headless` boots a windowless Avalonia platform — manually-ticked render timer, synthetic input, rendered-frame capture — and `Avalonia.Headless.XUnit` wraps it in xUnit.v3 fact/theory discoverers marshalling test bodies onto the dispatcher thread. Together they own the UI-evidence rail: a `[AvaloniaFact]` drives view interaction with `KeyPress`/`MouseDown`/`DragDrop`, advances frames with `ForceRenderTimerTick`, and asserts on a `WriteableBitmap` from `CaptureRenderedFrame`. Only the public test-author surface is a consumer path; `internal` window impls stay off it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.Headless`
-- package: `Avalonia.Headless` (MIT)
-- assembly: `Avalonia.Headless` (AnyCPU IL, managed-only, `net10.0`)
-- namespace: `Avalonia.Headless`
-- rail: evidence
-- depends: `Avalonia.Base` (`WriteableBitmap`, input/raw types), `HarfBuzzSharp` (`UseHeadless` binds text shaping); `Avalonia.Skia` binds only when `UseHeadlessDrawing=false`
-
-[PACKAGE_SURFACE]: `Avalonia.Headless.XUnit`
-- package: `Avalonia.Headless.XUnit` (MIT)
-- assembly: `Avalonia.Headless.XUnit` (`net10.0`)
-- namespace: `Avalonia.Headless.XUnit`
-- rail: evidence
-- depends: `xunit.v3.extensibility.core` — the attributes derive from `FactAttribute`/`TheoryAttribute` and implement `ITestFrameworkAttribute`
-- note: `xunit.v3` is the publisher's own distribution identity transcribed verbatim; the estate's no-version-segment law binds estate-minted names alone
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PLATFORM_TYPES]: public platform, options, and session surfaces (`Avalonia.Headless`)
 
@@ -60,7 +43,7 @@
 |  [07]   | `AvaloniaTestCaseRunner`                | class         | case runner pumping the dispatcher                   |
 |  [08]   | `AvaloniaTestRunner`                    | class         | test runner pumping the dispatcher                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [SESSION_ENTRYPOINTS]: platform boot and dispatcher-marshalled execution
 
@@ -122,7 +105,7 @@
 |  [04]   | `[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel)]` | assembly-attr | isolation pick                             |
 |  [05]   | `[assembly: AvaloniaTestFramework]`                             | assembly-attr | framework redirect via `FrameworkType`     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - UI state mutates only inside the dispatched body — `[AvaloniaFact]`/`[AvaloniaTheory]` or an explicit `session.Dispatch(...)`; render asserts read a `WriteableBitmap` from `CaptureRenderedFrame`/`GetLastRenderedFrame`.
@@ -138,9 +121,3 @@
 [LOCAL_ADMISSION]:
 - Pixel evidence is admitted only when `UseHeadlessDrawing=false` and `Avalonia.Skia` renders, with `FrameBufferFormat` fixing the comparison layout; under the default stub render the page asserts logical and visual-tree state, never pixels.
 - Isolation is one assembly-level `[AvaloniaTestIsolation]` decision, never per-method.
-
-[RAIL_LAW]:
-- Package: `Avalonia.Headless`, `Avalonia.Headless.XUnit`
-- Owns: the windowless UI-evidence rail — dispatcher-marshalled test bodies, synthetic input injection, manual frame ticking, and rendered-frame capture.
-- Accept: UI mutation inside the dispatched body; render asserts reading a `WriteableBitmap` from the capture API; `[AvaloniaFact]`/`[AvaloniaTheory]` for per-method dispatch.
-- Reject: UI mutation off the dispatcher thread; binding `internal` window impls (`IHeadlessWindow`, `HeadlessWindowImpl`); screenshot tooling outside the headless platform; a hand-rolled render loop when `ForceRenderTimerTick` owns frame production.

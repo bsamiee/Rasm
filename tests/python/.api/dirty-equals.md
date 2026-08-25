@@ -2,14 +2,7 @@
 
 `dirty-equals` supplies `Is*` matcher objects whose `__eq__` asserts a property rather than a literal — an `IsNow()` matches any near-current datetime, an `IsPartialDict` matches a subset of keys. Rasm admits them for partial-structure assertions embedded in a larger fact: a matcher stands in for a nondeterministic or unbounded field so the surrounding structure asserts exactly, never as a replacement for whole-value equality where the value is known.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `dirty-equals` · license `MIT`
-- namespace: `dirty_equals`
-- asset: pure-Python wheel; no runtime dependency beyond the standard library
-- rail: partial equality — a matcher embeds in an `==` fact or an `inline_snapshot` literal
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                                    | [KIND]    | [CAPABILITY]                                                              |
 | :-----: | :------------------------------------------ | :-------- | :------------------------------------------------------------------------ |
@@ -43,7 +36,7 @@ class IsNow(DirtyEquals[datetime]):
                  format_string: str | None = None, enforce_tz: bool = True, tz: str | tzinfo | None = None) -> None: ...
 ```
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                    | [KIND]           | [CAPABILITY]                                                           |
 | :-----: | :------------------------------------------- | :--------------- | :--------------------------------------------------------------------- |
@@ -60,24 +53,17 @@ def test_emitted(emit: Callable[[], dict[str, object]]) -> None:
     assert emit() == IsPartialDict(kind="shape")
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [DIRTY_EQUALS_TOPOLOGY]:
 - Every matcher subclasses `DirtyEquals`; a match resolves through `__eq__`, so a matcher drops into any `==` position or a nested structure without a custom comparator.
 - `&`/`|`/`~` compose matchers into a compound predicate — a new constraint is an operator combination, never a bespoke matcher class.
-- A matcher constructor carries the constraint as keyword parameters (`gt`/`lt`/`ge`/`le`, `delta`, `regex`, `length`, `check_order`); parameterization lives in the arguments, not in matcher proliferation.
+- Matcher constructors carry the constraint as keyword parameters (`gt`/`lt`/`ge`/`le`, `delta`, `regex`, `length`, `check_order`); parameterization lives in the arguments, not in matcher proliferation.
 - `IsPartialDict` and `IsStrictDict` select subset versus key-ordered matching from the same keyword-key construction shape.
 
 [STACKING]:
-- `inline-snapshot`(`.api/inline-snapshot.md`): a matcher lives inside a `snapshot(...)` literal so a nondeterministic field (`IsNow`, `IsUUID`) stays partial while the recorded structure asserts exactly.
-- `spec.py`(`../_testkit/spec.py`): a whole-value wire golden proves through `assert_roundtrip` byte identity; a partial fact over a nondeterministic field proves through a `dirty-equals` matcher — the two are orthogonal, never interchangeable.
+- `spec.py`(`../testkit/spec.py`): a whole-value wire fact proves through `assert_roundtrip` byte identity; a partial fact over a nondeterministic field proves through a `dirty-equals` matcher — the two are orthogonal, never interchangeable.
 
 [LOCAL_ADMISSION]:
 - Admitted on the `tests/` dev plane for partial-structure assertions embedded in a larger equality fact.
-- A matcher expresses the field that cannot be pinned; a fully known value asserts by literal equality or a snapshot golden, never by a blanket `AnyThing`.
-
-[RAIL_LAW]:
-- Package: `dirty-equals`
-- Owns: property-based partial equality — numeric bounds, text/format shape, temporal proximity, and subset mapping match through `__eq__`.
-- Accept: a matcher occupying a nondeterministic or unbounded field inside an exact structure; `&`/`|`/`~` composition; a matcher nested in an `inline_snapshot` literal.
-- Reject: a matcher replacing whole-value equality for a known value; `AnyThing` where a bound is knowable; a custom matcher subclass where an operator composition suffices.
+- Matchers express the field that cannot be pinned; a fully known value asserts by literal equality, never by a blanket `AnyThing`.

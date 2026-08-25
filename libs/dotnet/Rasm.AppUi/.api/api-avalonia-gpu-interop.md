@@ -2,16 +2,7 @@
 
 `Avalonia`'s compositor owns the render-thread scene: `ICompositionGpuInterop` imports an externally-rendered GPU texture and its fence so a wgpu, D3D, Vulkan, or Metal backend composites without a second swapchain, `ElementComposition` attaches the surface visual to a control on the visuals rail, and the animation surface drives a visual's transform, opacity, and color off the UI thread through key-frame, expression, and implicit animations.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia`
-- package: `Avalonia` (MIT)
-- assembly: `Avalonia.Base`
-- namespace: `Avalonia.Rendering.Composition`, `Avalonia.Rendering.Composition.Animations`, `Avalonia.Platform`
-- asset: runtime library; the external GPU backend supplies the shared handle
-- rail: visuals
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [COMPOSITION_TYPES]: compositor, visual tree, and GPU-interop owners (`Avalonia.Rendering.Composition`)
 
@@ -69,7 +60,7 @@
 |  [04]   | `KnownPlatformGraphicsExternalImageHandleTypes`     | static class  | image handle-type constants           |
 |  [05]   | `KnownPlatformGraphicsExternalSemaphoreHandleTypes` | static class  | semaphore handle-type constants       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [COMPOSITOR_ACCESS]: compositor acquisition, interop query, and the node factories
 
@@ -254,7 +245,7 @@ Every `UpdateWith*Async` takes the imported `ICompositionImportedGpuImage` first
 |  [06]   | `Direct3D12FenceNtHandle`                        | semaphore; D3D12/D3D11 fence shared NT handle (timeline)        |
 |  [07]   | `MetalSharedEvent`                               | semaphore; `MTLSharedEvent` pointer (Metal timeline)            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ElementComposition.GetElementVisual(this)` yields the control's backing visual and its `Compositor`, returning null until the control enters a render tree, so import defers to the first composition update.
@@ -280,9 +271,3 @@ Every `UpdateWith*Async` takes the imported `ICompositionImportedGpuImage` first
 - Imported images and semaphores are lifetime-scoped `IAsyncDisposable` handles exposing `ImportCompleted`/`IsLost`; the capsule awaits `ImportCompleted` before freeing a non-owning source, pairs import-and-dispose per frame or resize, and drops every handle across an `IsLost` transition.
 - All interop work runs on the compositor render thread: import returns immediately-usable handles and `Update*Async` completes on the compositor loop, so the capsule awaits the `ValueTask`/`Task` rather than blocking the UI thread.
 - Transform, opacity, and color motion rides a composition animation with a duration of at least 1ms; per-frame custom drawing rides a custom visual handler.
-
-[RAIL_LAW]:
-- Package: `Avalonia`
-- Owns: the compositor scene seam — interop acquisition, external image/semaphore import, adapter-identity match, the surface/visual factory with its `SetElementChildVisual` attach, the synchronization-discriminated `Update*Async` refresh, and the render-thread animation of a visual's transform, opacity, and color.
-- Accept: `TryGetCompositionGpuInterop` query, `DeviceLuid`/`DeviceUuid` match, `ImportImage`/`ImportSemaphore` shared-handle import, `GetSynchronizationCapabilities`-selected `Update*Async`, the `Surface`-slot with its `SetElementChildVisual` attach, `StartAnimation`/`ImplicitAnimations` keyed on the `[VISUAL_STATE]` names.
-- Reject: a second swapchain composited beside the Avalonia scene; an `Update*Async` member ignoring the `GetSynchronizationCapabilities` mode; a cross-adapter import ignoring the `DeviceLuid`/`DeviceUuid` match; freeing a source texture before `ImportCompleted`; a UI-thread timer driving transform or opacity a composition animation already owns.

@@ -2,15 +2,7 @@
 
 `tw-animate-css` owns one parameterized enter/exit motion mechanism: a single `enter`/`exit` `@keyframes` pair reads six typed custom-property axes, and every animation is an `animate-in`/`animate-out` trigger composed with per-axis setter utilities and orthogonal timing modifiers. It ships three named component animations wired to headless-kit content-height vars. Boundary: a pure-CSS Tailwind plugin — no JS, no types, no ABI — consumed as the utility-class and custom-property vocabulary Tailwind compiles.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tw-animate-css`
-- package: `tw-animate-css` (MIT)
-- module: pure CSS — ships `dist/tw-animate.css` (default) and `dist/tw-animate-prefix.css` (`./prefix`, every utility namespaced under `tw-`); no `types`, no JS, nothing binds `tsc`
-- runtime: build-time Tailwind compile, zero client JS; `tailwindcss` peer is the hard compile host authoring `@utility`, `@theme inline`, `--value()`, `@property` primitives
-- rail: token/scale — the enter/exit motion-class vocabulary a `cn`-folded `view`/`token` row writes
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the enter/exit axis registers — six `@property`-typed custom properties
 
@@ -41,7 +33,7 @@
 |  [08]   | `--animation-fill-mode-{none,forwards,backwards,both}`                      | timing scale     | `fill-mode-*` values              |
 |  [09]   | `--percentage-{0,5,…,100}` / `--percentage-translate-full`                  | fraction scale   | `fade-*`/`zoom-*` percentages     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the trigger and per-axis setter utilities
 
@@ -70,7 +62,7 @@ Timing modifiers set the `--tw-animation-*` axes the master `--animate-in/out` r
 |  [06]   | `animate-collapsible-down` / `animate-collapsible-up`              | named animation | collapsible height — `system/act`       |
 |  [07]   | `animate-caret-blink`                                              | named animation | `cmdk` caret blink — `system/act`       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One mechanism, six axes: `animate-in`/`animate-out` bind the `enter`/`exit` keyframe pair and each `fade`/`zoom`/`spin`/`blur`/`slide` utility sets one `--tw-enter/exit-*` axis, so `animate-in fade-in-0 zoom-in-95 slide-in-from-top-2` is three axis setters over one keyframe and a new motion is a new setter combination; `animate-in` alone holds every axis at its identity value, so a motion is always trigger + at least one setter.
@@ -88,9 +80,3 @@ Timing modifiers set the `--tw-animation-*` axes the master `--animate-in/out` r
 [LOCAL_ADMISSION]:
 - Reach for the `./prefix` build only under a utility-name collision; the default build otherwise.
 - Gate reduced motion at the consumer with Tailwind core's `motion-reduce:animate-none` — the plugin does not auto-respect `prefers-reduced-motion`.
-
-[RAIL_LAW]:
-- Package: `tw-animate-css`
-- Owns: the enter/exit motion mechanism — the six-axis `enter`/`exit` keyframe pair, its `animate-in`/`animate-out` trigger and per-axis setter and timing-modifier utilities, the `@theme` timing and percentage scales, and the accordion/collapsible/caret named animations
-- Accept: a trigger + setter + timing-modifier composition, arbitrary `-*` values against the bounded scales, `data-state`/`data-entering`-bound stateful motion, classes folded through the extended `cn` rail, Tailwind as the compile host
-- Reject: a hand-authored `@keyframes` for an enter/exit effect the axes express, a bare `animate-in` with no setter, conflicting animation utilities without the `tailwind-merge` extension, a hand-measured height instead of the kit content-height var, a keyframe enter/exit stacked under a native View Transition on one element

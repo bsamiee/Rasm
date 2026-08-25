@@ -22,7 +22,7 @@ Semantic layer structure enters every layered writer through one `LayerPlan`. `L
 - Boundary: PSD/OCG/SVG/IDML/TIFF/ORA mutation belongs to `export/layered#LAYERED`, IDML mutation to `export/indesign#INDESIGN`, and PDF OCG authoring to `document/emit#DOCUMENT`. Geometry, async, host handles, discipline vocabulary, and compositing vocabulary remain outside this value owner.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum

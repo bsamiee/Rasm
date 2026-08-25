@@ -2,16 +2,7 @@
 
 `drawsvg` mints the programmatic SVG-authoring surface for the figure rail: a `Drawing` canvas over the drawable-element vocabulary, typed `Path` command builders, `<defs>`-tier paint/effect owners, the SMIL animation algebra, and SVG/HTML/`data:`-URI serialization, never hand-emitting XML nor re-implementing the `d` grammar. Rasterization routes downstream — the raster/video egress binds optional `cairoSVG`/`imageio`/ffmpeg extras absent on core, so PNG/PDF crosses to `resvg-py`/`vl-convert`/`pyvips` and ffmpeg video rides the runtime `to_process.run_sync` seam.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `drawsvg`
-- package: `drawsvg` (MIT)
-- import: `drawsvg`
-- owner: `artifacts`
-- rail: figure
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document canvas and element base hierarchy
 
@@ -87,7 +78,7 @@ Every `Animate*` constructor carries a trailing `**kwargs`; the long `AnimateTra
 - [02]: `AnimateTransform(type, dur, from_or_values, to=None, begin=None, attributeName='transform')` — transform animation over the named attribute.
 - [06]: `SyncedAnimationConfig(duration, start_delay=0, end_delay=0, repeat_count='indefinite', fill='freeze', show_playback_controls=False, ...)` — synchronized timeline threaded through `Drawing(animation_config=)`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Drawing` build, z-order, serialize
 
@@ -162,7 +153,7 @@ These attach off the `DrawingBasicElement`/`DrawingParentElement` base, so anima
 |  [08]   | `frame_animate_video(out_file, draw_func=None, jupyter=False)`       | raster  | [GATED] frame-driven video egress                |
 |  [09]   | `frame_animate_spritesheet(...)` / `frame_animate_jupyter(...)`      | raster  | [GATED] spritesheet / jupyter frame egress       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import drawsvg` at boundary scope only; the distribution and import name are both `drawsvg`.
@@ -179,9 +170,3 @@ These attach off the `DrawingBasicElement`/`DrawingParentElement` base, so anima
 - `svgelements` (`SVG.parse` + `Matrix * shape` + `bbox()`) co-composes a drawsvg-authored SVG with a `segno` QR / `great-tables` table SVG into one n-up sheet — drawsvg authors net-new vector marks, svgelements lays out the parsed tree.
 - `svg_as_utf8_data_uri(drawing.as_svg())` produces a `data:` URI a `jinja2`/`weasyprint` HTML/PDF document embeds inline, threading the figure artifact into the document rail without a temp-file round-trip.
 - `as_html` serializes a `SyncedAnimationConfig` + `add_key_frame` timeline standalone; a rasterized GIF/MP4 deliverable runs the frame egress through the runtime worker `to_process.run_sync` seam (ffmpeg subprocess), keeping the blocking call off the async figure rail.
-
-[RAIL_LAW]:
-- Package: `drawsvg`
-- Owns: programmatic SVG document authoring — the closed drawable-element vocabulary, typed absolute/relative SVG path-command builders, the `<defs>`-tier paint/effect owners, the SMIL animation algebra with synchronized timeline, and SVG/HTML/`data:`-URI serialization
-- Accept: building diagrams, analysis overlays, machine-readable annotated SVG, and declarative SVG animation as durable vector artifacts, composing with `svgelements` layout and downstream raster owners
-- Reject: in-page rasterization (`resvg-py`/`vl-convert`/`pyvips`/`pillow` cover it, extras absent on core); a blocking ffmpeg shell-out where `to_process.run_sync` owns subprocess work; a hand-emitted XML tag or `d` string where the element vocabulary and `Path` exist; an `add_rect`/`add_circle` family where `append`/`draw(z=)` discriminates; SVG geometry parse/transform/bbox where `svgelements` owns it; live UI animation; identity minting the runtime owns

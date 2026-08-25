@@ -1,6 +1,5 @@
 # [PERSISTENCE_STORE_SCHEMA]
 
-
 ## [01]-[INDEX]
 
 - [02]-[CONTRACT]: generated backend vocabulary, local artifact sources, capability projection, and contract faults.

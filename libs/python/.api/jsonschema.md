@@ -2,20 +2,7 @@
 
 `jsonschema` validates an instance against a FOREIGN JSON Schema document — the direction a `msgspec` schema emission cannot answer, which generates a document from a Python type where this owner grades arbitrary data against one someone else authored. Six draft validators ship as generated classes over one `create` factory, reference resolution belongs to the separate `referencing` registry, and format checking is opt-in with most checkers behind an extra this branch does not install. It is the payload gate beneath the Schema Registry JSON serializer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jsonschema`
-- package: `jsonschema` (MIT)
-- module: `jsonschema`
-- namespaces: `jsonschema`, `jsonschema.{validators,exceptions,protocols}`; `_format`, `_types`, `_keywords`, `_legacy_keywords`, `_utils` are private
-- target: pure Python over `attrs` classes; `py.typed` with inline annotations
-- dependencies: `attrs`, `jsonschema-specifications`, `referencing`, `rpds-py` — all required, none optional
-- extras: `[format]` pulls eight checker libraries and `[format-nongpl]` nine, ten across their union and neither set identical; NEITHER is installed, so the format vocabulary is the built-in twelve alone
-- rail: schema-validation
-
-Installation adds a `jsonschema` console script beside the library. `jsonschema.__version__` raises a `DeprecationWarning` on access and resolves through `importlib.metadata` instead.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [VALIDATOR_SCOPE]: `jsonschema.validators`, the six re-exported at the package root
 
@@ -59,7 +46,7 @@ Every validator class carries the same class attributes — `META_SCHEMA`, `VALI
 
 `ValidationError` fields: `message`, `validator`, `validator_value`, `instance`, `schema`, `path`/`relative_path`/`absolute_path`, `schema_path`/`relative_schema_path`/`absolute_schema_path`, `context`, `cause`, `parent`, and the `json_path` property rendering `$.a.0`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module-level
 
@@ -88,7 +75,7 @@ Every validator class carries the same class attributes — `META_SCHEMA`, `VALI
 
 Built-in checkers, the twelve reachable with no extra installed: `date`, `date-time`, `email`, `idn-email`, `idn-hostname`, `ipv4`, `ipv6`, `json-pointer`, `regex`, `relative-json-pointer`, `time`, `uuid`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Format checking is OPT-IN and silent when absent: a validator constructed without `format_checker` ignores every `format` keyword entirely, so a document declaring `"format": "date-time"` validates a malformed string without complaint. Passing the class's own `FORMAT_CHECKER` is the arming step.
@@ -117,9 +104,3 @@ Built-in checkers, the twelve reachable with no extra installed: `date`, `date-t
 - Each class's own `FORMAT_CHECKER` binds explicitly wherever a document declares `format`, and the branch states the twelve built-in checkers as its whole vocabulary rather than reading an unregistered format's `True` as conformance.
 - `registry` is the one resolution surface; `RefResolver` and the `resolver` slot are refused.
 - `referencing.Unresolvable` is caught by NAME beside `ValidationError` and `SchemaError`, since neither root reaches it, and `FormatError` likewise.
-
-[RAIL_LAW]:
-- Package: `jsonschema`
-- Owns: JSON Schema instance validation across six drafts, meta-schema checking, the keyword and type tables a custom validator extends, format-checker dispatch, and error relevance ranking
-- Accept: the six draft classes, `validator_for`, `iter_errors`/`check_schema`/`is_valid`, `create`/`extend`, `FormatChecker` with the class's own `FORMAT_CHECKER`, `TypeChecker`, `best_match`/`by_relevance`, the `registry` keyword
-- Reject: `RefResolver` and the `resolver` slot; `ErrorTree`; the module-level `draft*_format_checker` singletons; `jsonschema.__version__`; a per-payload `validate(instance, schema)`; an unregistered format read as conformance; `except ValidationError` standing in for `FormatError` or `Unresolvable`

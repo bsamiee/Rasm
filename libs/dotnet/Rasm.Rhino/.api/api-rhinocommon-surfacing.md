@@ -2,17 +2,7 @@
 
 This catalog owns the host-fidelity freeform surface and curve construction boundary: the `NurbsSurface` build set, the `Surface`/`RevSurface`/`SumSurface`/`PlaneSurface` generation family, and the `Curve` host-op family — offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit construction over `Curve` and `NurbsCurve`. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives the kernel-altitude host-neutral NURBS algebra owning evaluation, division, curvature, and tessellation, and routes intersection, iso/contour extraction, and native custody to their own catalogs. Native `bool`+`out` and nullable-or-array outcomes project onto the `LanguageExt` rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon surface-and-curve construction surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Geometry`
-- kernel: `Rasm` (host-neutral NURBS evaluation and numeric owners composed by altitude, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: surface-construction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: surface owners
 
@@ -58,7 +48,7 @@ This catalog owns the host-fidelity freeform surface and curve construction boun
 - `[PreserveEnd]`: `None` `Position` `Tangency` `Curvature`
 - `[RibbonOffsetSurfaceMethod]`: `None` `Sweep2` `Sweep2NetworkSrf`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: nurbs-surface build
 
@@ -219,7 +209,7 @@ Members dot off `Curve`.
 - `NurbsCurveFitParameters` is `ICloneable`, `IDisposable`; `RibbonOffsetParameters` carries all get/set.
 - `CurveBooleanRegions` reads: `RegionCount`/`PointCount`/`PlanarCurveCount -> int`, `RegionCurves(int) -> Curve[]`, `RegionPointIndex(int) -> int`, `BoundaryCount(int)`/`SegmentCount(int, int)`/`SegmentDetails(int, int, int, out Interval, out bool) -> int`, `PlanarCurve(int) -> Curve`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `NurbsSurface` construction returns `null` on failure and carries diagnostics through `out int error` for the network and curve-on-surface builds; `MakeCompatible` and `MatchToCurve` reparameterize to shared or matched structure, and analytic-primitive nurbs forms feed the loft and network builders a compatible representation.
@@ -235,9 +225,3 @@ Members dot off `Curve`.
 [LOCAL_ADMISSION]:
 - construction enters through the surface or curve op union: each arm binds its native member, projects the outcome onto the rail, and pairs parameter/distance or curve/brep parallel arrays into equal-cardinality rows before the native call; the caller-owned fillet output lists for `FilletSurfaceToRail` drain into detached brep records.
 - native `Surface`, `NurbsSurface`, `Curve`, and `NurbsCurve` values stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon` (`Rhino.Geometry` freeform surface and curve host-fidelity construction)
-- Owns: nurbs-surface network/rail-revolve/through-points/curve-on-surface/ruled build, the surface/rev/sum/plane generation set, and the curve offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit host ops.
-- Accept: native surface and curve outcomes projected onto `Fin`/`Option`/`Seq` rails, parameter/distance and source-index parallel arrays paired into rows, `out`-error and index maps folded into typed build facts.
-- Reject: re-deriving kernel-altitude NURBS evaluation and division, exception-style handling of null construction results, unpaired parallel-array inputs, and leaking host surface/curve types past the boundary.

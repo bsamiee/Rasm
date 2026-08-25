@@ -2,16 +2,7 @@
 
 `prosemirror-state` owns the editor value: one immutable `EditorState` carries the document, the selection, the stored marks, and every plugin's own field, and `state.apply(tr)` is the sole transition. `Transaction` extends `Transform` with selection, stored marks, and a metadata channel; `Plugin`/`PluginKey` mint the extension unit that contributes a state field, view props, and transaction filters as one value.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-state`
-- package: `prosemirror-state` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure value transitions — DOM-free at runtime, so a state applies and serializes on a server
-- depends: `prosemirror-model`, `prosemirror-transform`, and `prosemirror-view` for types alone — `PluginSpec.props` and `Command` name `EditorProps`/`EditorView`, closing a declaration cycle with the view package
-- rail: `view/content` — the editor value and its plugin protocol
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the plugin protocol — one value declaring a state field, view props, a view lifecycle, and transaction hooks.
 
@@ -35,7 +26,7 @@
 |  [02]   | `SelectionRange`    | class         | one `$from`/`$to` pair; a selection carries `ranges`           |
 |  [03]   | `SelectionBookmark` | interface     | `{map(mapping), resolve(doc)}` — document-free position memory |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the state value and its transitions.
 
@@ -93,7 +84,7 @@
 - `Selection.toJSON` emits `{type: "text", anchor, head}`, `{type: "node", anchor}`, or `{type: "all"}`; a new subclass registers its own `type` string with `Selection.jsonID` before any state serializes it.
 - `Selection.visible` defaults true and marks whether the browser draws the native selection; a custom selection drawing its own cursor sets it false.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - State is a persistent value, never a mutable object: `EditorState.create` builds the first one and `apply` returns a new one, so an old state stays valid, comparable, and replayable. Every editing operation is `state.tr`, a chain of transform steps, and one `apply`.
@@ -118,9 +109,3 @@
 - Shape every mutation as a `Command` — `(state, dispatch?, view?) => boolean` — with the query arm honoured, so a disabled control asks the same function that performs the edit.
 - Address the plugin metadata channel with a `PluginKey`, never a bare string.
 - Register a custom `Selection` subclass with `Selection.jsonID` before serializing any state that can hold it.
-
-[RAIL_LAW]:
-- Package: `prosemirror-state`
-- Owns: the immutable `EditorState` value with its `create`/`apply`/`reconfigure`/`toJSON` lifecycle; the `Plugin`/`PluginKey`/`PluginSpec`/`StateField` extension protocol with `filterTransaction` and `appendTransaction`; `Transaction` as `Transform` widened with selection, stored marks, the `setMeta` channel, time, and scroll intent; the `Selection` family — `TextSelection`, `NodeSelection`, `AllSelection`, `SelectionRange`, bookmarks, and the `jsonID` registry; and the `Command` alias the whole ecosystem types against
-- Accept: `EditorState.create({schema, plugins})` as the single boot, `state.tr` chained and dispatched once, plugin state as a `StateField` fold addressed by `PluginKey`, `tr.setMeta(key, value)` for plugin instructions, `Selection.near`/`TextSelection.create` for programmatic selection, and `EditorState.toJSON(pluginFields)` for persistence
-- Reject: a mutable editor-state object or module-level plugin storage, an editing path that bypasses `state.tr` and `apply`, a string metadata key where a `PluginKey` exists, a command that performs its edit when `dispatch` is absent, an unregistered custom `Selection` in serialized state, and a second plugin claiming an existing `PluginKey`

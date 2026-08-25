@@ -4,17 +4,7 @@
 
 Generated envelope messages share the simple name `CloudEvent` with the core envelope type, so every fence touching this surface qualifies both sides.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.Protobuf`
-- package: `CloudNative.CloudEvents.Protobuf` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.Protobuf`
-- namespace: `CloudNative.CloudEvents.Protobuf` (the formatter), `CloudNative.CloudEvents.V1` (the generated envelope, batch, and attribute-value messages beside their reflection descriptors)
-- asset: `net10.0` beside `net8.0` and `netstandard2.0`; the consumer binds `lib/net10.0` — pure-managed AnyCPU IL, no native asset
-- depends: `CloudNative.CloudEvents` (the envelope algebra, `api-cloudevents.md`), `Google.Protobuf` (the message runtime, `api-protobuf.md`)
-- rail: event format
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the formatter and the generated envelope messages
 
@@ -36,7 +26,7 @@ Generated envelope messages share the simple name `CloudEvent` with the core env
 - [06]-[ATTR_ONEOF]: `AttrOneofCase` closes on `CeBoolean`/`CeBytes`/`CeInteger`/`CeString`/`CeTimestamp`/`CeUri`/`CeUriRef`, one case per `CloudEventAttributeType` value space.
 - [02]-[GENERATED_MESSAGES]: generated messages carry the standard `Google.Protobuf` surface — `Parser`, `Descriptor`, `Clone`, `CalculateSize`, `WriteTo`, `MergeFrom`, and the `IMessage` implementation `MessageExtensions.ToByteArray` consumes.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ProtobufEventFormatter` codec and message crossings
 
@@ -53,7 +43,7 @@ Generated envelope messages share the simple name `CloudEvent` with the core env
 |  [09]   | `ConvertToProto(ce)`                                  | instance | `CloudEvent` → `V1.CloudEvent`                 |
 |  [10]   | `ConvertFromProto(V1.CloudEvent, exts)`               | instance | `V1.CloudEvent` → `CloudEvent`                 |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Structured mode carries three data shapes and no more: a `string` lands in `TextData`, a `byte[]` in `BinaryData`, and an `IMessage` in `ProtoData` packed as an `Any` under `TypeUrlPrefix` — except an `IMessage` that already IS an `Any`, which propagates directly so a decode-then-re-encode never double-wraps. Any other `Data` type raises `ArgumentException` at the encode.
@@ -72,9 +62,3 @@ Generated envelope messages share the simple name `CloudEvent` with the core env
 - One `static readonly ProtobufEventFormatter` per process is the codec identity every binding shares; a per-message or per-transport instance is the rejected form.
 - Every fence naming the generated envelope qualifies it as `CloudNative.CloudEvents.V1.CloudEvent`, because the simple name collides with the core envelope inside any file that binds both namespaces.
 - Message payloads ride structured mode; a binary-mode frame carries an explicit byte-array projection the producing leg made, never a raw `IMessage`.
-
-[RAIL_LAW]:
-- Package: `CloudNative.CloudEvents.Protobuf`
-- Owns: the CloudEvents Protobuf event format — the structured and batch codec over the generated envelope messages, the `Any` packing policy, and the two message-level conversion crossings
-- Accept: structured and batch framing through the shared formatter instance, `Data` as an `IMessage`, a `string`, or a byte array, `Any`-packed proto data under the default type-URL prefix, and the protected data hooks for a leg that owns its own message shape
-- Reject: a binary-mode frame over an `IMessage`, an unqualified `CloudEvent` mention in a file binding both namespaces, a per-message formatter instance, and a hand-built proto envelope beside the formatter that owns it

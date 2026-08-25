@@ -17,7 +17,7 @@ Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers
 - Boundary: pre-run canonical input owns node identity, and rendering never fingerprints a second byte stream. Layout supplies coordinates and routes; `hex_ramp` supplies color; SVG labels outline to paths, while `.drawio` labels remain editable source text. Typed refusal replaces every silent payload drop.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from enum import StrEnum

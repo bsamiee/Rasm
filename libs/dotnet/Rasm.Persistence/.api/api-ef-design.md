@@ -2,17 +2,7 @@
 
 `Microsoft.EntityFrameworkCore.Design` owns EF Core's design-time schema tooling — migration scaffolding, compiled-model generation, and idempotent SQL scripting — driven through the `OperationExecutor` reflection surface the `dotnet ef` CLI constructs. It enters as a private develop-and-build asset under `PrivateAssets=all`, never a runtime dependency. `Element/identity` consumes it to emit compiled models and generation scripts as reviewed artifacts; store-to-model reverse engineering is the inverted, rejected direction.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Design`
-- package: `Microsoft.EntityFrameworkCore.Design` (MIT)
-- assembly: `Microsoft.EntityFrameworkCore.Design` (`lib/net10.0`, single-TFM at the consumer floor)
-- namespace: `Microsoft.EntityFrameworkCore.Design`, `Microsoft.EntityFrameworkCore.Design.Internal`, `Microsoft.EntityFrameworkCore.Migrations.Design`, `Microsoft.EntityFrameworkCore.Scaffolding`, `Microsoft.EntityFrameworkCore.Scaffolding.Internal`
-- role: design-time/build-time tool asset (`PrivateAssets=all`)
-- abi: operation drivers ship `public` but `*.Internal`-namespaced and `[EntityFrameworkInternal]`, unstable across EF minors
-- rail: schema-tooling
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tool dispatch and operation drivers
 
@@ -57,7 +47,7 @@
 |  [08]   | `CSharpEntityTypeGeneratorBase`     | abstract class   | `Scaffolding.Internal`; reverse-engineer entity-type code       |
 |  [09]   | `MigrationsBundle`                  | static class     | `Migrations.Design`; `Execute(...)` self-contained migrator EXE |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: design-service registration and operation dispatch
 
@@ -93,7 +83,7 @@ Every row is a `MigrationsOperations` instance operation. `ScriptMigration` idem
 |  [03]   | `GetContextInfo(contextType)` / `CreateContext(contextType)`         | instance | context metadata / a live design-time `DbContext` |
 |  [04]   | `MigrationsBundle.Execute(context, assembly, startupAssembly, args)` | static   | the `efbundle` self-contained migrator `Main`     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every design-time op emits a reviewed artifact — a migration, compiled model, or idempotent SQL script — from the model as the single source of truth; store-to-model reverse engineering inverts the flow and is the named defect. Generation is provider-aware (one model emits per-provider SQL) and vocabulary-neutral.
@@ -109,9 +99,3 @@ Every row is a `MigrationsOperations` instance operation. `ScriptMigration` idem
 - Admit `DbContextOperations.Optimize` alone as a consumed lane; every migration-named member above is publisher surface this catalog records and no estate fence binds.
 - Admit in-process driving of the `*.Internal` `[EntityFrameworkInternal]` drivers only with the EF minor pinned to the consumed version; the `dotnet ef` CLI / `OperationExecutor` reflection surface and the `MigrationsBundle.Execute` EXE are the stable, version-tolerant path.
 - Admit reverse engineering as an implementation aid only, never a published store contract; scaffolding output is reviewed as generated shape before it enters source.
-
-[RAIL_LAW]:
-- Package: `Microsoft.EntityFrameworkCore.Design`
-- Owns: EF design-time schema tooling — migration scaffolding, compiled-model (`Optimize`) generation, idempotent SQL scripting, and migration bundling
-- Accept: a `PrivateAssets=all` tool asset; emission through `OperationExecutor`/CLI, `MigrationsOperations`/`DbContextOperations`, `ScriptMigration`, `Optimize`, `MigrationsBundle`, and `MigrationsCodeGeneratorSelector`
-- Reject: a runtime dependency on the design assembly, DB-first reverse engineering as the store contract, hand-authored migration code, or unpinned in-process use of the `[EntityFrameworkInternal]` drivers

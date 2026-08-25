@@ -2,18 +2,7 @@
 
 `StructuralAnalysisFormat` owns the SAF XLSX exchange codec — the buildingSMART/IDEA StatiCa schema (`saf.guide`) round-tripping a structural-analysis model between tools. It is the exchange wire over the `Exchange/saf#SAF_EXCHANGE` seam payloads, never the canonical model: the seam `ElementGraph` holds the in-memory authority, `ExcelModel` folds those payloads to and from `.xlsx`. Every dimensioned field is a `UnitsNet` quantity struct, so the SAF object model is quantity-isomorphic to `VividOrange.Loads`, its combination enums the image of the `VividOrange.Cases` factory set.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `StructuralAnalysisFormat`
-- package: `StructuralAnalysisFormat` (Apache-2.0)
-- assembly: `SAF.DataAccess.Contracts` (services), `SAF.DataAccess.Models` (object model), `SAF.DataAccess.Excel` (XLSX wrapper), `SAF.DataAccess.Implementation` (service impls), `SAF.DataAccess.Validation` (FluentValidation rules), `SAF.Infrastructure` (events/config/bootstrap); `ref/` ships `Contracts`/`Models`/`Infrastructure` as the compile surface
-- namespace: `SAF.DataAccess.Contracts`; `SAF.DataAccess.Models` (+ `.StructuralElements`, `.Loads`, `.Libraries`, `.Results`, `.Subtypes`, `.Enums`, `.Interfaces`, `.Infrastructure`, `.Extensions`); `SAF.DataAccess.Excel`; `SAF.DataAccess.Validation`; `SAF.Infrastructure`
-- asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0`, single TFM with no resolution ambiguity
-- asset: pure-managed IL, no native binaries, ALC-safe inside the in-Rhino plugin assembly
-- depends: `EPPlus` (XLSX engine), `FluentValidation` (validation engine), `UnitsNet` (quantity payload — its structs are the SAF field types)
-- rail: saf-exchange
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec services (`SAF.DataAccess.Contracts`)
 
@@ -25,17 +14,17 @@
 
 [PUBLIC_TYPE_SCOPE]: model root, base contracts, and results (`SAF.DataAccess.Models`)
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]             | [CAPABILITY]                                                      |
-| :-----: | :------------------------- | :------------------------ | :---------------------------------------------------------------- |
-|  [01]   | `ExcelModel`               | model root (`sealed`)     | `Objects`, `ValidationErrors`, `SystemOfUnits`, `OriginalVersion` |
-|  [02]   | `IExcelModuleObject`       | wire-row base             | `RowNumber`, `ObjectGrouping`, `ObjectName`, `ObjectIdentifier`   |
-|  [03]   | `IExcelObject`             | identified object         | `: IExcelHasUniqueName, IExcelModuleObject` + `Guid Id`           |
-|  [04]   | `ExcelObjectBase`          | object base (`abstract`)  | `Name`, `Guid Id`, overridden `ObjectIdentifier`                  |
-|  [05]   | `ExcelExportResult`        | export result (`sealed`)  | `IsSuccess`, `ExcelModel Model`, `ValidationResults`              |
-|  [06]   | `ExcelValidationResult`    | validation result         | `Identifier`, `ValidationResults`, `Severity`, `Format(...)`      |
-|  [07]   | `ExcelModelInformation`    | header row                | `: ExcelObjectBase`; `NationalCode`, `SystemOfUnits`, provenance  |
-|  [08]   | `ExcelProjectInformation`  | header row                | project metadata object                                           |
-|  [09]   | `Interfaces.IExcelHas*<T>` | capability markers        | quantity-parameterized object traits                              |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]            | [CAPABILITY]                                                      |
+| :-----: | :------------------------- | :----------------------- | :---------------------------------------------------------------- |
+|  [01]   | `ExcelModel`               | model root (`sealed`)    | `Objects`, `ValidationErrors`, `SystemOfUnits`, `OriginalVersion` |
+|  [02]   | `IExcelModuleObject`       | wire-row base            | `RowNumber`, `ObjectGrouping`, `ObjectName`, `ObjectIdentifier`   |
+|  [03]   | `IExcelObject`             | identified object        | `: IExcelHasUniqueName, IExcelModuleObject` + `Guid Id`           |
+|  [04]   | `ExcelObjectBase`          | object base (`abstract`) | `Name`, `Guid Id`, overridden `ObjectIdentifier`                  |
+|  [05]   | `ExcelExportResult`        | export result (`sealed`) | `IsSuccess`, `ExcelModel Model`, `ValidationResults`              |
+|  [06]   | `ExcelValidationResult`    | validation result        | `Identifier`, `ValidationResults`, `Severity`, `Format(...)`      |
+|  [07]   | `ExcelModelInformation`    | header row               | `: ExcelObjectBase`; `NationalCode`, `SystemOfUnits`, provenance  |
+|  [08]   | `ExcelProjectInformation`  | header row               | project metadata object                                           |
+|  [09]   | `Interfaces.IExcelHas*<T>` | capability markers       | quantity-parameterized object traits                              |
 
 - [09]-[MARKERS]: `IExcelHasNodeCoordinates` (non-generic), `IExcelHasTranslationConstraints<T>`, `IExcelHasRotationConstraints<T>`, `IExcelHasLoadDirectionVector<T>` (+ `…Vectors<T>`); e.g. `ExcelStructuralPointAction: …, IExcelHasLoadDirectionVector<Force>`.
 
@@ -127,7 +116,7 @@
 - [06]-[COMBINATION_STANDARD]: `EnUlsSetB`/`EnUlsSetC`/`EnAccidental1`/`2`/`EnSeismic`/`EnSlsCharacteristic`/`EnSlsFrequent`/`EnSlsQuasiPermanent`/`Ibc*`.
 - [09]-[CONSTRAINT_KINDS]: `Free`/`Rigid`/`Flexible` and the directional/non-linear tail `CompressionOnly`/`TensionOnly`/`NonLinear`/`FlexibleCompressionOnly`/`FlexibleTensionOnly` — the tail is what the IFC authoring leg LINEARIZES counted into the residue, no GG select carrying it.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: XLSX codec
 
@@ -156,7 +145,7 @@
 - `ExcelModel.OriginalVersion` is `get; set;` and the ctor never assigns it — the IMPORT service alone stamps the source workbook's version, so a graph-authored export model holds `null` there and its caller coalesces onto the target version (the `Exchange/saf#SAF_EXCHANGE` `Saf` export leg's stated law).
 - Position/span cells cross as bare `object` (`PositionX`, `StartPoint`/`EndPoint`, `DeltaX`) — a boxed `double`, not a quantity struct — so a consumer writes the scalar and reads it back with an `as double?` pattern, never a `Length` mint.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - codec services: `IExcelImportService` (XLSX → `ExcelModel`), `IExcelExportService` (`ExcelModel` → XLSX → `ExcelExportResult`), `IExcelValidator` (`ValidateForImport`/`ValidateForExport`); the SAF SDK resolves these through its `SAF.Infrastructure.Bootstrapping.IBootstrapper` container, the `SAF.DataAccess.Implementation`/`.Excel` impls are wiring, and the object configurator/configuration pair, the enum↔string mappers, the worksheet reader/writer, and the document reader/writer beneath them are INTERNAL codec plumbing — the three service contracts are the whole public reach
@@ -179,9 +168,3 @@
 - `ExcelConstraintType` maps onto the one row per degree of freedom whose `PropertyValue` case carries fixity or spring, never a parallel stiffness roster beside the fixity row
 - SAF read/write throws remain exact exceptional errors through `Op.Catch`; unmapped object types and error-severity validation verdicts mint `BimFault.Refused` under the model codec/rejected axes
 - `ExcelModel.SystemOfUnits` (`Metric`/`Imperial`) and `OriginalVersion` are decode context — every SAF quantity crosses as its own typed SI accessor read, never a `ToUnit` coercion, so the seam graph is unit-normalized regardless of the workbook regime
-
-[RAIL_LAW]:
-- Package: `StructuralAnalysisFormat`
-- Owns: the SAF XLSX structural-analysis exchange codec and the SAF object model (`netstandard2.0`, Apache-2.0)
-- Accept: SAF as the exchange wire over the `Model/structural` seam payloads; the flat `ExcelModel.Objects` bag folded by concrete type; quantities minted from and read back as SI through the typed accessors; export outcomes read off `ExcelExportResult`
-- Reject: SAF as a canonical structural model (the authority is the seam `ElementGraph`), a per-element-type SAF collection mirror, a quantity round-trip that reinterprets a scalar instead of mapping the `UnitsNet` unit, and exception-driven codec control flow

@@ -1,6 +1,5 @@
 # [TYPESCRIPT_BRANCH]
 
-
 One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under `tests/`, never the branch.
 
 ## [01]-[ROUTER]

@@ -4,15 +4,7 @@
 
 Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColorObject`, then fan to the `tailwindcss` `@theme --color-*` plane via `serialize` and the `three` render space via `to("srgb"/"srgb-linear")` — one artifact for CSS and render.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `colorjs.io`
-- package: `colorjs.io` (MIT)
-- module: ESM; subpath exports `.` (`Color` class + types), `./fn` (tree-shakeable functions, `ColorSpace`/`hooks`/`spaces`), `./spaces` (space-registration roster)
-- runtime: universal — no DOM/React coupling; build, render, worker, and the theme atom alike
-- rail: token/color — OKLCH authoring, named-space conversion, gamut fit, and the `contrast`/`deltaE` a11y gates
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the color value algebra — the shapes a `Schema` boundary and design fence type against.
 
@@ -36,7 +28,7 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 [ALGORITHMS]: `WCAG21` `APCA` `Michelson` `Weber` `Lstar` `DeltaPhi`
 [METHODS]: `76` `CMC` `2000` `Jz` `ITP` `OK` `OK2` `HCT` `Helmlab`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one parameterized call per concern discriminating on argument value; the free function, the `Color` instance method, and the `Color` static are three surfaces over one operation.
 
@@ -72,7 +64,7 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 [HELMHOLTZ]: `Helmlab` `HelmGen` `HelmGenLCh`
 [APPEARANCE]: `CAM16_JMh` `HCT`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One input union, one conversion rail: every operation accepts `ColorTypes` and converts through named spaces via `to(space)`; per-space accessors (`color.oklch.l`) and per-method functions are conveniences over the parameterized entries.
@@ -94,9 +86,3 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 - Color algebra only: token vocabulary and CSS-variable emission live in `token/theme`/`token/scale`, the render-space handoff is `to("srgb"/"srgb-linear")` → `three` in `scope:viewer`, the decode boundary is `effect` `Schema`, and state is `@effect-atom`.
 - Register the space subset a bundle needs via `./fn` + `ColorSpace.register` — the CSS plane binds `OKLCH`/`OKLab`/`sRGB`/`P3`, the `scope:viewer` bundle adds `sRGB_Linear` + `CAM16_JMh`/`HCT`; pull the full `Color` class only in authoring code.
 - One `to(space)`/`contrast(…algorithm)`/`deltaE(…method)`/`serialize(…format)` call per concern; a new space, algorithm, or method is a registry row or argument value, never a new operation family.
-
-[RAIL_LAW]:
-- Package: `colorjs.io`
-- Owns: CSS Color 4 parse/serialize, named-space conversion, perceptual interpolation (`range`/`mix`/`steps`), gamut mapping (`toGamut`/`toGamutCSS`/`toGamutRayTrace`), max-in-gamut chroma (`maxChroma`, gamut-relative spaces), the parameterized `contrast`/`deltaE` rails, luminance/chromaticity, and the `ColorSpace`/`hooks`/`defineFunction` extension surface.
-- Accept: `./fn` + explicit `ColorSpace.register` for shipped bundles, OKLCH/OKLab authoring, `Schema.transform`(`parse`/`serialize`) + `Color.try` as the token boundary, `steps`/`range` palette ramps, `contrast*`/`deltaE*` a11y and distance gates, `serialize`/`display` for `@theme --color-*` emission, `to("srgb"/"srgb-linear")` → `coords` for the three render handoff.
-- Reject: hand-rolled hex/HSL or WCAG ratio math, a per-space `toRgb`/`toHsl` family instead of `to(space)`, hand-listed palette stops instead of `steps`/`range`, re-minting the OKLCH gamut map instead of `toGamutCSS`, hand-converting OKLCH→RGB for three instead of the id-matched `to("srgb"/"srgb-linear")`, importing the full `Color` class where `./fn` suffices, treating parse/serialize as async.

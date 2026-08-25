@@ -2,16 +2,7 @@
 
 `opentelemetry-resource-detector-containerid` reads the host `container.id` into an OpenTelemetry `Resource`: one `ResourceDetector` returning the cgroup container id on a container host and an empty resource everywhere else, composed as one entry in the runtime `get_aggregated_resources` detector list ahead of the env detector on the observability rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-resource-detector-containerid`
-- package: `opentelemetry-resource-detector-containerid` (Apache-2.0)
-- module: `opentelemetry.resource.detector.containerid`
-- namespaces: `opentelemetry.resource.detector.containerid`
-- abi: runtime library
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: resource detector
 
@@ -19,7 +10,7 @@
 | :-----: | :-------------------------- | :------------ | :------------------------------------------------- |
 |  [01]   | `ContainerResourceDetector` | detector      | cgroup v1/v2 `container.id` read into a `Resource` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: detector construction and registration
 
@@ -31,7 +22,7 @@
 
 - `ContainerResourceDetector.detect`: a broad-except guard logs a warning and returns `Resource.get_empty()` on a read failure, re-raising only when `raise_on_error` is set.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `detect()` reads cgroup v1 `/proc/self/cgroup`, falls to cgroup v2 `/proc/self/mountinfo` on a v1 miss, and merges the first 64-hex container id onto `Resource.get_empty()` under `ResourceAttributes.CONTAINER_ID`; a non-container host misses both readers and returns `Resource.get_empty()`.
@@ -44,9 +35,3 @@
 
 [LOCAL_ADMISSION]:
 - construct once at the runtime composition root as a `get_aggregated_resources` entry ahead of the env detector; container hosts gain `container.id`, dev hosts no-op.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-resource-detector-containerid`
-- Owns: the `container.id` resource attribute read from cgroup v1/v2 on a container host
-- Accept: one detector-list entry ahead of the env detector in `get_aggregated_resources`
-- Reject: a detector position after the env detector, a hand-rolled cgroup read beside it

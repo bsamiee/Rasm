@@ -2,15 +2,7 @@
 
 `RhinoCommon` owns the host-fidelity mesh and SubD construction boundary: the `MeshingParameters`-driven mesher, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the `MeshExtruder`, and the `SubD` object model. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands, standing above the host-neutral `Rasm` remesh, decimate, and subdivision kernel it never re-derives and projecting native outcomes onto the `LanguageExt` rails.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon mesh and SubD construction surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespace: `Rhino.Geometry`, `Rhino.Geometry.Collections`
-- rail: mesh-construction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: construction owners
 
@@ -59,7 +51,7 @@
 - `SubDCreationOptions.TextureCoordinateOption` — `Unset` `None` `Automatic` `Packed` `CopyMapping` `CopyCoordinates`.
 - `SubDToBrepOptions.ExtraordinaryVertexProcessOption` — `None` `LocalG1` `LocalG2` `LocalG1x` `LocalG1xx`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [MESH_FROM_SURFACE]: `Mesh` static mesher over breps, surfaces, subds.
 
@@ -327,7 +319,7 @@
 [SUBD_CREATION_KNOBS]: `InteriorCreaseTest` `ConvexCornerTest` `ConcaveCornerTest` `TextureCoordinateTest` `MaximumConvexCornerEdgeCount` `MaximumConvexCornerAngleRadians` `MinimumConcaveCornerAngleRadians` `MinimumConcaveCornerEdgeCount` `InterpolateMeshVertices`
 [SUBD_TOBREP_KNOBS]: `PackFaces` `ExtraordinaryVertexProcess`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Mesh` construction returns `null` for a single result or `null`/empty for an array on failure; booleans carry the terminal `Result` and a `int[][]` result-to-input map, quad-remesh and convex-hull emit their own index maps, and offset reports the created wall faces, so every native side-channel folds into a typed build fact rather than being discarded.
@@ -343,9 +335,3 @@
 [LOCAL_ADMISSION]:
 - Construction enters through the mesh or subd op union: each arm binds its native member, projects the outcome and any index-map or `Result` side-channel onto the rail, and disposes the `MeshExtruder` solver through a using scope or lease; `SubDSurfaceInterpolator` never mints on this rail (detached-unreachable, see the interpolation row).
 - Native `Mesh`, `SubD`, component lists, and configuration carriers stay inside the construction grant; downstream code receives content-hash-keyed duplicated geometry, the typed mesh or subd build facts, or an owned geometry lease, and the component-list reads project into detached topology records before crossing the boundary.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: parameter-driven meshing from surfaces and primitives, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the threshold-free `Mesh.Check` verdict, the mesh extruder, and the SubD create/subdivide/offset/to-brep/interpolate object model.
-- Accept: native mesh and subd outcomes projected onto `Fin`/`Option`/`Seq` rails, boolean `Result` and `int[][]` index maps folded into typed build facts, every `TextLog` out-channel detached as a text fact before its bracket closes, async quad-remesh on the effect rail, and disposable solvers leased.
-- Reject: re-deriving kernel-altitude remesh and decimation, exception-style handling of null construction results, discarding the boolean and hull index-map side-channels, passing `null` where a member accepts a `TextLog`, threading a reduce that carries live cancellation or progress, and leaking host mesh/subd/collection types past the boundary.

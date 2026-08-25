@@ -19,7 +19,7 @@ Worker imports sit at the top of the acyclic scene graph: this module composes `
 - Boundary: named provider faults, a failed `PackageOp`, an unsupported round-trip target, an empty output, and `ZipError` converge on `ExportError` inside the export folds; an unexpected exception remains a defect and propagates.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -359,6 +359,5 @@ if (_COVERAGE := covered(WORKER_MODULE, _KERNELS)).is_error():
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
-
 
 (none)

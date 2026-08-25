@@ -22,7 +22,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Probe`, `Op.Catch`, `Cell.Claim`, `Transition`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/dictionary` (`ArchiveValue`, `ArchiveValue.Of`/`Project`/`Enum`/`EnumMint`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TYPED_READ]`/`[SETTINGS_TYPED_WRITE]`/`[SETTINGS_DEFAULTS]` — the sixteen `TryGet*`/`Set*` pairs with their `legacyKeyList` siblings, `SetDefault`/`TryGetDefault`, `SetEnumValue<T>`/`TryGetEnumValue<T>`, `TryGetSettingType`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Drawing;
 using System.Reflection;
 using Rasm.Domain;
@@ -357,7 +357,7 @@ public sealed partial class SettingKind {
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/events` (`PluginKey`); `Persistence/dictionary` (`ArchiveValue`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `Keys`, `ChildKeys`, `HiddenFromUserInterface`, `GetSettingType`, `GetSettingIsReadOnly`, `GetSettingIsHiddenFromUserInterface`, `StringListRootKey`, `PersistentSettingsSavedEventArgs`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -569,7 +569,7 @@ public abstract partial record SettingAnswer {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Probe`, `Op.Catch`, `Op.Side`, `Op.AcceptValidated`, `Cell.Claim`, `Cell.Step`, `Transition`, `KernelFault.InvalidValue`), `Numerics/atoms` (`Dimension`); `Document/lifetime` (`Subscription`), `Document/events` (`PluginKey`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_TYPED_READ]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `TryGetChild`, `AddChild`, `DeleteChild`, `GetChild`, `DeleteItem`, `GetInteger` clamp overloads, `HideSettingFromUserInterface`, `RegisterSettingsValidator<T>`, `ContainsChangedValues`, `ClearChangedFlag`, `ContainsModifiedValues`, `PersistentSettingsEventArgs<T>`), RhinoCommon plug-ins (`api-rhinocommon-plugins.md` — `PlugIn.SettingsSaved`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Reflection;
 using Rasm.Domain;

@@ -2,16 +2,7 @@
 
 `paho-mqtt` is the Eclipse MQTT client covering `MQTTv31`, `MQTTv311`, and `MQTTv5` over TCP, WebSockets, and Unix sockets. It carries no coroutine surface at all: the client is a synchronous state machine driven either by its own daemon thread (`loop_start`) or, socket-first, by a foreign event loop through `socket()`/`want_write()` and the `loop_read`/`loop_write`/`loop_misc` triple paired with the `on_socket_*` registration callbacks. `MQTTv5` User Properties ride `Properties.UserProperty` as an append-on-repeat list of UTF-8 string pairs, which is the unprefixed carrier the CloudEvents MQTT binding lowers attributes onto. Reason codes, subscribe options, packet types, and the property table are each their own module, so the wire vocabulary is data rather than integers at a call site.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `paho-mqtt`
-- package: `paho-mqtt` (EPL-2.0 / EDL-1.0)
-- module: `paho.mqtt`
-- namespaces: `paho.mqtt.{client,enums,properties,reasoncodes,packettypes,subscribeoptions,matcher,publish,subscribe}`
-- target: pure-Python wheel, no native asset; `py.typed` with inline annotations and no stub files
-- rail: broker-transport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CLIENT_SCOPE]: `paho.mqtt.client`
 
@@ -71,7 +62,7 @@
 
 Each callback also has a decorator factory on the instance — `connect_callback()`, `message_callback()`, and the eleven siblings — and `message_callback_add(sub, callback)` installs a per-filter handler that bypasses `on_message` entirely.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 
@@ -135,7 +126,7 @@ Each callback also has a decorator factory on the instance — `connect_callback
 |  [06]   | `props.pack()` / `props.unpack(buffer)`           | instance | wire round trip                                      |
 |  [07]   | `getIdentFromName(name)` / `getNameFromIdent(id)` | instance | the identifier/name bridge                           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - There is no coroutine surface — the package contains no `async def`, no `await`, and no `asyncio` import anywhere. Two integration shapes exist and only the second keeps a cancel scope honest: `loop_start()` runs the machine on a daemon thread named `paho-mqtt-client-<id>` and fires every callback there, while `socket()` with `loop_read`/`loop_write`/`loop_misc` under the `on_socket_open`/`on_socket_close`/`on_socket_register_write`/`on_socket_unregister_write` registration pair drives the same machine from a foreign loop with no thread at all. `loop_write` calls the register/unregister pair inside its own `finally`, so the write-readiness state machine is driven for the caller.
@@ -172,9 +163,3 @@ Each callback also has a decorator factory on the instance — `connect_callback
 - Every publish READS the answered `MQTTMessageInfo.rc`, because the shed is that value alone and both its causes — a full queue and a message-id collision — return normally.
 - `reconnect_on_failure` and `reconnect_delay_set` state their values at construction. `reliability/resilience#RESILIENCE` holds every schedule the branch runs and `RetryClass.BROKER` routes its re-offer through a RESTART, so an inherited reconnect curve underneath that route makes effective attempts the product of two schedules.
 - `MQTTv5` carries the admitted content mode, so its CONNACK path reaches neither silent respelling; a composition falling back to `MQTTv311` binds a non-empty client id and refuses `reconnect_on_failure`, since a downgraded protocol version and a minted session identity each change what a durable subscription resumes.
-
-[RAIL_LAW]:
-- Package: `paho-mqtt`
-- Owns: the MQTT protocol state machine, its 5.0 property vocabulary, reason codes, subscribe options, and topic-filter matching
-- Accept: `Client` under `CallbackAPIVersion.VERSION2`, the socket-first loop triple, `Properties` scoped to a `PacketTypes` member, `ReasonCode`, `SubscribeOptions`
-- Reject: an unbounded outbound queue; a publish whose `MQTTMessageInfo.rc` nothing reads; an inherited reconnect curve beside the `RetryClass` owner; an empty client id on an `MQTTv311` session; `reinitialise`; `CallbackAPIVersion.VERSION1`; the plural `ReasonCodes` alias; a bare integer where a `ReasonCode` or `PacketTypes` member states the value; `suppress_exceptions = True`

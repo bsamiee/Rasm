@@ -15,7 +15,7 @@
 - Growth: a new column is one append-only corpus field and one transcription member; a new seated union case also updates the owning parity census.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;

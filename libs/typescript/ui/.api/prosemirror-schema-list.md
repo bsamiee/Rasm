@@ -2,16 +2,7 @@
 
 `prosemirror-schema-list` owns list structure on both halves: three `NodeSpec` rows and `addListNodes` fold ordered lists, bullet lists, and list items into a schema's node map, and six command factories carry the wrap, split, lift, and sink verbs that structure needs. Those commands assume the item content shape `addListNodes` documents, so schema and behaviour ship as one admission.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `prosemirror-schema-list`
-- package: `prosemirror-schema-list` (MIT)
-- module: `type: module`, `sideEffects: false`, one `.` entry with dual `import`/`require` conditions and bundled `.d.ts`/`.d.cts`
-- runtime: pure data and state functions — spec rows and commands, no DOM beyond the specs' own `toDOM`/`parseDOM`
-- depends: `prosemirror-model`, `prosemirror-transform`, `prosemirror-state`, and `orderedmap` for the node map `addListNodes` folds
-- rail: `view/content` — the list half of a document schema and its structural verbs
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: this package exports no type of its own; the specs are `NodeSpec` values and the commands the `Command` alias, both declared upstream.
 
@@ -20,7 +11,7 @@
 |  [01]   | `NodeSpec` | interface     | the row shape the three exported specs satisfy                 |
 |  [02]   | `Command`  | type alias    | `(state, dispatch?, view?) => boolean`, shared with every verb |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the schema half — three spec rows and the fold that seats them.
 
@@ -49,7 +40,7 @@
 - `wrapRangeInList` returns a boolean and writes onto the transaction it is given, which is the seam for composing list wrapping inside a larger command.
 - Every factory takes the `NodeType` from the caller's own schema, so a document class with renamed list nodes binds the same verbs.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - List structure is schema data: the three specs are ordinary `NodeSpec` rows and `addListNodes(nodes, itemContent, listGroup)` folds them into the `OrderedMap` a `SchemaSpec.nodes` accepts. Nesting, item content, and group membership are all decided by `itemContent` and `listGroup`, not by the commands.
@@ -71,9 +62,3 @@
 - Bind the verbs against the schema's own `NodeType` values and chain them ahead of the base commands rather than reimplementing split, lift, or sink.
 - Compose list wrapping inside a larger command with `wrapRangeInList(tr, range, type, attrs)` instead of dispatching a nested command.
 - Land a second list family as another bound instance of these factories over its own node types.
-
-[RAIL_LAW]:
-- Package: `prosemirror-schema-list`
-- Owns: the list half of a document schema and its structure — the `orderedList`, `bulletList`, and `listItem` spec rows, the `addListNodes(nodes, itemContent, listGroup)` fold that seats them, and the verb factories `wrapInList`, `wrapRangeInList`, `splitListItem`, `splitListItemKeepMarks`, `liftListItem`, and `sinkListItem`
-- Accept: `addListNodes` folded into the schema build with declared `itemContent` and `listGroup`, verbs bound against the resulting `NodeType` values, `chainCommands` placing list verbs ahead of the base ones, `wrapRangeInList` for composition inside a larger transaction, `wrappingInputRule` autoformats over the same types, and a second list family bound from the same factories
-- Reject: hand-written list node specs or list-structure commands beside these, an `itemContent` shape the verbs cannot serve, a nested command dispatch where `wrapRangeInList` composes, and a hardcoded `"bullet_list"` string where the caller's `NodeType` is the parameter

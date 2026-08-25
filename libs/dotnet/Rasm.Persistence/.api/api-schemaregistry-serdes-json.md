@@ -2,16 +2,7 @@
 
 `Confluent.SchemaRegistry.Serdes.Json` mints the registry-governed JSON-Schema data-plane codec: `JsonSerializer<T>` and `JsonDeserializer<T>` (both `where T : class`, both over the shared `AsyncSerializer<T, JsonSchema>`/`AsyncDeserializer<T, JsonSchema>` base) frame each payload with a Confluent schema id and validate the document against the registered `NJsonSchema.JsonSchema` on write and read. Its `Newtonsoft.Json` document codec encodes the `Version/egress` payload body the `CloudNative.CloudEvents.SystemTextJson` message-envelope formatter never touches.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Json`
-- package: `Confluent.SchemaRegistry.Serdes.Json` (Apache-2.0)
-- assembly: `Confluent.SchemaRegistry.Serdes.Json`
-- namespace: `Confluent.SchemaRegistry.Serdes`
-- managed: pure-managed AnyCPU, no native asset
-- rail: cdc-egress (JSON Schema)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: serde family
 
@@ -23,7 +14,7 @@
 |  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version/validate/id-strategy knobs        |
 |  [05]   | `JsonSchemaResolver`     | reference resolver  | `GetResolvedSchema()` folds `$ref` rows into one |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 - [SHAPE]: ctor
@@ -66,7 +57,7 @@ Every ctor takes an optional `jsonSchemaGeneratorSettings` the table omits.
 |  [11]   | `SchemaIdStrategy` (`SchemaIdDeserializerStrategy?`)   | deserializer | `Prefix` vs `Dual` id reading             |
 |  [12]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both         | pin the version whose `Metadata` matches  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `JsonSerializer<T> : AsyncSerializer<T, JsonSchema>` and `JsonDeserializer<T> : AsyncDeserializer<T, JsonSchema>`, parsed-schema type `NJsonSchema.JsonSchema`; the shared base owns `autoRegisterSchema`, `normalizeSchemas`, the `ISchemaIdEncoder` (default `PrefixSchemaIdEncoder`), and `initialBufferSize`, while this serde supplies JSON-Schema generation, document validation, and the JSON read/write.
@@ -83,9 +74,3 @@ Every ctor takes an optional `jsonSchemaGeneratorSettings` the table omits.
 - `T` is the op-event projection record (a `class`); its generated `JsonSchema` registers out-of-band, so the serde never auto-evolves the contract. Production sets `AutoRegisterSchemas = false` and `Validate = true` under a `Backward`/`FullTransitive` `Compatibility` level, rejecting an invalid or incompatible document at the codec, with `LatestCompatibilityStrict = true` guarding against a stale schema.
 - Field-level encryption rides the shared `RuleRegistry`: a `RuleMode.WriteRead` domain rule encrypts the JSON string fields the schema `Metadata` marks sensitive, validated first under `ValidateBeforeDomainRules = true`.
 - Topics whose consumers want self-describing JSON under registry-enforced schema select this serde over the Avro and Protobuf legs.
-
-[RAIL_LAW]:
-- Package: `Confluent.SchemaRegistry.Serdes.Json`
-- Owns: registry-governed JSON-Schema encode/decode on the Kafka value/key slot — `NJsonSchema` generation/registration, server-side `Validate`, `SubjectNameStrategy` derivation, and rule-engine field transforms ordered around validation.
-- Accept: a build-time `JsonSerializer<T>`/`JsonDeserializer<T>` over a `class` `T` on the shared `ISchemaRegistryClient`, `AutoRegisterSchemas = false` with out-of-band governed registration, `Validate = true` with `ValidateBeforeDomainRules` under CSFLE, and CSFLE through the shared `RuleRegistry`.
-- Reject: a per-message serde instance, `AutoRegisterSchemas` on the durable changefeed producer, `Validate = false` on an external-integration topic, configuring the serde as System.Text.Json, and conflating this body codec with the `CloudNative.CloudEvents.SystemTextJson` message-envelope formatter.

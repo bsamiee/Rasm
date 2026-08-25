@@ -2,16 +2,7 @@
 
 `ifcpatch` owns named-recipe IFC model transformation over the `ifcopenshell` model: `execute(args)` routes an `ArgumentsDict` by its `recipe` key into the `recipes` namespace where each recipe is a `BasePatcher` subclass running `patch()` -> `get_output()`, and one polymorphic `write` serializes the recipe-determined output — a patched `ifcopenshell.file` or a non-IFC `str`/path. It feeds the geometry ifc-analysis transformation rail, so the lifecycle owner composes `ifcpatch.execute(...)`/`write(...)` rather than an ad-hoc `file.create_entity`/`add`/`remove` mutation loop.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifcpatch`
-- package: `ifcpatch` (LGPL-3.0-or-later)
-- import: `import ifcpatch`
-- owner: `geometry`
-- rail: ifc-analysis / model-transformation
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: patch arguments, recipe base, and doc-introspection metadata
 
@@ -29,7 +20,7 @@
 
 [RECIPES_ALIGNMENT]: `AddGeometricRepresentationToAlignment` `AddZeroLengthSegmentToAlignment` `AddLinearPlacementFallbackPosition` `PatchStationReferentPosition`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: recipe execution, output serialization, and doc introspection
 
@@ -41,7 +32,7 @@
 |  [04]   | `parse_docstring(docstring) -> DocstringData`                       | static  | parse a recipe docstring into structured metadata |
 |  [05]   | `ensure_logger(logger) -> logging.Logger`                           | static  | resolve the `BasePatcher` logging target          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - recipe axis: `execute(args)` reads `args["recipe"]`, imports `ifcpatch.recipes.<recipe>`, constructs its `BasePatcher` subclass with `args["file"]` and the resolved logger, runs `patch()`, and returns `get_output()`; the recipe is a closed name vocabulary over `recipes`, never a per-transformation execute-function family, so a new transformation is one recipe module.
@@ -56,9 +47,3 @@
 
 [LOCAL_ADMISSION]:
 - Geometry's ifc-analysis transformation owner composes `ifcpatch.execute`/`write` directly; model modification never re-derives against an ad-hoc `create_entity`/`add`/`remove` loop, and the columnar SQL/CSV product write defers to the data boundary.
-
-[RAIL_LAW]:
-- Package: `ifcpatch`
-- Owns: named-recipe IFC model transformation over an `ifcopenshell.file` — one `execute` dispatch across the `recipes` namespace and one polymorphic `write`, each recipe a `BasePatcher` subclass
-- Accept: an `ArgumentsDict` carrying a `recipe` name, the target `file`, and recipe-specific `arguments`, feeding the ifc-analysis transformation owner
-- Reject: a hand-rolled `create_entity`/`add`/`remove` mutation loop where a recipe owns the transformation; a per-recipe execute-function family over the `recipe` name; a single-dotted `extract_docs(recipe)` call where the arity is `(submodule_name, cls_name)`; a throwaway temp-file sink where the non-IFC product defers to the data boundary

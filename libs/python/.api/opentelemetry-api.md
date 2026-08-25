@@ -2,15 +2,7 @@
 
 `opentelemetry-api` owns the branch observability contracts: tracer, meter, and logger provider surfaces as abstract classes with no-op implementations, context propagation, baggage, and the `TextMapPropagator` carrier codec every service seam binds. Real telemetry stays with `opentelemetry-sdk` — library code resolves the global providers and emits no-ops until the SDK installs real ones at the composition root.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-api`
-- package: `opentelemetry-api` (Apache-2.0)
-- module: `opentelemetry`
-- namespaces: `opentelemetry.trace`, `opentelemetry.metrics`, `opentelemetry._logs`, `opentelemetry.context`, `opentelemetry.propagate`, `opentelemetry.propagators.textmap`, `opentelemetry.baggage`, `opentelemetry.attributes`
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace family
 
@@ -70,7 +62,7 @@
 |  [14]   | `W3CBaggagePropagator`          | concrete      | W3C `baggage` header codec                                |
 |  [15]   | `CompositePropagator`           | concrete      | fan-out chaining trace-context + baggage over one carrier |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: trace API
 
@@ -157,7 +149,7 @@
 |  [03]   | `_logs.get_logger(...)`                      | logger   | obtain a scoped instrumentation logger |
 |  [04]   | `Logger.emit(record=None, **fields)`         | emit     | emit a record or build one from fields |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `get_tracer_provider()`/`get_meter_provider()`/`get_logger_provider()` return no-ops until `set_*_provider` installs the SDK; library code never calls `set_*`
@@ -188,9 +180,3 @@
 - `connectrpc` `Headers` stacks repeat keys under `add` and returns them from `getall`, so its carrier binds a `Getter` reading `getall` — the default getter takes one `__getitem__` value and drops every later add
 - metrics instruments are created once per meter and reused, synchronous or observable per measurement model, never per-request
 - `start_as_current_span` is the default; `start_span` is reserved for a span whose activation crosses an async boundary the context manager cannot hold
-
-[RAIL_LAW]:
-- Package: `opentelemetry-api`
-- Owns: OTel API contracts, context propagation, baggage, global provider resolution, no-op implementations
-- Accept: API-only imports in library code, `get_tracer`/`get_meter`/`get_logger` with attribute-bound usage, `propagate.extract`/`inject` over carrier-typed `Getter`/`Setter`, a `CompositePropagator` of `TraceContextTextMapPropagator`/`W3CBaggagePropagator` via `set_global_textmap`, synchronous and observable instruments, cross-process `baggage`
-- Reject: SDK imports in library code, per-request instrument creation, in-place `Context` mutation, `set_*_provider` outside the composition root, citing `Gauge` as a top-level import

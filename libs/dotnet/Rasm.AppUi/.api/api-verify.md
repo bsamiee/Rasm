@@ -2,17 +2,7 @@
 
 `Verify.XunitV3` owns snapshot approval testing for xUnit v3: every `[Fact]`/`[Theory]` calls a `Verifier` static entry minting a `SettingsTask` whose awaited build compares against the committed `.verified.` file and writes `.received.` on mismatch. Scrubbers, named-value stabilization, uniqueness keys, and custom stream/string comparers carry from the transitive `Verify` core. On the AppUi proof rail it stacks onto the headless render lane: a `UseStreamComparer` byte snapshot proves a rendered dashboard, and `VerifyJson` of a settled layout or command outcome proves structure.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Verify.XunitV3`
-- package: `Verify.XunitV3` (MIT)
-- assembly: `Verify.XunitV3` (`net10.0`)
-- namespace: `VerifyXunit`
-- depends: `Verify` core (the `SettingsTask`/`VerifySettings`/`Target`/scrubber surface), `xunit.v3.extensibility.core`
-- note: `xunit.v3` is the publisher's own distribution identity transcribed verbatim; the estate's no-version-segment law binds estate-minted names alone
-- rail: test
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: approval-test surfaces in `VerifyXunit`
 
@@ -34,7 +24,7 @@
 |  [04]   | `Combination`    | class         | cartesian-input combination snapshot                 |
 |  [05]   | `VerifyResult`   | class         | written-file paths the awaited task returns          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [VERIFY_ENTRYPOINTS]: object, value, and typed-source snapshot on `Verifier`
 
@@ -99,7 +89,7 @@
 |  [13]   | `VerifySettings.IgnoreMember`                                                      | instance | member omission            |
 |  [14]   | `VerifySettings.AutoVerify`                                                        | instance | automatic acceptance       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `Verifier.Verify*`/`Throws*` returns a `SettingsTask`; the test threads the fluent settings inline, then `await`s it, and the awaited build compares against `.verified.` and writes `.received.` on mismatch — the `VerifyXunit` adapter and the transitive `Verify` core compose in that one expression.
@@ -109,16 +99,9 @@
 [STACKING]:
 - `SkiaSharp`(`.api/api-skiasharp.md`) and `Avalonia.Headless`(`.api/api-headless.md`): the headless render lane encodes an offscreen `SKImage`, then Verify snapshots the resulting `VisualArtifact.FrameHash`, `DrawHash`, and `ColorSpace`; `UniqueForTargetFramework()` partitions per host so a Skia raster drift does not cross-fail.
 - Structural proof folds `VerifyJson` onto a settled `CommandDeck`, `TableViewState`, or frozen layout blob, with `ScrubLinesContaining`/`AddNamedGuid` stabilizing volatile ids and timestamps, so a layout regression reads as a one-line diff; `AddExtraSettings` tunes the object-graph serializer for types Verify does not format by default.
-- `[CallerFilePath]` fills every `sourceFile` parameter so no test passes a literal path, and `Verify.XunitV3.props` initializes the attachment context at module load so `AddAttachmentEvents()` routes received/verified files into the xUnit v3 attachment stream; the `assay test --dotnet` lane runs these as ordinary MTP tests, and a mismatch surfaces as a `Completed(FAILED)` result, not a rail fault.
 - `await VerifyChecks.Run()` validates the verify configuration once and `DanglingSnapshots.Run()` reports orphaned `.verified.` files in a cleanup pass; neither is a per-test call.
 
 [LOCAL_ADMISSION]:
 - Snapshot files default to `[ClassName].[MethodName].verified.[ext]` beside the test source; `UseProjectRelativeDirectory`/`UseSourceFileRelativeDirectory`/`DerivePathInfo` redirect to a committed directory under CI.
 - `Throws*` proves a failure shape only where an exception is the contract boundary; inside ROP code `VerifyJson` verifies the `Fin`/`Validation` failure value, never a thrown exception.
 - `Combination` folds a cartesian input matrix into one snapshot, collapsing N near-identical `[Theory]` cases.
-
-[RAIL_LAW]:
-- Package: `Verify.XunitV3`
-- Owns: snapshot approval testing for xUnit v3 — object, value, JSON/XML, file/directory/zip, byte/stream, and throw snapshots with the fluent scrub/uniqueness/comparer chain.
-- Accept: `Verifier.Verify*`/`Throws*` or a `VerifyBase` subclass; the `SettingsTask`/`VerifySettings` chain for scrubbing, CI-stable uniqueness, and custom comparers; `VerifyChecks`/`DanglingSnapshots` as suite gates.
-- Reject: constructing `InnerVerifier` outside `BuildVerifier`; a literal `sourceFile` bypassing `[CallerFilePath]`; a hand-rolled string-equality assertion when `VerifyJson` + scrubbers own the comparison; a parallel image-diff harness when `UseStreamComparer` carries the visual-hash compare.

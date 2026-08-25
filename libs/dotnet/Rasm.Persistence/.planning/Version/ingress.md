@@ -17,7 +17,7 @@
 - Boundary: Kafka instrumentation owns causal links; Persistence owns consumer construction and contributes no extension roster. A reference-only event resolves through the injected residence port before apply, and both payload arms re-hash against `subject` before the store sees bytes. `TryApply` remains atomic, duplicate JSON keys refuse, processing cancellation reaches every effect, and the rebalance handler contains its own resolution faults.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CloudNative.CloudEvents;
 using CloudNative.CloudEvents.Core;
 using CloudNative.CloudEvents.Kafka;

@@ -2,16 +2,7 @@
 
 `reportlab` mints programmatic PDF synthesis across two layers: the imperative `pdfgen.canvas.Canvas` for absolute-coordinate drawing, text/path objects, AcroForm widgets, and navigation, and the declarative `platypus` model flowing a `Flowable` story across `Frame`/`PageTemplate` with multi-pass TOC and index resolution. `pdfbase.pdfmetrics` owns font registration and metrics, `graphics` the vector chart/barcode engine, `lib` the page sizes, units, colors, and stylesheets. Byte emission, a parallel layout engine, and post-synthesis editing stay off this synthesis-tier surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `reportlab`
-- package: `reportlab` (BSD-3-Clause)
-- module: `reportlab`
-- namespaces: `pdfgen`, `pdfbase`, `platypus`, `graphics`, `lib`
-- rail: pdf — programmatic canvas drawing, flowable pagination, font registration, and the graphics/charts/barcode engine
-- optional: `pillow` — `Image`/`drawImage` raster embedding and `renderPM` raster output
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: canvas and metrics family
 
@@ -83,7 +74,7 @@
 |  [06]   | `lib.enums`                                        | module        | `TA_LEFT`/`TA_CENTER`/`TA_RIGHT`/`TA_JUSTIFY` alignment    |
 |  [07]   | `lib.utils.ImageReader`                            | class         | decode-once raster source reused across `drawImage` calls  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: canvas construction and lifecycle
 
@@ -178,7 +169,7 @@
 |  [06]   | `pdfmetrics.getFont(name)` / `getRegisteredFontNames()`             | metric    | resolve a registered font; list names            |
 |  [07]   | `units.toLength(value)` / `mm` / `cm` / `inch` / `pica`             | unit      | convert measurements to points                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two generation layers meet at the `canvasmaker`/`onPage` callbacks: `platypus` flows content while a `Canvas` callback paints fixed headers, footers, and watermarks on the same page.
@@ -207,9 +198,3 @@
 - Multi-line text batches through `PDFTextObject` and composite geometry through `PDFPathObject`; `drawString`/`line`/`rect` serve one-off marks alone.
 - In-memory output binds `getpdfdata()` or a `BytesIO` target instead of a temp file.
 - TOC, index, and cross-references build under `multiBuild` with `notify('TOCEntry', ...)`, never hand-computed page numbers.
-
-[RAIL_LAW]:
-- Package: `reportlab`
-- Owns: programmatic PDF synthesis via the imperative canvas (text/path objects, AcroForm widgets, bookmarks/outline/links, encryption, transitions) and the platypus flowable model (frames/templates, multi-pass TOC/index, doc-programming flowables), font registration/metrics, and the vector graphics/charts/barcode engine.
-- Accept: flowable stories for paginated content; canvas drawing for fixed layout/forms/overlays; `TTFont`/`UnicodeCIDFont` for custom typography; `Drawing` charts/barcodes as flowables; a byte-stream target for in-memory output.
-- Reject: hand-rolled PDF byte emission; a parallel layout engine where platypus applies; repeated `drawString` where a `PDFTextObject` batches; post-synthesis editing/signing/extraction that `pikepdf`/`pypdf`/`pymupdf`/`pyhanko` own; a wrapper-rename of `build`/`Canvas`.

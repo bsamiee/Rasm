@@ -2,14 +2,7 @@
 
 `numba` owns LLVM-backed JIT compilation of NumPy-typed Python kernels for the compute accelerator rail, lowering a decorated kernel to native machine code and lifting scalar functions to NumPy ufuncs and gufuncs. Compilation is offline study evidence; no production runtime binds numba.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `numba`
-- package: `numba` (BSD-2-Clause)
-- module: `numba`; submodules `numba.types`, `numba.typed`, `numba.extending`, `numba.experimental`
-- rail: accelerator — offline LLVM JIT of numeric-study kernels
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compiled-artifact and numba type vocabulary
 
@@ -38,7 +31,7 @@
 |  [06]   | `intp` / `uintp`  | `boolean` / `bool_` | `b1`            | pointer-width int / bool        |
 |  [07]   | `intc` / `size_t` | `void` / `none`     | `byte` / `char` | C int / void return / byte      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compilation decorators — each JIT decorator carries `cache`, `parallel`, `fastmath`, `boundscheck`, `nogil`
 
@@ -77,7 +70,7 @@
 - [05]-[NATIVE_MODEL]: `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` — full data-model extension exposing a foreign type to nopython.
 - [06]-[STRUCT_REF]: `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing` — mutable reference-semantics struct type for nopython.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A decorated kernel becomes a `CPUDispatcher` specializing and caching one compiled signature per argument-type tuple; `signatures`/`nopython_signatures`/`overloads` expose the specialization set and `py_func` recovers the uncompiled original. `njit` is `jit(nopython=True)`; object-mode fallback rides only `jit` as the slow path.
@@ -92,9 +85,3 @@
 
 [LOCAL_ADMISSION]:
 - A `NumericIntent` kernel on the LLVM-JIT accelerator row compiles through `njit`, parallel kernels adding `prange` under `parallel=True`; the row captures compile mode, resolved signature, lowered IR (`inspect_*`), and speedup class as study evidence. Typed containers (`typed.List`, `typed.Dict`) cross the nopython boundary; reflected Python lists and dicts do not.
-
-[RAIL_LAW]:
-- Package: `numba`
-- Owns: offline LLVM-JIT acceleration of numeric-study kernels, ufunc/gufunc emission, and C-callback bridging
-- Accept: a study kernel compiled through `njit` with its compiled signature, lowered IR (`inspect_*`), and speedup class captured as `JitEvidence`
-- Reject: a hand-written C extension or a re-rolled JIT loop where `njit` plus `prange` lowers the same kernel

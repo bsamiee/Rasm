@@ -2,17 +2,7 @@
 
 `geoarrow-rust-io` owns the GDAL-free geospatial file rail: native Rust readers and writers move FlatGeobuf, GeoParquet, GeoJSON, CSV, and live PostGIS between file bytes and GeoArrow-native Arrow `Table` memory, `ObjectStore` fronts S3/GCS/Azure for a local-copy-free read, and the `Parquet*` handles push bbox and row-group predicates into a scan. Every reader yields the `GeometryArray` memory `geoarrow-rust-core` owns and `geoarrow-rust-compute` consumes, so a file crosses the rail once as an Arrow capsule, never round-tripping through a Shapely scalar or a GDAL `OGR` layer.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `geoarrow-rust-io`
-- package: `geoarrow-rust-io`
-- import: `geoarrow.rust.io`
-- owner: `data`
-- rail: geospatial-ingress
-- entry points: import-only, namespace-packaged under `geoarrow.rust`; native `_io` module backs the surface and `enums` carries the encoding vocabulary
-- capability: GDAL-free format IO on the geospatial-ingress rail between file bytes and GeoArrow-native `Table` memory — every reader and writer, cloud `ObjectStore` access, GeoParquet bbox and row-group pushdown, streamed output, and `GeoParquetEncoding` selection
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cloud object store
 
@@ -51,7 +41,7 @@
 |  [05]   | `ParquetWriter.is_closed`   | `is_closed() -> bool`         | writer-state guard                           |
 |  [06]   | `GeoParquetEncoding`        | `WKB` \| `Native`             | geometry column encoding for `write_parquet` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: file-to-GeoArrow readers
 
@@ -81,7 +71,7 @@ Each writer lowers a GeoArrow-native `Table` back to its format in one call; `wr
 |  [04]   | `write_geojson_lines` | `write_geojson_lines(table, file)`                               | write line-delimited GeoJSON             |
 |  [05]   | `write_csv`           | `write_csv(table, file)`                                         | write CSV with WKT geometry              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op folds file bytes and GeoArrow-native `Table` memory in one crossing; a format this package parses natively never falls through to a GDAL/`OGR` layer or a Shapely scalar.
@@ -100,9 +90,3 @@ Each writer lowers a GeoArrow-native `Table` back to its format in one call; `wr
 [LOCAL_ADMISSION]:
 - import at boundary scope only (`from geoarrow.rust import io`); module-level import is banned by the manifest import policy.
 - this package is the sole GDAL-free format-IO owner on the geospatial-ingress rail; a format it parses natively admits no `pyogrio`/GDAL fallthrough.
-
-[RAIL_LAW]:
-- Package: `geoarrow-rust-io`
-- Owns: the GDAL-free geospatial file rail — native FlatGeobuf/GeoParquet/GeoJSON/GeoJSON-lines/CSV/PostGIS IO between file bytes and GeoArrow-native `Table` memory, cloud access through `ObjectStore`, GeoParquet bbox and row-group pushdown, streamed output through `ParquetWriter`, and `GeoParquetEncoding` selection
-- Accept: format IO feeding the geospatial-ingress path and the `geoarrow.rust.core`/`geoarrow.rust.compute` memory model; cloud reads through an explicit `ObjectStore`; spatial pushdown over GeoParquet
-- Reject: a GDAL/`pyogrio` layer for a natively-read format; a Shapely/GeoPandas container passed where a `Table` is required; a full-file scan where a `bbox` pushdown exists; a synchronous cloud read where an `_async` variant belongs; geometry construction or compute this package does not own

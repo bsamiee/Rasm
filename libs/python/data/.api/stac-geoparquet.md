@@ -2,16 +2,7 @@
 
 `stac-geoparquet` owns the STAC<->GeoParquet/Arrow interchange on the STAC-catalog rail: its `stac_geoparquet.arrow.*` surface parses `pystac.Item` objects or STAC NDJSON into a `pyarrow.RecordBatchReader`, writes that stream to GeoParquet keyed by a STAC schema version, and rehydrates the table back to item dicts or NDJSON. Composition folds the arrow parse/write functions and `stac_table_to_items` into the `data` STAC item-table owner and pairs rehydration with `pystac.Item.from_dict`, never re-implementing the STAC->Arrow schema mapping this package owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `stac-geoparquet`
-- package: `stac-geoparquet` (MIT)
-- module: `import stac_geoparquet` (dist `stac-geoparquet`, import `stac_geoparquet`; interchange surface `stac_geoparquet.arrow.*`)
-- namespaces: `stac_geoparquet.arrow`, `stac_geoparquet.json_reader`, `stac_geoparquet.pgstac_reader`
-- owner: `data`
-- rail: STAC catalog
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interchange carriers and schema axis
 - rail: STAC catalog
@@ -28,7 +19,7 @@
 |  [06]   | `DEFAULT_JSON_CHUNK_SIZE`           | chunk constant   | default NDJSON/item batch size (`65536`)                                      |
 |  [07]   | `pgstac_reader.PgstacRowFactory`    | pgstac reader    | build STAC items from pgstac database rows (`psycopg` extra)                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Arrow parse and GeoParquet write (`stac_geoparquet.arrow.*`)
 - rail: STAC catalog
@@ -60,7 +51,7 @@
 |  [06]   | `to_item_collection(df) -> ItemCollection`                  | static  | `GeoDataFrame` -> STAC             |
 |  [07]   | `to_dict(record) -> dict`                                   | static  | a parquet row -> a STAC item dict  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - surface: the dist is `stac-geoparquet`, the import is `stac_geoparquet`, and the canonical interchange surface is `stac_geoparquet.arrow.*` — the `arrow.*` functions are the one interchange path, never parallel table engines.
@@ -84,9 +75,3 @@
 
 [LOCAL_ADMISSION]:
 - admit `stac_geoparquet.arrow.*` as the sole STAC<->GeoParquet interchange; the `deltalake` and `psycopg` extras admit only where a Delta sink or a pgstac read is composed, never as a default dependency.
-
-[RAIL_LAW]:
-- Package: `stac-geoparquet`
-- Owns: STAC item <-> Arrow/GeoParquet interchange — `pystac.Item`/NDJSON to `RecordBatchReader`, GeoParquet write with STAC schema versioning, table-to-item-dict and NDJSON rehydration, the Delta sink, the pgstac reader, the `InferredSchema` two-pass builder, and the geopandas `GeoDataFrame` round-trip.
-- Accept: the `arrow.*` parse/write functions over a `RecordBatchReader`; `ACCEPTED_SCHEMA_OPTIONS` inference; `schema_version`-keyed GeoParquet output; `stac_table_to_items` + `pystac.Item.from_dict` rehydration; `json_reader.read_json` NDJSON ingest; the geopandas trio only for a required `GeoDataFrame` seam.
-- Reject: wrapper-renames of the parse/write functions; a hand-rolled STAC->Arrow schema mapping; a hand-built parquet writer where `to_parquet` versions the schema; re-minting a STAC item where `pystac.Item.from_dict` rehydrates; defaulting to the geopandas trio where the zero-copy Arrow path applies; assuming the Delta or pgstac readers without their extra.

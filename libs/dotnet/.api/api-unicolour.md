@@ -2,16 +2,7 @@
 
 `Wacton.Unicolour` owns an immutable colour value that admits any `ColourSpace` and lazily projects every other, with `Configuration` binding working-space policy across its slots. `DeltaE`, `BlendMode`, `Cvd`, and `GamutMap` extend the value into perceptual difference, compositing, vision-deficiency simulation, and gamut bounding; `Spd` and `Pigment` intake resolves measured spectral power and Kubelka-Munk reflectance to XYZ.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Wacton.Unicolour`
-- package: `Wacton.Unicolour` (MIT)
-- assembly: `Wacton.Unicolour`
-- namespace: `Wacton.Unicolour`, `Wacton.Unicolour.Icc`
-- asset: `netstandard2.0` pure-managed, zero-dependency, ALC-safe
-- rail: colour
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the colour value and its operation vocabularies
 
@@ -98,7 +89,7 @@ Every `ColourSpace` accessor returns a representation record exposing named chan
 
 [`Icc.Intent`]: `Unspecified` `Perceptual` `RelativeColorimetric` `Saturation` `AbsoluteColorimetric`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 
@@ -159,7 +150,7 @@ Beyond the `ColourSpace` roster above, scalar and metadata accessors project der
 
 [`gamut predicates`]: `IsInRgbGamut` `IsInPointerGamut` `IsInMacAdamLimits` `IsImaginary`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Unicolour` is immutable; every accessor lazily memoizes on first read, and every operation returns a fresh value carrying no shared state.
@@ -184,9 +175,3 @@ Beyond the `ColourSpace` roster above, scalar and metadata accessors project der
 - `XyzConfiguration` ships four public ctors; `(Illuminant, Observer, string name = "(unnamed)")` derives the white point FROM the observer, so an observer-axis mint never reuses a sibling observer's white point.
 - `Configuration.DynamicRange`/`.Rgb`/`.Ybr`/`.Cam`/`.Icc` are public reads — an observer-axis `Configuration` mint derives every non-observer slot off its source row rather than re-spelling literals.
 - Colour values carry an explicit `Configuration` wherever the working space affects meaning.
-
-[RAIL_LAW]:
-- Package: `Wacton.Unicolour`
-- Owns: the immutable colour value and every lazy conversion, difference, contrast, compositing, gamut map, `Cvd` simulation, ICC transform, and spectral or Kubelka-Munk construction over it
-- Accept: an explicit `ColourSpace` and `Configuration`, a `DeltaE`, `BlendMode`, or `GamutMap` selector, gated by the gamut predicates
-- Reject: hand-rolled colour-space conversion, delta-E, blend, or gamut math; display primaries treated as `ColourSpace` cases; per-consumer luminance or contrast re-derivation from framework colour types; a peer-minted `Configuration` for a space the kernel roster already holds; a transcribed primaries or whitepoint table beside a preset that publishes its own; a hand-lerped alpha beside a premultiplied mix; a rename wrapper over a gamut predicate or projection

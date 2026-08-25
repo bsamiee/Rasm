@@ -2,19 +2,7 @@
 
 `tifffile` owns the TIFF/BigTIFF/OME-TIFF container — the IFD directory, strip/tile layout, byte-order and word-size selection, the standard and private tag set, and the `numpy` array<->container round-trip. `export/layered`'s `TIFF` arm composes it beneath the layer author, laying one merged RGBA composite and the two `psdtags`-emitted extratags into a TIFF that Photoshop/Affinity/Krita read as a separable layer stack; it never compresses a channel (`imagecodecs`), authors a PSD layer record (`psdtags`), or authors a native `.psd`/`.psb` (`psd-tools`). Beyond layered egress it is the artifacts TIFF spine — `imwrite`/`imread` for any single- or multi-page TIFF, `memmap`/`aszarr` lazy-tiled access, the GeoTIFF/C2PA tag surface, and `validate_jhove` preflight.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `tifffile`
-- package: `tifffile` (BSD-3-Clause)
-- module: `tifffile`
-- rail: layered — the TIFF/BigTIFF/OME-TIFF container IO and extratag authoring the `export/layered` `TIFF` arm composes, and the artifacts TIFF array<->container spine
-- abi: pure-Python `py3-none-any`, no native extension; strip codecs delegate to `imagecodecs`
-- depends: hard `numpy`; optional `imagecodecs` (strip codecs), `lxml` (OME-XML), `zarr`/`fsspec`/`kerchunk` (chunked-store egress), `matplotlib` (viewer/plot) — imported only when the dependent path runs
-- target: a TIFF path or any `os.PathLike`/`FileHandle`/`IO[bytes]` (incl. a `BytesIO` sink); contiguous `numpy` `NDArray` image data in/out
-- entry points: console scripts `tifffile` (viewer/info dumper), `tiffcomment` (read/write ImageDescription), `tiff2fsspec` (emit an fsspec/kerchunk chunk reference), `lsm2bin` (Zeiss LSM -> binary); library use imports the module, no plugin entry-point group
-- capability: the polymorphic `imwrite`/`imread` array<->TIFF face, the `TiffWriter` incremental multi-page/pyramid/SubIFD writer, the `TiffFile`/`TiffPage`/`TiffPageSeries` reader and tag tree, `memmap`/`aszarr` -> `ZarrTiffStore.write_fsspec` chunked access, `OmeXml` metadata, the closed IFD-field enum vocabularies, the `is_*` detection flags, and `validate_jhove`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the write/read container owners, the page/series/tag graph, the IO/sequence/chunked-store endpoints
 
@@ -68,7 +56,7 @@ Members:
 - [FILETYPE]: `UNDEFINED` `REDUCEDIMAGE` `PAGE` `MASK` `MACRO` `ENHANCED` `DNG` — `REDUCEDIMAGE` marks each non-base pyramid page.
 - [CHUNKMODE]: `STRILE` `PLANE` `PAGE` `FILE` — the `aszarr(chunkmode=)`/`imread(chunkmode=)` chunk grain.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the array<->TIFF round-trip the `TIFF` arm composes, the multi-page/pyramid writer, the lazy-tiled read, and the tag/metadata/validation ops
 - `imwrite` / `TiffWriter.write` carry: `photometric`, `planarconfig`, `extrasamples`, `compression`, `predictor`, `tile`, `resolution`, `iccprofile`, `colormap`, `description`, `metadata`, `extratags`, `maxworkers`.
@@ -93,7 +81,7 @@ Members:
 - `imwrite`/`TiffWriter.write`: return `(offset, bytecount)` when `returnoffset=True`, else `None`.
 - `imread`: returns `NDArray`, a `ZarrTiffStore` (`aszarr=True`), or an axis-labelled `DataArray` (`return_as='xarray'`).
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Three disjoint owners meet at typed seams: `tifffile` lays the IFD directory and writes the flat image and the `psdtags`-emitted extratags; `psdtags` authors the `TiffImageSourceData`/`PsdLayers`/`PsdLayer`/`PsdChannel` graph and emits each as a `tifftag(...)` `TagTuple` `(code, dtype, count, value, writeonce)`; `imagecodecs` compresses each strip, selected by `COMPRESSION` and dispatched through `tifffile._imagecodecs`.
@@ -115,9 +103,3 @@ Members:
 [LOCAL_ADMISSION]:
 - Reify `tifffile` through the boundary-scope `lazy import` proxy on first `TIFF`-arm use, as with `psdtags`/`pyvips`/`numpy`; the codec/OME-XML/zarr extras load only on the dependent path, and the arm runs on the `Band.WORKER` `to_process` lane, so `tifffile` never loads on the runtime loader path.
 - Route by format: a Photoshop-compatible layered TIFF through `psdtags`+`tifffile`, a generic single/multi-page TIFF through `tifffile.imwrite`/`imread`, a native `.psd` through `psd-tools`, an editable PDF through `pymupdf`/`pikepdf`, a GIMP/Krita stack through the `ORA` arm.
-
-[RAIL_LAW]:
-- Package: `tifffile`
-- Owns: the TIFF/BigTIFF/OME-TIFF container for the `export/layered` `TIFF` arm and the artifacts TIFF spine — the `imwrite`/`imread` face, the `TiffWriter` writer, the `TiffFile`/`TiffPage`/`TiffPageSeries` reader and tag tree (`TiffTag.overwrite`/`TiffTagRegistry`), `memmap`/`aszarr` -> `ZarrTiffStore.write_fsspec` access, `OmeXml` metadata, the IFD-field enum vocabularies, and `validate_jhove`
-- Accept: the layered `imwrite(..., photometric='rgb', extrasamples=('unassalpha',), metadata=None, byteorder=isd.byteorder, extratags=(isd.tifftag(maxworkers=4), res.tifftag()))`; `imagecodecs`-backed strip compression selected by `COMPRESSION`+`PREDICTOR`; `with`-bracketed handles; the whole arm on the `_offloaded` `to_process`/`_GATE` lane; `memmap`/`aszarr` over-RAM reads; boundary-scope `lazy import`
-- Reject: re-implementing a strip codec (`imagecodecs`), a PSD layer record (`psdtags`), or a canvas composite (`pyvips`); authoring a native `.psd`/`.psb` with `tifffile`+`psdtags` where `psd-tools` owns PSD; decoding a non-TIFF raster through `tifffile`; hardcoding `byteorder` at the `imwrite` site; the default shaped-JSON `metadata` on a Photoshop-read TIFF; a per-layer-page TIFF where the editable structure is the `37724`/`34377` extratags; a `write_tiff`/`write_bigtiff`/`write_ome` or `Get`/`GetPage`/`GetSeries` family where keyword discriminants suffice; a raw enum `int` where the member exists; `@retry` around the pure directory write; a second `anyio` worker on the `maxworkers` strip pool; module-level import

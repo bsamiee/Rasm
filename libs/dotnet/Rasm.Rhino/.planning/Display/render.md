@@ -33,7 +33,7 @@
 - Packages: `api-rhinocommon-render.md` (`RenderPipeline`, `RenderWindow`, `RenderWindow.Channel`, `ImageAdjust`, `StandardChannels`, `ComponentOrders`, `RenderReturnCode`, `RenderSuccessCode`, the scene-population virtuals); `api-rhinocommon-render-realtime.md` (`AsyncRenderContext`); `api-languageext.md` (rails, `Seq`, `Atom`); `api-thinktecture-runtime-extensions.md` (unions, rows); kernel `Domain/rails` (`Retriability`, `Transition`/`Cell`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`, `Op.Row`), `Interaction/chrome` (`MountPhase`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
@@ -2982,7 +2982,7 @@ public static class SceneMarks {
 
 | [INDEX] | [OWNER]            | [INGRESS]                            | [RAIL]                                | [EGRESS]                    |
 | :-----: | :----------------- | :----------------------------------- | :------------------------------------ | :-------------------------- |
-|  [01]   | `RenderJob`        | `RenderRequest` · `FramebufferScope` | demand · `WindowOp.Apply`             | `RenderYield`             |
+|  [01]   | `RenderJob`        | `RenderRequest` · `FramebufferScope` | demand · `WindowOp.Apply`             | `RenderYield`               |
 |  [02]   | `JobAsync`         | `AsyncProgram`                       | engine thread · `EndAsyncRender`      | `RealtimePort` writes       |
 |  [03]   | `RealtimeEngines`  | `RealtimeEnginePlan`                 | `SeatRegistry.Claim` · host scan      | `SeatToken` · descriptors   |
 |  [04]   | `RealtimeEngine`   | host activation · `PostConstruct`    | lifecycle steps · gauged paint        | framebuffer · HUD answers   |
@@ -2991,7 +2991,7 @@ public static class SceneMarks {
 |  [07]   | `EffectHost`       | `EffectProgram`                      | change bracket · `EffectPass` borrows | host effect answers         |
 |  [08]   | `TextureBake`      | `ContentRef` · mode row              | evaluator or bake inside a demand     | caller-shaped detached row  |
 |  [09]   | `SceneQueue`       | host `Apply*` hooks · `QueueDrive`   | `QueueCell` steps · bounded channel   | `SceneBatch` off the reader |
-|  [10]   | `SceneMarks`       | `SceneBatch` · `Canvas`              | held custody · `Marks.Paint`          | `DrawTally`               |
+|  [10]   | `SceneMarks`       | `SceneBatch` · `Canvas`              | held custody · `Marks.Paint`          | `DrawTally`                 |
 
 ## [07]-[RESEARCH]
 

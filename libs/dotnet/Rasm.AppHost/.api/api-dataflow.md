@@ -2,16 +2,7 @@
 
 `System.Threading.Tasks.Dataflow` owns bounded in-process message blocks for AppHost background work: a block drains under a `BoundedCapacity` bound with `SendAsync` backpressure, `LinkTo` wires a block graph that fans completion end to end, and the `Completion` task gates drain while surfacing faults. Broadcast, batch, and join blocks feed the drainable-queue and event-bus rails; every block stays internal, surfaced only as runtime intent on the public ports.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Threading.Tasks.Dataflow`
-- package: `System.Threading.Tasks.Dataflow`
-- assembly: `System.Threading.Tasks.Dataflow`
-- namespace: `System.Threading.Tasks.Dataflow`
-- asset: runtime library
-- rail: work-queue
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: block family
 
@@ -47,7 +38,7 @@
 - `GroupingDataflowBlockOptions` adds: `Greedy` `MaxNumberOfGroups`
 - `DataflowLinkOptions`: `PropagateCompletion` `MaxMessages` `Append`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: block operations
 
@@ -67,7 +58,7 @@
 |  [12]   | `JoinBlock<T1,T2>.Target1`                                  | property | feeds the first join arm           |
 |  [13]   | `JoinBlock<T1,T2>.Target2`                                  | property | feeds the second join arm          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every block is `ITargetBlock<T>`, `ISourceBlock<T>`, or both through `IPropagatorBlock<TInput,TOutput>`; `LinkTo` wires a source into a target.
@@ -86,9 +77,3 @@
 - Background work enters bounded blocks; drain awaits `Completion` and faults the owning operation rail on block failure.
 - Blocks stay internal implementation; public ports expose runtime intent and outcomes, never a block.
 - Grouping blocks enter only when batch or join semantics ride the operation result.
-
-[RAIL_LAW]:
-- Package: `System.Threading.Tasks.Dataflow`
-- Owns: bounded drainable message blocks with completion propagation
-- Accept: background work over bounded blocks with explicit backpressure
-- Reject: unbounded local queues and hand-rolled fan-out loops

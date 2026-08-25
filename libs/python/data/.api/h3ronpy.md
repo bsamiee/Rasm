@@ -2,17 +2,7 @@
 
 `h3ronpy` supplies the vectorized H3 discrete-global-grid surface for the data `GRID_DGGS` rail: a Rust-backed function family operating on whole Arrow arrays of `u64` cell indexes — resolution change, traversal, area, parse/format, compaction — with geometry (`h3ronpy.vector`), raster (`h3ronpy.raster`), and polars `.h3` (`h3ronpy.polars`) bridges. `data` composes these into the `GRID_DGGS` index path, cells flowing zero-copy as `arro3.core.Array`/`RecordBatch` through the Arrow/polars pipeline, the Rust `h3o` kernel owning H3 indexing.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `h3ronpy`
-- package: `h3ronpy`
-- import: `h3ronpy`
-- owner: `data`
-- rail: GRID_DGGS
-- entry points: import-only; no console script
-- capability: vectorized H3 cell operations over Arrow `arro3.core` arrays, with geometry, raster, and polars `.h3` bridges feeding the `GRID_DGGS` index
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: containment vocabulary and re-exported Arrow carriers
 
@@ -29,7 +19,7 @@ Single-column results carry `arro3.core.Array`; multi-column results (paired arr
 
 `ContainmentMode` defaults to `ContainsCentroid`, with `ContainsBoundary`/`Covers`/`IntersectsBoundary` the alternatives; `H3_CRS = 'EPSG:4326'` fixes the geometry CRS and `DEFAULT_CELL_COLUMN_NAME = 'cell'` the canonical cell column.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cell array operations (`h3ronpy`)
 
@@ -94,7 +84,7 @@ Raster defaults omitted from rows: `nodata_value=None`, `axis_order='yx'`, `comp
 
 `.h3` mirrors the cell-scalar family only; the geometry and raster bridges and the distance-bearing traversal stay off the accessor — call those module functions on `series.to_arrow()` and re-wrap, the column passing as a zero-copy `arro3` array.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every operation is whole-array over `arro3.core.Array`/`RecordBatch`: cells stay `u64` indexes flowing zero-copy through the Arrow/polars pipeline, never a per-row Python loop over scalar cells.
@@ -113,9 +103,3 @@ Raster defaults omitted from rows: `nodata_value=None`, `axis_order='yx'`, `comp
 
 [LOCAL_ADMISSION]:
 - h3ronpy is the sole H3 discrete-global-grid surface for `data`; its Arrow-array functions admit for cell indexing, traversal, measurement, and geometry/raster bridging feeding the `GRID_DGGS` index.
-
-[RAIL_LAW]:
-- Package: `h3ronpy`
-- Owns: vectorized H3 cell operations over Arrow — resolution change, grid-disk/ring traversal, spherical area, parse/validate/stringify, local-IJ transforms, geometry/raster bridging, the polars `.h3` namespace
-- Accept: whole-array cell indexing and traversal feeding the `GRID_DGGS` index over the Arrow/polars pipeline
-- Reject: per-row scalar loops where the array functions vectorize; a hand-rolled H3 codec or traversal kernel the Rust `h3o` backend owns; a pandas detour when the polars `.h3` namespace owns the column; a wrapper-rename of a cell op; a per-resolution or per-mode function family; CRS or identity the runtime fixes

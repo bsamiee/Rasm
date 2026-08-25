@@ -2,16 +2,7 @@
 
 `@nats-io/nats-core` is the transport-agnostic NATS client core: the `NatsConnection` publish/subscribe/request surface over subject hierarchies, the `headers()`/`MsgHdrs` codec carrying `Nats-Msg-Id` dedup identity, subject wildcard algebra (`*`/`>`), and the `wsconnect` browser-lane WebSocket dial. `net/pubsub` composes the connection capability; `@nats-io/transport-node` owns the node/bun TCP/TLS dial and `@nats-io/jetstream` layers durability over the same connection.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@nats-io/nats-core`
-- package: `@nats-io/nats-core` (Apache-2.0)
-- module: ESM + CJS dual
-- runtime: any W3C-WebSocket runtime (node, bun, browser) via `wsconnect`; no `node:*` import
-- server: websocket listener enabled
-- rail: fanout transport capability the `net/pubsub` engine row composes
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection and message vocabulary; `NatsConnection` members are the [03] entrypoints, `ConnectionOptions` fields keyed below
 
@@ -30,7 +21,7 @@
 - [06]-[CONNECTIONOPTIONS]: `servers`, `name`, `authenticator`, `reconnect`, `maxReconnectAttempts`, `ignoreAuthErrorAbort`, `token`/`user`/`pass`, `tls`, `pingInterval`, `maxPingOut`.
 - [07]-[AUTHENTICATOR]: every factory takes a value OR a thunk — the thunk form is the rotation rail, since the client re-invokes the authenticator on each handshake.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dialing, lifecycle, and core messaging
 
@@ -60,7 +51,7 @@
 
 - `errors` carries every typed rejection a dial, request, or supervisor read discriminates; a rejection outside it folds to the engine's `dial` reason.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 - `@nats-io/jetstream`(`.api/nats-io-jetstream.md`): `jetstream(nc)` and `jetstreamManager(nc)` take this connection; every durability guarantee lives there.
@@ -78,9 +69,3 @@
 - The callback is synchronous, so no credential fetch happens inside it: the authenticator reads a mutable cell some supervisor keeps fresh.
 - A refreshed credential reaches a LIVE connection only through `reconnect()`, which drops in-flight requests and rejects against a closed or draining client.
 - Leave `ignoreAuthErrorAbort` unset: the default aborts reconnect after two identical authentication refusals in a row, which is what keeps an unbounded `maxReconnectAttempts` from hot-looping a dead credential.
-
-[RAIL_LAW]:
-- Package: `@nats-io/nats-core`
-- Owns: connection capability, subject and header vocabulary, websocket transport, connection lifecycle, the CONNECT-frame credential set and its authenticator factories
-- Accept: one scoped `wsconnect` acquisition drained on release, headers minted through `headers()`, options from config rows, credentials as a thunk-form `authenticator` on `ConnectionOptions`
-- Reject: per-call dials, bare `close()` teardown, core delivery where a JetStream guarantee row is named, raw `WebSocket` handling beside the client, a credential carried in `MsgHdrs`, a literal-valued authenticator on a plane that rotates

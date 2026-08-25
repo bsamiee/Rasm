@@ -2,18 +2,7 @@
 
 `@pulumi/eks` owns the managed-Kubernetes escalation of the `aws` column — EKS control plane, access-entry auth, IRSA/OIDC wiring, managed and self-managed node capacity, Fargate, EKS Auto Mode, and addon lifecycle as one `Cluster` component with satellite node/addon components. `cluster.kubeconfigJson` binds a `k8s.Provider`, so promoting the `aws` column to a k8s-shaped estate is a provider-seam swap that reuses the `kube/*` tier roster unchanged. `Cluster` composes `@pulumi/aws` and `@pulumi/kubernetes` in-process, so its children are typed resources under Pulumi diff and CrossGuard.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@pulumi/eks`
-- package: `@pulumi/eks` (Apache-2.0)
-- import: `@pulumi/eks` flat namespace — `Cluster` is the plane owner; node/addon classes, the enum-const vocabularies, and the `create*`/`getRoleProvider` function twins ride alongside
-- owner: `iac`
-- rail: kubernetes / prepared-aws
-- runtime: Node deploy-host; drives the AWS API, then the EKS API server through the composed `@pulumi/kubernetes`
-- depends: `@pulumi/aws`, `@pulumi/kubernetes`, `@pulumi/pulumi`
-- capability: EKS control plane, access-entry auth, OIDC/IRSA provisioning, managed/self-managed node groups, Fargate profiles, Auto Mode, addon lifecycle with conflict-resolution vocabulary, and kubeconfig egress with role/profile assumption
-
-## [02]-[CLUSTER_COMPONENT]
+## [01]-[CLUSTER_COMPONENT]
 
 [CLUSTER_SCOPE]: `Cluster` — the one plane owner
 
@@ -36,7 +25,7 @@ Deprecated aliases sit beside live members and map onto the same values — `Aut
 |  [07]   | `AccessEntryArgs`         | `principalArn`, `accessPolicies?`, `kubernetesGroups?`, `type?`, `username?`                               |
 |  [08]   | `AuthenticationMode.Api`  | `"API"` — the access-entry auth mode the component sets                                                    |
 
-## [03]-[NODES_AND_ADDONS]
+## [02]-[NODES_AND_ADDONS]
 
 [CAPACITY_SCOPE]: node groups and addons — managed first
 
@@ -60,7 +49,7 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 |  [04]   | `VpcCniAddon`                 | CNI specialization (`clusterName` required); post-plane twin of `ClusterArgs.vpcCniOptions`         |
 |  [05]   | `ClusterCreationRoleProvider` | `{ profile?, region? }` → `role: Output<aws.iam.Role>`; creator identity for `creationRoleProvider` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - network: the plane rides the arm's existing `awsx.ec2.Vpc` — `vpcId`/`publicSubnetIds`/`privateSubnetIds` bind the network axis so network intent has one owner; `endpointPublicAccess: false` with `publicAccessCidrs` is the private-plane posture, decided by spec data.
@@ -75,9 +64,3 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 - `@pulumi/postgresql`(`.api/pulumi-postgresql.md`): the `kube/data` CNPG `Cluster` declared through the k8s provider exposes its `-rw` service host into `postgresql.Provider`, so the data plane finalizes over the EKS-hosted CNPG operator.
 - `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the component's children are typed resources under Pulumi diff and CrossGuard, and a construction failure rejects the lifecycle operation and maps to `DeployFault`.
 - within-lib: the `provider/dispatch` `aws` arm promotes to a k8s-shaped estate by swapping only the provider seam — `ManagedNodeGroup`/`NodeGroupV2` capacity and `createOidcProvider` IRSA anchors ride the same `Cluster` the arm already constructs.
-
-[RAIL_LAW]:
-- Package: `@pulumi/eks`
-- Owns: the managed EKS plane — control plane, access entries, OIDC/IRSA, node capacity, Fargate/Auto Mode, addon lifecycle, kubeconfig egress
-- Accept: `kubeconfigJson` into the arm's one `k8s.Provider` seam, `AuthenticationMode.Api` + `accessEntries`, `ManagedNodeGroup`/`NodeGroupV2` capacity fed by a coordinate that already closed its instance-type roster, `awsx.ec2.Vpc` outputs, `createOidcProvider` IRSA anchors, typed `Addon` rows
-- Reject: hand-rolled `aws.eks.*` assemblies duplicating the component, kubeconfig literals or per-resource providers, node-role widening in place of IRSA, chart installs of native addons, a bare literal where the arg takes the exported union, treating the string-widened capacity args as an admission surface

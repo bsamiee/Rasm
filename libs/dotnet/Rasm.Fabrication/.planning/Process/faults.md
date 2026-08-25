@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 - Growth: a new failure condition is one row and one payload case; a new plane is one `FabConcern` row carrying its folder and stratum.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;

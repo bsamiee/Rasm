@@ -2,16 +2,7 @@
 
 `ifc5d` owns the IFC 5D costing surface over the `ifcopenshell` model: rule-driven quantity take-off through `qto.quantify`/`qto.edit_qtos` writing `IfcElementQuantity` base quantities, and structured cost-schedule export through the `ifc5Dspreadsheet` writer family to CSV, ODS, XLSX, and typst PDF. It feeds the geometry ifc-analysis 5D rail, folding the `qto.rules` base-quantity table over an element set the shared `IfcSelector` gate validates.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ifc5d`
-- package: `ifc5d` (LGPL-3.0-or-later)
-- import: `import ifc5d.qto` / `import ifc5d.ifc5Dspreadsheet`
-- owner: `geometry`
-- rail: ifc-analysis / 5d-costing
-- entry points: none (library only)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: quantity take-off (`ifc5d.qto`)
 
@@ -21,7 +12,7 @@
 |  [02]   | `qto.rules`       | table         | `dict[RULE_SET, dict]` base-quantity rule table loaded from bundled JSON |
 |  [03]   | `qto.ResultsDict` | type          | `element -> qto-name -> quantity-name -> float` measurement result map   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: quantity take-off and cost-schedule export
 
@@ -36,7 +27,7 @@ Each `ifc5Dspreadsheet` writer constructs `(file, output, cost_schedule=None)` t
 |  [05]   | `ifc5Dspreadsheet.Ifc5DXlsxWriter`                       | ctor    | export the cost schedule to an XLSX workbook |
 |  [06]   | `ifc5Dspreadsheet.Ifc5DPdfWriter`                        | ctor    | export the cost schedule to a typst PDF      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `qto.quantify(ifc_file, elements, rules)` folds the `qto.rules[RULE_SET]` base-quantity table over an element set into a `ResultsDict`, and `qto.edit_qtos` writes it back as `IfcElementQuantity` base quantities; geometric measurement stays inside the `qto` kernel, never a local `get_psets(qtos_only=True)` fold over a single quantity key.
@@ -48,9 +39,3 @@ Each `ifc5Dspreadsheet` writer constructs `(file, output, cost_schedule=None)` t
 
 [LOCAL_ADMISSION]:
 - Geometry's ifc-analysis 5D owner composes `ifc5d.qto` and `ifc5d.ifc5Dspreadsheet` directly; quantity measurement and cost-schedule rendering never re-derive against a local pset fold.
-
-[RAIL_LAW]:
-- Package: `ifc5d`
-- Owns: rule-driven IFC quantity take-off (`qto.quantify`/`qto.edit_qtos`) and structured cost-schedule export (`ifc5Dspreadsheet` writer family)
-- Accept: an `ifcopenshell.file` with an element set and a `RULE_SET` key, or an `IfcCostSchedule` with an output directory
-- Reject: a hand-rolled quantity-key fold over `get_psets(qtos_only=True)`; a per-IFC-class measurement family where `qto.rules` owns the rule; a bespoke cost-rollup loop where `ifcopenshell.api.cost.calculate_cost_item_resource_value` owns the per-item rollup

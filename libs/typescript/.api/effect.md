@@ -2,16 +2,7 @@
 
 `effect` is the branch standard library every `libs/typescript` folder types against: one `Effect<A, E, R>` carrier composing monadically for dependent steps and applicatively for independent accumulation, `Schema` as the single decode/encode authority whose secondary surfaces derive from one AST, and capability arriving only through the `Context`/`Layer` graph. Cross-cutting capability — decode, span, retry, lifetime — attaches at the owner seam as an effect transformer, never hand-threaded.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `effect`
-- package: `effect` (MIT)
-- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; the flat `effect` barrel and per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …), deep-imported only where tree-shaking one module matters
-- runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies, no native addon
-- asset: pure-TypeScript runtime (`.js` + `.d.ts`); the type-level surface (branded refinements, `typeof schema.Type`) is load-bearing, so `tsc` gate it
-- rail: substrate — every folder types against it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the carrier, its data siblings, and failure algebra
 - rail: rails-and-effects
@@ -52,7 +43,7 @@
 |  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)             | dispatch builder  | `core/interchange` codec, `iac/program/provider` arms |
 |  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span`        | signal owner      | `otel` — counters, loggers, spans on the rail         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, observe, run; surfaces are `Effect.*` unless qualified
 - rail: rails-and-effects
@@ -278,7 +269,7 @@
 - `Record.map(self, f)` hands `f` the `(value, key)` pair and returns a record keyed identically, so a table of policy rows mints one derived value per row with the key in hand — the spelling a per-row instrument or projection fold takes instead of an entry-array round trip. JS `Array.prototype.map` passes an INDEX second, so a callback written against that habit reads a key as a number.
 - Idle module roster (verified on the tree, no fence composes them yet): `Micro`, `Channel`, `GroupBy`, `Graph`, `HashRing`, `PartitionedSemaphore`, `RcRef`/`Resource`/`ScopedCache`/`ScopedRef`, `Trie`/`RedBlackTree`/`SortedSet`, `Console`/`Random`/`Clock` service overrides, `PrimaryKey`, `Take`, the `TestClock` family, and the extended `STM` family — each enters at a consuming seam the day one earns it; `Trie` already lands at `serve/live`'s channel-rule read and `PrimaryKey` at the persisted-request families.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Effect<A, E, R>` is a description, not a running computation; nothing executes until `Effect.runFork`/`runPromise`/`runSync` at the one imperative edge, or `Layer.launch`/`ManagedRuntime` at a composition root. Dependent steps compose through `Effect.flatMap`/`Effect.gen`; independent operands accumulate through `Effect.all`/`Effect.forEach` where the `mode`/`concurrency` option — never a flag on the value — selects abort-on-first-failure versus validate-all.
@@ -307,9 +298,3 @@
 - Use `Match.exhaustive`/`Data.taggedEnum().$match` for closed-family dispatch and vocabulary lookup for keyed domains; never an `if`/`switch` ladder that re-derives what a tag or a vocabulary row already carries.
 - Use Effect collections (`HashMap`/`HashSet`/`Chunk`) and `Option` in domain code; JS `Map`/`Set`/`Array`/`null` survive only at FFI and serialization boundaries.
 - Use `Effect.retry(Schedule)`, `Effect.withSpan`, and `Effect.acquireRelease` as composed transformers; never a hand-rolled retry loop, a manual `startSpan`/`endSpan` pair, or a `try`/`finally` cleanup where a scope owns the lifetime.
-
-[RAIL_LAW]:
-- Package: `effect`
-- Owns: the `Effect` carrier, `Schema` decode/encode + derivations, `Context`/`Layer`/`Runtime` DI, `Match`/`Data` dispatch, `Stream`/`Sink` streaming, the concurrency + `STM` substrate, `Schedule` recurrence, `Config`/`ConfigProvider`, `Metric`/`Logger`/`Tracer` signals, the immutable collection + equality family, `Cache`/`Pool`/`Request` batching, and the `Option`/`Either`/`Cause`/`Redacted`/`Encoding`/`Duration`/`DateTime` interop primitives
-- Accept: `Effect.gen`/`Effect.fn`, `Schema.decodeUnknown` + one owner schema, `Effect.Service`/`Context.Tag` + `Layer`, `Match.exhaustive`/`Data.taggedEnum`, `Effect.retry(Schedule)`/`Effect.withSpan`/`Effect.acquireRelease` as seam transformers, `Effect.all`/`forEach` with explicit `concurrency`, Effect collections + `Option`
-- Reject: bare `Promise`/`async`/throw in domain logic, parallel schemas or standalone branded-type exports, module singletons in place of Layers, `if`/`switch` re-deriving a vocabulary, JS `Map`/`Set`/`null` in domain code, hand-rolled retry/span/cleanup where a combinator owns it

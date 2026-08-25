@@ -2,16 +2,7 @@
 
 `@aws-sdk/client-s3` drives every S3-compatible endpoint through one `S3Client` whose single polymorphic `send(command)` discriminates the whole command space; `endpoint` + `forcePathStyle` retarget MinIO, R2, Tigris, or Ceph, never a per-verb method. It carries its own `requestHandler`, so under Effect the client is `acquireRelease`d and each `send` is a `tryPromise` bridging the fiber `AbortSignal` to SDK cancellation — the Effect seam is the wrap, never the transport.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@aws-sdk/client-s3`
-- package: `@aws-sdk/client-s3` (Apache-2.0)
-- module: ESM/CJS dual, `sideEffects: false`, per-command deep-import subpaths, tree-shakeable
-- runtime: `runtime:node` server object plane, browser presigned-direct; `credentialDefaultProvider` is node-only
-- transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent`/HTTP2) or `@smithy/fetch-http-handler`; never the `@effect/platform` `HttpClient`
-- rail: object/store — one `send` over every command value
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client, its config, and the polymorphic send
 
@@ -73,7 +64,7 @@
 - [TAGGED_FAULT]: `NoSuchKey` `NoSuchBucket` `NoSuchUpload` `NotFound` `InvalidObjectState` `InvalidWriteOffset` `EncryptionTypeMismatch` `TooManyParts` `BucketAlreadyOwnedByYou` — miss, archive-state, append-offset, SSE, and multipart fault classification.
 - [ENUM]: `StorageClass` `ChecksumAlgorithm` `ChecksumMode` `ServerSideEncryption` `ObjectCannedACL` — bounded policy values on command inputs.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the Effect wrap — client lifecycle and typed send
 
@@ -100,7 +91,7 @@
 - `GetObjectCommandOutput.Body`: `transformToByteArray()` / `transformToWebStream()` / `transformToString(enc?)`; single-consume, so buffer once then `sharp(buffer).clone()` per derivative, never a re-piped stream.
 - Multipart checksum chain — the producer behind the end-to-end integrity claim: `CreateMultipartUpload{ ChecksumAlgorithm: "SHA256" }` declares the algorithm, every `UploadPart` asserts the same value, each `UploadPartOutput.ChecksumSHA256` crosses into its `CompletedPart.ChecksumSHA256`, and `CompleteMultipartUpload` re-verifies the assembly; `ChecksumType` (`COMPOSITE`/`FULL_OBJECT`) names which shape the assembled digest carries.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one polymorphic `send`, commands as rows: the store wraps `client.send(command)` once, so a new object operation is a new command row, never a method — the `S3` flat client is convenience only.
@@ -121,9 +112,3 @@
 - target any S3-compatible provider by `endpoint` + `forcePathStyle` as `Config` facts; `credentials` and SSE-C keys stay `Redacted`, never a hardcoded AWS region.
 - size `partSize`/`queueSize` from `Config`, never call-site literals; release hand-composed multipart through `AbortMultipartUpload` on interrupt.
 - wrap every `send` once under `Effect.tryPromise` with `{ abortSignal }`; an un-abortable request that leaks past fiber interruption is the rejected form.
-
-[RAIL_LAW]:
-- Package: `@aws-sdk/client-s3`
-- Owns: the `S3Client` + `send` dispatch, the object/multipart/list command family, the bucket-posture reads, `paginate*` iterables, `waitUntil*` pollers, the `S3ServiceException` hierarchy, the bounded enum vocabularies, and `S3ClientConfig` (endpoint/credentials/checksum/retry/transport)
-- Accept: one `Effect`-wrapped `send` per command value, `IfNoneMatch: "*"` + checksum as the content-address idempotency pattern, 412-by-status noop, `endpoint`+`forcePathStyle` S3-compat, hand-composed multipart under a scope, `Redacted` credentials, `Effect.withSpan` spans, paginators lifted to `Stream`
-- Reject: imperative SDK use or a missing `abortSignal`, a per-verb method family, a `PreconditionFailed` class or a 412-as-fault, hardcoded AWS endpoints, the `@effect/platform` `HttpClient` for S3 transport, `@aws-sdk/lib-storage` for bounded bytes, the `S3` flat client where the command form fits, the `DeleteObjectsCommand` batch where a per-key conditional is owed, `SelectObjectContentCommand` over archived or opaque content-addressed bytes, and the whole Object Lock surface against the unversioned bucket this rail writes

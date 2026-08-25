@@ -26,7 +26,7 @@
 - Boundary: `VoxelWire` remains the only stock ingress and egress codec; native `Library`, `Voxels`, `Lattice`, and `Mesh` leases never cross the operation. A verification whose motion carries no cutting move is refused rather than answered with a fabricated air-cut ratio, so the ratio's denominator is positive by admission at every later read.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;

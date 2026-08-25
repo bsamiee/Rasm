@@ -2,15 +2,7 @@
 
 `Microsoft.Extensions.AI.Abstractions` owns the provider-neutral model-client contracts every Rasm model consumer binds — chat, embedding, image, speech, hosted-file, and realtime — with the `AIContent` part algebra their messages carry, the `AITool`/`AIFunction` tool algebra, and the JSON-schema utilities that mint one schema for structured output and tool binding alike. Consumers hold contracts and receive implementations through DI; provider SDKs, middleware, and builder composition stop at the host boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (MIT)
-- assembly: `Microsoft.Extensions.AI.Abstractions`
-- namespace: `Microsoft.Extensions.AI`
-- rail: model-client
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: chat contract, request policy, and response carriers
 
@@ -168,7 +160,7 @@
 |  [05]   | `AIJsonSchemaTransformContext` | struct           | per-node rewrite context   |
 |  [06]   | `AIJsonSchemaTransformCache`   | transform cache  | rewrite caching            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: chat calls, convenience overloads, and streaming accumulation; every `AddMessages` overload appends into the caller's `IList<ChatMessage>`
 
@@ -307,7 +299,7 @@
 - `ChatResponseExtensions.AddMessages`: mutates the supplied list in place and returns nothing.
 - `IHostedFileClient.DeleteAsync`: returns `false` for an absent file rather than faulting.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every client contract extends `IDisposable`, pairs a `Task` call with an `IAsyncEnumerable` streaming twin, and resolves `GetService(Type, object?)` by walking its own delegating chain, so metadata and the raw provider object surface through one traversal.
@@ -333,9 +325,3 @@
 - `AIFunction` values and hosted-tool rows enter a request through `ChatOptions.Tools`; a model owner never constructs a provider client.
 - `ChatOptions.Clone()`, `ChatMessage.Clone()`, and `EmbeddingGenerationOptions.Clone()` mint the per-request copy a caller mutates.
 - `AdditionalPropertiesDictionary` carries provider-specific keys outside the typed options, response, and content surfaces.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.AI.Abstractions`
-- Owns: provider-neutral chat, embedding, image, speech, hosted-file, and realtime contracts with the content algebra, tool algebra, and AI JSON-schema utilities
-- Accept: DI-injected client contracts, `AIFunctionFactory`-minted tools, hosted-tool rows, and `AIJsonUtilities` schemas
-- Reject: a provider SDK type, a hand-rolled HTTP call, or a model-specific option class inside a Compute owner

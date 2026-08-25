@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once and `Audit.Preflight` gates g
 - Boundary: `TreeSeed` exists only before global identity and parent admission; every published topology value is one `SupportNode`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;

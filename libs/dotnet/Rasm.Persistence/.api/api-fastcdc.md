@@ -2,15 +2,7 @@
 
 `FastCDC.Net` owns content-defined chunk boundary detection over an in-memory `byte[]`: one stateful chunker lazily yields `(Hash, Offset, Length)` cut descriptors whose boundaries survive an interior insertion that shifts every fixed-window boundary, so the snapshot rail re-stores only the chunks an edit changed. `Chunk.Hash` is the 32-bit gear-hash marker the cut decision consumed, never a dedup identity — content addressing and every stream or file IO concern sit downstream.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `FastCDC.Net`
-- package: `FastCDC.Net` (MIT OR Apache-2.0)
-- assembly: `FastCdc.Net`
-- namespace: `FastCdc.Net`
-- rail: chunking
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the whole public surface — a chunker root and its cut value
 
@@ -19,7 +11,7 @@
 |  [01]   | `FastCdc` | sealed class  | stateful chunker over a held `byte[]`, one source one pass |
 |  [02]   | `Chunk`   | class         | get-only `uint` `Hash`/`Offset`/`Length` cut descriptor    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and lazy cut enumeration
 
@@ -31,7 +23,7 @@
 
 - `FastCdc(…)`: validation throws before any cut — `ArgumentNullException`/`ArgumentException` on a null or empty source, `ArgumentOutOfRangeException` on an out-of-bound size, `ArgumentException` on a `min > avg` or `avg > max` ordering; the codec boundary lifts all three onto its `Fin` rail.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every cut folds through the normalized two-mask gear hash: the walk from `minSize` to the center point runs the strict mask, the tail to the source end the relaxed mask, and a run caps at `maxSize` — the shape that holds the average chunk size while leaving boundaries past an interior edit stable. Both masks derive from `avgSize` once at construction.
@@ -49,9 +41,3 @@
 [LOCAL_ADMISSION]:
 - Callers hand the whole segment as a `byte[]`, and `min`/`avg`/`max`/`eof` ride one `ChunkPolicy` row rather than a call-site literal.
 - `ChunkManifest` reassembles in chunk order, and a torn or reordered manifest rails as a typed `CodecFault.ChunkManifestRejected`.
-
-[RAIL_LAW]:
-- Package: `FastCDC.Net`
-- Owns: content-defined chunk boundary detection over an in-memory `byte[]`
-- Accept: a `byte[]` source under a `ChunkPolicy` size window
-- Reject: a hand-rolled gear-shift CDC, a fixed-window framing, a per-edit full re-store, a second content-defined chunker, or `Chunk.Hash` read as a content address

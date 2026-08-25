@@ -2,16 +2,7 @@
 
 `Eto.Forms` raises every GH2-hosted panel inside the Rhino process. Control base, layout owners, window and dialog hierarchy, grid and cell families, and command surface are the branch construction spine this boundary composes unchanged; the rows below are the masked and stepped field family, the exclusive option group, the rich-text buffer contract, and the tree hit-test and drop-target models the GH2 panel and canvas add beyond it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` — Grasshopper2 panel partition
-- package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP) (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`)
-- namespace: `Eto.Forms`
-- asset: host-provided — RhinoWIP ships `Eto.dll` under `RhCore.framework/Versions/A/Resources`; no NuGet admission
-- rail: native UI
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 - Registers the `Eto.Forms` construction spine (`libs/dotnet/.api/api-eto-forms.md`): `Control` and its event families, the text, value, choice, command, and display roster, the container set, `Grid`/`GridView`/`TreeGridView` with the cell family, the four layout owners, the window, dialog, and chooser hierarchy, and the popup-menu and `Command` surface carry their construction there and this boundary composes that spelling; the rows below are the widgets and models this partition adds beyond it.
 
@@ -39,7 +30,7 @@
 |  [01]   | `TreeGridCell`         | model         | resolved hit test carrying item, column, and kind              |
 |  [02]   | `TreeGridViewDragInfo` | model         | drop-target descriptor carrying item, parent, and insert index |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tree hit-test and drop-target resolution
 
@@ -51,7 +42,7 @@
 - `TreeGridCell`: `Item` `Column` `ColumnIndex` `Type`; `TreeGridViewDragInfo`: `Item` `Parent` `Position` `InsertIndex`.
 - `ITextBuffer`: `SetBold` `SetItalic` `SetFont` `SetForeground` `SetBackground` `Insert` `Delete` `Clear` `Load` `Save(Stream, RichTextAreaFormat)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Masked field owns its own format contract: `MaskedTextBox<T>` and `MaskedTextStepper<T>` take a typed provider, so a format is a provider value and never a validation ladder beside a plain text field.
@@ -73,9 +64,3 @@
 - Panel subclasses a registered control or composes the registered roster directly; a new control capability lands as a subclass or a composition, never a wrapper renaming a host member or a re-implemented native widget.
 - Format-masked or increment-carrying field takes the rows here; a hand-rolled mask parser or spinner pair beside them is the deleted form.
 - Boundary faults lower onto the LanguageExt rail.
-
-[RAIL_LAW]:
-- Partition: `Eto.Forms` Grasshopper2 panel boundary — masked and stepped fields, exclusive option group, rich-text buffer, tree hit-test and drop-target models
-- Owns: the widgets and interaction models the GH2 panel adds over the registered branch spine
-- Accept: format-masked entry, increment affordances, an exclusive option group over one store, rich-text range formatting, tree hit-test and drop-target resolution
-- Reject: a re-tabling of the branch construction spine, a hand-rolled mask parser or spinner pair, a tree drop target reconstructed from coordinates, immediate 2D painting (`api-eto-drawing`), and platform-handler selection (`api-eto-platform`)

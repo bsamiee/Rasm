@@ -17,7 +17,7 @@ Color arity is ruled at two pages: measurement, the `Metric` family, and spectra
 - Packages: `colour-science` (the colorimetric-truth engine — `convert`/`chromatic_adaptation`/`delta_E`/`temperature`/colorimetric-index/`colour_correction`/`matrix_cvd_Machado2009`/`XYZ_to_sd`/`munsell_colour_to_xyY` and the `SpectralDistribution`+`align` resample surface per the fence imports), `coloraide` (`everything.ColorAll`, the all-plugins engine — gamut fit, CVD+W3C filters, palette interpolation including the mixbox pigment curves, mask/layer/weighted-mix compositing, harmony, blackbody, OKLab-perceptual difference, WCAG contrast, CSS notation), `colour-cxf` (`read_cxf` → the `cxf3.CxF` graph for the CxF3 spot-library intake; `write_cxf` over the built `cxf3` dataclass graph — `Object`/`ColorSpecification`/`ReflectanceSpectrum`/`ColorCielab` — for the `cxf_book` egress), with `expression`/`numpy`/`beartype` and the runtime `LanePolicy`/`Kernel`/`KernelTrait`; the full member surface lives in the package `.api` catalogs.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, StrEnum

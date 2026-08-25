@@ -4,17 +4,7 @@
 
 Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg capability rides a parameterized `sql` statement over inherited `reserve`/`withTransaction`, never a bespoke driver method.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/sql-pg`
-- package: `@effect/sql-pg` (MIT)
-- effect-peer: `effect`, `@effect/sql`, `@effect/experimental`, `@effect/platform`
-- backing: bundles `pg` (`node-postgres`) with `pg-pool`, `pg-cursor` (server-side cursor behind `SqlStream`), `pg-types` (OID codec), `pg-connection-string`
-- runtime: `runtime:node`/bun — imports `node:stream`, `node:tls`; the browser plane binds `lane/sqlite`'s wasm profile on `@effect/sql-sqlite-wasm` instead
-- rail: journal/append
-- modules: `PgClient`, `PgMigrator`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `PgClient` service and its pg-native additions
 - Domain rows compose the neutral `SqlClient`; only rows needing LISTEN reach the `PgClient` Tag, whose `listen` is one parameterized channel bus, never a fixed channel roster.
@@ -44,10 +34,10 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 |  [06]   | `applicationName` / `spanAttributes`              | telemetry      | `pg_stat_activity` correlation; per-query OTel span attributes  |
 |  [07]   | `PgClientFromPoolOptions.acquire`                 | pool adopt     | `lane/postgres` shares one app-owned `pg.Pool`                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
-- `layer` is the app-root row, `layerConfig` wraps every field in `Config` for env/secret resolution, `layerFromPool` adopts an app-owned pool — all three provide `PgClient | SqlClient`, `layerConfig` adding `ConfigError` to the `SqlError` channel. `make`/`fromPool` are the scoped forms; `makeCompiler` returns a `Statement.Compiler` driving the raw-SQL testkit at `tests/typescript/_testkit`.
+- `layer` is the app-root row, `layerConfig` wraps every field in `Config` for env/secret resolution, `layerFromPool` adopts an app-owned pool — all three provide `PgClient | SqlClient`, `layerConfig` adding `ConfigError` to the `SqlError` channel. `make`/`fromPool` are the scoped forms; `makeCompiler` returns a `Statement.Compiler` driving the raw-SQL testkit at `tests/typescript/testkit`.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                   |
 | :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------------- |
@@ -71,7 +61,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 |  [07]   | `sql`\``SELECT set_config('rasm.tenant', ${tenantId}, true)`\`           | RLS GUC        | `lane/tenant` per-transaction scope        |
 |  [08]   | `client.reactive(keys, query): Stream` ← `Reactivity.invalidate(keys)`   | reactive read  | `read/live` read-your-writes               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PG_SPINE_TOPOLOGY]:
 - `PgClient` IS a `SqlClient`: `layer*` binds `PgClient | SqlClient`, so domain rows depend on the neutral `SqlClient` Tag and stay dialect-agnostic; only `listen`/`notify`/`json` rows yield the `PgClient` Tag. This lets `sql.onDialect({ pg, sqlite })` compile one journal/projection statement the PG spine and `lane/sqlite` rows both run.
@@ -92,9 +82,3 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 - express advisory locks, COPY, idempotency claims, SKIP LOCKED, and the RLS GUC as `sql` fragments over `reserve`/`withTransaction`; the statement is the parameterized owner and the driver ships no wrapper.
 - `PgMigrator` (`run`/`layer`, re-exporting `@effect/sql/Migrator`) is banned branch-wide: DDL is idempotent declarative ensure — `iac` applies, `data` verifies, runtime never mutates schema — and an event-shape change re-mints the journal whole instead of migrating it.
 - secrets (`url`, `password`) are `Redacted`; pool sizing (`maxConnections`, `connectionTTL`) is a `Config`/`iac` fact, never a row literal.
-
-[RAIL_LAW]:
-- Package: `@effect/sql-pg`
-- Owns: the pooled `PgClient` binding of `SqlClient` to `pg`, `listen`/`notify` channelization, the `json`/`PgJson` jsonb fragment, `layer`/`layerConfig`/`layerFromPool`/`fromPool` construction, `makeCompiler`, and the branch-banned `PgMigrator`
-- Accept: `PgClient` as a `SqlClient` provider; advisory-lock/COPY/idempotency/SKIP-LOCKED/RLS-GUC as `sql` over `reserve`/`withTransaction`; `listen`/`notify` as the `read/fold` wake bus; `reactive` composing `@effect/experimental` `Reactivity`; secrets `Redacted`; extensions as `iac`/CNPG facts
-- Reject: a `PgClient`-typed row that is `SqlClient`, a hand-rolled driver wrapper for a capability `sql` already owns, `PgMigrator` or any runtime schema mutation, hardcoded credentials or pool sizes, LISTEN/NOTIFY or COPY re-implemented outside `sql`/`reserve`, EventLog treated as the record of truth

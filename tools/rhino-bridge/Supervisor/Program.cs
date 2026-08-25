@@ -12,21 +12,18 @@ namespace Rasm.Bridge.Supervisor;
 [Union]
 internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
-    internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest, EvidenceMode EvidenceMode) : SupervisorVerb;
+    internal sealed record Verify(ScenarioSelection Selection) : SupervisorVerb;
     internal sealed record Status : SupervisorVerb;
-    internal sealed record Redeploy(string PackagePath) : SupervisorVerb;
     internal sealed record Quit : SupervisorVerb;
 
     public string Key => Switch(
         verify: static _ => "verify",
         status: static _ => "status",
-        redeploy: static _ => "redeploy",
         quit: static _ => "quit");
 
     public SessionPhase EntryPhase => Switch(
         verify: static _ => SessionPhase.Launch,
         status: static _ => SessionPhase.Status,
-        redeploy: static _ => SessionPhase.Install,
         quit: static _ => SessionPhase.QuitAe);
 }
 
@@ -34,7 +31,7 @@ internal abstract partial record SupervisorVerb {
 
 internal sealed record SupervisorRuntime(
     Atom<Option<LeaseToken>> Lease, Atom<Option<int>> LiveHostPid, TimeProvider Clock, SessionPolicy Policy,
-    string ArtifactRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
+    string ArtifactRoot, string CargoSourceRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -56,14 +53,11 @@ internal static class Verbs {
     internal static Fin<SupervisorVerb> Parse(string[] argv) {
         ArgumentNullException.ThrowIfNull(argument: argv);
         return argv switch {
-            ["verify", { } selection, { } manifest] => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: EvidenceMode.Verify)),
-            ["verify", { } selection, { } manifest, { } evidenceToken] when EvidenceMode.TryGet(key: evidenceToken, item: out EvidenceMode? mode) => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: mode)),
+            ["verify", { } selection] => Selection(raw: selection)
+                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted)),
             ["status"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Status()),
-            ["redeploy", { } package] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Redeploy(PackagePath: package)),
             ["quit"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Quit()),
-            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> <closure-manifest> [verify|author] | status | redeploy <package> | quit")),
+            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> | status | quit")),
         };
     }
 
@@ -159,7 +153,8 @@ internal static class Program {
             Clock: TimeProvider.System,
             Root: root,
             Policy: SessionPolicy.Default,
-            ArtifactRoot: Path.Combine(Environment.CurrentDirectory, ".artifacts", "assay", "bridge"),
+            ArtifactRoot: Path.Combine(Environment.CurrentDirectory, ".artifacts", "dotnet", "bridge"),
+            CargoSourceRoot: AppContext.BaseDirectory,
             LeasePath: Lease.CanonicalPath,
             JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle);

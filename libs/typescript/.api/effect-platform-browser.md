@@ -2,14 +2,7 @@
 
 `@effect/platform-browser` satisfies the abstract `@effect/platform` system-API Tags with browser Web-API implementations, so folder code types against the platform-neutral contract and the binding is a `Layer` selection at app composition. It owns the single `BrowserRuntime.runMain` boot and feeds the `runtime:browser` lane the edge ledger fences.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/platform-browser`
-- package: `@effect/platform-browser` (MIT)
-- effect-peer: `effect catalog`, `@effect/platform catalog` (the abstract Tags this package satisfies; `.api/effect.md`, `.api/effect-platform.md`)
-- runtime: `runtime:browser` (browser-only; peer swap of `@effect/platform-node`/`@effect/platform-bun` behind the same `@effect/platform` Tags)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime + platform-service bindings
 - rail: platform/browser
@@ -36,7 +29,7 @@
 |  [02]   | `Geolocation.Geolocation` / `.layer` / `watchPosition` | `Context.Tag` | `ui`/`viewer` position + watch stream   |
 |  [03]   | `Permissions.Permissions` / `.layer`                   | `Context.Tag` | permission-state query/observe          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: runtime boot + platform-service composition
 - rail: platform/browser
@@ -53,12 +46,12 @@
 |  [07]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`  | DOM stream      | connectivity/visibility/network `Stream` rows |
 |  [08]   | `Geolocation.watchPosition` / `Clipboard.layer` / `Permissions.layer`  | Web-API service | `ui`/`viewer` capability Layers               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one boot law: `BrowserRuntime.runMain` is the single entry `browser/boot` owns, a `RunMain` instance sharing its shape with `BunRuntime.runMain`/`NodeRuntime.runMain` so the boot contract is identical across runtimes; a second boot is the named defect.
 - Tag-satisfaction, not reimplementation: folder code types against `@effect/platform`'s abstract `KeyValueStore`/`Worker`/`HttpClient`/`Socket` Tags, and this package's `layer*` values satisfy them with browser implementations, so identical code runs on node/bun by Layer selection — capability is the contract, the binding is the `Layer`.
-- `runtime:browser` purity: the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and this package inside `runtime:node`; the `tests/typescript/_architecture` suite audits per-runtime subpath purity the exports map cannot express.
+- `runtime:browser` purity: the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and this package inside `runtime:node`.
 
 [STACKING]:
 - `@effect/experimental`(`.api/effect-experimental.md`): `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` `EventLog.layerIdentityKvs({ key })` requires, `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` `EventLogRemote.layerWebSocket` requires, and `EventJournal.layerIndexedDb` backs the journal — the browser EventLog client is these Layers merged.
@@ -70,9 +63,3 @@
 - Imported only inside `runtime:browser` subpaths; native-DOM ingress this package does not wrap is pinned at its `browser/*` owner page (`browser/persist`, `browser/boot`, `browser/route`), never re-spelled at a consumer.
 - Web-API services (`Clipboard`/`Geolocation`/`Permissions`) are `ui`-declared ports this package satisfies; `ui` never imports it directly.
 - XHR `HttpClient` is the browser transport for upload/download progress or arraybuffer; otherwise `@effect/platform`'s `fetch` client suffices.
-
-[RAIL_LAW]:
-- Package: `@effect/platform-browser`
-- Owns: the `BrowserRuntime.runMain` boot, `KeyValueStore` over Web Storage and nothing further, `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`, `HttpClient` over XHR, `Socket` over `WebSocket`, DOM-event `Stream` sources, and the `Clipboard`/`Geolocation`/`Permissions` services
-- Accept: `runMain` as the single browser boot, `layer*` values satisfying abstract `@effect/platform` Tags, `BrowserKeyValueStore`/`BrowserSocket` as EventLog-client backings, the XHR client for OTLP/binary transport, `BrowserWorker` for the decode pool, Web-API services as `ui`-declared ports
-- Reject: a second `runMain`, `@effect/platform-node`/`@effect/platform-bun`/`node:*` in `runtime:browser`, this package in `runtime:node`, `ui` importing it directly instead of through a declared port, hand-rolled Web-Storage/WebSocket/Worker wrappers, a browser `FileSystem` port built solely to reach `KeyValueStore.layerFileSystem`, and `makeStringOnly` under a store whose values are octets

@@ -22,7 +22,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;

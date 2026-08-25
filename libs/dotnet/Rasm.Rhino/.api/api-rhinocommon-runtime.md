@@ -2,15 +2,7 @@
 
 `Rhino.Runtime` owns the in-process host environment beneath every other catalog: platform-service resolution, assembly loading, the native-pointer marshal seam, and the `CommonObject` const/non-const lifetime base every geometry and document handle derives from. Every managed handle crosses to native as an `nint` marshalled through `Interop`, and the domain never touches a native pointer the `InteropWrappers` disposable family does not first wrap.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon host-runtime surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` — in-process managed host runtime
-- namespaces: `Rhino.Runtime`, `Rhino.Runtime.InProcess`, `Rhino.Runtime.InteropWrappers`, `Rhino.Runtime.Notifications`, `Rhino.Runtime.RhinoAccounts`, `Rhino.NodeInCode`
-- rail: host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: host environment and platform services
 
@@ -109,7 +101,7 @@
 |  [08]   | `ProgressState`              | enum          | login progress (`AwaitingLogin`/`RetrievingTokens`/`AwaitingRedirect`/`Other`) |
 |  [09]   | `RhinoAccountsException`     | class         | base of the accounts fault hierarchy                                           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: platform services, assembly loading, and process facts
 - `HostUtils.GetPlatformService<T>(string, string) -> T where T : class` — resolve a platform service, the single seam `IShrinkWrapService`/`IZooClientUtilities` and OS-info reads route through
@@ -198,7 +190,7 @@
 - `CommonObject.ToJSON(SerializationOptions) -> string` / `FromJSON(string) -> CommonObject` / `FromBase64String(int, int, string) -> CommonObject` / `ComputeMemoryEstimate(CommonObject) -> uint`
 - `CommonObject.UserData -> UserDataList` / `UserDictionary` custody routes to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`; this catalog names the base, that catalog owns the attachment surface
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one host boundary crosses through `Interop`: a managed handle projects to an `nint` for a native call and a returned `nint` reconstructs a managed object; the `InteropWrappers` `SimpleArray*`/`StdVector*`/`StringHolder` disposables own every native collection or string across that call, released on a matched `Dispose`
@@ -220,9 +212,3 @@
 - platform capability enters through `HostUtils.GetPlatformService<T>`, never a direct service construction
 - headless runtimes enter through one `RhinoCore` owner with host-context marshalling, never a per-call thread hop
 - `CommonObject.UserData`/`UserDictionary` custody routes to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`; text-field evaluation to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-annotation.md` and block-attribute fields to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-blocks.md`
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: host environment and platform services, the native marshal seam and disposable array family, the `CommonObject` lifetime base, the scripting/skin/vector-capture surface, the in-process headless boot, the assembly-scoped notification center, node-in-code, and the account-token rail
-- Accept: platform-service resolution, marshalled native traffic through disposable wrappers, headless boot with host-context marshalling, secret-key-scoped token acquisition, named-callback dispatch
-- Reject: a raw native pointer in a domain signature, an undisposed marshal wrapper, a service construction bypassing the locator, a cross-thread host call outside `InvokeInHostContext`, and re-documentation of the user-data, text-field, or block-attribute slices other catalogs own

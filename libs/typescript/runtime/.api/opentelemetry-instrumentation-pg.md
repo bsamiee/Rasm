@@ -2,15 +2,7 @@
 
 `@opentelemetry/instrumentation-pg` traces the `pg` client: one span per query and, unless suppressed, per connection acquisition, under stable database semconv. Three capabilities beyond span emission earn the row — `enhancedDatabaseReporting` attaches statement parameters, `addSqlCommenterCommentToQueries` writes a SQLCommenter comment into the statement text `pg_stat_statements` normalizes, and `enableTraceContextPropagation` stamps the live `traceparent` onto the session so `pg_stat_activity` reads it — each carrying a different cost and each priced on its own row.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@opentelemetry/instrumentation-pg`
-- package: `@opentelemetry/instrumentation-pg` (Apache-2.0)
-- module: dual CJS + ESM flat barrel; `@opentelemetry/api` `^1.3.0` is the one peer, `@opentelemetry/instrumentation` the base, `pg` the patched module
-- runtime: node and bun only — the row patches the `pg` client and pool at require time
-- rail: observability/tracing — the PostgreSQL client span source
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the instrumentation row, its config, and the hook payload shapes
 
@@ -30,7 +22,7 @@
 - `ignoreConnectSpans` drops the acquisition span while keeping query spans and pool metrics, so a pooled workload takes that row rather than minting a checkout span per query.
 - `requireParentSpan` gates on a live parent, so a background pool health query never roots a trace.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction — the row is data, activation belongs to `registerInstrumentations`
 
@@ -40,7 +32,7 @@
 |  [02]   | `.setConfig(config)` / `.getConfig()` | instance | replace or read the row's config live       |
 |  [03]   | `.enable()` / `.disable()`            | instance | the `Instrumentation` contract's own toggle |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - registration precedes module load — the row patches `pg` on require, so the registration node must run before any module importing the client.
@@ -55,9 +47,3 @@
 [LOCAL_ADMISSION]:
 - `scope:runtime`, server condition only — the server registration node is the sole importer.
 - statement capture defaults off; a deployment enabling it inherits the export-boundary redaction scrub as its only guard.
-
-[RAIL_LAW]:
-- Package: `@opentelemetry/instrumentation-pg`
-- Owns: PostgreSQL client spans under stable database semconv, statement-parameter capture, the SQLCommenter statement comment, the `application_name` session stamp, and the connection-span and parent gates
-- Accept: one construction inside the server registration node with the parent gate armed, statement capture decided by compliance posture, and the comment and session rows decided independently
-- Reject: statement capture as a debug default, the session stamp bound to the comment field so its round-trip cost rides an unrelated decision, a second `pg` instrumentation row, use as a substitute for an owning seam's own span

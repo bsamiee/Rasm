@@ -19,7 +19,7 @@ Topology axes give the admitted packages typed fields to key onto: a `NodeMark` 
 - Boundary: no SVG emission (`visualization/diagram/draw#DRAW`'s), no coordinate/ring/port-route computation (`visualization/diagram/layout#LAYOUT`'s — marks carry the computed result, they never re-derive it; the `Port.seat` and `AreaMark.centroid` projections derive from carried geometry alone), no furniture generation (`visualization/diagram/solar#SOLAR`'s — this vocabulary carries only the generated `FragmentMark.d` string), no graph analysis (`data/graph/graph#GRAPH`'s), no named-symbol schematic (`visualization/diagram/schematic#SCHEMATIC`'s `schemdraw` engine owns the anchored-symbol class the seven marks cannot express). A positional case tuple, a forwarding constructor beside the named payload, and an erased attribute `dict` are the rejected forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from enum import StrEnum
 from typing import Final, Literal, assert_never
 

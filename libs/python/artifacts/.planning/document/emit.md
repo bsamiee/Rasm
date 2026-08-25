@@ -16,7 +16,7 @@ Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker sp
 - Growth: a new document format is one `DocumentMode` row with one `Backend` row binding its arm and band, one `_SCOPE` row naming its observable payload fields, and a `_REQUIRED` row when it demands an input; a new mode-specific control is one `EmitSpec` field with its `_SCOPE` membership; a new typed cell is one `CellValue` arm; a new interactive-field payload is one `FieldValue` case with one `_ua_field` arm; a new archival profile is one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new evidence fact is one `EmitFact` field; a new admission cause is one `EmitFault` case.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import codecs
 import io
 import re

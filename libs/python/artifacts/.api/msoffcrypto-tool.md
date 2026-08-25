@@ -2,17 +2,7 @@
 
 `msoffcrypto-tool` owns encrypted-Office confidentiality for the artifacts document and exchange rail: `OfficeFile(file)` sniffs a container to its format object, `load_key` derives the secret key from a password, private key, or secret key, and `decrypt` streams plaintext to a caller handle; `OOXMLFile.encrypt` reseals a plaintext OOXML payload under a fresh agile container. It composes the in-package ECMA-376 and RC4/XOR key schedules over `cryptography` and `olefile`, never re-deriving the crypto and never re-parsing the OOXML/OLE document tree the readers and persistence owners model.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `msoffcrypto-tool`
-- package: `msoffcrypto-tool` (MIT)
-- module: `msoffcrypto`
-- namespaces: `msoffcrypto.format`, `msoffcrypto.exceptions`, `msoffcrypto.method`
-- rail: confidentiality
-- abi: pure-Python (no extension module)
-- depends: `olefile` (OLE stream IO), `cryptography` (AES/SHA primitives)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: office-file roots and confidentiality failures
 
@@ -31,7 +21,7 @@
 |  [09]   | `exceptions.EncryptionError` | exception     | reseal fault (already-encrypted source)                  |
 |  [10]   | `exceptions.InvalidKeyError` | exception     | wrong or unverifiable key; subclass of `DecryptionError` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory dispatch
 
@@ -78,7 +68,7 @@
 |  [05]   | `rc4_cryptoapi.DocumentRC4CryptoAPI`   | static  | RC4-CryptoAPI verify + decrypt                                             |
 |  [06]   | `xor_obfuscation.DocumentXOR`          | static  | XOR obfuscation for `fObfuscation==1` DOC containers                       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Package root exports only `OfficeFile` and `exceptions`; the concrete `OOXMLFile`/97 classes are factory-returned, never caller-selected constructors. Import at boundary scope only (`lazy import msoffcrypto` in `document/egress#FINISH`); module-level import is banned by the manifest import policy.
@@ -97,9 +87,3 @@
 
 [LOCAL_ADMISSION]:
 - Unlock reads `OfficeFile(file)` -> `load_key(...)` -> `decrypt(outfile)` over a `BytesIO` source and sink; reseal reads `OOXMLFile.encrypt(password, outfile)`, both gated on `is_encrypted()`.
-
-[RAIL_LAW]:
-- Package: `msoffcrypto-tool`
-- Owns: encrypted-Office detection (OOXML agile/standard, legacy DOC/XLS/PPT 97 RC4/RC4-CryptoAPI/XOR), password/private-key/secret-key derivation with OOXML-optional or 97-mandatory verification, decrypted-stream output, and OOXML re-encryption under a fresh agile container
-- Accept: confidentiality unlock and OOXML reseal feeding the document readers and persistence owners; an in-memory `BufferedReader`/`BytesIO` source the factory dispatches over; credentials as the `keyTypes`-advertised rows
-- Reject: wrapper-renames of `OfficeFile`/`load_key`/`decrypt`/`encrypt`/`is_encrypted`; a hand-rolled ECMA-376 or RC4/XOR schedule duplicating the `method/` tier; a caller-selected format flag where stream sniffing dispatches; a per-extension reader; a `load_key` family split per credential; a `verify_*` flag forced on the 97 surface; a `reseal` on a non-OOXML object; a flat catch ignoring `InvalidKeyError`'s `DecryptionError` parentage; re-parsing the decrypted document tree the reader owners model

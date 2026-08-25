@@ -26,7 +26,7 @@ The viewport pointer seam is HOST-SPECIFIC and stays whole — `MouseCallbackEve
 - Packages: RhinoCommon `Rhino.UI.MouseCallback`/`MouseCursor` (`.api/api-rhinocommon-display.md`); `Rasm.Interaction` (`InputVerdict`); `Rasm.Domain` (`FaultCell`, `HookId`, `Cell`); `System.Threading.Channels`; LanguageExt.Core; `Rasm.Rhino.Document` (`LifecycleGate` — `Document/lifetime.md`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Threading.Channels;
 using Rasm.Domain;
 using Rasm.Interaction;

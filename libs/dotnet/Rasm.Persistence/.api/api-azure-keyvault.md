@@ -2,17 +2,7 @@
 
 `Azure.Security.KeyVault.Keys` owns vault-side key custody and cryptography for the `azure` `KmsProvider` arm: `KeyClient` drives master-key CRUD, rotation, and secure-key-release over Azure Key Vault and Managed HSM, `CryptographyClient` drives the DEK wrap round trip and asymmetric signing. Its `CryptographyClient.WrapKey`/`UnwrapKey` is a native vault key-wrap verb, so the Azure `EnvelopeKeyring` arm wraps a DEK directly rather than through an `Encrypt`/`Decrypt`-as-wrap shim, and its `Sign`/`Verify` binds the `SigningKeyring` arm over the precomputed `OpDigest`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Azure.Security.KeyVault.Keys`
-- package: `Azure.Security.KeyVault.Keys` (MIT)
-- assembly: `Azure.Security.KeyVault.Keys` (`lib/net10.0` binds the `net10.0` consumer)
-- namespace: `Azure.Security.KeyVault.Keys`, `Azure.Security.KeyVault.Keys.Cryptography`
-- asset: runtime library
-- depends: `Azure.Core` (pipeline, `Response<T>`, `Pageable<T>`, `TokenCredential`), paired with `Azure.Identity` for the credential at composition
-- rail: encryption (the `EnvelopeKeyring` arm), signing (the `SigningKeyring` arm)
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and cryptography family
 
@@ -58,7 +48,7 @@
 |  [05]   | `SignResult`    | result value  | `Signature`, `KeyId`, `Algorithm` (`SignatureAlgorithm`)                                     |
 |  [06]   | `VerifyResult`  | result value  | `IsValid`, `KeyId`, `Algorithm` (`SignatureAlgorithm`)                                       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: key-wrap and key-management cryptography
 
@@ -124,7 +114,7 @@
 |  [09]   | `KeyVaultKeyIdentifier.TryCreate(Uri, out identifier)`                   | static   | non-throwing split of a key URI          |
 |  [10]   | `KeyVaultKeyIdentifier.SourceId` / `VaultUri` / `Name` / `Version`       | property | parsed key URI components                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two namespaces carry the surface — `Azure.Security.KeyVault.Keys` for management, `.Cryptography` for operations — and the whole client rides `Azure.Core`: `Response<T>`/`Pageable<T>`/`AsyncPageable<T>` carriers, `TokenCredential`, and `RequestFailedException` converted to the page error rail once at the boundary, never inside the keyring delegates.
@@ -143,9 +133,3 @@
 - `WrappedKey` persists `WrapResult.EncryptedKey` beside `WrapResult.KeyId` and the pinned key version; the recovered `UnwrapResult.Key` rehydrates the local cipher and zeroes immediately after the bind.
 - Azure `WrapKey`/`UnwrapKey` carry no `EncryptionContext` parameter, so per-partition AAD rides the `FrozenDictionary<string,string>` the keyring threads and is enforced application-side before the call; an AAD that changes between mint and unwrap is rejected before the call, never by a vault error.
 - `KeyVaultKeyIdentifier.TryCreate` parses a stored key URI into `VaultUri`/`Name`/`Version` at the configuration boundary, internal code holding the parsed components; clients are long-lived and thread-safe — one per vault at composition, never per wrap, consuming the per-open `SecretLease` CMK handle so this owner holds the client and AAD binding while the runtime lease owns the credential lifecycle.
-
-[RAIL_LAW]:
-- Package: `Azure.Security.KeyVault.Keys`
-- Owns: master-key custody, native key-wrap cryptography for the `azure` `EnvelopeKeyring` arm, and asymmetric Sign/Verify for the `SigningKeyring` arm
-- Accept: `CryptographyClient.WrapKey`/`UnwrapKey` for the DEK round trip, `Sign`/`Verify` over the precomputed `OpDigest`, the `CryptographyClient(JsonWebKey)` local path for an offline unwrap or verify, `KeyClient` for master-key CRUD/rotation and the attested `ReleaseKey` TEE export, well-known `KeyWrapAlgorithm`/`SignatureAlgorithm` constants, `Azure.Core` carriers converted once at the boundary
-- Reject: `Encrypt`/`Decrypt`-as-wrap where the native `WrapKey` verb exists, `SignData`/`VerifyData` for an already-hashed `OpDigest`, exported master-key material outside the attested `ReleaseKey` path, per-operation client construction, raw key-URI strings in internal code, `RequestFailedException` past the keyring boundary

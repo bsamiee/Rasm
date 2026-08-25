@@ -17,7 +17,7 @@ THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/L
 - Boundary: the timber arm's columns and identity are `component#MATERIAL_GRADE`'s and its PHYSICS is this page's — `GRollMean` derives the EN 14080 rolling-shear modulus off `GMean`, `Hardwood` reads what the `K90Base` intercept says, and `OrthotropicLaw`/`ToProperties` lower the same scalars through `LinearElasticOrthotropicMaterial` and `MaterialPropertySet.OfOrthotropic`. The EDGEWISE bending strength is a PRODUCT fact, so it rides `TimberRow` where its ETA declares it and never the grade row it is not a column of: a lamella's flatwise `f_m,k` is measured across the layup's own thickness and an in-plane layup develops a different one, so the two never stand in for each other and a layup whose assessment prints no edgewise value answers absence. `SectionProfile.Layered` carries each physical ply thickness under the bounded `PlyRole.Longitudinal`/`PlyRole.Transverse` discriminant, and `ComponentFamily.Timber.Admits` rejects every other known `PlyRole`; the `ComponentFamily.Timber.Ifc` concrete leaf leaves beam/column/brace occurrence refinement outside Materials, `DetailLane.None` forbids a duplicate bag, and `TimberSeed.Resolve` restores the authored form/grade axes by the same `ComponentId` minted during seeding.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;

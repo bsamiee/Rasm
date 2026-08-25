@@ -2,17 +2,7 @@
 
 `opentype_feature_freezer` owns GSUB-into-`cmap` feature freezing for the artifacts font rail: the single `RemapByOTL` engine bakes chosen GSUB single (LookupType 1) and alternate (LookupType 3) substitutions into a font's default Unicode-to-glyph map so features such as `smcp`/`onum`/`ss01` render on-by-default in non-OpenType consumers, then rewrites the `name`/CFF naming tables. It reads and writes through `fontTools.ttLib.TTFont` and owns no font model. `typography/font` `FontEngineering` drives it as the `FREEZE` `FontOp` arm — freeze rebinds `cmap` where `SUBSET` prunes glyphs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentype-feature-freezer`
-- package: `opentype-feature-freezer` (Apache-2.0)
-- module: `opentype_feature_freezer`
-- owner: `artifacts`
-- rail: fonts — the `typography/font` `FREEZE` `FontOp` arm
-- depends: `fonttools` — the binary-font model and table objects the remap reads and writes
-- entry points: console script `pyftfeatfreeze`; library use is `RemapByOTL(options).run()` with the `cli.main`/`cli.parseOptions` argv helpers
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: feature-freeze engine and its state
 
@@ -46,7 +36,7 @@ These are the argparse `dest=` names `RemapByOTL` reads directly; the design-sid
 |  [12]   | `names`        | `bool`                  | collect and print the substituted glyph names during processing                         |
 |  [13]   | `verbose`      | `bool`                  | raise the module logger to `INFO` (consumed by `cli.main`, not by `RemapByOTL`)         |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the freeze pipeline
 
@@ -75,7 +65,7 @@ In-process composition bypasses these and builds the options carrier directly; `
 |  [01]   | `cli.main`         | static  | `main(args=None, parser=None) -> int`: exists-check, log, `run()`       |
 |  [02]   | `cli.parseOptions` | static  | `parseOptions(args=None) -> Namespace`; `-f -s -l -S -U -R -z -i -r -n` |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RemapByOTL` is the whole library — no module functions, no `freeze(bytes) -> bytes` entry; the unit of composition is build an options carrier, `run()`, read `outpath`. State (`.ttx`/`.success`/`.substitution_mapping`) mutates across stages, so the engine is single-use per font.
@@ -97,9 +87,3 @@ In-process composition bypasses these and builds the options carrier directly; `
 - Freeze policy is the typed options struct spreading the [02] field names, never a loose `dict[str, object]` and never a parallel rename helper — `renameFont` owns the `name`/CFF rename and the OFL replace.
 - Font model stays `fontTools.ttLib.TTFont`, so a `FREEZE -> SUBSET -> INSTANCE` chain runs on one model.
 - `engine.success` carries a freeze fault into the `RuntimeRail` failure; `report` mode writes no font and prints the script, language, and feature enumeration.
-
-[RAIL_LAW]:
-- Package: `opentype-feature-freezer`
-- Owns: freezing a chosen GSUB single/alternate feature set into a font's default `cmap` for non-OpenType consumers; the attendant RIBBI/OFL `name`+CFF rename and `post` glyph-name zapping
-- Accept: a `FREEZE` `FontOp` arm driving `RemapByOTL` over a temp-path round-trip on the shared `TTFont` bytes; the typed options struct as the freeze policy; the `report` mode as a font-feature/script discovery pass
-- Reject: a hand-walked `GSUB` traversal or hand-built `cmap` rewrite where `RemapByOTL` owns the fold; a loose option `dict` or parallel rename helper where the options struct + `renameFont` suffice; a uharfbuzz reshape or a `Subsetter` pass mistaken for a freeze; trusting a silent return over reading `engine.success`

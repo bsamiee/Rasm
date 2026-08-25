@@ -2,14 +2,7 @@
 
 `dataframely` owns Polars-native dataframe contracts: a `Schema` subclass declares `Column` members with inline rules and cross-column `@rule` predicates, and a `Collection` binds member schemas under shared-primary-key integrity with `@filter` and `require_relationship_*` invariants. Validation runs eager or lazy through one `validate`/`is_valid`/`filter`/`cast` family, returning a `DataFrame[S]`/`LazyFrame[S]` or the native `FailureInfo` result. `dataframely` feeds the data folder's CONTRACT_GATE_FOLD/COVENANT path as the row-level rule engine.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `dataframely`
-- package: `dataframely` (BSD-3-Clause)
-- module: `dataframely`
-- rail: Polars dataframe contract gate
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: schema, collection, column, and failure roots
 
@@ -49,7 +42,7 @@ Every subtype maps to a Polars dtype and carries its inline validation policy th
 |  [10]   | `Binary`                                     | `pl.Binary`                  | raw byte column                                 |
 |  [11]   | `Object`, `Any`                              | `pl.Object` / dtype-agnostic | escape-hatch column                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Schema` validate, filter, and project
 
@@ -138,7 +131,7 @@ Every `Column` subtype constructor carries the base policy `nullable`, `primary_
 - `dy.random.Generator(seed=None)` seeds the sampler helpers (`regex_sample`, `date_matches_resolution`, …) that `Schema.sample`/`Collection.sample` consume.
 - `Enum(categories, *, sqlalchemy_use_enum, sqlalchemy_enum_name, …)` projects through `to_sqlalchemy_columns` to a native SQL `Enum` when `sqlalchemy_use_enum=True` (named by `sqlalchemy_enum_name`), else to a text column.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Validation folds each `Column`'s inline rules and every `@rule`/`@filter` predicate as `pl.Expr`/`pl.LazyFrame` over the frame, so rule evaluation is Polars expression algebra over the Rust `_native` core, one pass per frame.
@@ -162,9 +155,3 @@ Every `Column` subtype constructor carries the base policy `nullable`, `primary_
 - Fold `filter` failures into native `FailureInfo` for a graded gate instead of re-deriving per-column counts; express referential integrity with `require_relationship_*` returned from a `@filter`.
 - Read and write frames through the polars owner, then run `Schema.validate`/`Collection.validate` explicitly at the boundary; recover an embedded contract with `read_parquet_metadata_schema`/`read_parquet_metadata_collection` and project to a consuming runtime with the `to_*` family, so a downstream reader binds the projected schema rather than re-declaring the column types.
 - Persist a rejection through the `FailureInfo` IO family, which carries the per-rule flags a re-derived `invalid` write loses.
-
-[RAIL_LAW]:
-- Package: `dataframely`
-- Owns: declarative Polars `Schema`/`Column` contracts with inline and cross-column rules, `Collection` cross-frame integrity over shared primary keys and filters, eager/lazy validate/filter/cast, `FailureInfo` introspection and its parquet/delta IO, per-member `Collection` parquet writes, and schema/collection serialization with metadata recovery over otherwise polars-owned frame IO.
-- Accept: dataframe contract declaration and enforcement feeding the CONTRACT_GATE_FOLD/COVENANT gate, with `DataFrame[S]`/`LazyFrame[S]` outputs flowing to the data and persistence owners.
-- Reject: a wrapper-rename of `validate`/`filter`; a per-row assertion loop where `@rule`/`@filter` own the algebra; one validator type per column kind; a hand-stitched anti/semi-join where `require_relationship_*` owns referential integrity; a side-file schema store where `serialize`/`read_parquet_metadata_schema` recover the contract from parquet metadata; re-declared column types the schema already projects; a `Schema`-tier or `Collection`-tier delta call and a metadata-inspecting `Collection` parquet read, each the deleted form of an explicit polars read plus `validate`.

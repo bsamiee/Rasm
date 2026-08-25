@@ -21,7 +21,7 @@
 - Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266`, `SubD` edit `:273-282`, `SubD` topology `:307-314`, `SubD` config `:316-328`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`/`Use`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
 using Rasm.Domain;

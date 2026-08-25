@@ -1,10 +1,8 @@
 # [PY_ARTIFACTS_SCENE_RENDER]
 
-
 Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission evidence, `RenderSpec`, `OrbitPath`, the target and source vocabularies — and every body executes in `scene/render_worker#WORKER`: each arm crosses as one `HOSTILE`-trait runtime `Kernel` named against the spec floor's `WORKER_MODULE`, so this runtime module imports the spec floor alone and never a worker module, while isolation, band, worker-death retry, and the crossing gate all derive at `runtime/execution/workers#CROSSING`. Every kernel declares `idempotent=True` explicitly — a render is content-keyed and run-scoped, so a worker-death re-run is safe by declaration, never by assumption — and the frames and compose arms declare `Enforcement.TERMINAL`: a hung native orbit capture and a boolean fold spinning on coincident surfaces obey only the pebble wall-clock kill. Lane policy arrives projected from the caller's admitted context through `LanePolicy.of`; a capacity literal has no owner here. `SceneGrid` wraps its buffers inside a struct, so the crossing stays `Wire.PICKLE` — the shared-memory span channel crosses bare ndarray arguments alone. `glb` carries geometry-plane bytes and `parents` carries its producer key as a data edge per `core/plan#PLAN`.
 
 ## [01]-[INDEX]
-
 
 ## [02]-[SCENE]
 
@@ -14,7 +12,7 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from typing import Final, Literal, assert_never
 
 from beartype.roar import BeartypeCallHintViolation

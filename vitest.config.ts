@@ -1,17 +1,6 @@
 /// <reference types="vitest/config" />
-/**
- * Root Vitest authority: the estate aggregate over per-package projects plus one armed browser
- * lane. Each package with specs carries a one-call vitest.config.ts deriving from `createProject`
- * exported here — the per-package file is what lets Nx infer a per-project `test` target, and the
- * import back into this module is acyclic because the `projects` rows are glob strings, never
- * imports. This file keeps the estate-level options — coverage, reporters, output routing, worker
- * caps — and is the single entry Stryker and whole-estate runs consume. Artifacts route to
- * .artifacts/typescript.
- */
-
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -35,9 +24,13 @@ const _CONFIG = {
         shouldClearNativeTimers: true,
         toFake: ['setTimeout', 'setInterval', 'Date', 'performance'] as const,
     },
-    optimizeDeps: ['@effect/vitest', 'rfc6902', 'effect'],
+    optimizeDeps: ['@effect/vitest', 'effect'],
     output: {
-        chaiConfig: { includeStack: true, showDiff: true, truncateThreshold: 0 },
+        chaiConfig: {
+            includeStack: true,
+            showDiff: true,
+            truncateThreshold: 0,
+        },
         diff: { expand: true, truncateThreshold: 0 },
         outputFile: {
             blob: path.resolve(_ARTIFACTS.results, '.vitest-reports'),
@@ -46,10 +39,8 @@ const _CONFIG = {
         },
     },
     patterns: {
-        benchExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**', '**/*.browser.bench.{ts,tsx}'],
+        benchExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
         benchInclude: ['**/*.bench.{ts,tsx}'],
-        browserBenchInclude: ['tests/typescript/**/*.browser.bench.{ts,tsx}', 'libs/typescript/**/*.browser.bench.{ts,tsx}'],
-        browserInclude: ['tests/typescript/**/*.browser.{test,spec}.{ts,tsx}', 'libs/typescript/**/*.browser.{test,spec}.{ts,tsx}'],
         coverageExclude: [
             '**/*.config.*',
             '**/*.d.ts',
@@ -62,14 +53,16 @@ const _CONFIG = {
             '**/tests/**',
         ],
         coverageInclude: ['libs/typescript/**/*.{ts,tsx,mts,cts}'],
-        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**', '**/*.browser.{test,spec}.{ts,tsx}'],
+        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
         testInclude: ['**/*.{test,spec}.{ts,tsx,mts,cts}'],
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: _CI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree'] as const),
+        test: _CI
+            ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const)
+            : (['tree'] as const),
     },
-    setupFiles: [path.resolve(Root, 'tests/typescript/_testkit/setup.ts')],
+    setupFiles: [path.resolve(Root, 'tests/typescript/testkit/setup.ts')],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },
@@ -77,23 +70,23 @@ const _CONFIG = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-/**
- * One package project: the node lane over the package's own tree, spine options baked in. The
- * project roots at its own package (estate anchors ride module-relative import.meta.glob, never
- * root-slash), so discovery is package-scoped by construction.
- */
 const createProject = (dir: string): { test: ProjectTest } => ({
     test: {
         benchmark: {
             exclude: [..._CONFIG.patterns.benchExclude],
             include: [..._CONFIG.patterns.benchInclude],
-            // autosave: every bench run feeds the sustained-regression ledger
-            outputJson: path.resolve(_ARTIFACTS.bench, `${path.basename(dir)}.json`),
+            outputJson: path.resolve(
+                _ARTIFACTS.bench,
+                `${path.basename(dir)}.json`,
+            ),
         },
         deps: { ..._CONFIG.deps },
         environment: 'node',
         exclude: [..._CONFIG.patterns.testExclude],
-        fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
+        fakeTimers: {
+            ..._CONFIG.fakeTimers,
+            toFake: [..._CONFIG.fakeTimers.toFake],
+        },
         hookTimeout: _CONFIG.timeouts.hook,
         include: [..._CONFIG.patterns.testInclude],
         isolate: true,
@@ -139,17 +132,13 @@ const config: ViteUserConfig = defineConfig({
         },
         diff: { ..._CONFIG.output.diff },
         fileParallelism: true,
-        // Watch reruns track the gauge inputs too: container pins feed the harness lanes, grit rules feed the admission live-fire.
         forceRerunTriggers: [
             '**/package.json/**',
             '**/{vitest,vite}.config.*/**',
             '**/tsconfig*.json',
-            '**/tests/containers.json',
-            '**/tools/biome/*.grit',
         ],
         hideSkippedTests: _CI,
         maxWorkers: _CONFIG.workers.max,
-        // stderr passes through: a failing lane's diagnostics are evidence, never noise to blanket-drop.
         onConsoleLog: (log) => !log.includes('Download the React DevTools'),
         outputFile: { ..._CONFIG.output.outputFile },
         passWithNoTests: false,
@@ -159,26 +148,6 @@ const config: ViteUserConfig = defineConfig({
             'libs/typescript/*/vitest.config.ts',
             'libs/typescript/ui/*/vitest.config.ts',
             'apps/*/*/vitest.config.ts',
-            {
-                extends: true,
-                test: {
-                    // The browser bench include pins the lane to its own dialect: without it, bench mode
-                    // falls back to the default glob and sweeps node-only benches into chromium.
-                    benchmark: { include: [..._CONFIG.patterns.browserBenchInclude] },
-                    browser: {
-                        enabled: true,
-                        headless: true,
-                        instances: [{ browser: 'chromium' }],
-                        provider: playwright(),
-                    },
-                    // The lane is armed, not red: it activates the day the first *.browser.spec lands.
-                    include: [..._CONFIG.patterns.browserInclude],
-                    name: 'browser',
-                    // The one boot file serves both lanes: structural toEqual equality holds in browser
-                    // specs from day one, and the node-only socket default self-gates.
-                    setupFiles: [..._CONFIG.setupFiles],
-                },
-            },
         ],
         reporters: [..._CONFIG.reporters.test],
         retry: _CI ? 2 : 0,

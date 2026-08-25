@@ -2,15 +2,7 @@
 
 `System.Diagnostics.Metrics` owns vendor-neutral metric emission: one `Meter` per instrumentation scope mints every instrument, and a measurement reaches the process only through the instrument that mint returned. Aggregation, cardinality policy, and export sit at the composition root, so an emitting library declares instrument rows and writes measurements.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Diagnostics.Metrics`
-- package: BCL inbox (MIT)
-- assembly: `System.Diagnostics.DiagnosticSource.dll` (shared framework)
-- namespace: `System.Diagnostics.Metrics`, `System.Diagnostics`
-- rail: library-tier metric emission behind every `rasm.*` instrument
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: one meter scope, its instrument families, and the tag and measurement carriers every write composes
 
@@ -38,7 +30,7 @@
 
 [MeterOptions]: `Name` `Version` `Tags` `Scope` `TelemetrySchemaUrl`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: every create leads on `string name`, closes on optional `string? unit`, `string? description`, and an `IEnumerable<KeyValuePair<string, object?>>` tag tail; `CreateHistogram<T>` appends `InstrumentAdvice<T>?`, every observable create takes its callback second. Each synchronous write overloads one-to-three `KeyValuePair<string, object?>` args over `params KeyValuePair<string, object?>[]` and `in TagList`.
 
@@ -79,7 +71,7 @@
 |  [08]   | `Instrument.Name`                                                       | property | key a listener folds a measurement under |
 |  [09]   | `Instrument.IsObservable`                                               | property | pushed-versus-pulled polarity at a call  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `MeterListener.Start()` replays `InstrumentPublished` over already-published instruments and observes nothing; an observable bind delivers only from `RecordObservableInstruments()`, which the caller drives on its own cadence and which aggregates every throwing callback into one `AggregateException`, so a bare started listener over observable instruments reads its cell forever unchanged.
@@ -102,9 +94,3 @@
 
 [LOCAL_ADMISSION]:
 - Create and write calls live inside a package's declared telemetry-spine fences; an emitting page declares instrument rows.
-
-[RAIL_LAW]:
-- Package: `System.Diagnostics.Metrics` (BCL inbox)
-- Owns: library-tier instrument declaration and measurement writes behind every `rasm.*` meter
-- Accept: a factory-minted `Meter`, instrument rows bound through create delegates, tagged writes over a span or a built `TagList`, observable binds over cell readers
-- Reject: `new Meter(...)` at any site, an inline create call at an emitting page, a synchronous instrument polling state an observable bind reads, and an `UpDownCounter` where a level cell with its observable gauge states the fact

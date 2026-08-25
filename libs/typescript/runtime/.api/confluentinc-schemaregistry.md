@@ -2,16 +2,7 @@
 
 `@confluentinc/schemaregistry` binds Confluent Schema Registry to Avro, Protobuf, and JSON Schema codecs. Runtime compiles each Kafka contract into one subject, exact schema identity, compatibility policy, rule registry, and matched key/value serde pair before the broker row becomes ready.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@confluentinc/schemaregistry`
-- package: `@confluentinc/schemaregistry` (MIT)
-- module: CJS flat root barrel with `.d.ts` declarations; no export map or public subpaths
-- runtime: Node.js client over Axios and `Buffer`; Kafka headers share `@confluentinc/kafka-javascript` `IHeaders`
-- plane: Schema Registry REST control plane and Confluent schema-ID framing on the Kafka data plane
-- rail: `net/pubsub` Kafka schema-governance row
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registry identity, policy, codecs, framing, and rule execution
 
@@ -33,7 +24,7 @@
 |  [14]   | `RuleRegistry` / `RuleSet` / `Rule`           | rule engine   | executor, action, override, and schema-carried rule roster      |
 |  [15]   | `RestError` / `SerializationError`            | fault         | registry protocol or codec/framing failure                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client admission, exact identity, matched codecs, and frame inspection
 
@@ -58,7 +49,7 @@
 |  [17]   | `new SchemaId(string).fromBytes(Buffer)`                             | frame     | read ID or GUID plus message indexes      |
 |  [18]   | `client.clearCaches()` / `client.close()`                            | lifecycle | invalidate evidence and release transport |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One descriptor derives subject, `SerdeType`, schema family, `SchemaInfo`, normalization, compatibility, rules, ID, and version.
@@ -86,9 +77,3 @@
 - Descriptor policy owns cache capacity and latest TTL.
 - Supply one explicit `RuleRegistry`; admit every required executor and action before codec construction.
 - Decode codec output through contract `Schema.decodeUnknown`; framing proves writer identity, not interior domain type.
-
-[RAIL_LAW]:
-- Package: `@confluentinc/schemaregistry`
-- Owns: registry REST, caches, subject/version identity, compatibility, ID/GUID framing, codecs, migrations, and rules
-- Accept: boot registration or lookup, explicit subjects, identity prewarming, one scoped client, matched codecs, and typed decoding
-- Reject: hot-path registration, default subjects, offline cache claims, per-message clients/codecs, and untyped domain ingress

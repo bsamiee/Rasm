@@ -2,37 +2,7 @@
 
 `AWSSDK.S3`, `Azure.Storage.Blobs`, and `Google.Cloud.Storage.V1` are the three cloud object-store SDKs the `Store/blobstore#OBJECT_STORE` placement rows dispatch, each supplying the chunked/resumable transfer, content-hash/ETag descriptor, conditional-write optimistic-concurrency edge, SSE-KMS/SSE-C encryption stance, and WORM object-lock retention members a content-addressed blob write consumes. `Minio` (`api-minio`) is the fourth, self-hosted provider row on the same `ObjectClient` union.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `AWSSDK.S3`
-- package: `AWSSDK.S3`
-- assembly: `AWSSDK.S3`
-- namespace: `Amazon.S3`, `Amazon.S3.Transfer`
-- asset: runtime library
-- rail: object-store
-
-[PACKAGE_SURFACE]: `Azure.Storage.Blobs`
-- package: `Azure.Storage.Blobs`
-- assembly: `Azure.Storage.Blobs`
-- namespace: `Azure.Storage.Blobs`, `Azure.Storage.Blobs.Specialized`, `Azure.Storage.Blobs.Models`
-- asset: runtime library
-- rail: object-store
-
-[PACKAGE_SURFACE]: `Azure.Storage.Blobs.Batch`
-- package: `Azure.Storage.Blobs.Batch`
-- assembly: `Azure.Storage.Blobs.Batch`
-- namespace: `Azure.Storage.Blobs.Specialized`, `Azure.Storage.Blobs.Batch`
-- asset: runtime library; separate distribution from `Azure.Storage.Blobs`, whose own assembly carries no batch type
-- rail: object-store
-
-[PACKAGE_SURFACE]: `Google.Cloud.Storage.V1`
-- package: `Google.Cloud.Storage.V1`
-- assembly: `Google.Cloud.Storage.V1`
-- namespace: `Google.Cloud.Storage.V1`
-- asset: runtime library
-- rail: object-store
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [S3_TYPES]: AWSSDK.S3 multipart and transfer
 
@@ -146,7 +116,7 @@
 |  [02]   | `RequestFailedException` | exception     | `Status` (int) + `ErrorCode` (string) discriminant       |
 |  [03]   | `GoogleApiException`     | exception     | `HttpStatusCode` + `Error.Code` discriminant             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [S3_MULTIPART]: low-level multipart over `AmazonS3Client`
 
@@ -260,7 +230,7 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 - `AmazonS3Client.GetPreSignedURL`: custom `Parameters` with an expiry past 7 days throws `InvalidOperationException` — SigV2 leaves custom parameters unsigned, so the `ObjectLeg.Issue` TTL stays inside the SigV4 7-day ceiling.
 - `BlobClient.GenerateSasUri`: refuses an AAD-dialed client — `CanGenerateSasUri` probes it, so SAS capability is a deployment fact of the host-dialed container. GCS's signer stands separate from `StorageClient`, so the `ObjectClient.Gcs` row carries both.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Content-key naming binds the object name to the `Element/codec#CONTENT_ADDRESS` `XxHash128` identity, supplied AS the whole-object checksum (`ChecksumType.FULL_OBJECT` + `ChecksumAlgorithm.XXHASH128` on S3, precalculated CRC64 on Azure/GCS) so the store never re-hashes server-side.
@@ -276,9 +246,3 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 [LOCAL_ADMISSION]:
 - Conditional-write conflict — S3 `PreconditionFailed`/412, Azure `ConditionNotMet`/412, GCS 412 on generation-match — folds to `RemoteStoreFault.Conflict`, a benign write-once no-op since the content is already durably present, identical by hash.
 - Credential acquisition (AWS credential providers, Azure `TokenCredential`, `GoogleCredential`) is app-root connection input, never a Persistence fence member.
-
-[RAIL_LAW]:
-- Package: `AWSSDK.S3`, `Azure.Storage.Blobs`, `Azure.Storage.Blobs.Batch`, `Google.Cloud.Storage.V1`
-- Owns: the cloud object-store lane — multipart/staged-block/resumable put, `Stat` head, `List`, `Delete`, page-at-a-time erase, range-read resume and its read-side validation, SSE-KMS/SSE-C, WORM object-lock and per-object retention, metadata-only storage-class transition, archive thaw, presigned-URL issuance.
-- Accept: one `BlobRemote` placement row per provider dispatched by the `ObjectClient` union, the content-key as whole-object checksum wherever stored bytes equal plaintext, `IfNoneMatch: *`/`IfGenerationMatch = 0` as the write-once seal, an injected credential handle, a consumer-stated erase page bound.
-- Reject: a second `BlobRemote` code path beside the union, a read-before-write guard the seal forecloses, a server-side re-hash the content-key checksum forecloses, a payload re-PUT standing in for a storage-class change, a batch convenience verb where a typed partial-failure tally is needed, credential material as a fence member.

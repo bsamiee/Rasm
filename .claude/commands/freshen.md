@@ -42,8 +42,6 @@ git diff -U2 uv.lock | awk '
   > ".claude/scratch/freshen-$(date +%F)/bumps-python.txt"
 ```
 
-5. PROOF — Run imports below, then `uv run --no-sync assay api status`; marker-gated dists skip; failures name dists for repair.
-
 ```bash
 uv run --no-sync python - ".claude/scratch/freshen-$(date +%F)/bumps-python.txt" <<'EOF'
 import importlib, importlib.metadata as md, sys, pathlib
@@ -81,7 +79,7 @@ EOF
 
 ## [02]-[DISPATCH]
 
-Catalog content keyed by package id resolves each bump's owning `.api` catalogs across tiers. Catalog `[01]-[PACKAGE_SURFACE]` fields (`module:`, `namespaces:`, `assembly:`) drive `libs/` consumer searches. Record bumps with neither catalog nor consumer in the ledger; dispatch only mapped bumps.
+Catalog content keyed by package id resolves each bump's owning `.api` catalogs across tiers. Catalog charter package ids drive `libs/` consumer searches. Record bumps with neither catalog nor consumer in the ledger; dispatch only mapped bumps.
 
 - MINOR/PATCH: One `freshness-integrator` per 4 bumps, grouped by tier/domain so sibling-seam reads stay cheap.
 - MAJOR (or structural — a package split, an engine jump, a channel move): One `freshness-integrator` solo, investigation depth.
@@ -99,7 +97,5 @@ Catalog content keyed by package id resolves each bump's owning `.api` catalogs 
 
 1. Drain all dispatches.
 2. RESIDUE PROOF: Estate-wide `rg` finds no removed/purged member or moved-package `blocked until`/wheel-gate claim; repair each hit at its owner.
-3. DOCS GATE: Run once over touched markdown with `uv run --no-sync assay docs check`.
-4. STATIC GATE: Run the polyglot build proof once through `assay static --all`.
-5. IDEMPOTENCY: Rerun `pnpm install` and `dotnet restore Workspace.slnx`; both exit clean without changes.
-6. LEDGER: `.claude/scratch/freshen-<YYYY-MM-DD>/` carries the full bump table with holds and their reasons — reasons feed the next run's hold law.
+3. IDEMPOTENCY: Rerun `pnpm install` and `dotnet restore Workspace.slnx`; both exit clean without changes.
+4. LEDGER: `.claude/scratch/freshen-<YYYY-MM-DD>/` carries the full bump table with holds and their reasons — reasons feed the next run's hold law.

@@ -17,7 +17,7 @@
 - Growth: a new scene-file export is one `SceneTarget` member plus one `ROW` entry; the coverage gate rejects an unruled member. A new plotter variant changes `write`, `Prepass`, `Capture`, or `options` inside that row. A new strategy is one `ExportRow` case plus its total projections and worker fold arm. A new USD metadata field threads once through `authored`, a new fault is one `ExportFault` member, and a new round-trip source is one `SceneSource` member plus one `scene/render_worker#WORKER` `_IMPORTER` row. `ROW` remains the single target correspondence.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from enum import StrEnum

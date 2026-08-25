@@ -2,17 +2,7 @@
 
 `pyelk` owns ports-and-nesting graph layout with native orthogonal edge routing — a pure-Python Eclipse Layout Kernel port whose one `ELK().layout(graph)` boundary consumes and returns the recursive ELK-JSON document (`{id, children, edges, ports, labels, layoutOptions}`), writing node and port coordinates, nested-container extents, and `edges[].sections[]` route geometry in place. It is the one diagram-layout owner handling the three concerns `fast-sugiyama`/`grandalf`/`rustworkx` cannot — typed ports, recursive nesting, and orthogonal edge routing — assigning coordinates and route geometry only, its synchronous pass off-loaded to the layout owner's `anyio.to_thread.run_sync` `CapacityLimiter` lane.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyelk`
-- package: `pyelk` (EPL-2.0)
-- module: `pyelk` (`pyelk.options`, `pyelk.graph`, `pyelk.elk`, `pyelk.exceptions`)
-- owner: `artifacts`
-- rail: diagram-layout
-- native: none — pure Python, zero non-dev runtime dependencies, so it composes the layout owner with no transitive surface
-- capability: run any of the nine ELK algorithms over a recursive ELK-JSON graph in one in-process call with typed port constraints, recursive compound-node nesting, and native orthogonal edge routing, returning the same document with positions and edge `sections` filled in
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the ELK-JSON graph document (one model — a plain `dict`, not a class)
 
@@ -42,7 +32,7 @@ Every exception descends from `ElkError`, the one diagram-layout provider failur
 |  [03]   | `UnsupportedGraphException`         | valid JSON but the selected algorithm cannot lay the shape out                       |
 |  [04]   | `UnsupportedConfigurationException` | the `layoutOptions` combination is unsupported by the algorithm                      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ELK` — the one layout engine boundary
 
@@ -110,7 +100,7 @@ Every exception descends from `ElkError`, the one diagram-layout provider failur
 |  [07]   | `deep_copy_graph(graph) -> dict`                | copy      | structural deep copy; input immutable while `layout` writes positions     |
 |  [08]   | `elk.get_layout_provider(algorithm_id)`         | resolve   | provider class for a FQ algorithm id (the internal dispatch)              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - model: the graph IS a plain ELK-JSON `dict`, never a wrapped class — the `visualization/diagram/layout#LAYOUT` owner lowers the `rustworkx` `PyDiGraph` (or the `data/graph/graph#GRAPH` adjacency frame) to `{"id":"root","children":[...],"edges":[...]}` keyed on the stable stringified node index, so no re-keying enters; `ELK.layout` writes `x`/`y` onto each child and `sections` onto each edge, read back off `collect_nodes(result)[str(i)]["x"]`.
@@ -129,9 +119,3 @@ Every exception descends from `ElkError`, the one diagram-layout provider failur
 - pyelk is co-resident with `fast-sugiyama`/`grandalf`/`rustworkx` by distinct capability: `fast-sugiyama` owns center-to-center layered placement, `grandalf` curved-spline routes until removal, `rustworkx` force/radial/topological data-plane layout and the content-key wire, pyelk the ports/nesting/orthogonal kinds none handle — the `HierarchyEngine` selection routes each diagram to its categorical-best provider, no two engines owning one shape.
 
 [LOCAL_ADMISSION]:
-
-[RAIL_LAW]:
-- Package: `pyelk`
-- Owns: ELK graph coordinate assignment and edge-route geometry — the nine Eclipse Layout Kernel providers over a recursive ELK-JSON document, with typed PORTS (side/index constraints), recursive HIERARCHICAL NESTING (compound nodes sized to enclose children), and native ORTHOGONAL edge routing emitting per-edge `sections[].bendPoints` waypoints, returning the same document with positions and route geometry filled in
-- Accept: ports/nesting/orthogonal-routed diagram placement as the pure-Python in-process ELK engine composing the `rustworkx` graph, the `expression.tagged_union` policy, the `anyio` placement lane, and the `xxh3_128` key
-- Reject: a hand-rolled port-placement, nesting, or orthogonal-routing loop where the ELK providers own it; an `elkjs`/Java-ELK subprocess where this in-process call replaces it; a wrapped node/edge class model over the native ELK-JSON dict; force/radial/topological layout for center-to-center diagrams where `rustworkx` and `fast-sugiyama` own it; curved-spline routes where `grandalf` `route_with_splines` covers it until removal; graph analysis where the `data/graph/graph#GRAPH` `rustworkx` kernel owns it; SVG emission where `visualization/diagram/draw#DRAW` owns it; the unregistered `disco` alias; a re-keying of coordinates off the stable node index; a synchronous layout left on the event loop; identity minting the runtime owns

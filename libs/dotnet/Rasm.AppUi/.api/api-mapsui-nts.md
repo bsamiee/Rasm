@@ -2,17 +2,7 @@
 
 `Mapsui.Nts` is the NetTopologySuite bridge for the Mapsui map model: `GeometryFeature` carries an NTS `Geometry` as a drawable feature, four provider decorators compose one `Layer.DataSource` into a bounding-envelope-indexed, viewport-clipped, resolution-decimated fetch, `EditManager` drives an interactive vertex-authoring session over a `WritableLayer`, and one extension family converts between the Mapsui `MPoint`/`MRect` world primitives and the NTS `Coordinate`/`Point`/`Envelope` geometry primitives. The package holds NTS geometry alone — the map model, camera, styles, widgets, and CRS reprojection stay `Mapsui` core.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Mapsui.Nts`
-- package: `Mapsui.Nts` (MIT)
-- assembly: `Mapsui.Nts`
-- namespaces: `Mapsui.Nts`, `Mapsui.Nts.Providers`, `Mapsui.Nts.Providers.Shapefile`, `Mapsui.Nts.Editing`, `Mapsui.Nts.Widgets`, `Mapsui.Nts.Extensions`, `Mapsui.Providers.Wfs`
-- target: `lib/net9.0`
-- depends: `Mapsui`, `NetTopologySuite`, `NetTopologySuite.IO.GeoJSON4STJ`
-- rail: map
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [FEATURE_AND_PROVIDER_TYPES]: the drawable NTS feature and the `IProvider` family — `Mapsui.Nts` / `Mapsui.Nts.Providers`
 
@@ -65,7 +55,7 @@
 |  [07]   | `LineStringExtensions` | static class  | line to linear ring                   |
 |  [08]   | `TupleExtensions`      | static class  | `(x, y)` tuple to coordinate          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [FEATURE_AND_PROVIDER]: feature construction and the decorator chain
 
@@ -147,7 +137,7 @@
 |  [15]   | `LineString.ToLinearRing() -> LinearRing`                                  | static  | closes a line into a ring                |
 |  [16]   | `(double x, double y).ToCoordinate() -> Coordinate`                        | static  | tuple lift                               |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The three decorators wrap one inner `IProvider` and compose on one `Layer.DataSource`: `IndexedMemoryProvider` answers a fetch off a bounding-envelope index rather than a linear scan, `GeometryIntersectionProvider` clips each fetched geometry to the fetch `MRect`, and `GeometrySimplifyProvider` decimates the clipped result — its `simplify` argument defaults to `TopologyPreservingSimplifier.Simplify` and a null `distanceTolerance` drives the tolerance from `fetchInfo.Resolution`, so decimation tracks the live zoom with no caller-side band. `GeometrySimplifyAndClippingProvider` fuses the last two into one decorator and carries no `IProviderExtended` cache key.
@@ -165,9 +155,3 @@
 - One `GeometryFeature` per drawn NTS geometry, mounted either through the provider decorator chain on a `Layer` (read-only overlays, where residency is provider policy) or directly on a `WritableLayer.Features` (authoring, where `EditManager` writes in place).
 - One `EditManager` per authoring surface; `EditMode` is the session vocabulary and `None` is the end state, so a parallel authoring flag beside it governs nothing.
 - Vertex geometry converts through `Mapsui.Nts.Extensions` at the one point the Mapsui and NTS primitive families meet.
-
-[RAIL_LAW]:
-- Package: `Mapsui.Nts`
-- Owns: NTS geometry inside the Mapsui map — the drawable geometry feature, the provider decorator chain, the file and service geometry sources, the interactive editing session, and the Mapsui-to-NTS primitive bridge
-- Accept: `GeometryFeature` over a `Geometry?`; the `IndexedMemoryProvider`/`GeometryIntersectionProvider`/`GeometrySimplifyProvider` chain on one `Layer.DataSource`; `EditManager` over a `WritableLayer` under `EditMode`; `EditingWidget` or the `EditManipulation` statics for input; `Mapsui.Nts.Extensions` for every primitive conversion
-- Reject: a hand-rolled viewport cull or per-zoom decimation branch beside the provider decorators; a decorator chain under the edit layer, which `EditManager` writes in place; a second authoring state machine beside `EditManager`; a geodesy or datum transform inside a provider; re-declaring the `Mapsui` core map, camera, style, or widget members this catalog composes

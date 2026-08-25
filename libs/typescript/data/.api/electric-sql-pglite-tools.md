@@ -2,16 +2,7 @@
 
 `@electric-sql/pglite-tools` runs a WebAssembly `pg_dump` against one live PGLite connection and returns executable SQL as a `File`. Data uses that logical artifact only to hydrate an unpublished replacement generation.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@electric-sql/pglite-tools`
-- package: `@electric-sql/pglite-tools` (Apache-2.0)
-- module: ESM + CJS dual; root and `./pg_dump` both export `pgDump`
-- runtime: browser and JavaScript runtimes supported by its exact `@electric-sql/pglite` peer
-- depends: `@electric-sql/pglite` exact peer; `pgDump` operates on its single live connection
-- rail: `lane/sqlite` logical generation-export row
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: no named package type is exported; `pgDump` exposes one structural argument and one platform return carrier
 
@@ -20,7 +11,7 @@
 |  [01]   | `pgDump` parameter | object        | `pg`, optional argument vector, and output name   |
 |  [02]   | `File`             | carrier       | executable SQL text with caller-selected filename |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one logical export and its fresh-generation restore seam
 
@@ -30,7 +21,7 @@
 |  [02]   | `File.text() -> Promise<string>`                          | platform | executable SQL restore input                   |
 |  [03]   | `candidate.exec(await file.text()) -> Promise<Results[]>` | compose  | hydrate an unpublished fresh PGLite generation |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `pgDump` runs bundled WASM against one supplied PGLite connection and returns pruned SQL in a `File`.
@@ -53,9 +44,3 @@
 - Restore only into an unpublished generation and reapply the admitted search path.
 - Admit generation and semantics before pointer publication.
 - Hash the returned bytes with source generation and contract identity; export, restore, or admission failure leaves the active generation unchanged.
-
-[RAIL_LAW]:
-- Package: `@electric-sql/pglite-tools`
-- Owns: logical `pg_dump` execution against one PGLite connection and executable-SQL `File` output
-- Accept: exclusive fenced export, lane-owned dump arguments, content-addressed artifact, fresh-generation restore, post-restore admission
-- Reject: concurrent prepared statements, active-generation restore, physical-backup claims, successful SQL execution treated as generation proof

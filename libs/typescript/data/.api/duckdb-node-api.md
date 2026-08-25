@@ -2,15 +2,7 @@
 
 `@duckdb/node-api` binds the embedded DuckDB engine in-process over a promise-native surface — vectorized OLAP with lossless typing, streaming result readers, and prepared binds — the single-node analytical row of the `data` lane. It reads Parquet, CSV, JSON, and Arrow zero-copy, range-reads object storage, and `ATTACH`es Postgres or SQLite through extension SQL; past its single-writer embedded ceiling the workload moves to the ClickHouse row.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@duckdb/node-api`
-- package: `@duckdb/node-api` (MIT)
-- module: ESM/CJS; native engine via `@duckdb/node-bindings` (N-API, prebuilt platform binaries)
-- runtime: `runtime:node`/bun services and CLI
-- rail: `lane/olap` embedded node row — no Effect peer; the boundary kernel wraps it
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result, session, bind, cell, and user-defined-function types, each named by its producing call
 
@@ -45,7 +37,7 @@
 - `DuckDBAppender` carries a typed `append*` member per engine type beside `appendDefault`, `appendNull`, `appendValue`, and `appendDataChunk`, with `endRow` closing a row and `flushSync`/`closeSync` the two commit arms; `columnCount`/`columnType` read the target relation, and every append is POSITIONAL — the appender resolves no column name at all.
 - Root fields are `latency` and `query_name` beside the counter set `cpu_time`, `blocked_thread_time`, `cumulative_cardinality`, `cumulative_rows_scanned`, `result_set_size`, `total_bytes_read`, `total_bytes_written`, `total_memory_allocated`, `system_peak_buffer_memory`, and `system_peak_temp_dir_size`; each child carries `operator_type`, `operator_name`, `operator_timing`, `operator_cardinality`, and `operator_rows_scanned`, and every timing is SECONDS.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scoped acquire, execute, stream, prepared binds, and user-defined-function registration
 
@@ -78,7 +70,7 @@
 - `DuckDBDataChunk.setColumns(columns)` takes column-major `DuckDBValue` arrays, so a container cell arrives as its own carrier — `listValue(items)` for every `LIST` column, `mapValue(entries)` for every `MAP`, `timestampNanosValue(nanos)` for `TIMESTAMP_NS` — and a bare JS array or object reaches the value converter as an unrepresentable cell.
 - Column declaration rides `addResultColumn(name, type)` at the bind seam, arity rides `setCardinality(count, isExact)` (a `number`, never a `bigint`), and parameters read through `getParameter(index)` beside `getNamedParameter(name)`, which answers `null` for an unsupplied name and refuses an undeclared one at the binder; the bind function fires TWICE per statement, so it declares and never advances.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every promise lifts through `Effect.tryPromise` into a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane seam.
@@ -106,9 +98,3 @@
 - Admission crosses as SQL statements minted through `quotedString`/`quotedIdentifier`, never an API member: the lane records which extensions a deployment admits — `httpfs` `postgres` `sqlite` `ducklake` `iceberg` `delta` `spatial` `vss` `fts` — and a load failure refuses the capability, never crashes the lane.
 - This package ships NO extension: `autocomplete`, `core_functions`, `icu`, `json`, and `parquet` are statically linked and everything else — `httpfs`, `postgres_scanner`, `sqlite_scanner`, `ducklake` — installs over the network on first `INSTALL`, so an offline or egress-sealed host reaches only the linked five. Local Parquet needs none of them: `read_parquet`, `parquet_scan`, and the bare-path replacement scan all resolve against the linked reader.
 - Arrow ingress and the replacement-scan hook are both ABSENT on this surface — no `registerArrow`, `insertArrowTable`, `registerFileBuffer`, or `registerReplacementScan` member exists, and `arrow_scan` takes three raw pointers nothing on this side yields — so `createAppender` is the uncatalogued load-into-a-plane counterparty and Arrow crosses as IPC bytes a statement reads.
-
-[RAIL_LAW]:
-- Package: `@duckdb/node-api`
-- Owns: the embedded single-node analytical engine — instance/connect lifecycle, run/read/stream/prepared execution, the `DuckDBType` logical-type algebra and its value carriers, extension SQL admission, scalar and table user-defined functions, the typed appender
-- Accept: scoped acquire-release wrap, `tryPromise` lifts for the promise members and `Effect.try` for the synchronous registrations, Arrow IPC interchange, `httpfs`/`ATTACH`/DuckLake as statements, `DuckDBType` as the one owner of both a bound column's type and its DDL spelling, a RESIDENT lane source exposed to SQL as one instance-scoped table function whose bind resolves content by name
-- Reject: the standalone `duckdb` callback binding, OLAP-in-OLTP transaction coupling, a second hand-rolled analytical client, unscoped instance leaks, a per-lease registration name, a scan over a source pulled lazily inside `main`, a per-scan closure standing in for the bind and init data slots, a scan writing the bound roster without the projection opt-in, a hand-spelled SQL type string beside the `DuckDBType` that renders it

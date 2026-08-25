@@ -21,7 +21,7 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 - Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the rails; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -137,7 +137,7 @@ public sealed partial class LinkWatchPolicy {
 - Law: a grant's cleanup roster is a total APPEND cell — the S9 carve-out for an unconditional step — so the fault a `Dispose` cannot carry outward parks readable on `CleanupFaults` and no verdict exists to discard.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -270,7 +270,7 @@ public sealed class PreviewGrant : IDisposable {
 - Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`StreamPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using NodaTime;
 using Rasm.Domain;
@@ -674,7 +674,7 @@ public static class BlockLifecycle {
 
 | [INDEX] | [OWNER]          | [INGRESS]                              | [STATE]                        | [EGRESS]                      |
 | :-----: | :--------------- | :------------------------------------- | :----------------------------- | :---------------------------- |
-|  [01]   | `BlockLifecycle` | `Mount` · `Engage` · `Lease` · `Evict` | `Cell.Seat` mount cell         | seal · grant · `Unit`       |
+|  [01]   | `BlockLifecycle` | `Mount` · `Engage` · `Lease` · `Evict` | `Cell.Seat` mount cell         | seal · grant · `Unit`         |
 |  [02]   | `BlockVault`     | capsule mint (`ShellMount.Vault`)      | `Atom<VaultState>` + enrolment | `Transition`-carried products |
 |  [03]   | `PreviewGrant`   | `PreviewGrant.Of`                      | `LifecycleGate` claims         | claim-gated bitmap borrow     |
 |  [04]   | policy owners    | generated admission                    | invalidation decisions         | policy values                 |

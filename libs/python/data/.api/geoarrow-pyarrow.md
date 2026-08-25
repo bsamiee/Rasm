@@ -2,17 +2,7 @@
 
 `geoarrow-pyarrow` registers GeoArrow geometry as a first-class pyarrow `ExtensionType`/`ExtensionArray`, so every pyarrow-native rail — Parquet, DuckDB, Delta/Lance, the pandas/GeoPandas boundary — carries geometry as a typed column decoded by extension name, never re-parsed from a WKB `binary` column. It is the pyarrow-registration face of the GeoArrow family, binding the WKB/WKT codecs and coordinate kernels the shared `geoarrow-c`/`geoarrow-types` core owns rather than re-implementing them.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `geoarrow-pyarrow`
-- package: `geoarrow-pyarrow`
-- import: `geoarrow.pyarrow`
-- owner: `data`
-- rail: geospatial-ingress
-- entry points: import-only, no console script; namespace-packaged under `geoarrow`
-- capability: pyarrow-native GeoArrow — extension-type registration, the `GeometryExtensionType`/`GeometryExtensionArray` carrier hierarchy over typed Arrow storage, polymorphic construction and re-encoding across Shapely/GeoPandas/WKB/WKT/Arrow, CRS/edge/layout refinement, aggregate and coordinate ops, and the pandas `ExtensionDtype`/GeoPandas boundary over the `CoordType`/`Dimensions`/`EdgeType`/`Encoding`/`GeometryType` vocabulary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pyarrow extension type and array
 
@@ -50,7 +40,7 @@ Vocabulary enums drive type selection and metadata; `OGC_CRS84` is the explicit 
 |  [04]   | `Dimensions`   | `XY`, `XYZ`, `XYM`, `XYZM`, `UNKNOWN`, `UNSPECIFIED`                                      |
 |  [05]   | `EdgeType`     | `PLANAR`, `SPHERICAL`, `VINCENTY`, `THOMAS`, `ANDOYER`, `KARNEY`, `UNSPECIFIED`           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and construction
 
@@ -93,7 +83,7 @@ Metadata setters (`with_crs`, `with_edge_type`) replace field attribution withou
 |  [01]   | `to_pandas_dtype` | `GeometryExtensionType.to_pandas_dtype() -> dtype` | pandas `ExtensionDtype` for a geometry column  |
 |  [02]   | `to_geopandas`    | `to_geopandas(obj) -> GeoDataFrame`                | lower a geometry array/table to a GeoDataFrame |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `register_extension_types` runs once at a process boundary so pyarrow round-trips geometry by extension name across Parquet, IPC, and the C Data Interface; a rail registers before its first `array` call and never re-registers per operation.
@@ -111,9 +101,3 @@ Metadata setters (`with_crs`, `with_edge_type`) replace field attribution withou
 
 [LOCAL_ADMISSION]:
 - `to_pandas_dtype` and `to_geopandas` are the sole pandas/GeoPandas crossings, admitted only where a consumer requires those objects; a pyarrow-typed geometry column otherwise stays pyarrow-native through the interchange planes.
-
-[RAIL_LAW]:
-- Package: `geoarrow-pyarrow`
-- Owns: pyarrow-native GeoArrow — extension-type registration, the `GeometryExtensionType`/`GeometryExtensionArray` subclass hierarchy, construction and re-encoding from Shapely/GeoPandas/WKB/WKT/Arrow, CRS/edge attribution, layout conversion, aggregate and coordinate ops, and the pandas `ExtensionDtype`/GeoPandas boundary
-- Accept: geometry carried as a typed pyarrow column across the Parquet, DuckDB, Delta/Lance, and pandas/GeoPandas planes; construction and re-encoding feeding the geospatial-ingress path; the Arrow C Data Interface seam to the `geoarrow-rust-*` carriers
-- Reject: a WKB `binary` column re-parsed downstream where a registered extension type carries the geometry; a hand-rolled GeoArrow layout or WKB/WKT codec `geoarrow-c` owns; a Shapely-scalar bridge where a capsule or extension-array hand-off exists; geometry compute (`geoarrow-rust-compute`) or file IO (`geoarrow-rust-io`) this package does not own

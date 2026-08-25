@@ -2,18 +2,7 @@
 
 `bcf-client` owns BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and the v3 REST client for the IFC-analysis rail's coordination-issue exchange leg. A version-detecting `bcf.bcfxml.load` returns the matching versioned document root that owns the topic, comment, and viewpoint lifecycle; viewpoint authoring resolves `ifcopenshell` element selection and visibility into BCF GlobalId lists. `xsdata` owns the BCF-XML round-trip and this package owns the BCF zip contract, so the analysis owner composes the surface directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bcf-client`
-- package: `bcf-client` (GPLv3)
-- import: `import bcf`
-- owner: `geometry`
-- rail: ifc-companion / bcf-exchange
-- depends: `xsdata` (BCF-XML bind/parse), `ifcopenshell` (viewpoint element selection), `requests` (v3 REST), `numpy`
-- entry points: none (library only)
-- capability: BCF v2/v3 read/write, schema-version detection, topic/comment/viewpoint lifecycle, IFC-driven viewpoint selection and visibility, and the v3 BCF REST client
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root family
 
@@ -58,7 +47,7 @@ Markup models are `xsdata` dataclasses from the BCF XSD; `DocumentReference` is 
 |  [02]   | `FoundationClient` | REST client   | BCF API foundation auth/version services |
 |  [03]   | `OAuthReceiver`    | auth helper   | OAuth2 local callback receiver           |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: BCF file I/O
 
@@ -139,7 +128,7 @@ Markup models are `xsdata` dataclasses from the BCF XSD; `DocumentReference` is 
 |  [15]   | `FoundationClient.get_auth_methods` / `get_versions`                                         | negotiate      |
 |  [16]   | `OAuthReceiver.do_GET`                                                                       | auth callback  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `bcf-client` ships the top-level `bcf` package, never `bcfxml`/`bcfapi`; import at boundary scope only.
@@ -154,9 +143,3 @@ Markup models are `xsdata` dataclasses from the BCF XSD; `DocumentReference` is 
 
 [LOCAL_ADMISSION]:
 - `ifc/analysis` owner admits `load`, the versioned `create_new`, and the topic/viewpoint handlers as the BCF exchange leg: a `Path` opens files, `ifcopenshell` GUIDs drive viewpoint selection, and HTTP credentials reach the v3 REST surface.
-
-[RAIL_LAW]:
-- Package: `bcf-client`
-- Owns: BCF v2/v3 file I/O, schema-version detection, the topic/comment/viewpoint lifecycle, viewpoint element selection and visibility, and the v3 BCF REST client.
-- Accept: `Path` for file I/O; `ifcopenshell` `entity_instance` GUIDs for viewpoint selection; HTTP credentials for the REST surface.
-- Reject: hand-rolled BCF zip construction or BCF-XML serialization; a parallel BCF REST client where `bcf.v3.bcfapi` is admitted.

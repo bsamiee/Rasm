@@ -187,13 +187,12 @@ public sealed class CausalEnricher : ILogEnricher {
 }
 ```
 
-
-| [INDEX] | [SLOT]   | [DOTNET_CARRIAGE]                                    | [SHARED_LAW]                                                    |
-| :-----: | :------- | :--------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | physical | `HlcStamp.Physical` — CloudEvents `time`, `clock.Hlc`  | physical half first, `Instant` Unix-tick `long`-LE              |
+| [INDEX] | [SLOT]   | [DOTNET_CARRIAGE]                                        | [SHARED_LAW]                                                    |
+| :-----: | :------- | :------------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | physical | `HlcStamp.Physical` — CloudEvents `time`, `clock.Hlc`    | physical half first, `Instant` Unix-tick `long`-LE              |
 |  [02]   | logical  | `HlcStamp.Logical` — CloudEvents `sequence`, `clock.Hlc` | monotone `ulong`-LE, zeroed on a physical advance               |
-|  [03]   | tenant   | `TenantContext.TenantSlot` composed, never re-minted | one GUC, baggage, meter-tag, and partition spelling             |
-|  [04]   | packed   | `Rasm/Domain/frame#STAMP` `HlcStamp.Packed`            | `physical_ticks<<64 \| logical` as one `UInt128`, bit-identical |
+|  [03]   | tenant   | `TenantContext.TenantSlot` composed, never re-minted     | one GUC, baggage, meter-tag, and partition spelling             |
+|  [04]   | packed   | `Rasm/Domain/frame#STAMP` `HlcStamp.Packed`              | `physical_ticks<<64 \| logical` as one `UInt128`, bit-identical |
 
 - Stamps ride the CloudEvents envelope's standard and profile slots per this section's Law, so no slot occupies a trace or span id and no slot widens the promoted-baggage allowlist — the allowlist stays the tenancy and correlation pair, and a stamp promoted onto spans puts a per-event value on a dimension every series groups by.
 - `[03]` COMPOSES the kernel constant rather than declaring a spelling: a second `"rasm.tenant"` literal here forks the one text the RLS predicate, the cache key, the object prefix, and the meter tag all read.

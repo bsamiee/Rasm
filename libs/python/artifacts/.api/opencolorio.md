@@ -4,17 +4,7 @@
 
 Boundaries against the estate's other color owners run on AUTHORITY, not on the math: `colour-science` owns colorimetry, appearance models, and spectral computation; `coloraide` owns CSS-space parsing and gamut mapping; the `imagecodecs` `cms_*` arms own the ICC-profile edge where a file carries an embedded profile. This owner holds the config — the versioned, shareable declaration of what a project's colorspaces MEAN — and every scene-linear working-space decision resolves through its `scene_linear` role rather than a synthesized profile or a hardcoded matrix.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opencolorio`
-- package: `opencolorio` (BSD-3-Clause, ASWF)
-- module: `PyOpenColorIO`
-- asset: sdist built at the Forge floor; `yaml-cpp`, `pystring`, `Imath`, `minizip-ng`, `expat`, and `OpenEXR` build in-tree through the project's own `ExternalProject` and only `lcms2` resolves from the Forge search path. This build carries `CMAKE_ARGS = -DOCIO_BUILD_APPS=OFF` from `[tool.uv.extra-build-variables]`, because the `oglapphelpers` ObjC++ Metal target cannot compile against the macOS SDK under the project's own `-Werror,-Wunguarded-availability-new`
-- rail: color (config-driven transform graph and its CPU and GPU processors)
-- target: `numpy` float32 buffers in place, or an `ImageDesc` view over strided memory
-- capability: eight built-in ACES CG and Studio configs, the colorspace/role/display/view/look/named-transform graph, 98 builtin transforms, `Processor` optimization levels, in-place CPU application, shader emission for six GPU languages, LUT baking to every supported format, and `.ocioz` archive extraction
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the config graph and its compiled processors
 - rail: color
@@ -64,7 +54,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [09]   | `DynamicPropertyType` | exposure, contrast, gamma, and the four grading property rows              |
 |  [10]   | `LoggingLevel`        | the module logging level `SetLoggingLevel` drives                          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: config resolution
 - rail: color
@@ -113,13 +103,13 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [08]   | `Processor.getDefaultGPUProcessor()`                             | GPU executor                                                   |
 |  [09]   | `GpuShaderDesc.CreateShaderDesc(language=…)`                     | the shader descriptor; `GPU_LANGUAGE_MSL_2_0` is the Metal row |
 |  [10]   | `GPUProcessor.extractGpuShaderInfo(desc)`                        | fills shader text, function name, uniforms, and LUT textures   |
-|  [11]   | `Processor.createGroupTransform()` and `getCacheID()`            | flattened op list and stable processor identity               |
+|  [11]   | `Processor.createGroupTransform()` and `getCacheID()`            | flattened op list and stable processor identity                |
 |  [12]   | `Baker.setInputSpace/setTargetSpace/setFormat` then `bake()`     | LUT egress                                                     |
 
 - `Processor.getOptimizedCPUProcessor`: naming a non-F32 depth makes `PackedImageDesc` demand its full stride triple.
 - `Baker`: `setDisplayView(display, view)` drives the display-view leg, `setShaperSpace`/`setShaperSize` the shaper leg, and `getFormats()` lists every writable format.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Configs hold the authority and roles are how a plane names its space — `scene_linear` resolves the working space (`ACEScg` on the shipped CG config), `data` the unmanaged raw space, `color_picking` and `texture_paint` the display-referred spaces. Pipelines naming a colorspace string directly bind to one config; naming a role survives a config swap, which is the whole reason a config exists.
@@ -146,9 +136,3 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 [LOCAL_ADMISSION]:
 - `import PyOpenColorIO` at boundary scope only, behind the `lazy import` proxy the native color owners use.
 - Interactive grading with its dynamic properties, `MixingColorSpaceManager`, `ColorSpaceMenuHelper`, and `SystemMonitors` are UI-facing surfaces; a host-free producer composes the static transform chain alone.
-
-[RAIL_LAW]:
-- Package: `opencolorio`
-- Owns: the config-driven color pipeline — config resolution from the shipped ACES CG and Studio set, a file, a stream, or a proxy; the colorspace, role, display, view, look, named-transform, and file-rule graph; processor compilation with explicit bit depths and optimization flags; in-place CPU application over `numpy` and `ImageDesc` buffers; shader emission for GLSL, MSL, HLSL, and OSL; LUT baking; `.ocioz` extraction
-- Accept: spaces named by ROLE wherever a role exists; one processor acquired outside the fold and applied inside it; `isNoOp` and `hasChannelCrosstalk` read before applying; contiguous `float32` in place, or an `ImageDesc` view with explicit strides; bit-depth conversion compiled into an optimized processor; `getCacheID()` on every compiled processor; `getColorSpaceFromFilepath` for ingest classification
-- Reject: a hardcoded primaries matrix, transfer curve, or colorspace string where a CONFIG ROLE answers — the carve: a spec-frozen transfer the wire itself freezes (the IEC 61966-2-1 sRGB pair, the ST 2084 PQ curve on a plane-vocabulary owner) and the fixed AP1 luminance row are TRANSCRIPTIONS of frozen constants, not config decisions, so the texture plane's encode ladder legally spells them inline and this reject binds colour-SPACE conversion alone; a synthesized ICC profile standing in for a config transform; process-wide `SetCurrentConfig`, `SetLoggingLevel`, or `SetEnvVariable` below the composition root; per-texel or per-call processor construction; GPU shader text emitted without binding the descriptor's LUT textures and uniforms; colorimetric or spectral computation claimed here, which is `colour-science`; CSS-space parsing or gamut mapping, which is `coloraide`; interactive grading and menu-helper surfaces in a host-free producer

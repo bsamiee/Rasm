@@ -2,16 +2,7 @@
 
 `numpy` owns the branch N-dimensional array substrate: the `ndarray` container, the dtype and abstract-scalar hierarchy, C-dispatched ufuncs, and the `linalg`/`fft`/`random` numeric kernels every compute and geometry owner composes for creation, broadcasting, reduction, and linear algebra.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `numpy`
-- package: `numpy` (BSD-3-Clause)
-- module: `numpy`
-- namespaces: `numpy`, `numpy.linalg`, `numpy.fft`, `numpy.random`, `numpy.ma`, `numpy.polynomial`, `numpy.lib.stride_tricks`, `numpy.testing`, `numpy.typing`
-- asset: C/Cython-extension runtime; compiled `_core`
-- rail: compute
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: array family
 
@@ -79,7 +70,7 @@
 |  [06]   | `random.Philox`/`SFC64`    | bit source       | counter-based / fast bit generators                                                      |
 |  [07]   | `random.SeedSequence`      | seed spawner     | reproducible seed derivation; `spawn(n)` for parallel streams                            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
 
@@ -230,7 +221,7 @@
 |  [08]   | `Generator.permutation(x)`           | instance | permuted copy               |
 |  [09]   | `Generator.standard_normal(size)`    | instance | standard normal samples     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ndarray` is the universal container: every array function admits array-like input and returns `ndarray`.
@@ -255,9 +246,3 @@
 - `linalg` admits real and complex arrays and batches over leading axes; `eigh`/`cholesky` take the Hermitian/SPD shortcut over `eig`/`solve`.
 - `fft` frequency bins follow `fftfreq(n, d)` returning cycles per `d` unit.
 - `isfinite(...).all()` gates a numeric output before it graduates across a boundary.
-
-[RAIL_LAW]:
-- Package: `numpy`
-- Owns: N-d array construction, the dtype and abstract-scalar algebra (`issubdtype`/`intp`), ufunc dispatch and its `reduce`/`accumulate`/`outer`/`at` rails, numerical calculus and statistics, top-level math constants, `einsum` contraction, batched `linalg`/`fft`, finiteness predicates, and random sampling.
-- Accept: `ndarray`-first APIs, explicit `dtype`, `asarray`/`frombuffer` zero-copy intake, `einsum`/ufunc-method fused reductions, `random.default_rng`/`SeedSequence` seeding, `isfinite` gates, batched `linalg`/`fft`/`random`.
-- Reject: hand-rolled numerical loops an ufunc or `einsum` replaces, indexed Python accumulation `ufunc.at` replaces, module-level `numpy.random` functions, `numpy.matrix`, finiteness comparison without `isfinite`.

@@ -2,17 +2,7 @@
 
 `cubed` mints lazy Array-API n-dimensional arrays whose every operation appends to a deferred task graph that runs only when `compute`/`store`/`to_zarr` fires a pluggable executor. Each `Array` backs onto Zarr storage under a `Spec` declaring the work directory, a hard per-task memory budget (`allowed_mem`), and the executor, so out-of-core and distributed workloads run at provable peak memory. It owns the chunked-compute rail the data owner folds `Array` + `Spec` + one graph-boundary `compute` into.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `cubed`
-- package: `cubed`
-- module: `cubed`; `cubed.array_api.linalg` (linalg), `cubed.runtime.executors` (executor backends), `cubed.random` (chunked RNG)
-- owner: `data`
-- rail: chunked-compute
-- entry points: library use is import-only; no console script
-- capability: lazy chunked Array-API arrays, Zarr-backed bounded-memory execution, pluggable local/distributed executors, out-of-core TSQR/SVD/QR linalg, blockwise `map_blocks`/`map_overlap`/`apply_gufunc` kernels, NaN-aware reductions, chunked random generation, and callback-driven memory telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core, runtime, and telemetry types (`cubed`)
 
@@ -43,7 +33,7 @@
 - `Callback` subclasses observe `on_compute_start`/`on_compute_end`, `on_operation_start`/`on_operation_end`, and `on_task_end(TaskEndEvent)`.
 - `TaskEndEvent` carries `name`, `num_tasks`, `result`, `task_create_tstamp`, `function_start_tstamp`, `function_end_tstamp`, `task_result_tstamp`, `peak_measured_mem_start`, and `peak_measured_mem_end` as native execution measurements.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation (`cubed`)
 
@@ -94,7 +84,7 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 |  [06]   | `outer(x1, x2)` / `vecdot(x1, x2)` | outer product or vector dot               |
 |  [07]   | `matrix_transpose(x)`              | swap last two axes                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every operation appends to a task graph; nothing runs until `compute`/`store`/`to_zarr` fires the executor, and `raise_if_computes` guards a region as lazy.
@@ -116,9 +106,3 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 [LOCAL_ADMISSION]:
 - Array operations compose as a lazy graph under one `Spec` naming `work_dir`, `allowed_mem`, and executor; `compute` fires once at the graph boundary.
 - Cubed execution materializes to a Zarr store or an Arrow/xarray frame; `Materialization` returns the caller-required budget and measured run facts directly.
-
-[RAIL_LAW]:
-- Package: `cubed`
-- Owns: lazy chunked Array-API arrays, Zarr-backed bounded-memory execution, pluggable local/distributed executors, out-of-core TSQR linalg, blockwise/haloed/gufunc kernels, NaN-aware reductions, chunked RNG, and callback-driven memory telemetry
-- Accept: array operations composed as a lazy graph under a `Spec`, computed once at the graph boundary, reading and writing Zarr through the store family and backing an xarray labelled array via the Array API
-- Reject: eager full-materialization where the lazy graph applies, an in-memory NumPy pass over an out-of-core payload, a hand-rolled chunk-iteration loop, and re-expressing a cubed graph as a raw `dask.array` instead of selecting dask as a cubed executor

@@ -2,18 +2,7 @@
 
 `MiniExcel` owns zero-template streaming spreadsheet interchange: one static façade reads `.xlsx`/`.csv` forward-only into lazy `dynamic`, typed, or `IDataReader` rows under a shared-strings disk cache, and writes any enumerable, reader, table, or anonymous value through direct, template, and transcode egress. Column, sheet, style, range, and picture binding ride declared policy values, so workbook size never bounds memory. Persistence routes its spreadsheet lane here, taking row shape alone into the record rail the delimited codec also feeds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MiniExcel`
-- package: `MiniExcel` (Apache-2.0)
-- assembly: `MiniExcel`
-- namespace: `MiniExcelLibs` (façade, reader, configuration base); `MiniExcelLibs.Attributes`; `MiniExcelLibs.Csv`; `MiniExcelLibs.OpenXml` and `.Models`; `MiniExcelLibs.Picture`; `MiniExcelLibs.Exceptions`
-- asset: pure-managed AnyCPU runtime library; self-contained OpenXML zip and CSV reader/writer over source-generated `Regex` cell and template parsing
-- target: net10.0 (multi-targets net45/net461/netstandard2.0/net8.0/net9.0/net10.0; the net10.0 asset binds)
-- abi: every façade op carries a `string path` overload and a `this Stream` extension overload, and every ingress and egress op an `*Async` mirror returning the sync result in a `Task` and taking `CancellationToken`; ingress is `yield`-lazy end to end
-- rail: interchange-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: the façade, its streaming reader, and the format-keyed policy bag
 
@@ -83,7 +72,7 @@
 - `ExcelInvalidCastException`: `ColumnName` `Row` `Value` `InvalidCastType`
 - `MiniExcelNotSerializableException`: `Member` (`MemberInfo`)
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingress — row enumeration, windowing, reader projection, sheet introspection
 
@@ -133,7 +122,7 @@ Every read carries the tail `(sheetName, ExcelType, startCell, IConfiguration)`;
 
 - `MiniExcelDataReaderBase`: `this[int]`, `this[string]`, `Depth`, `IsClosed`, and `RecordsAffected` return base defaults; `GetValue` indexes the current row.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every op folds through one `IConfiguration` policy value selected by the `ExcelType` in play — `OpenXmlConfiguration` for `.xlsx`, `CsvConfiguration` for `.csv` — so format, style, mapping, and cache posture arrive as one declaration rather than per-call arguments.
@@ -152,9 +141,3 @@ Every read carries the tail `(sheetName, ExcelType, startCell, IConfiguration)`;
 - Column and sheet binding rides `ExcelColumnAttribute`/`ExcelSheetAttribute` on the type, or `DynamicColumns`/`DynamicSheets` for the runtime form the profile registers.
 - `ExcelColumnNotFoundException`, `ExcelInvalidCastException`, and `MiniExcelNotSerializableException` lift through one funnel into a typed `Validation` at the row boundary, accumulating independent row faults across the sheet.
 - Report-shaped output renders through `SaveAsByTemplate` with placeholder binding and finishes through `MergeSameCells`/`AddPicture`; header and cell styling ride the `OpenXmlStyleOptions` policy value.
-
-[RAIL_LAW]:
-- Package: `MiniExcel`
-- Owns: spreadsheet and CSV interchange — lazy dynamic, typed, and `IDataReader` ingress with header, start-cell, and range windowing; attribute and runtime column and sheet mapping; enumerable, reader, table, and anonymous egress; template rendering, merged-cell folding, embedded pictures, transcode, and the shared-strings disk cache.
-- Accept: profile-declared reads and writes through the façade; typed row faults folded into `Validation`; `GetReader` streamed into the columnar rail; a typed row sequence streamed into the bulk rail; `SaveAsByTemplate` for report output.
-- Reject: hand-rolled OpenXML or CSV parsing; a whole-sheet materialization on a streaming path; positional magic-index `dynamic` access against a known schema; a workbook read as a columnar file, which `Apache.Arrow`/`DuckDB.NET`/`ParquetSharp` own; high-throughput delimited parsing, which `Sep` owns.

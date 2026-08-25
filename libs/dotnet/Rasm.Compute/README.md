@@ -189,6 +189,5 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
 - `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on result and evidence lanes.
 
-[TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
-- `BenchmarkDotNet`
+[TEST_SUBSTRATE]: Rows bind in branch test projects, never the package csproj.
 - `Microsoft.AspNetCore.TestHost` — In-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.

@@ -2,16 +2,7 @@
 
 `@node-rs/argon2` owns argon2id credential hashing at rest for `crypt/sign`'s `Crypto`: a NAPI native addon whose async members run the Rust hash off the libuv threadpool under an `AbortSignal`. One `Options` carrier holds the whole cost surface, so a named policy row per credential class replaces call-site knobs, and the PHC string `hash` emits self-describes salt and cost so `verify` needs no options.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@node-rs/argon2`
-- package: `@node-rs/argon2` (MIT)
-- module: CommonJS root entry; the per-platform `.node` loader resolves through the root import, never a deep subpath
-- runtime: node-only — the Rust `argon2` crate ships as a per-target prebuilt addon with a `wasm32-wasi` recovery, which makes `sign/crypto` a node boundary
-- abi: the arch-matched prebuilt resolves at install; a missing or ABI-mismatched binary fails at load, never at typecheck
-- rail: `crypt/sign` — the credential-digest primitive inside the crypto owner
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the single cost carrier and the two bounded vocabularies it discriminates on
 
@@ -25,7 +16,7 @@
 [ALGORITHM]: `Argon2d` `Argon2i` `Argon2id`
 [VERSION]: `V0x10` `V0x13`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: mint and check on an async rail and its blocking mirror; `Options` is optional on every member, and each async member takes a trailing optional `AbortSignal`
 
@@ -40,7 +31,7 @@
 
 - `verify`: throws on a structurally malformed stored digest, so `false` is the auth-fail arm and the throw a corrupt-record fault.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Async members honor `AbortSignal` off the threadpool, so a request-scoped hash cancels with its fiber; a `*Sync` member on a request fiber starves the event loop.
@@ -58,9 +49,3 @@
 [LOCAL_ADMISSION]:
 - `Algorithm.Argon2id` with `Version.V0x13` on a named cost `Options` row per credential class fixes both the variant and the cost.
 - Password, `secret` pepper, and digest are the `Redacted` values on this surface.
-
-[RAIL_LAW]:
-- Package: `@node-rs/argon2`
-- Owns: argon2id credential hashing at rest — PHC mint, raw digest bytes, constant-time verify, the blocking mirrors, the single `Options` cost carrier, and the `Algorithm`/`Version` vocabularies
-- Accept: async members under `Effect.tryPromise` with `AbortSignal` threading, `Argon2id` with `V0x13` on named `Options` cost rows, verbatim PHC storage, a design-owned rehash fold, `Redacted` credential material
-- Reject: call-site cost knobs, a `*Sync` member on a request fiber, a hand-rolled constant-time compare of an argon2 digest, an import outside `sign/crypto`

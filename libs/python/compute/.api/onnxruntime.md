@@ -2,15 +2,7 @@
 
 `onnxruntime` owns offline inference-session checking of a validated ONNX model for the compute model-asset rail: it loads a `ModelProto` into an `InferenceSession`, reads the `NodeArg` signatures, and runs sample inputs through `run` to confirm well-shaped output before graduation to the C# `Rasm.Compute` runtime, which keeps production execution, provider policy, and benchmark authority.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `onnxruntime`
-- package: `onnxruntime` (MIT)
-- module: `onnxruntime`
-- rail: model
-- capability: offline ONNX inference-session checking — session load over ordered providers, zero-copy IO binding, sample `run`, and AOT EP-context compilation
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and value types; `[SYMBOL]` resolves as `onnxruntime.<name>`.
 
@@ -39,7 +31,7 @@
 |  [03]   | `ExecutionOrder`                  | priority versus default node ordering                                                               |
 |  [04]   | `OrtAllocatorType` / `OrtMemType` | allocator kind and memory-type selectors for IO binding                                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session lifecycle and inspection on `InferenceSession`; ctor `InferenceSession(path_or_bytes, *, sess_options, providers, provider_options)`.
 
@@ -72,7 +64,7 @@
 |  [10]   | `preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)`  | static   | preloads CUDA/cuDNN before session creation      |
 |  [11]   | `ModelCompiler(...).compile_to_file(output_path)`                 | instance | compiles to an EP-context on-disk artifact       |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `InferenceSession(path, providers=[...])` loads and optimizes the model; provider order is preference order, and `get_providers()` reports the assigned providers — a requested EP silently falls back to CPU when unavailable.
@@ -86,9 +78,3 @@
 
 [LOCAL_ADMISSION]:
 - `ModelAssetManifest` captures `get_available_providers()`, the `get_providers()` assignment, the input/output signatures, and the sample-run result — the offline runtime-check half beside the `onnx` structural half and the `skl2onnx` producer.
-
-[RAIL_LAW]:
-- Package: `onnxruntime`
-- Owns: offline ONNX inference-session runtime checking for the model-asset rail — session load, provider selection with per-EP option dicts, IO binding, and the sample run
-- Accept: the `onnx`-validated / `skl2onnx`-produced `ModelProto` loaded into an `InferenceSession`, producing well-shaped output from a sample `run`, with the `get_providers()` assignment and input/output signatures captured on the manifest
-- Reject: production inference claims; provider selection hidden inside helpers; a requested EP assumed assigned without reading `get_providers()`; wrapper-renames of the session API

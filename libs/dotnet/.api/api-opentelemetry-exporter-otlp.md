@@ -2,15 +2,7 @@
 
 `OpenTelemetry.Exporter.OpenTelemetryProtocol` pushes every signal — traces, metrics, and logs — to the collector gateway as OTLP frames over gRPC or HTTP/protobuf, on hosted and hostless roots alike.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-- package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-- assembly: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-- namespace: `OpenTelemetry`, `OpenTelemetry.Exporter`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`
-- rail: telemetry egress
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: egress policy, wire vocabularies, and the three signal exporters
 
@@ -47,7 +39,7 @@
 - Exporter shutdown only cancels pending requests and never disposes the supplied client, so a handler-owned resource reaches no release seat and its lifetime belongs to the composition supplying the factory.
 - Both shipped request contents are memory-backed and override the synchronous serializer — raw payload content and gzip wrapper alike, the latter carrying `Content-Encoding: gzip` on its own content headers — so a failed batch re-materializes from the live request with no async hop and a stored copy replays byte-identically under the compression already applied.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: egress registration; every `AddOtlpExporter` family carries a `string? name` prefix overload, and the metric and log families a second leg carrying `MetricReaderOptions` or `LogRecordExportProcessorOptions`.
 
@@ -86,7 +78,7 @@
 - Per-signal endpoint overrides disable path appending on that signal alone, so the three keys set whole or not at all.
 - Rows [09] and [10] are where the wire temporality and histogram-aggregation defaults bind, so a governance table pins them here rather than at each instrument.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - claim root: the two registrations are mutually exclusive — `UseOtlpExporter()` binds once per hosted root, and a second call or a per-signal `AddOtlpExporter` beside it throws `NotSupportedException` at provider build.
@@ -105,9 +97,3 @@
 [LOCAL_ADMISSION]:
 - Egress and trust bind from `OTEL_EXPORTER_OTLP_*` — the endpoint, protocol, headers, timeout, and compression keys, their `_TRACES_`/`_METRICS_`/`_LOGS_` per-signal overrides, and the `_CERTIFICATE`/`_CLIENT_CERTIFICATE`/`_CLIENT_KEY` triple; a deployment-plane coordinate rides its key and an estate wire pin rides the options delegate, because that delegate runs after the parse and wins.
 - Direct `OtlpTraceExporter`/`OtlpMetricExporter`/`OtlpLogExporter` construction rides a custom `BaseProcessor<T>` seat alone; every ordinary root registers through the extension verbs.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-- Owns: OTLP egress for traces, metrics, and logs — protocol, endpoint, batch, compression, and transport trust
-- Accept: per-signal `AddOtlpExporter` wherever any reader, processor, or transport policy value binds; the one-call claim verb only where every signal takes package defaults
-- Reject: Prometheus exporter packages and any second export registration beside the one claim

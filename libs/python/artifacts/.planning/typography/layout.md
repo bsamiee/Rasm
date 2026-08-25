@@ -18,7 +18,7 @@ Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_
 - Boundary: shaping and bidi resolution stay in `typography/shape#SHAPE`; font engineering stays in `typography/font#FONT`; authoring stays in `document/emit#DOCUMENT`. Greedy first fit, `tt_wrap` for proportional text, `Pyphen.inserted`, `Pyphen.wrap`, local Unicode or UCA tables, scalar-glyph breaking, and `text.split()` tokenization are rejected forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterator, Mapping
 from builtins import frozendict
 from enum import StrEnum

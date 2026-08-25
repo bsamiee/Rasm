@@ -2,17 +2,7 @@
 
 `Microsoft.Extensions.Telemetry.Abstractions` holds the contract half of the first-party telemetry rail every instrumented library binds: the generator grammar turning a `[LoggerMessage]` partial into classified tag emission and a partial factory into a typed `Counter`/`Gauge`/`Histogram`, the enricher, buffer, and sampler seams a composition root fills, the pooled latency ledger timing in-flight phases, and the outgoing-request metadata a transport boundary stamps. Every activation verb lives in `Microsoft.Extensions.Telemetry`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Telemetry.Abstractions`
-- package: `Microsoft.Extensions.Telemetry.Abstractions` (MIT)
-- assembly: `Microsoft.Extensions.Telemetry.Abstractions.dll`
-- asset: runtime library; the shipped Roslyn generators emit the logging and metric partials
-- namespace: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Buffering`, `Microsoft.Extensions.Diagnostics.Enrichment`, `Microsoft.Extensions.Diagnostics.Latency`, `Microsoft.Extensions.Diagnostics.Metrics`, `Microsoft.Extensions.Http.Diagnostics`
-- rail: library-tier telemetry contract behind every governed log record, generated instrument, and timed phase
-- ruled gate: `EXTEXP0003` gates `LogPropertiesAttribute.Transitive`, `GaugeAttribute<T>` whole, and the `Unit` row on every metric attribute
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [GRAMMAR_TYPES]: log emission grammar and its pooled tag-collection state
 
@@ -91,7 +81,7 @@
 - `IDownstreamDependencyMetadata`: `DependencyName` `UniqueHostNameSuffixes` `RequestMetadata` route set.
 - `TelemetryConstants`: `RequestMetadataKey` (`"Extensions-RequestMetadata"`) `Unknown` `Redacted` `ClientApplicationNameHeader` `ServerApplicationNameHeader`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `IServiceCollection` registration
 
@@ -135,7 +125,7 @@
 - `ILatencyContext.AddCheckpoint`: one stamp per context, so a re-entrant phase records a measure instead.
 - `ILatencyContextTokenIssuer` resolves an unregistered name to a positionless token whose writes drop, until `LatencyContextOptions.ThrowOnUnregisteredNames` promotes the lookup to a boot failure.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Logging and metric attributes drive generators: a generated log method rents `LoggerMessageHelper.ThreadLocalState`, writes tags and classified tags onto it, and returns it cleared, so a record costs no per-call allocation.
@@ -157,9 +147,3 @@
 - Tags stay bounded dimensions, and smuggled domain payload on one is the defect the classification set exists to make visible.
 - Latency names pre-register at composition and runtime records through tokens only.
 - Generated metric factories name their instrument in the estate metric grammar, never a package-local spelling.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Telemetry.Abstractions`
-- Owns: the source-generator log and metric grammar, the enricher, buffer, and sampler contracts, the latency ledger, and outgoing-request metadata
-- Accept: attribute-declared emission on a library surface; contracts injected and filled at a composition root
-- Reject: call-site telemetry policy; an unclassified sensitive tag; a `Stopwatch` timing a phase an issued token records

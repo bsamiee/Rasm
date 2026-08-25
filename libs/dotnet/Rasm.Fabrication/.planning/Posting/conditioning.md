@@ -22,7 +22,7 @@
 - Boundary: raw dimension text never crosses admission, and no column past it carries a unit in its name.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using CavalierContours.Polyline;

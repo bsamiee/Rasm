@@ -17,7 +17,7 @@ Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-an
 - Boundary: no analytics tables, graph construction, or observation surface — the producing pages own those; no parallel `AnalyticValue` twin authored beside this one, no module-level `_peak` fold beside the union, and no msgspec subclass family for the same bounded variant set.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Literal, assert_never
 

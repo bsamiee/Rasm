@@ -2,14 +2,7 @@
 
 `SALib` owns global sensitivity analysis for the compute uncertainty-quantification rail: a `problem` dict and the `ProblemSpec` fluent pipeline fold a design's inputs through one sample→evaluate→analyze rail into variance-based, elementary-effect, moment-independent, and derivative-based sensitivity indices.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SALib`
-- package: `SALib` (MIT)
-- module: `SALib` (dist `salib`); entrypoints under `SALib.sample.<method>.sample`, `SALib.analyze.<method>.analyze`, utilities in `SALib.util`
-- rail: sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: top-level and result types
 
@@ -18,7 +11,7 @@
 |  [01]   | `ProblemSpec`           | class (dict subclass) | fluent problem definition and `sample`/`evaluate`/`analyze` runner |
 |  [02]   | `SALib.util.ResultDict` | class (dict subclass) | analysis result container with `to_df()` / `plot()`                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ProblemSpec` fluent pipeline
 - `.sample`/`.evaluate`/`.analyze` and the parallel/distributed variants take `(func, *args, **kwargs)` and store their output; the rows show the added keywords, setters take an `np.ndarray`.
@@ -80,7 +73,7 @@
 |  [05]   | `handle_seed(seed) -> Generator`            | normalize int/Generator/None to a numpy `Generator` |
 |  [06]   | `avail_approaches(pkg)`                     | list available methods in a subpackage              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `problem` dict requires `num_vars: int`, `names: list[str]`, `bounds: list[[lo, hi]]`; optional `groups`, `dists` (per-variable `unif`/`norm`/`lognorm`/`triang`/`truncnorm`), `outputs`. `ProblemSpec` is a `dict` subclass constructed from the same keys.
@@ -97,9 +90,3 @@
 [LOCAL_ADMISSION]:
 - `ProblemSpec` drives every new pipeline; module-level `<method>.sample`/`.analyze` serve one-shot scripting only. Every `StudyRun` retains the sampled design, response vector, seed, and `ResultDict` indices.
 - `scale_samples` transforms bounds only for unit-hypercube samplers (LHS); the Sobol sampler auto-scales when `problem` carries bounds.
-
-[RAIL_LAW]:
-- Package: `SALib`
-- Owns: global sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
-- Accept: `ProblemSpec` `.sample`→`.evaluate`→`.analyze` pipelines; module-level `<method>.sample`/`.analyze` for direct use; `seed` for reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
-- Reject: a hand-rolled Sobol/Morris/FAST index estimator where the admitted analyzer owns the method; `print_to_console=True` in production compute paths; a caller pre-transforming input distributions `problem['dists']` declares; a hand-built worker pool where `evaluate_parallel` owns the fan-out

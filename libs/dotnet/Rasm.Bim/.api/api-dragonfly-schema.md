@@ -2,19 +2,7 @@
 
 `DragonflySchema` binds the Ladybug Tools Dragonfly urban building-energy schema and its DFJSON Newtonsoft codec — a `Model` → `Building` → `Story` → `Room2D` hierarchy of extruded footprint polygons whose parameter slots are `AnyOf<…>` unions and whose detailed physics is referenced by abridged identifier. Every type derives from `OpenAPIGenBaseModel`, so one generated round-trip, validation, duplication, and equality surface spans the schema. It fronts the energy-model rail with the massing wire and footprint geometry, composing the Honeybee physics vocabulary rather than re-declaring it.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DragonflySchema`
-- package: `DragonflySchema` (MIT)
-- assembly: `DragonflySchema`
-- namespace: `DragonflySchema` (flat — the OpenAPI generator emits no sub-namespaces; `ModelEnergyProperties`/`ModelRadianceProperties`/`ModelDoe2Properties`/`ModelComparisonProperties` live here, `Energy`/`Radiance`/`Doe2`/`Comparison` naming the `ModelProperties` sub-object axis, not namespaces)
-- asset: `netstandard2.0` single TFM, binds forward under net10.0
-- serialization: `LBT.Newtonsoft.Json` (the Ladybug Newtonsoft fork) via `OpenAPIGenBaseModel.ToJson`/`FromJson`; DFJSON is Newtonsoft, never `System.Text.Json`
-- validation: `System.ComponentModel.Annotations` — `[Required]`/`[Range]` attributes feed `Validate()`
-- consumer: `libs/dotnet/Rasm.Bim`
-- rail: energy-model
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: generated serialization base
 
@@ -80,7 +68,7 @@
 
 - [HVAC]: `VAVEquipmentType` `PSZEquipmentType` `FCUEquipmentType` `VRFEquipmentType` `Vintages` `EconomizerType`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DFJSON round-trip and validation — the `OpenAPIGenBaseModel` base surface, uniform across every schema type
 
@@ -93,7 +81,7 @@
 |  [05]   | `node.Duplicate() -> OpenAPIGenBaseModel`          | instance | deep structural copy (immutable-edit seam)     |
 |  [06]   | `node.Equals(OpenAPIGenBaseModel) -> bool`         | operator | structural value equality (model diffing)      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `DragonflySchema` code-generates from the Dragonfly OpenAPI spec; the round-trip is `FromJson` → edit-via-`Duplicate` → `ToJson`, never a hand-edit or subclass. Each object's `"type"` JSON discriminator is the case tag the `AnyOf<…>` resolver reads.
@@ -114,9 +102,3 @@
 [LOCAL_ADMISSION]:
 - DFJSON import enters through `Model.FromJson`, gated by `IsValid`/`Validate`, mapping the massing hierarchy and Honeybee-referenced properties onto canonical Bim/energy carriers.
 - DFJSON export enters through a canonical build — footprint polygons to `Room2D.FloorBoundary`, storey grouping to `Story` with `Multiplier`, library assembly to `ModelEnergyProperties` Honeybee entries — then `Model.ToJson()`.
-
-[RAIL_LAW]:
-- Package: `DragonflySchema`
-- Owns: the Dragonfly DFJSON urban energy-massing schema and Newtonsoft codec — the `Model`/`Building`/`Story`/`Room2D` hierarchy, the `AnyOf<…>` window/shading/skylight/boundary parameter unions, the Radiance grid parameters, and the extension-property hub referencing the Honeybee library
-- Accept: urban building-energy model interchange, massing-to-room translation input, footprint and storey geometry exchange, DataAnnotations validation
-- Reject: re-implementing the Honeybee physics vocabulary (`api-honeybee-schema` owns constructions/materials/HVAC/schedules), running the simulation (`api-openstudio` and EnergyPlus), authoring the source geometry (`api-geometrygym-ifc`), `System.Text.Json` serialization (the wire is the Newtonsoft fork), and leaking `DragonflySchema.*` types past the energy-exchange boundary

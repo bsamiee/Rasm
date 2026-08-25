@@ -2,20 +2,7 @@
 
 `uniseg` owns the pure-Python UAX text-segmentation engine for the artifacts typography rail: UAX #29 grapheme-cluster / word / sentence segmentation and UAX #14 line-break-opportunity resolution over a tailorable breakable-table walk, each algorithm a uniform `break`/`breakables`/`boundaries`/token-iterator family; fixed-width east-asian wrapping and the UCD property surface ride the same engine. Segmentation tables ship in-package pinned to one Unicode release, so break results are interpreter-independent; the engine owns no shaping, layout optimization, or font model.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `uniseg`
-- package: `uniseg` (MIT)
-- import: `uniseg` (submodules `linebreak`, `graphemecluster`, `wordbreak`, `sentencebreak`, `wrap`, `breaking`, `unicodedatawrapper`, `derived`, `emoji`, `unicodeproperty`)
-- owner: `artifacts`
-- rail: typography (line-layout)
-- unicode-data: `16.0.0` (`uniseg.unidata_version`) — segmentation, derived, and emoji tables bundled in `db_lookups.py` (two-level trie behind `get_handle`/`get_value`), so break results pin to this UCD release regardless of interpreter
-- build-floor: pure-Python universal wheel `py3-none-any` (`Root-Is-Purelib: true`), `Requires-Python >=3.9`, no abi/cp gate
-- depends-on: none at runtime. Optional `unicodedata2` accelerator loads when present, else stdlib `unicodedata`; absent here, so `category`/`east_asian_width`/`bidirectional` follow the interpreter UCD, split from the release-pinned segmentation tables ([04] data-pin)
-- entry points: none (library only)
-- capability: UAX #29 extended grapheme-cluster (Indic conjunct, emoji ZWJ, regional-indicator aware), word, and sentence segmentation; UAX #14 line-break over the full LB1–LB31 rule set; the `TailorFunction` locale-override hook and `Run` tailorable breakable-table walk; fixed-width east-asian-aware wrapping with tab expansion and ambiguous-width policy; the UCD General_Category / East_Asian_Width / Bidi_Class re-exports; the UAX #44 derived-property and UTS #51 emoji predicates
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: break-property enums and the breakable-table primitives
 
@@ -58,7 +45,7 @@ Break-property enums subclass `EnumProperty(str, Enum)`: every member equals its
 [Wrapper]: `wrap(formatter, s, cur=0, offset=0, *, iter_breakables=line_break_breakables) -> int` breaks by formatter extent and returns line count.
 [TTFormatter]: `TTFormatter(width, *, tab_width=8, tab_char=' ', ambiguous_as_wide=False)` rejects a wide `tab_char`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the four UAX boundary-algorithm families
 
@@ -107,7 +94,7 @@ Every algorithm is one four-function family — grapheme, word, sentence are UAX
 |  [05]   | `uniseg.derived.indic_conjunct_break`        | `indic_conjunct_break(c) -> IndicConjunctBreak`; the GB9c value                        |
 |  [06]   | `uniseg.emoji.*`                             | UTS #51 emoji predicates; `extended_pictographic` drives GB11/WB3c                     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - uniform-shape: a consumer selects granularity (grapheme < word < line-unit < sentence) by choosing the family, never by re-segmenting a finer grain into a coarser one. `X_breakables(s)` is the canonical 0/1 intermediate; needing both indices and tokens folds one stream through `boundaries` and `break_units`, never two algorithm passes.
@@ -126,9 +113,3 @@ Every algorithm is one four-function family — grapheme, word, sentence are UAX
 - `tailor`/`property` on the existing entry carries a locale break override; a genuinely new algorithm is a `Run` fold, never a forked algorithm or parallel break owner.
 - `tt_wrap`/`TTFormatter` serve the monospace/terminal medium; the proportional document paragraph rides the `typography/layout#LAYOUT` Knuth-Plass DP fed by `line_break_units`.
 - segmentation is treated as release-pinned (the bundled tables) and the `east_asian_width`/`category` measure as interpreter-pinned (the stdlib fallback); no hand-vendored segmentation tables to match the interpreter.
-
-[RAIL_LAW]:
-- Package: `uniseg`
-- Owns: UAX #29 grapheme-cluster / word / sentence segmentation and UAX #14 line-break resolution (the four-function family per algorithm, the tailorable `Run`/`Breakable` walk, the `boundaries`/`break_units` primitives), fixed-width east-asian-aware wrapping (`tt_wrap`/`tt_width`/`tt_text_extents`/`TTFormatter`/`Wrapper`/`Formatter`), and the UCD General_Category / East_Asian_Width / Bidi_Class re-exports with the UAX #44 derived and UTS #51 emoji predicates, over bundled release tables
-- Accept: the `BREAK` `LayoutOp` arm (`line_break`/`line_break_units` -> `BreakClass` stream feeding the Knuth-Plass DP); `grapheme_clusters` boundaries reconciling `typography/shape#SHAPE` HarfBuzz clusters and feeding `tt_text_extents`; the `tt_width`/`tt_text_extents` monospace/CJK column measure on `visualization/table#TABLE`; `tailor`/`property` as the locale-override seam
-- Reject: a hand-rolled LB1–LB31 table where `line_break` folds it; `list(text)` iteration where `grapheme_clusters` owns the extended cluster; a forked algorithm where `tailor`/`property` or a `Run` fold suffices; `tt_wrap` greedy first-fit where the document paragraph needs the total-fit optimum; comparing a break enum against `str(member)` instead of `member.value`; assuming one UCD version spans both the release-pinned tables and the interpreter-pinned `east_asian_width`/`category`

@@ -2,15 +2,7 @@
 
 `xarray` owns the CF-conventioned labelled n-dimensional field cube over `numpy` buffers: named dimensions, coordinate indexes, CF-aware selection, grouped and windowed and weighted reductions, interpolation and coordinate calculus, hierarchical `DataTree`, and the netCDF/Zarr/Icechunk IO plane feeding the `field-dataset` rail. Every `FieldDataset` body binds it function-local, so the cube never widens the module import graph.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `xarray`
-- package: `xarray` (Apache-2.0)
-- module: `xarray`
-- namespaces: `xarray`, `xarray.groupers`, `xarray.indexes`, `xarray.coders`, `xarray.ufuncs`, `xarray.backends`, `xarray.testing`, `xarray.tutorial`
-- rail: field-dataset
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: labelled-array owners
 
@@ -63,7 +55,7 @@
 |  [02]   | `groupers.UniqueGrouper(labels)`                                                  | grouper       | unique-value grouper      |
 |  [03]   | `groupers.BinGrouper(bins, right, labels, precision, include_lowest, duplicates)` | grouper       | histogram-bin grouper     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IO and construction
 - open carry: `engine`, `chunks`, `decode_cf`, `mask_and_scale`, `decode_times`, `drop_variables`, `backend_kwargs`
@@ -103,7 +95,7 @@
 |  [16]   | `date_range_like(source, calendar)` / `infer_freq(index)`                      | factory | derived index, inferred freq   |
 |  [17]   | `as_variable(obj, *, name) -> Variable`                                        | factory | wrap an array as `Variable`    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - A CF field cube is a `Dataset` of `DataArray`s over `numpy` buffers keyed by one runtime `ContentIdentity`; CF dimension names, coordinate labels, and CF metadata (`units`/`standard_name`/`grid_mapping`) are its whole addressing vocabulary.
@@ -128,9 +120,3 @@
 - `xarray` binds ONE module-scope `lazy import xarray as xr` per consuming module and reifies on the first `open_dataset(engine=)`/`open_zarr` read or `to_netcdf`/`to_zarr` write; the eager module-level form the manifest bans and an unearned function-local one are both deleted forms, and a module-scope row over the deferred band carries a member NAME or a call-time thunk. Egress carries compression, chunking, and fill through per-variable `encoding`.
 - `decode_cf` owns CF metadata, and `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample`/`rolling`/`coarsen`/`weighted` enter as `FieldSelection` cases.
 - `chunk` opts into the dask path with `chunked_array_type="cubed"` selecting the bounded-memory executor; `set_options`/`get_options` set global decode and display policy; a domain accessor registers through `register_*_accessor`.
-
-[RAIL_LAW]:
-- Package: `xarray`
-- Owns: the CF labelled-field cube for `field-dataset` — named-axis arrays over `numpy`, coordinate indexes, CF-aware selection and grouped/resampled/rolling/weighted reduction, interpolation and fill, polynomial and curve fitting, coordinate calculus, the `.dt`/`.str`/`.plot` and custom accessors, netCDF/Zarr/Icechunk IO, hierarchical `DataTree`, and the dask/cubed lazy path
-- Accept: function-local `open_*`/`to_*` binding, `decode_cf` metadata, `FieldSelection`-cased selection and reduction, the `flox` grouped lowering, explicit `Grouper` instances, the `.dt`/`.str` accessors, `chunk` onto dask or cubed, and an `IcechunkStore` for the transactional cube
-- Reject: a module-level `xarray` import, positional axis handling where CF names exist, wrapper-renames of label selection, a second labelled-array store inside `tensor`, hand-rolled grouped reductions `flox` lowers, hand-decoded CF time strings `cftime` owns, and CF coordinates treated as wire vocabulary

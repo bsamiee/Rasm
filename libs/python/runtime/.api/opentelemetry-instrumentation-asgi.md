@@ -2,17 +2,7 @@
 
 `opentelemetry-instrumentation-asgi` owns the served leg of the trace: one `OpenTelemetryMiddleware` wraps an ASGI application so every HTTP and websocket connection opens a span continued from the inbound W3C headers, records the HTTP server duration, body-size, and active-request instruments, and closes on the terminal send event. Shipping no `BaseInstrumentor`, this surface activates by explicit wrap alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `opentelemetry-instrumentation-asgi`
-- package: `opentelemetry-instrumentation-asgi` (Apache-2.0)
-- module: `opentelemetry.instrumentation.asgi`
-- namespaces: `opentelemetry.instrumentation.asgi`, `opentelemetry.instrumentation.asgi.types`
-- depends: `asgiref`, with `opentelemetry-instrumentation`, `opentelemetry-semantic-conventions`, and `opentelemetry-util-http` pinned equal
-- abi: pure-Python; `guarantee_single_callable` normalizes a two-callable application at construction
-- rail: observability
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: middleware, propagation carriers, and hook aliases
 
@@ -37,7 +27,7 @@
 |  [06]   | `http.server.response.size`      | histogram       | bytes off the response `content-length`; default and `http/dup`  |
 |  [07]   | `http.server.active_requests`    | up-down counter | in-flight HTTP requests under `{request}`; every mode            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: middleware construction and the module helpers it folds
 - `OpenTelemetryMiddleware` carries: `app`, `excluded_urls`, `default_span_details`, `server_request_hook`, `client_request_hook`, `client_response_hook`, `tracer_provider`, `meter_provider`, `tracer`, `meter`, `http_capture_headers_server_request`, `http_capture_headers_server_response`, `http_capture_headers_sanitize_fields`, `exclude_spans` — every slot past `app` positional-or-keyword, defaulting to `None`.
@@ -58,7 +48,7 @@
 |  [09]   | `asgi_getter.keys(carrier)`                                         | instance | every decoded header name on the carrier              |
 |  [10]   | `asgi_setter.set(carrier, key, value)`                              | instance | append one lowercased header onto a send message      |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `is_http_instrumentation_enabled()` reading false, or a `scope["type"]` outside `http` and `websocket`, hands the call straight to the wrapped app, so a lifespan scope and a suppressed leg each cost one dict read.
@@ -90,9 +80,3 @@
 - `exclude_spans=["receive", "send"]` is the standing posture on a streaming rail, where per-event children multiply span volume by message count.
 - Header capture arrives through the constructor slots so the captured and sanitized sets stay declared and reviewable at the composition root.
 - `excluded_urls` patterns anchor on path segments, since the match runs against a url carrying scheme, host, and port.
-
-[RAIL_LAW]:
-- Package: `opentelemetry-instrumentation-asgi`
-- Owns: server spans, W3C context extraction from `scope["headers"]`, response-header injection, and the HTTP server duration, body-size, and active-request instruments on every served ASGI connection
-- Accept: one `OpenTelemetryMiddleware(app, server_request_hook=..., excluded_urls=..., exclude_spans=...)` at the composition root, `collect_request_attributes` and `get_default_span_details` for a custom `default_span_details`, the constructor's header-capture slots
-- Reject: hand-rolled `traceparent` parsing off `scope["headers"]`, a per-request middleware construction, a second ASGI tracing layer over the same app, hand-timed server duration beside these instruments

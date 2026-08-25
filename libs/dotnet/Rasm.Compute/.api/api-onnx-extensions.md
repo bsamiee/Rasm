@@ -2,19 +2,7 @@
 
 `Microsoft.ML.OnnxRuntime.Extensions` ships the native extension-operator runtime (`ortextensions`) and its per-TFM MSBuild copy targets, carrying no managed public assembly. One managed entry `SessionOptions.RegisterOrtExtensions()` lives in `Microsoft.ML.OnnxRuntime` and P/Invokes the shipped native asset, registering the entirely-native tokenizer, preprocessing, and postprocessing custom ops in one call. Every tokenizer/detokenizer op model crosses the managed boundary through the string-tensor round-trip on `OrtValue`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
-- package: `Microsoft.ML.OnnxRuntime.Extensions` (MIT)
-- assembly: none — no managed public assembly, no `lib/` directory
-- namespace: none — the managed entry `SessionOptions.RegisterOrtExtensions` is `Microsoft.ML.OnnxRuntime` surface
-- asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) and per-TFM MSBuild build targets
-- build TFM: the package ships no `net8.0`/`net9.0` build folder, so a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets
-- floor: `SessionOptions.RegisterOrtExtensions()` is the one registration into the ORT host, so this package admits only against the `Microsoft.ML.OnnxRuntime` pin its native asset loads under — extensions `0.14.0` against ONNX Runtime `1.28.0` is the composition-proven pairing
-- rail: model
-- verification: no managed assembly ships, so the decompile rail is inapplicable by construction and every claim here verifies against the package's own MSBuild targets and the `Microsoft.ML.OnnxRuntime` entry that loads the asset
-
-## [02]-[PACKAGE_ASSETS]
+## [01]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: native runtime assets
 
@@ -38,7 +26,7 @@
 |  [01]   | `build/netstandard2.0/*.props` / `.targets` | MSBuild import | declares and copies native assets; `net10.0` binds this TFM |
 |  [02]   | `buildTransitive/netstandard2.0/*.targets`  | MSBuild import | flows native assets transitively through a referencer       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session registration
 
@@ -59,7 +47,7 @@
 |  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])` | factory  | allocates empty string-output slots a tokenizer fills |
 |  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()` | instance | reads decoded string elements, element-wise or bulk   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every extension op is native; the surface folds through the single `SessionOptions.RegisterOrtExtensions()` registration call, guarded on asset presence.
@@ -71,9 +59,3 @@
 
 [LOCAL_ADMISSION]:
 - Extension operators enter through `SessionOptions.RegisterOrtExtensions()`; tokenizer, preprocessing, and postprocessing operators stay model-rail assets, and native asset presence is model evidence before execution admits.
-
-[RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntime.Extensions`
-- Owns: the native ONNX extension-operator assets
-- Accept: declared custom-operator sessions
-- Reject: an opaque model-preprocessor service family; the leaky `out`-handle `RegisterCustomOpLibraryV2(path, out _)` spelling whose discarded handle leaks the library; a duplicate string-input factory, a `String`-only egress reader, or a tokenizer service beside the polymorphic `Egress`

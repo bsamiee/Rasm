@@ -2,17 +2,7 @@
 
 `bertt.CityJSON` reads and writes CityJSON — the OGC CityGML JSON encoding for 3D city models — as a managed codec over a `CityJsonDocument` graph of a transform-quantized vertex pool, a typed `CityObject` taxonomy, and an index-referenced LoD geometry hierarchy, across single-document and CityJSONSeq forms. Its `CityJSON.Extensions` rail dequantizes the geometry into NetTopologySuite `Polygon` and `Feature` sets, landing a dataset on the geospatial NTS algebra. Codec ownership stops at the `.city.json` round-trip and the NTS handoff — no reprojection, raster ingest, or IFC semantics.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bertt.CityJSON`
-- package: `bertt.CityJSON` (MIT)
-- assembly: `cityjson`
-- namespace: `CityJSON`, `CityJSON.Geometry`, `CityJSON.Extensions`, `CityJSON.IO`
-- asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0` (single TFM, binds forward)
-- serialization: Newtonsoft.Json — `JToken`/`JObject` ride the model (`CityObject.Address`, attribute bags), and read is Newtonsoft deserialization since no `CityJsonReader` ships
-- rail: geospatial
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root and quantization (`CityJSON`)
 
@@ -68,7 +58,7 @@
 |  [04]   | `TextureWrapMode`  | enum          | wrap mode — `none`, `wrap`, `mirror`, `clamp`, `border`                    |
 |  [05]   | `TextureType`      | enum          | texture kind — `unknown`, `specific`, `typical`                            |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: single-document read and write (`CityJSON`)
 
@@ -106,7 +96,7 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 
 - `Geometry.ToPolygons` dispatches the per-subtype family: the surface and solid classes expose `ToPolygons`, the `MultiSolidGeometry`/`CompositeSolidGeometry` classes expose `ToPolys`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Geometry.Boundaries` hold no coordinates — they are integer indices into `CityJsonDocument.Vertices`, and each `Vertex` is itself quantized; a real position is `vertex × Transform.ScaleVector3() + Transform.TranslateVector3()`, and boundary nesting depth equals the geometry dimensionality so a `Geometry.Type` downcast and its array rank agree.
@@ -124,9 +114,3 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 [LOCAL_ADMISSION]:
 - import enters through Newtonsoft deserialization into `CityJsonDocument` (or `CityJsonSeqReader.ReadCityJsonSeq` for the streaming form), dequantizes via `Transform`, and maps each `CityObject` onto a canonical `BimElement` with a `BimLeaf`-classified `IfcClass`; `CityJSON.*` types never cross the codec boundary.
 - export enters through a canonical build into `CityJsonDocument` (vertex pooling and boundary index encoding) then `CityJsonWriter.Write*` or `CityJsonSeqWriter.WriteCityJsonSeq`.
-
-[RAIL_LAW]:
-- Package: `bertt.CityJSON`
-- Owns: CityJSON / CityGML JSON read+write — the transform-quantized vertex pool, the typed `CityObject` taxonomy, the index-encoded LoD geometry hierarchy, appearance/textures, the CityJSONSeq streaming form, and the NTS `Feature`/`Polygon` projection rail
-- Accept: 3D urban/city-context interchange, dataset bounding envelope/CRS extraction, NTS-Feature handoff
-- Reject: coordinate reprojection (ProjNET), raster/general-vector GIS ingest (MaxRev.Gdal), mesh/tessellation codecs (SharpGLTF/AssimpNetter), IFC semantics (GeometryGym), and leaking `CityJSON.*` types past the codec boundary

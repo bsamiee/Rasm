@@ -2,16 +2,7 @@
 
 `motion` owns the continuous plane of `system/act`: physical springs, pointer-following motion values, scroll-linked transforms, layout and shared-element morphs, exit choreography, and imperative sequences. Cost laddering is a per-surface decision — the WAAPI mini, the `LazyMotion` + `m.*` mid tier, the full `motion.*` proxy — never a default import.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `motion`
-- package: `motion` (MIT)
-- module: dual ESM/CJS conditional `exports`; subpaths `.` `./mini` `./react` `./react-mini` `./react-m` `./react-client` `./debug`, each a re-export shim on one core (`framer-motion` is the vendored engine, never a manifest name beside `motion`)
-- runtime: browser hybrid engine — rAF spring/keyframe generation, handing `opacity` `clipPath` `filter` `transform` `backgroundColor` off the main thread to WAAPI on HTML and SVG elements alike; `react`/`react-dom` are optional peers, so vanilla entries run React-free
-- plane: `plane:runtime` (W4 `ui`), folder-local to `ui`
-- rail: continuous motion — springs, scroll-linked values, layout morphs, presence, and the view-transition builder
-
-## [02]-[ENTRY_SPLIT]
+## [01]-[ENTRY_SPLIT]
 
 Every entry re-exports one core; the engine is cost-laddered by entry. `animateView` rides `.`/`./react` only, and `delay` flips units — SECONDS on vanilla, MILLISECONDS on React — so pin the entry before citing a timeout.
 
@@ -21,7 +12,7 @@ Every entry re-exports one core; the engine is cost-laddered by entry. `animateV
 - [04]-[REACT_MINI] `motion/react-mini`: WAAPI featherweight — `useAnimate` alone (scoped single-target)
 - [05]-[REACT_M/CLIENT] `motion/react-m` · `motion/react-client`: the `m.*` lazy `LazyMotion` payload tags and the RSC client-boundary tags
 
-## [03]-[MOTION_VALUES]
+## [02]-[MOTION_VALUES]
 
 `MotionValue` is the render-free cell React never reconciles for: it subscribes, transforms, and writes the DOM outside reconciliation.
 
@@ -38,7 +29,7 @@ Every entry re-exports one core; the engine is cost-laddered by entry. `animateV
 
 [TRANSITION]: `Transition.type: "spring"|"tween"|"keyframes"|"inertia"|"decay"` `duration` `visualDuration` `stiffness` `damping` `mass` `bounce` `velocity` `restSpeed` `restDelta` `ease`; the vanilla `transform`/`mix`/`wrap` mappers and the `spring`/`frame` generators ride the `[01]-[ROOT]` entry.
 
-## [04]-[COMPONENT_PLANE]
+## [03]-[COMPONENT_PLANE]
 
 - `motion.*` / `m.*` proxy factories (`motion.div`, `motion.create(Component)`): `initial`/`animate`/`exit` targets or variant labels, `variants`, `transition`; `motion.create` throws on a wrapped component whose `ref` type the engine cannot drive.
 - Gestures: `whileHover` `whileTap` `whileDrag` `whileFocus` `whileInView`; `drag: boolean|"x"|"y"`, `dragConstraints`, `dragElastic`, `onPan(event, info)`; `useDragControls()` for handle-initiated drag.
@@ -49,7 +40,7 @@ Every entry re-exports one core; the engine is cost-laddered by entry. `animateV
 - `LazyMotion` + `domAnimation`/`domMax` bundles with `strict`: `m.*` tags render while features load async.
 - Imperative: `animate(target, keyframes, options)` (element/value/object/sequence overloads), `useAnimate() -> [scope, animate]` (scoped selectors, auto-cleanup), vanilla `scroll`/`inView`, `press`/`hover` recognizers.
 
-## [05]-[VIEW_TRANSITIONS_BUILDER]
+## [04]-[VIEW_TRANSITIONS_BUILDER]
 
 `animateView(update, options?)` is the typed spring-physics layer over `document.startViewTransition`; the membership-gated React `<AnimateView>` is REJECTED.
 
@@ -58,7 +49,7 @@ Every entry re-exports one core; the engine is cost-laddered by entry. `animateV
 
 Interruption queues by default (`"wait"`); `"immediate"` preempts — the policy `startViewTransition` alone lacks.
 
-## [06]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `motion` accelerates per value and never on an author hint: `opacity`, `clipPath`, `filter`, `transform`, and `backgroundColor` hand off to WAAPI on any HTML or SVG element sharing the main window's timing context, every other property generates on rAF, and an element in a foreign timing context (a popup) stays on the frameloop so its animation holds sync with the ones the main loop drives.
@@ -78,9 +69,3 @@ Interruption queues by default (`"wait"`); `"immediate"` preempts — the policy
 - Derive animation targets from atom state with the engine interpolating; `MotionConfig` binds subtree transition and reduced-motion policy, `layoutId` binds shared-element morphs.
 - Reach `animateView` where a document swap needs spring physics or interruption policy.
 - Wrap a styled or third-party component through `motion.create` under a `MotionConfig` carrying `isValidProp` — the config context decides prop forwarding for the whole subtree, so one predicate at the provider covers every wrapper beneath it.
-
-[RAIL_LAW]:
-- Package: `motion`
-- Owns: continuous motion — motion values and their derivation graph, spring/tween/inertia physics, `motion.*`/`m.*` elements, gesture-while states and engine-owned drag, layout/`layoutId` morphs, `Reorder` drag-ordered lists, `AnimatePresence` exit choreography, imperative `animate`/`useAnimate` sequences, scroll/in-view linkage, and the `animateView` view-transition builder.
-- Accept: per-surface cost laddering, atom-derived targets with engine interpolation, `MotionConfig` subtree policy including the `isValidProp` forwarding gate, `layoutId` morphs, `Reorder` on a list RAC models no widget for, `animateView` for physics or interruption swaps, vanilla entries for non-React canvases.
-- Reject: `framer-motion` as a manifest name beside `motion`, the paid `<AnimateView>`, a second scroll engine beside `useScroll`, `Reorder` wrapping a RAC collection, `AnimatePresence` duplicating a `Motion` row on one surface, motion `drag` double-bound with a use-gesture handler or vaul sheet, `MotionValue`s mirrored into React/atom state, mini entries expected to carry `animateView`, components, or gestures.

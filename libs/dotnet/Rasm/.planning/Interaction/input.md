@@ -30,7 +30,7 @@ The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer seam keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
 using EtoPointF = Eto.Drawing.PointF;
@@ -160,7 +160,7 @@ public static class InputState {
 - Boundary: `KeyEventArgs` and `TextInputEventArgs` cross as host types on the responder slots ALONE, because their veto members are read back by the host after the handler returns — a projected copy would drop the veto the host is waiting for.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Eto.Forms;
 using EtoPointF = Eto.Drawing.PointF;
 using EtoRectangleF = Eto.Drawing.RectangleF;
@@ -385,7 +385,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Boundary: a host event table is named on a ROW and nowhere else — the phase rosters own every pointer, key, and drag pair, and this roster owns the rest — so a consumer subscribes by row and never by `+=`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.ComponentModel;
 using System.Threading.Channels;
 using Eto.Forms;

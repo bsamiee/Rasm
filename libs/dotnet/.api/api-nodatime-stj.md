@@ -2,16 +2,7 @@
 
 `NodaTime.Serialization.SystemTextJson` owns System.Text.Json codec registration for NodaTime semantic-time values: converter selection is data — one settable slot per type, folded onto a `JsonSerializerOptions` converter list through `ConfigureForNodaTime`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `NodaTime.Serialization.SystemTextJson`
-- package: `NodaTime.Serialization.SystemTextJson`
-- assembly: `NodaTime.Serialization.SystemTextJson`
-- bound asset: `lib/net6.0`
-- namespace: `NodaTime.Serialization.SystemTextJson`
-- rail: wire-json
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registration and converter family
 
@@ -26,7 +17,7 @@
 |  [07]   | `NodaTimeDefaultJsonConverterAttribute` | attribute      | binds the Tzdb default converter to one member      |
 |  [08]   | `NodaTimeDefaultJsonConverterFactory`   | sealed class   | resolves the Tzdb default converter per type        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and converter construction
 
@@ -77,7 +68,7 @@
 - `NodaConverters.NormalizingIsoPeriodConverter`: normalization is lossy — a 90-minute period round-trips as an hour and 30 minutes.
 - `NodaConverters.DurationConverter` and `NodaConverters.RoundtripDurationConverter`: both type as the non-generic `JsonConverter`, so a `JsonConverter<Duration>` binding site takes a cast.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - System.Text.Json resolves the options converter list ahead of `TypeInfoResolver` metadata and takes the first entry claiming a type, so a registered NodaTime converter outranks the source-generated `JsonTypeInfo` for that type.
@@ -94,9 +85,3 @@
 - `ConfigureForNodaTime` on the shared options object registers semantic time once per wire profile, its zone provider supplied by the host rather than taken from the parameterless settings constructor.
 - `NodaPatternConverter<T>` assigned into its settings slot carries every non-default text shape; a member-local shape enters as `NodaTimeDefaultJsonConverterAttribute` or a `DelegatingConverterBase<T>` subclass, since `[JsonConverter]` identifies a converter by type alone.
 - Types the profile carries elsewhere leave their slot null, so the registration and the owning converter never double-bind.
-
-[RAIL_LAW]:
-- Package: `NodaTime.Serialization.SystemTextJson`
-- Owns: System.Text.Json registration, text shape, and calendar validation for NodaTime semantic-time values
-- Accept: converter selection as data — a settings slot assignment, a pattern-built converter instance, a provider-bound zone factory, and the interval shape swaps
-- Reject: a hand-rolled converter for a covered type, a hand-assembled converter list beside `ConfigureForNodaTime`, and a second options owner for the same wire

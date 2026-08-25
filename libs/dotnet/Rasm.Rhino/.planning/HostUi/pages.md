@@ -25,7 +25,7 @@
 - Growth: a new registration target is one `PageSeat` row plus its host callback at the load root; a new reveal window is one `PageReveal` row carrying its own resolver; a new selection axis is one `SelectionReach` row and no consumer edit.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Interaction;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;

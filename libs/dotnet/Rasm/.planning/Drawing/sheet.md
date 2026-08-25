@@ -29,7 +29,7 @@ Composition is downward: `ModelUnit`/`UnitSystem` from `Domain/context` carry ev
 - Boundary: the AEC analysis-discipline vocabulary (`Rasm.Element` `Discipline`) and the IFC semantic classification (`Rasm.Element` `Classification`) are NOT drafting vocabularies — `electrical` and `fire` are live tokens in both senses — and nothing on this page composes them; the drafting designators live at `[06]`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics.Tensors;
 using Rasm.Domain;
@@ -98,7 +98,7 @@ internal static class RungLadder {
 - Boundary: the AppUi twin roster (`Rasm.AppUi/.planning/Render/drafting.md:45-60`, fifteen rows character-identical), the Rhino free struct (`Rasm.Rhino/.planning/Exchange/sheets.md:929` `SheetSize(LengthUnit, double, double)`), the AppUi points constant (`drafting.md:71-75`), the AppUi free-token page roster (`Document/export.md:1248`), and the AppUi centimetre report pair (`export.md:217`) all DELETE and read this owner — `Custom` is the one caller-override arm the Rhino struct needed. NAMED LOSS: the fifteen per-size static members (`SheetSize.A3`) — a consumer spells `SheetSize.Of(SheetSeries.IsoA, 3)` or parses `a3`; the sizes a series admits are its `Range` and never a hand roster.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using Rasm.Domain;
@@ -286,7 +286,7 @@ public sealed partial class SheetMargin {
 - Boundary: the AppUi `TitleBlockStandard`/`TitleField`/`TitleBlock` (`Render/drafting.md:28-42,86-124`) delete and compose these rows — its eleven-field delegate roster is the richest form and survives here as the `TitleField` shape; the drafting SURFACE that strokes the frame stays the consumer's (`DraftEmit.TitleLayout` reads `SheetFrame`, `ZoneGrid`, `TitleBlockLayout`, and the fields, and draws). `Interaction/chrome` `PageFrame.Sheet` composes `SheetMargin` in place of its own `PageMargin`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using Rasm.Domain;
@@ -536,7 +536,7 @@ public sealed partial class SheetOfGrammar {
 - Boundary: AppUi `ProjectionBasis.Scale`/`FrameEdit.Scale(double)`/`TitleBlock.Scale(string)` and Rhino `SheetScale`/`CaptureScale`/`VectorScale`/`StyleField.DimensionScale` all take or read `DrawingScale` — Rhino's `SheetScale.NamedCase` and `DetailViewObject.ScaleFormat` stay the host lowering (a host operator-typed spelling is host grammar), reading `Render`/`Validate` here; the annotation multiplier `DraftScale` (a pattern scale) is DISTINCT and stays.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using Rasm.Domain;
@@ -684,7 +684,7 @@ public sealed partial class ScaleLadder {
 - Boundary: AppUi `TitleBlock.DrawingNumber` (free string) and `DisciplineKey` (free key), Rhino `NumberRule(string Template, …)` and its `%pagenumber%` expansion, and the export-file stem all take `SheetNumber`; Rhino's `%name%` stamp token grammar (`publish.md:157-165`) is the host lowering that renders `TitleField` reads and stays.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -911,7 +911,7 @@ public sealed partial class SheetNumber {
 - Boundary: the four unrelated senses of "layer" — CAD layer (this owner), per-element visibility override (AppUi `VisibilityOverride`), analysis result layer (AppUi `ResultLayer`), IFC material ply (`Rasm.Element` `MaterialLayer`) — are NOT one concept and this owner names none of the other three; Rhino `LayerName`/`LayerPath` (`Document/layers.md:38-93`), Rhino `DwgWriteCase.FullLayerPath`/`ColorMethod` decisions, AppUi `Role(style)`/`-part-{p}`/`"draft-annotation"` all compose this owner and delete their grammar; the layer-state facet store and per-view overrides stay at Rhino.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using Rasm.Domain;
@@ -1103,7 +1103,7 @@ public sealed partial class HostLayerScheme {
 - Boundary: the AutoCAD Colour Index, plot-style names, and screening percentages are plot-style data here, typed as `AciIndex`, `StyleName`, and `UnitInterval`; the CAD host's participation switch (`PrintWidthPolicy`), by-layer/by-object inheritance rosters, and per-viewport overrides stay at Rhino; AppUi `EdgeStyle` reads `LineWidth` + `LineType` rows and `PlotColor` becomes `PlotPosture`.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -1299,7 +1299,7 @@ public abstract partial record PlotStyleTable {
 - Boundary: the drafting FACE (the letterform family a host installs) resolves at the host — Rhino `FaceQuery` and AppUi's shaping rail — under a `LetteringForm` row; this page names the standard's form and never a font file; the OS UI roster (`TypeRole`) is not a drafting face and a plotted sheet never reads it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using Rasm.Domain;
@@ -1486,7 +1486,7 @@ public sealed partial class SymbolSet {
 - Boundary: the model geometric tolerance (`Rasm.Element` `Header.Tolerance`, a content-hash quantization grid) and the readout precision (`MeasureRole.decimals`) are DISTINCT and stay; AppUi `DraftPolicy.Declination` and Rhino `SunPlace.NorthAngle` delete for the one `GeoReference` read.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -1570,7 +1570,7 @@ public sealed partial class NorthPosture {
 - Boundary: Rhino `PdfPolicy` (`Exchange/publish.md`), AppUi `PdfPolicy`/`PdfExport` (`Document/export.md`) and their `PrintPlan`/`VisualExport` arms stay plural per stratum (ruled) and COMPOSE `PlotPolicy` for the values they once carried as literals; PDFsharp hardening (permissions, tagging), Skia page begin, and the Rhino `FilePdf` custom-page gate are host mechanics and stay.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using Rasm.Domain;
 using Rasm.Numerics;

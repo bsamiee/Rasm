@@ -29,7 +29,7 @@ Tiling is PROCEDURAL, never learned: a diffusion or sampler-loop tiling stage do
 - Boundary: wall time rides an OPTION-shaped `TimeProvider`, so a run reports a measured elapsed or the caller's own clock, never a literal zero a benchmark reads as instantaneous and never a null a boundary re-tests. Every loop-bearing member states its own KERNEL-EXEMPTION at the loop and each names the shape no span operator reaches — a sequential recurrence, a graph build, a generator, a two-candidate applicator, or a streaming row rail; every admission, dispatch, and egress surface on the page is expression-bodied.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;

@@ -2,16 +2,7 @@
 
 `Rhino.Display` owns the boundary between document geometry and pixels: view/viewport/camera pose, the two frame-participation shapes with their per-frame draw families and push/pop render-state stacks, the retained `CustomDisplay` and `VisualAnalysisMode` overlays, the display-mode and display-attribute vocabulary, and `ViewCapture` egress. Every symbol is a host handle the domain traps at the edge, and every drawn primitive consumes a `Rhino.Geometry` carrier under the active viewport.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon display and viewport surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` (host-resolved from the installed Rhino app, never NuGet-pinned)
-- namespace: `Rhino.Display` (view, viewport, pipeline, conduit, capture, display material/mode/attributes)
-- namespace: `Rhino.DocObjects` (`DetailViewObject`, `ClippingPlaneObject` display-adjacent objects)
-- rail: host-boundary display
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: view, viewport, and camera pose
 
@@ -86,7 +77,7 @@
 |  [04]   | `ViewCaptureSettings` | capture spec     | capture-layout mapping         |
 |  [05]   | `ZBufferCapture`      | depth capture    | per-pixel z-buffer field       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `DisplayConduit` — subclass and bind
 
@@ -488,7 +479,7 @@ Beyond the method rows below, the attribute model is property families written b
 |  [18]   | `RhinoObject.InVisualAnalysisMode(VisualAnalysisMode) -> bool`           | enablement  | specific-mode membership probe  |
 |  [19]   | `RhinoObject.GetActiveVisualAnalysisModes() -> VisualAnalysisMode[]`     | enablement  | active-mode census              |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Frame participation has two shapes over one phase order: subclass `DisplayConduit` and override the phases, or subscribe the mirror `DisplayPipeline` static events — subclassing owns per-instance state (filters, cached geometry), events a stateless tap. Both run one order: `ObjectCulling` → `CalculateBoundingBox` → `PreDrawObjects`/`PreDrawObject` → object walk → `PostDrawObjects` → `DrawForeground` → `DrawOverlay`.
@@ -508,9 +499,3 @@ Beyond the method rows below, the attribute model is property families written b
 [LOCAL_ADMISSION]:
 - `Rhino.Display` types are host handles trapped and mapped at the boundary; a `DisplayPipeline`, `RhinoViewport`, or `ViewCaptureSettings` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - A conduit or `CustomDisplay` is the single retained owner for its overlay concern; a second parallel conduit drawing the same overlay is the collapsed form.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon` (`Rhino.Display`)
-- Owns: view/viewport/camera pose, the two frame-participation shapes and their draw families, render-state stacks, retained `CustomDisplay`/`VisualAnalysisMode` overlays, display-mode and display-attribute vocabulary, and `ViewCapture` egress
-- Accept: a bound conduit or subscribed pipeline event drawing geometry carriers under matched state pushes; a settings-driven capture; a registered analysis mode; host crossings captured through `Op.Catch` onto `Fin` and enums mapped to bounded owners at the edge
-- Reject: a host draw call outside a frame phase, an unmatched `Push*`/`Pop*` leaving pipeline state dirty, a `DisplayPipeline`/`RhinoViewport`/`DisplayModeDescription` escaping into a domain signature, a hand-rolled overlay where `CustomDisplay` fits, a wall-clock sprite animation where the frame clock is available, and a re-derived color blend where the kernel color rail is composed

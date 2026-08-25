@@ -2,16 +2,7 @@
 
 `DialogHost.Avalonia` owns retained modal orchestration over an Avalonia overlay region: a `DialogHost` control marks the region and a static identifier-keyed surface drives it by `Identifier`, no control reference held. `Show` returns `Task<object?>` whose awaited value is the close parameter — dismissal-as-a-value, a confirm to its chosen result and a cancel to `null`. `DialogClosingEventArgs.Cancel()` vetoes a dismissal, `IsMultipleDialogsEnabled` stacks sessions, and AppUi binds every surface through one ReactiveUI `Interaction` seam that re-types the erased parameter onto the `Fin` rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DialogHost.Avalonia`
-- package: `DialogHost.Avalonia` (MIT)
-- assembly: `DialogHost.Avalonia`
-- namespace: `DialogHostAvalonia`, `DialogHostAvalonia.Positioners`
-- asset: managed library + embedded `avares://` XAML (`DialogHostStyles` theme resources); `lib/net8.0` is the sole shipped asset, bound by the `net10.0` workspace
-- rail: dialogs
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [DIALOG_TYPES]: host control, session handle, event args, handler delegates, and style holders
 
@@ -34,7 +25,7 @@
 |  [03]   | `CenteredDialogPopupPositioner`       | class         | centers in the host; singleton `Instance`                |
 |  [04]   | `AlignmentDialogPopupPositioner`      | class         | `HorizontalAlignment`/`VerticalAlignment`/`Margin` align |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [STATIC_DIALOG_OPS]: static `DialogHost` surface, identifier-keyed, no control reference; `Show` is the awaitable result rail
 
@@ -102,7 +93,7 @@
 |  [01]   | `DialogOpened` / `DialogClosing`                 | `RoutedEvent` on open; vetoable event before close |
 |  [02]   | `DialogOpenedCallback` / `DialogClosingCallback` | `*EventHandler` direct-property handlers           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Show(content, identifier)` returns `Task<object?>` whose awaited value is the close `Parameter`, and a session is reached by `Identifier` rather than by holding the control, so the dispatcher closes and queries a session it never constructed.
@@ -117,9 +108,3 @@
 
 [LOCAL_ADMISSION]:
 - Every modal, transient, and pick surface binds one `DialogTopology` row and reaches DialogHost only through the `Interaction` seam; the static identifier surface addresses every session, and overlay, blur, and chrome resolve through theme tokens.
-
-[RAIL_LAW]:
-- Package: `DialogHost.Avalonia`
-- Owns: retained modal orchestration — identifier-addressed sessions, the awaitable close-parameter result rail, the vetoable `DialogClosing` seam, the session stack with its content-keyed raise verb, and per-host overlay/blur/positioner/chrome.
-- Accept: modal state as host-addressable, command- and identifier-driven surfaces; `Show` results as `Task<object?>` close parameters onto the `Fin` rail; the `Interaction` seam owning each per-surface binding.
-- Reject: an unguarded static crossing where the instance resolution throws on an absent, unmatched, or ambiguous identifier; reading `Pop` as a dismissal; a control-reference show path where the static identifier surface addresses the session; host-specific modal service families; inline overlay/chrome literals where theme tokens resolve; re-typing the erased close parameter at each call site instead of one boundary capsule.

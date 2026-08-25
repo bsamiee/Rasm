@@ -2,16 +2,7 @@
 
 `Serilog.Extensions.Hosting` binds Serilog into the Generic Host: `UseSerilog` and `AddSerilog` replace the host `ILoggerFactory` at composition, `CreateBootstrapLogger` mints a `ReloadableLogger` for two-stage init, and `IDiagnosticContext` accumulates request-scoped wide-event properties. Its boundary is bootstrap composition — the logger binds once through the host builder or service collection, never a runtime `Log.Logger` reassignment.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Serilog.Extensions.Hosting`
-- package: `Serilog.Extensions.Hosting`
-- assembly: `Serilog.Extensions.Hosting`
-- namespace: `Serilog`, `Serilog.Extensions.Hosting`
-- asset: runtime library
-- rail: telemetry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hosting integration family
 
@@ -25,7 +16,7 @@
 |  [06]   | `DiagnosticContext`                     | class         | diagnostic-context singleton           |
 |  [07]   | `ReloadableLogger`                      | class         | reconfigurable bootstrap logger        |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: host and service registration
 
@@ -49,7 +40,7 @@
 |  [05]   | `IDiagnosticContext.SetException(Exception)`                              | instance | attach an exception to the active context     |
 |  [06]   | `ReadFrom.Services(IServiceProvider) -> LoggerConfiguration`              | static   | inject DI-resolved logger settings            |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `CreateBootstrapLogger` mints a `ReloadableLogger` before `Host.CreateApplicationBuilder`; both service-aware overloads — `UseSerilog` and `AddSerilog` alike — read `Log.Logger as ReloadableLogger` and, unless `preserveStaticLogger` is set, `Reload` then `Freeze` that instance in place rather than replacing it. The detection reads the STATIC slot, so a bootstrap logger the caller never assigned to `Log.Logger` takes the replace branch and its boot-window records land on an abandoned logger.
@@ -69,9 +60,3 @@
 - `CreateBootstrapLogger` roots two-stage host init: a lightweight logger runs during host build, replaced by the fully configured logger after services resolve.
 - Inject `IDiagnosticContext` to accumulate request-scoped properties for wide events such as request-completion logs.
 - `AddSerilog`'s service-aware overload owns any configuration needing resolved services, such as metrics sinks or sampler config.
-
-[RAIL_LAW]:
-- Package: `Serilog.Extensions.Hosting`
-- Owns: Serilog integration into `IHostBuilder` and `IServiceCollection`
-- Accept: `AddSerilog` at composition; `CreateBootstrapLogger` for two-stage init
-- Reject: manual `ILoggerFactory` replacement, static `Log.Logger` assignment outside bootstrap, and the `IHostBuilder`-era `UseSerilog` shim beside the `IServiceCollection` bridge

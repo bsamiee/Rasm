@@ -2,15 +2,7 @@
 
 `@oslojs/encoding` renders the bytes `@noble/hashes` mints into wire strings and parses them back. One axis product — alphabet × case × padding × direction — spans the surface, so a caller selects axis values off the domain need rather than a bespoke name; every `decode*` throws on malformed input, making the parse boundary one `Effect.try`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@oslojs/encoding`
-- package: `@oslojs/encoding` (MIT)
-- module: ESM-only, one root export; every codec is a named import from the package root, no subpaths
-- runtime: `runtime:neutral` — pure JS, zero `node:*`, composes inside a `runtime:browser` build
-- rail: sign — the byte↔string half of every digest, MAC, and secret the folder mints
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two call shapes every export inhabits; the package exports functions alone and names no type.
 
@@ -19,7 +11,7 @@
 |  [01]   | `(Uint8Array) -> string` | delegate      | render bytes to the alphabet's wire string, total         |
 |  [02]   | `(string) -> Uint8Array` | delegate      | parse a wire string to bytes, throwing on malformed input |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: every export grouped by alphabet; a name spells its own axis values and the two shapes above fix its signature.
 
@@ -28,7 +20,7 @@
 [BASE64]: `encodeBase64` `encodeBase64NoPadding` `decodeBase64` `decodeBase64IgnorePadding`
 [BASE64URL]: `encodeBase64url` `encodeBase64urlNoPadding` `decodeBase64url` `decodeBase64urlIgnorePadding`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Domain need selects the axis values — WebAuthn and apikey wire take base64url-noPadding, TOTP provisioning takes base32, digest-at-rest takes hex-lower — and the selected export is the call.
@@ -46,9 +38,3 @@
 
 [LOCAL_ADMISSION]:
 - `sign/` subpaths hold the sole import; every other rail receives already-encoded material across the folder seam.
-
-[RAIL_LAW]:
-- Package: `@oslojs/encoding`
-- Owns: the hex, base32, base64, and base64url matrix with its case, padding, and lenient-decode axes under one throwing decode contract
-- Accept: codec selection by axis values, base32 as the row `effect` `Encoding` never carries, `Effect.try` around `decode*`, `Schema.*FromBase64`/`FromHex` for in-`Schema` crossings, `@noble/hashes` bytes as the 1:1 input, base64url-noPadding for the WebAuthn, apikey, and session wire
-- Reject: a bespoke per-format wrapper over the matrix, a padded-encode against a strict decode across a padding-rewriting transport, re-implementing the base64 rows `effect` `Encoding` already owns for in-`Schema` non-base32 crossings, rendering a JOSE compact segment, any import outside `sign/`

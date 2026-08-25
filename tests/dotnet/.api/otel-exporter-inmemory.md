@@ -4,15 +4,7 @@
 
 Trace and log export assertions have no other in-process rail; the metrics lane complements `MetricCollector<T>` (`diagnostics-testing.md`), which reads one instrument's raw measurement stream without spinning up an SDK pipeline.
 
-## [01]-[PACKAGE_SURFACE]
-
-- package: `OpenTelemetry.Exporter.InMemory`
-- license: `Apache-2.0`
-- namespaces: `OpenTelemetry.Exporter`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`
-- asset: `lib/net10.0/OpenTelemetry.Exporter.InMemory.dll`
-- rail: evidence — full-SDK trace/metric/log export captured into a caller `ICollection<T>`; a suite-owned harness row (`PrivateAssets="all"`), never centrally injected
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 | [INDEX] | [SYMBOL]                            | [KIND]    | [CAPABILITY]                                                                           |
 | :-----: | :---------------------------------- | :-------- | :------------------------------------------------------------------------------------- |
@@ -23,7 +15,7 @@ Trace and log export assertions have no other in-process rail; the metrics lane 
 |  [05]   | `InMemoryExporterMetricsExtensions` | extension | `AddInMemoryExporter` over `MeterProviderBuilder`, `Metric` and `MetricSnapshot` items |
 |  [06]   | `InMemoryExporterLoggingExtensions` | extension | `AddInMemoryExporter` over `LoggerProviderBuilder` and `OpenTelemetryLoggerOptions`    |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 Every overload binds a caller `ICollection<T>`; fence carries the full `AddInMemoryExporter` family and the `MetricSnapshot` shape.
 
@@ -64,7 +56,7 @@ public class MetricSnapshot {
 }
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [EVIDENCE]: proof reads the captured collection after `ForceFlush`, never the exporter's wiring — a trace obligation asserts on `Activity` display name, tags, and status; a metric obligation on `MetricPoint` values and dimensions; a log obligation on `LogRecord` state; message-substring scraping stays banned.
 
@@ -74,10 +66,4 @@ public class MetricSnapshot {
 - `xunit-v3.md`: plain construction and `Sdk.CreateTracerProviderBuilder()`/`Sdk.CreateMeterProviderBuilder()` inside `[Fact]` bodies; the logging overload wires through `OpenTelemetryLoggerOptions` on a host-built SUT.
 
 [LOCAL_ADMISSION]:
-- A suite proving full-SDK export obligations adds this package as its own harness row beside its other suite-owned packages; the shared test stack never injects it estate-wide.
-
-[RAIL_LAW]:
-- Package: `OpenTelemetry.Exporter.InMemory`
-- Owns: captured full-SDK trace, metric, and log export inside C# specs.
-- Accept: `AddInMemoryExporter` binding a caller `ICollection<T>` on the real provider builder; `MetricSnapshot` items for multi-cycle metric values; `ForceFlush` before the snapshot fold.
-- Reject: asserting instrument streams the lighter `MetricCollector<T>` already owns; a raw `Metric` collection where cross-cycle mutation aliases the values; message-substring assertions over exported items.
+- Suites proving full-SDK export obligations add this package as its own harness row beside its other suite-owned packages; the shared test stack never injects it estate-wide.

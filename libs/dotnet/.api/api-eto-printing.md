@@ -2,16 +2,7 @@
 
 `Eto.Forms` printing owns document output, and two reachers compose this surface: the kernel `Rasm/Interaction/chrome#[06]-[PRINT]` deferred-run owner and the Rhino host boundary's publishing legs — so the catalogue seats at the branch tier per the one-catalogue-one-tier ruling. `PrintDocument` is the paginated render job the two dialogs present, the settings types configure, and `Taskbar` mirrors, held apart from the interactive control tree and ambient runtime.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto.Forms`
-- package: `Eto.Forms` — host-provided, resolved from the Rhino host assembly set, not a central `PackageReference`
-- assembly: `Eto`
-- namespace: `Eto.Forms`
-- asset: the `Eto` assembly the Rhino host loads; the `macOS`, `WinForms`, and `Wpf` platform handlers back the same print surface
-- rail: eto-printing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, presentation, and settings
 - namespace: `Eto.Forms`
@@ -33,7 +24,7 @@
 - `PageSettings` exposes one get-only `RectangleF PrintableArea` and nothing else; page size arrives per page on `PrintPageEventArgs.PageSize`, orientation on `PrintSettings.Orientation`, and margins exist nowhere on this surface — a margin is the boundary's own inset against the printable rectangle.
 - Both page ranges are `Range<int>`, so an interval is one value, never a start/end pair a boundary must keep consistent.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle
 - rail: eto-printing
@@ -87,7 +78,7 @@
 
 - `Copies` and `Collate` carry host `[DefaultValue]` attributes, so an unset job is already configured; a boundary default that restates them is a forged value, and a boundary that omits them inherits the host's.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [PIPELINE_LAW]:
 - Construction is empty or over a `Control` whose rendered visual is the page source. Rendering runs `OnPrinting` → `OnPrintPage` per page → `OnPrinted`, and `OnPrintPage` receives a `PrintPageEventArgs` carrying the `Graphics` (`libs/dotnet/.api/api-eto-drawing.md`) the page paints into, so a page draws with the identical primitive set a `Drawable` uses on screen.
@@ -111,9 +102,3 @@
 [LOCAL_ADMISSION]:
 - `Eto.Forms` printing is host-provided and never re-declared; a Rasm owner internalizes document output behind one canonical rail so downstream code composes a print effect and a page-render callback, never a raw `PrintDocument` lifecycle, a stringy dialog-result branch, or a hand-threaded taskbar update.
 - The kernel `Interaction/chrome` print owner and the Rhino publishing legs both compose this one catalogue; a folder-tier copy or redirect stub is the deleted form (branch RULINGS `[04]`).
-
-[RAIL_LAW]:
-- Package: `Eto.Forms`
-- Owns: `PrintDocument` lifecycle, name, and page callbacks, `PrintDialog`/`PrintPreviewDialog` presentation, `PageSettings`/`PrintSettings` with the orientation and selection vocabularies, `Taskbar` progress projection
-- Accept: paginated document rendering, printer and preview presentation, page geometry and job configuration, ambient taskbar/dock progress
-- Reject: interactive windows and file dialogs (`libs/dotnet/.api/api-eto-forms.md`), the page `Graphics` primitive set (`libs/dotnet/.api/api-eto-drawing.md`), ambient application dispatch and clock (`libs/dotnet/Rasm.Rhino/.api/api-eto-runtime.md`), a boundary-minted parent window or a print job off the host thread (`libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md`), a boundary-side margin or copy default restating a host `[DefaultValue]`, and leaking a raw `PrintDocument` or `DialogResult` branch past the owning rail

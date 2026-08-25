@@ -2,16 +2,7 @@
 
 `@google/model-viewer` mints one custom element, `<model-viewer>`, mixin-composed from eight feature interfaces over a Lit `ReactiveElement` driving an internal three renderer. Importing the module registers `<model-viewer>` + `<extra-model>` on `HTMLElementTagNameMap`, and every capability rides the attribute⟷property⟷event triad. As the `RendererBackend` `"model-viewer"` arm it is the read-only GLB embed with no GL handle: `.src` takes a GLB object-URL, `camera-controls` orbits, owning decode, upload, and camera internally. One mixin facet lands a new capability, never a second element.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@google/model-viewer`
-- package: `@google/model-viewer` (Apache-2.0)
-- module: ESM `lib/model-viewer.js`, declarations `lib/model-viewer.d.ts` — the const + instance `ModelViewerElement`, the eight feature interfaces + their mixin factories, and the `three` re-exports
-- runtime: browser custom element, peer `three` (`.api/three.md`, never bundled), `scope:viewer` — self-registers `<model-viewer>` + `<extra-model>` on `HTMLElementTagNameMap` at import; DRACO/KTX2/meshopt decoder locations default to the Google CDN and pin to a self-hosted path before the first model
-- deps: `lit` (`ReactiveElement` base), `@monogrid/gainmap-js` (HDR gainmap decode) — the only bundled runtime deps
-- rail: viewer/scene — the declarative read-only GLB embed backend
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the element, its mixin factories, and value/coordinate types
 
@@ -51,7 +42,7 @@ Each interface is one capability facet; its config records parameterize the face
 |  [15]   | `AppendAnimationOptions` / `DetachAnimationOptions`    | animation      | `fade`/`warp`/`weight`/`timeScale` blend       |
 |  [16]   | `StagingInterface`                                     | auto-stage     | `autoRotate` + `autoRotateDelay` turntable     |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: load, reveal, and camera control — the read-only GlbViewport embed
 
@@ -100,7 +91,7 @@ Each interface is one capability facet; its config records parameterize the face
 - `toBlob`: `ToBlobOptions` ships un-exported, so a consumer references it structurally.
 - `slot="hotspot*"`: `updateHotspot` moves an existing slot and no-ops otherwise, and the dataset stays unobserved.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Capabilities are facets of one mixin-composed element, never sibling components; `HTMLElementTagNameMap` is augmented so `document.createElement('model-viewer')` and JSX both resolve the composed type.
@@ -119,9 +110,3 @@ Each interface is one capability facet; its config records parameterize the face
 - Admit `<model-viewer>` as the declarative read-only GLB embed row; pin the decoder-location statics once at boot before the first model.
 - Feed GLB bytes as a `model/gltf-binary` object-URL revoked on scope exit under `Effect.acquireRelease`, holding the element only inside a scoped resource.
 - Reach for the three `WebGPURenderer` row on GPU-heavy paths (meshlet LOD, splats); this element owns the zero-config declarative embed and AR.
-
-[RAIL_LAW]:
-- Package: `@google/model-viewer`
-- Owns: the declarative `<model-viewer>` element, its eight mixin feature interfaces, GLB import + `exportScene`, hotspot ray-casting, IBL environment, camera orbit, material variants, and AR activation
-- Accept: `.src` GLB object-URL + `camera-controls` as the embed row, the attribute⟷property⟷event triad, decoder statics before first model, `Effect.acquireRelease` lifetime, events-as-`Stream`, camera state through the `AtomBinding`
-- Reject: a hand-rolled three renderer for a declarative embed, direct three GL construction the element already covers, decoder side-loading from the CDN under CSP, camera state in a free ref, import outside `scope:viewer`

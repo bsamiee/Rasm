@@ -2,18 +2,7 @@
 
 `c2pa-python` owns the C2PA content-credentials rail for `artifacts` provenance: a `Builder` embeds a signed manifest from a JSON definition into an asset, a `Reader` extracts and validates a manifest store, and a `Signer` family mints the COSE signer across the ES/PS/ED25519 algorithms. Native core `libc2pa_c` owns JUMBF/COSE encoding and validation-state computation; asset bytes cross as streams or paths supplied by the imaging and document owners, and certificate material comes from the campaign signer config, never minted here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `c2pa-python`
-- package: `c2pa-python` (MIT OR Apache-2.0)
-- import: `c2pa`
-- owner: `artifacts`
-- rail: provenance
-- marker: pure-Python ctypes binding over a bundled `libc2pa_c` native core (the wheel's own `c2pa/libs/libc2pa_c.dylib`/`.rlib`); the wheel ships the platform core, so no compiler and no cp-gate
-- entry points: console script `download-artifacts` fetches the native library (`c2pa.build:main`); library use is import-only
-- capability: manifest authoring from a JSON definition, embedded/sidecar signing into the native signable MIME set, ingredient attachment from stream or archive, whole-builder and per-ingredient archive serialize/rehydrate, manifest-store extraction and parsing (`json`/`detailed_json`/`crjson`), `validation_state`/`validation_results` reporting, callback/`C2paSignerInfo` signers, standalone `format_embeddable`/`ed25519_sign` byte primitives, and per-instance `Settings`/`Context` configuration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: builder, reader, signer, and configuration roots
 - rail: provenance
@@ -47,7 +36,7 @@
 
 `c2pa.c2pa` exposes `C2paSeekMode`, `format_embeddable`, and `version` beyond the public set — `version` the `importlib.metadata` distribution version, distinct from `sdk_version` the native-core version; the owner reaches `format_embeddable`/`ed25519_sign` through `from c2pa.c2pa import …` only when the embeddable-bytes primitive is needed.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Builder` author and sign
 - rail: provenance
@@ -121,7 +110,7 @@
 |  [16]   | `format_embeddable(format, manifest_bytes) -> tuple`                 | static   | rewrap a detached manifest to wire bytes     |
 |  [17]   | `ed25519_sign(data, private_key) -> bytes`                           | static   | in-process Ed25519 raw-signature (64-byte)   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `import c2pa` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -144,9 +133,3 @@
 
 [LOCAL_ADMISSION]:
 - Sole C2PA Content-Credentials owner for `artifacts`. `Reader`'s readable MIME set exceeds the `Builder` signable set by PDF and the raw-camera `arw`/`nef` formats, read-only here, so a PDF or raw-camera asset routes to the `pyhanko` PAdES rail (`exchange/conformance`) and never `Builder.sign`. C2PA and PAdES are orthogonal rails the provenance owner selects per asset class by the signable-MIME set; a PDF carries a C2PA manifest this SDK reads but never writes.
-
-[RAIL_LAW]:
-- Package: `c2pa-python`
-- Owns: C2PA manifest authoring from a JSON definition, embedded/sidecar signing, manifest-store extraction and parsing, `validation_state`/`validation_results` reporting, and COSE signer construction across ES/PS/ED25519.
-- Accept: signing and validating Content Credentials on assets feeding the provenance, imaging, and document owners.
-- Reject: a wrapper-rename of `Builder.sign`/`Reader`/`get_validation_state`; a hand-rolled JUMBF/COSE manifest codec; a local recomputation of `validation_state`; a parallel reader or builder type per asset format or signing algorithm; a PDF or raw-camera asset on `Builder.sign`; certificate or key material the campaign signer config owns.

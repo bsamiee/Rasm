@@ -2,15 +2,7 @@
 
 `capsule` is the namespace-tenancy governor the deploy plane installs when a stack rules tenants soft-isolated. The chart plants an operator and its CRD estate; the TENANTS are custom resources the tier authors afterwards, so chart values decide the controller's admission posture and the `Tenant` CRD decides what a tenant may hold. That split is the contract: no values key creates a tenant, and no `Tenant` field changes how the webhook admits.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `capsule`
-- chart: `capsule` from `https://projectcapsule.dev/charts` (Apache-2.0), source `charts/capsule` in `projectcapsule/capsule`, mirrored at `oci://ghcr.io/projectcapsule/charts/capsule`
-- asset: one `CapsuleConfiguration`, the controller Deployment or DaemonSet, a webhook Service and a metrics Service, its RBAC cell, three kubectl hook Jobs, and the `crds/` estate — beside an optional `capsule-proxy` subchart aliased `proxy`, condition `proxy.enabled`, DEFAULT FALSE
-- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
-- rail: deployment / namespace tenancy
-
-## [02]-[CHART_VALUES]
+## [01]-[CHART_VALUES]
 
 | [INDEX] | [KEY]                                         | [CAPABILITY]                                                                |
 | :-----: | :-------------------------------------------- | :-------------------------------------------------------------------------- |
@@ -40,7 +32,7 @@
 [SERVICE_NAME]: `<fullname>-webhook-service` on port 9443 named `admission` (targetPort `manager.webhookPort`) and `<fullname>-controller-manager-metrics-service` on 8080 `metrics` plus 10080 `health-api`, both ClusterIP and both gated `crds.exclusive` false; the controller workload is `<fullname>-controller-manager`. A release named `capsule` therefore renders `capsule-webhook-service`, and a release named `tenancy` renders `tenancy-capsule-webhook-service`.
 [REFUTATION]: the chart renders NO `ValidatingWebhookConfiguration` and NO `MutatingWebhookConfiguration`. It renders ONE `CapsuleConfiguration` whose `spec.overrides` NAMES the objects the controller reconciles at runtime — `<fullname>-mutating-webhook-configuration`, `<fullname>-validating-webhook-configuration`, `<fullname>-webhook-service`, and the `<fullname>-dynamic-webhook` validating entry — so an estate reading the rendered set for its admission wiring finds nothing and concludes wrongly.
 
-## [03]-[TENANT_CONTRACT]
+## [02]-[TENANT_CONTRACT]
 
 [CRD_ESTATE]: group `capsule.clastix.io`, THIRTEEN definitions. `v1beta2` is served and storage across the estate, and `v1beta1` survives in exactly two shapes: `Tenant` serves it beside `v1beta2` without storing it, and the two proxy kinds hold `v1beta1` as their ONLY version. Cluster-scoped: `Tenant` (plural `tenants`), `CapsuleConfiguration`, `TenantOwner`, `GlobalTenantResource`, `GlobalCustomQuota`, `ResourcePool`, `GlobalProxySettings` (v1beta1). Namespaced: `TenantResource`, `ResourcePoolClaim`, `CustomQuota`, `QuantityLedger`, `RuleStatus`, `ProxySetting` (v1beta1). No chart key creates a `Tenant`: `rbac.resources.create` and `rbac.resourcepoolclaims.create` mint the two aggregation ClusterRoles and nothing else.
 
@@ -79,7 +71,7 @@
 |  [09]   | `spec.serviceAccount`  | `{ name, namespace }` BOTH REQUIRED when present — the identity the replication acts as                    |
 |  [10]   | `spec.dependsOn[]`     | `{ name }` REQUIRED — sibling replications that must be ready first                                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Tenancy is a spec mode, not a default — the `namespace` arm is the soft-isolation answer where the `vcluster` arm is the hard one, and the `single` mode installs neither. The chart is therefore reached exactly once per stack that chose soft isolation.
@@ -100,9 +92,3 @@
 - Emit no block and no rule for an empty roster. Both governance rails read absence as unrestricted and presence-with-nothing as deny-all, so a defaulted empty roster spelled through as `[]` locks the tenant out of the axis it meant to leave open.
 - Read the admission wiring off `CapsuleConfiguration.spec.overrides`, never off the rendered manifest set — the webhook configurations are runtime-reconciled objects the chart never renders.
 - Set `replicaCount`, never `manager.replicas`; the latter is accepted by the schema and read by nothing.
-
-[RAIL_LAW]:
-- Contract: `capsule` chart values + the `capsule.clastix.io/v1beta2` CRD estate the operator reconciles
-- Owns: soft namespace tenancy — the admission operator, its webhook and metrics doors, the CRD estate, and the `Tenant` governance vocabulary over quotas, ingress classes, storage classes, registries, and owner bindings
-- Accept: `certManager.generateCertificates: false` with `tls.create: true`; `crds.install` with the render carrier managing the CRDs; typed `Tenant` and `GlobalTenantResource` CRs authored beside the chart; `spec.rules[].enforce` with an explicit `action: allow` as the registry and workload allowlist; `rawItems` carrying whole embedded manifests under a stated `scope`; the `capsule.clastix.io/tenant` label as the one tenancy join key
-- Reject: the cert-manager default on a cluster carrying no cert-manager CRDs; a `manager.kind` value outside `Deployment`/`DaemonSet`, which renders a webhook Service with no controller behind it and raises nothing; `crds.exclusive: true` on an install expected to carry a controller; the deprecated `networkPolicies`, `containerRegistries`, `limitRanges`, and `imagePullPolicies` spellings; an `allowed`/`allowedRegex` pair sought anywhere under `rules[].enforce`, where the matcher is an array of `{exact,exp,negate,policy}`; an allowlist block or armed rule emitted for an empty roster; an endpoint derived from the release name where the release name does not contain `capsule`

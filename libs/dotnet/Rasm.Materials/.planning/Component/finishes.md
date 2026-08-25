@@ -20,7 +20,7 @@ THE COVERING SEED PAGE owns TWO family rows over ONE algebra. A finish product a
 - Boundary: the module/coat correspondence is a fact of the PAYLOAD, not of the kind roster, so `CoveringSpecification.Laid` is a generated total `Switch` every arm answers for itself — a new arm cannot join without stating whether its product is laid, and the seed proves `ModuleMm.IsSome == Specification.Laid` before profile routing. The evidence grade is a REQUIRED positional column on every row: the retired default filled thirteen of fourteen rows with an assumption and let the one exception look like the deliberate case, which is exactly backwards. The thickness ROW is a lane fact — a Product-lane covering publishes its build on `DetailSchema.PanelThickness`, a Realization-lane one on `DetailSchema.FireproofingThickness` — so `CoveringDetail` reads the family's own lane rather than carrying a per-kind column mirroring it.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Numerics;

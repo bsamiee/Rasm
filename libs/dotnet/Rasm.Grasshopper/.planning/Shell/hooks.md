@@ -29,7 +29,7 @@ Every declared point lands its FIRE SITE in the same estate (branch RULINGS `[02
 - Growth: a new hook point is one row with its ruled modality set and its fire site landed in the same change; a mis-ruled modality is a defect against the host surface, never a configuration choice.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
@@ -71,7 +71,7 @@ public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
 - Growth: zero on the mechanism — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases, a case declaring the arm of the seating fan it answers to; the kernel rail never widens per folder.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Thinktecture;

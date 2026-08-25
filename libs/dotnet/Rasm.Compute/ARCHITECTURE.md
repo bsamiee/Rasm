@@ -138,7 +138,6 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-
 ```mermaid
 ---
 config:

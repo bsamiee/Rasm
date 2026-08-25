@@ -2,18 +2,7 @@
 
 `MIConvexHull` owns the kernel's typed-result computational geometry: the convex hull, Delaunay triangulation, and Voronoi diagram over one point set. Its N-D Quickhull and dedicated 2D monotone-chain path stay generic over the consumer's `IVertex`/`IVertex2D` and face or cell type, so native vertex payload and connectivity survive the hull.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MIConvexHull`
-- package: `MIConvexHull` (MIT)
-- assembly: `MIConvexHull.dll`
-- namespace: `MIConvexHull`
-- target: `netstandard2.0`, the `net10.0` consumer's bound asset
-- asset: pure-managed AnyCPU, no native runtime or package dependency
-- abi: generic `TVertex: IVertex` (`IVertex2D, new()` planar), `TFace: ConvexFace<TVertex, TFace>, new()`, `TCell: TriangulationCell<…>, new()`, `TEdge: VoronoiEdge<…>, new()` over `IList<TVertex>` and `double[]`, every entrypoint taking a trailing `double` tolerance
-- rail: typed-result convex hull, Delaunay, and Voronoi
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: static entrypoints, vertex contracts, typed results, hulls, cells, and Voronoi edges.
 
@@ -49,7 +38,7 @@
 - `ConvexHullGenerationException.Error` is a `ConvexHullCreationResultOutcome`, so the throwing and returning families answer degeneracy in ONE vocabulary and a `catch` recovers the same typed cause a result publishes.
 - `[ConvexHullCreationResultOutcome]`: `Success` `DimensionSmallerTwo` `DimensionTwoWrongMethod` `NotEnoughVerticesForDimension` `NonUniformDimension` `DegenerateData` `UnknownError`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static hull, Delaunay, and Voronoi factories over `IList<TVertex>` or raw `IList<double[]>`.
 
@@ -77,7 +66,7 @@ EVERY row takes a SECOND parameter — a trailing `double` defaulting to `1E-10`
 - `TriangulationCell` derives from `ConvexFace`, so a Delaunay cell carries `Vertices` and `Adjacency`; `ITriangulation<TVertex, TCell>.Cells` enumerates the simplices, and `VoronoiEdge.Source`/`Target` are the Delaunay-cell pair whose circumcenters are the Voronoi vertices.
 - `Adjacency` nullability splits by family: a Delaunay cell leaves the slot NULL opposite each hull facet — the dual builder skips exactly those, so an unbounded region contributes no edge — while a closed convex hull fills every slot, making a null there a torn hull rather than a boundary.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every entrypoint is generic over the consumer's vertex and face or cell type, so native payload and connectivity survive through `Faces`, `Cells`, and `Edges` without a `double[]` round-trip.
@@ -93,14 +82,3 @@ EVERY row takes a SECOND parameter — a trailing `double` defaulting to `1E-10`
 
 [LOCAL_ADMISSION]:
 - `MIConvexHull` is the kernel `[COMPUTATIONAL_GEOMETRY]` owner and direct `PackageReference`, and `Create2D` owns the planar-section and interaction-curve hulls the N-D `Create` rejects — `Spatial/cloud` `IndexedFootprint2D` is that route, kept beside the host `PolylineCurve.CreateConvexHull2d` row because the typed path returns the caller's own instances and the host path returns bare coordinates.
-
-[RAIL_LAW]:
-- Package: `MIConvexHull`
-- Owns: unconstrained N-D and planar convex hulls (`Create`/`Create2D`), N-D Delaunay cell complexes (`CreateDelaunay`), Delaunay-dual Voronoi graphs (`VoronoiMesh.Create`/`CreateVoronoi`), the `IVertex`/`IVertex2D` contracts, and the `ConvexHullCreationResult`/`ConvexHullCreationResultOutcome` typed error rail.
-- Accept: N-D or 2D hulls, N-D Delaunay complexes, and N-D Voronoi diagrams over `IVertex`/`IVertex2D` sets with domain payload on typed vertices and connectivity through `Faces`, `Cells`, or `Edges`; a kernel-declared tolerance threaded into the trailing parameter rather than the `1E-10` default left standing.
-- Accept: Materials' `InteractionDiagram` welding `(N, My, Mz)` capacity points into the closed-onion capacity hull through `ConvexHull.Create<ConvexHullVertex, ConvexHullFace>`.
-- Reject: `Create` for 2D data; `Create2D` owns the planar path after `DimensionTwoWrongMethod`.
-- Reject: reading `Result` before `Outcome`; wrapping a `ConvexHull.*` call in a catch it cannot need; running a `Triangulation.*` or `VoronoiMesh.*` call without one; discarding the caught `Error` for a stringified message.
-- Reject: a second hull owner, constrained 2D meshes (`Meshing/delaunay`), and 2D border-clipped point-site Voronoi (the `Meshing/delaunay` `Tessellation.VoronoiDual` bounded-cell overload).
-- Reject: consumer use of `FaceConnector`, `ObjectManager`, `IndexBuffer`, or `ConvexFaceInternal`.
-- Reject: robust or exact arithmetic; near-degenerate input returns `DegenerateData` and escalates to the kernel exact-predicate ladder.

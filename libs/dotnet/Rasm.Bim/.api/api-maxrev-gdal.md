@@ -2,18 +2,7 @@
 
 `MaxRev.Gdal.Core` owns the SWIG-generated `OSGeo.GDAL`, `OSGeo.OGR`, and `OSGeo.OSR` managed bindings under the `GdalBase` bootstrap: GeoTIFF/COG/DEM raster ingest, the universal OGR vector driver set, the GDAL utility algorithms, and PROJ-backed reprojection. It feeds the geometry rail as the universal format reader and the escalation-path reprojection engine `ProjNET` cannot express, bridging OGR geometry out to `NetTopologySuite` at the wire and holding GEOS inside the native boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MaxRev.Gdal.Core`
-- package: `MaxRev.Gdal.Core` (MIT)
-- assembly: `MaxRev.Gdal.Core`
-- namespace: `MaxRev.Gdal.Core`, `OSGeo.GDAL`, `OSGeo.OGR`, `OSGeo.OSR`
-- asset: IL-only AnyCPU managed assembly (net10.0 binds `lib/net10.0`); P/Invokes `libgdal_wrap`/`libgdalconst_wrap` and ships no native code
-- asset: `runtimes/any/native/gdal-data/**` PROJ/EPSG CSV/WKT/grid resource set the `.targets` stages into output; `GdalBase` points `GDAL_DATA`/`PROJ_LIB` at it for CRS and driver resolution
-- depends: a RID-keyed `MaxRev.Gdal.*Runtime*` supplies native `libgdal`/`libgeos`/`libproj`; osx-arm64 binds `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, and a missing publish-RID runtime faults every P/Invoke at first call
-- rail: geometry
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `MaxRev.Gdal.Core` bootstrap
 
@@ -73,7 +62,7 @@
 
 - `AxisMappingStrategy` values: `OAMS_TRADITIONAL_GIS_ORDER` `OAMS_AUTHORITY_COMPLIANT` `OAMS_CUSTOM` — select lon/lat, EPSG-authority, or custom order; the traditional strategy prevents the GDAL 3 axis swap.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bootstrap and open
 
@@ -185,7 +174,7 @@
 - `SetFromUserInput` inputs: `"EPSG:3857"`, WKT, PROJ string, URL.
 - `CoordinateTransformation`: `TransformPoint(double[])` `TransformPoint4D` `TransformPointWithErrorCode` (per-point validity) `GetInverse`. `CoordinateTransformationOptions`: `SetAreaOfInterest` `SetOperation` `SetDesiredAccuracy` `SetBallparkAllowed(false)` faults a gridless pair, `SetOnlyBest(true)` faults when the best operation cannot instantiate.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every `OSGeo.*` op depends on `GdalBase.ConfigureAll()` running once at module init behind the `GdalBase.IsConfigured` guard; it registers every raster and vector driver and points `GDAL_DATA`/`PROJ_LIB` at the staged `gdal-data`, and a missing publish-RID native runtime faults it at first call.
@@ -207,9 +196,3 @@
 - Raster ingest enters through `Gdal.Open`/`OpenEx` → `Dataset.ReadRaster`; raster transform through `Gdal.Warp`/`wrapper_GDAL*`.
 - Vector ingest enters through `Ogr.Open` → `Layer` with `SetSpatialFilterRect`/`SetAttributeFilter` → `Feature.GetGeometryRef.ExportToWkb` → NTS.
 - Reprojection inside a GDAL pipeline enters through OSR; reprojection of managed geometry stays with `ProjNET`.
-
-[RAIL_LAW]:
-- Package: `MaxRev.Gdal.Core` (paired with a RID-keyed `MaxRev.Gdal.*Runtime*`)
-- Owns: GDAL/OGR/OSR managed bindings — GeoTIFF/COG/DEM raster IO, the universal OGR vector driver set, the GDAL utility algorithms (warp/translate/DEM/grid/contour/rasterize), the virtual filesystem, and an escalation-path PROJ reprojection engine
-- Accept: raster ingest/transcode/reproject, universal vector ingest with server-side filters, raster↔vector conversion, exotic datum transforms PROJ-only grids require, in-memory/remote dataset open
-- Reject: the managed planar geometry algebra (`NetTopologySuite` owns it, OGR geometry bridged out at the wire), routine managed CRS transforms (`ProjNET` owns them), the native binaries (the runtime package owns them), shapefile-only IO where the managed codec suffices

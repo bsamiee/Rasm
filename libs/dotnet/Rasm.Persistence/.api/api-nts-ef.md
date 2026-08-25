@@ -2,17 +2,7 @@
 
 `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` maps `NetTopologySuite` geometry onto PostGIS `geometry`/`geography` columns for the EF Core PostgreSQL provider: per-property-SRID type-mapping, member/method/aggregate translators emitting PostGIS SQL, the `EF.Functions` spatial surface, and the `CREATE EXTENSION postgis` finalizing convention. It composes the substrate geometry model and the `Npgsql.NetTopologySuite` ADO wire codec, feeding the PostgreSQL store profile's spatial mapping.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` (PostgreSQL)
-- assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- namespace: `Microsoft.EntityFrameworkCore` (builder), `Npgsql.EntityFrameworkCore.PostgreSQL.*` (plugins)
-- depends: `Npgsql.EntityFrameworkCore.PostgreSQL` provider, `NetTopologySuite` model, `Npgsql.NetTopologySuite` wire codec
-- asset: runtime library, net10.0
-- rail: store-provider spatial mapping
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PLUGIN_TYPES]: EF plugin admission and translation services
 
@@ -44,7 +34,7 @@
 |  [05]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`       | scaffolding plugin | `ProviderCodeGeneratorPlugin`; emits admission                |
 |  [06]   | `NpgsqlNetTopologySuiteDesignTimeServices`        | design services    | `IDesignTimeServices`; admits design tooling                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EF plugin admission
 
@@ -67,7 +57,7 @@
 |  [04]   | `EF.Functions.Transform<TGeometry>(TGeometry, int srid)`                      | `TGeometry` | `ST_Transform`                        |
 |  [05]   | `EF.Functions.Force2D<TGeometry>(TGeometry)`                                  | `TGeometry` | `ST_Force2D`                          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every spatial column maps through `NpgsqlGeometryTypeMapping<TGeometry>` carrying per-property SRID; `geographyAsDefault` selects `geography` over `geometry`.
@@ -85,9 +75,3 @@
 - Spatial mapping enters through the PostgreSQL store-profile declaration; the EF plugin admission and the ADO data-source admission are declared together, neither standing alone.
 - Persisted spatial semantics carry `NetTopologySuite` types; per-property SRID is mapping policy, never an inline literal.
 - `NpgsqlJsonGeometryWktReaderWriter` serializes a geometry nested inside an owned-entity JSON document as WKT through `JsonValueReaderWriter<Geometry>`, distinct from a top-level PostGIS `geometry` column.
-
-[RAIL_LAW]:
-- Package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- Owns: geometry/geography column mapping, member/method/aggregate translation to PostGIS SQL, the `EF.Functions` spatial surface, and the `CREATE EXTENSION postgis` convention for the PostgreSQL EF provider
-- Accept: profile-declared `UseNetTopologySuite` on the EF provider options paired with the ADO data-source codec; per-property SRID mapping; PostGIS-translated `EF.Functions.*` predicates
-- Reject: WKT strings or raw `byte[]` columns standing in for geometry contracts; `new Point(…)` over `GeometryFactory` construction; client-evaluated spatial predicates; EF plugin admission without the paired ADO wire codec

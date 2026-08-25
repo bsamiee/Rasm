@@ -2,16 +2,7 @@
 
 `Thinktecture.Runtime.Extensions.Json` owns System.Text.Json codec selection for Thinktecture-generated owners: one options-level `JsonConverterFactory` reads the generated conversion metadata and routes each owner to its keyed, string, or span-parsable converter. Every decode terminates in the generated static `Validate` rail, so a payload never mints an owner past its invariant.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json`
-- assembly: `Thinktecture.Runtime.Extensions.Json`
-- namespaces: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`
-- depends: `Thinktecture.Runtime.Extensions`
-- rail: wire-json
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: converters and factories under `Thinktecture.Text.Json.Serialization`, `Utf8JsonReaderExtensions` under `Thinktecture`, the decode seam under `Thinktecture.Internal`
 
@@ -30,7 +21,7 @@
 |  [11]   | `ObjectFactoryAdapter<T, TValidationError>`                         | struct        | default span seam over the generated factory   |
 |  [12]   | `JsonSerializerOptionsExtensions`                                   | static class  | numeric key converter resolution               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: options-level admission and converter selection; the ctor flag is `skipObjectsWithJsonConverterAttribute`, defaulting `true`
 
@@ -62,7 +53,7 @@
 
 [NUMBER_HANDLING_READS]: `GetByteWithNumberHandling` `GetSByteWithNumberHandling` `GetShortWithNumberHandling` `GetUShortWithNumberHandling` `GetIntWithNumberHandling` `GetUIntWithNumberHandling` `GetLongWithNumberHandling` `GetULongWithNumberHandling` `GetSingleWithNumberHandling` `GetDoubleWithNumberHandling` `GetDecimalWithNumberHandling`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `CanConvert` gates on `MetadataLookup.FindMetadataForConversion` and declines outright where it returns null; past that gate the default `skipObjectsWithJsonConverterAttribute: true` declines any owner stamped `[JsonConverter]` UNLESS the stamped converter type IS `ThinktectureJsonConverterFactory` itself, which readmits it. `Nullable<T>` declines ahead of both tests.
@@ -86,9 +77,3 @@
 - Key conversion lives inside the converter, so the generated `Validate` rail sees every inbound key.
 - Hot string-keyed wires keep the span path, opted out at the declaration through `DisableSpanBasedJsonConversion` or at the registration through the factory's `Func<Type, bool>?` callback.
 - Numeric key converters stay internal singletons; `JsonSerializerOptionsExtensions.GetCustomMemberConverter(options, memberType)` is the one public resolution entry to a member's key-type converter.
-
-[RAIL_LAW]:
-- Package: `Thinktecture.Runtime.Extensions.Json`
-- Owns: System.Text.Json converter selection, key codec, and validation-railed decode for Thinktecture-generated owners
-- Accept: one options-level factory registration, the three converter families it binds, `JsonNumberHandling`-aware numeric key codecs, and a caller-supplied `IUtf8JsonFactory` struct on the UTF-8 path
-- Reject: a hand-written converter for a generated owner, key pre-conversion at the call site, a second options owner for the same wire, and a parallel web DTO family for the same `[Union]` — the merged `JsonSerializerContext` is the cross-edge wire

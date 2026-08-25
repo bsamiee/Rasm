@@ -2,17 +2,7 @@
 
 `bw2io` is the ingestion leg of the Brightway 2.5 LCA stack: it extracts external LCI/LCIA inventory formats, links their exchanges through a composable strategy pipeline onto a biosphere and sibling databases, and writes the linked graph into a `bw2data` `Database` for `bw2calc` to solve. It owns the biosphere/LCIA/migration bootstrap, the `randonneur` migration registry, GEXF/matrix export, and the `BW2Package` interchange format; it never solves the matrix (`bw2calc`/`bw_processing`) nor owns the project/graph store (`bw2data`).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `bw2io`
-- package: `bw2io` (BSD-3-Clause)
-- module: `bw2io`
-- namespaces: `bw2io.importers`, `bw2io.strategies`, `bw2io.errors`, `bw2io.export`
-- owner: `data`
-- rail: epd-lca (LCI/LCIA ingestion)
-- depends: `bw2data` (project/`Database` store), `bw2calc` (downstream solver), `bw_processing` (matrix datapackage), `bw2parameters`, `randonneur` + `randonneur_data` (migration verbs/registry), `pyecospold`, `stats_arrays`, `lxml`, `openpyxl`/`xlrd`/`xlsxwriter`, `voluptuous`, `SPARQLWrapper`, `numpy`, `scipy`, `tqdm`, `requests`; optional `ecoinvent_interface` gates `import_ecoinvent_release`, `multifunctional` + `bw_simapro_csv` gate multifunctional DBs and `SimaProBlockCSVImporter`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `LCIImporter` subclasses — one source format each, written to a `bw2data` `Database`
 
@@ -48,7 +38,7 @@
 - [06]-[ENRICHMENT]: `ChemIDPlus` — CAS/chemical-identifier resolver for biosphere-flow enrichment.
 - [07]-[ERRORS]: `bw2io.errors.{StrategyError, NonuniqueCode, WrongDatabase}` — strategy/link failure against an absent external database or invalid linking config, duplicate `code`, and wrong-target-database guards raised by the pipeline.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: project bootstrap (module functions)
 
@@ -110,7 +100,7 @@
 
 - `bw2io.strategies`: `link_iterable_by_fields`, `assign_only_product_as_production`, `drop_unspecified_subcategories`, `strip_biosphere_exc_locations`, `normalize_units`, `drop_unlinked`, and `match_against_top_level_context` are the canonical linking functions `apply_strategies` runs.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Canonical flow `extract → apply_strategies → statistics → match/resolve → write_database`: construct an importer (extraction fills `imp.data` as `list[dict]` nodes carrying `exchanges`), run the strategy pipeline to link edges, read `statistics()`/`all_linked`, resolve the residual unlinked set (match another DB, add to biosphere, drop, or emit a `randonneur` template), then write to a `bw2data.Database`.
@@ -131,9 +121,3 @@
 
 [LOCAL_ADMISSION]:
 - `bw2io` is the sole ingestion path onto the EPD/LCA rail: a new source format is an `LCIImporter`/`LCIAImporter` subclass or a custom strategy, never a hand-rolled parser, and the written `bw2data.Database` is the only hand-off to `bw2calc`.
-
-[RAIL_LAW]:
-- Package: `bw2io`
-- Owns: extraction of external LCI/LCIA formats, the strategy-pipeline linking model, `bw2data.Database`/method writing, the biosphere/LCIA/migration bootstrap, `randonneur` migrations, GEXF/matrix export, and `BW2Package` interchange
-- Accept: the `extract → apply_strategies → statistics → match → write_database` pipeline; custom linking as a `list[dict] -> list[dict]` strategy passed to `apply_strategy`; direct `statistics()`/`all_linked` quality results; `randonneur`/`migrate` for field remaps; the one-shot `import_*`/`useeio20`/`exiobase_monetary` imports under a retry; `.bw2package` for portable interchange
-- Reject: hand-rolled ecospold/SimaPro/Excel parsing when an importer owns the format; hand-rolled exchange linking when a `bw2io.strategies` function or `match_database` covers it; re-implementing the matrix build or LCA solve (`bw_processing`/`bw2calc`); discarding `statistics()` instead of retaining caller-required quality measurements on `IngestResult`

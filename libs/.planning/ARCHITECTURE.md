@@ -45,7 +45,6 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 
 ## [05]-[PER_LANGUAGE_ROLES]
 
-
 - Each row names the domain its estate carries; rank and dependency sit outside the row.
 - C# carries the host-bound AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
 - Python carries the host-free science, compute, data, geometry, exchange, and artifact domain.
@@ -59,7 +58,6 @@ Within each language one organization principle holds: real higher-order domain 
 ## [06]-[OBSERVABILITY_CONFORMANCE]
 
 Four-signal telemetry (metrics, logs, traces, profiles) correlates across the runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `dotnet:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
-
 
 - Resource triple: `service.namespace` `rasm`, `service.name` the service row, `service.instance.id` a per-process mint.
 - Detector rows enrich the minted triple, never replace it; deployment-time resource overrides win the merge.
@@ -250,12 +248,9 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 - `subject` carries the content key in one spelling; `dataref` independently locates externalized data.
 - Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
 
-
 [TWO_TRACE]: Distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
 
 [VARIATION]: Format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
-
-- Event media identity compares the parsed type and subtype case-insensitively; parameters never widen a prefix match.
 
 [DATAREF]: One policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` is the URI-reference the bound residence returns and the subscribed receiver can acquire through its resolver, with any access credential supplied outside the event. `subject` remains the independent content-key integrity join.
 

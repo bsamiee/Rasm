@@ -2,7 +2,6 @@
 
 Rasm.AppUi evidence is one rail. Every durable UI fact is one `AppUiFact` case fired at its own `AppUiPoint` seat on the package's one kernel `HookRail`; the composition's one observe tap lowers the case onto the generated `Ui.EvidenceWire`, publishes it as a CloudEvent through the kernel envelope door, and hands the admitted event to the binding leg and the live window. The telemetry spine owns AppUi scope identity, the dimension vocabulary, the meter mount, and the event source every `rasm.appui.*` declaration writes under; one correlation join folds the event stream into uncertainty-grouped timelines the document plane paginates; `[FAULT_FLOOR]` binds every AppUi failure to a direct generated fault union case. Capture, headless derivation, the dev loop, and the governor are sibling owners (`proof.md`, `devloop.md`, `governor.md`).
 
-
 ## [01]-[INDEX]
 
 - [02]-[EVIDENCE_UNION]: The `AppUiPoint` seat roster, the closed `AppUiFact` union, its generated `EvidenceMap` seam onto `EvidenceWire`, and the one observe tap that publishes every fired fact as a CloudEvent.
@@ -27,7 +26,7 @@ Rasm.AppUi evidence is one rail. Every durable UI fact is one `AppUiFact` case f
 - Boundary: the generated message is the ONE wire and the descriptor the ONE kind authority — `EvidenceOps.Kinds` publishes the arm names and `Probe` proves the roster against them, so no literal beside the corpus spells a kind. The ONE emitter is the observe subscription `SurfaceRuntime.Open` seats directly in `HookRail.Of`, never a publish inside a domain fold; `SurfaceRuntime.Release` retires its AppUi-owned tap and `Dispose` parks a teardown refusal on the rail's existing fault cell. The bounded live window and the binding leg receive the SAME admitted event independently, so either refusal is observation evidence and neither changes the producer's canonical result. `Render.PixelIdentity` is the sole canonical-raster owner: its digest remains `UInt128`, and the boundary explicitly maps its one canonical version to `PixelLayout` while checked extents and content-key admission close the inverse. Absence rides `Option<T>` and crosses as proto3 `optional` presence. Explicit casts remain disabled, and union-valued columns cross through their generated total switch. Every corpus family leaves through `WireJson.Formatter` and enters through `WireJson.Read`; default protobuf JSON and package serializer contexts are deleted forms. `AppUiWireContext` survives only for durable payloads no peer decodes.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.Json;

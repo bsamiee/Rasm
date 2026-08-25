@@ -24,7 +24,7 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
@@ -687,7 +687,7 @@ public abstract partial record TubeResult {
 - Boundary: intersection provenance and atlas provenance stay intact through sectioned cope projection; developed islands carry their chart identity and no arm re-derives a crossing.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;

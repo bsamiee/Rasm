@@ -2,18 +2,7 @@
 
 `Polly.RateLimiting` folds one rate-limiter admission strategy onto a resilience pipeline: a null `RateLimiter` delegate makes the strategy MINT and own a built-in concurrency limiter, a non-null delegate binds any `System.Threading.RateLimiting` limiter the caller keeps owning, and a denied lease raises `RateLimiterRejectedException` carrying whatever retry-after hint that limiter family publishes. Admission counts logical calls, so this strategy belongs outside every retry loop it guards.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Polly.RateLimiting`
-- package: `Polly.RateLimiting`
-- assembly: `Polly.RateLimiting`
-- namespace: `Polly`
-- namespace: `Polly.RateLimiting`
-- companion namespace: `System.Threading.RateLimiting`
-- asset: runtime library
-- rail: resilience
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: rate-limit strategy and admission family
 
@@ -54,7 +43,7 @@ Each options value carries its settable members, and `AutoReplenishment` default
 - `TokenBucketRateLimiterOptions`: `ReplenishmentPeriod` `TokensPerPeriod` `TokenLimit` `QueueLimit` `QueueProcessingOrder` `AutoReplenishment`
 - `FixedWindowRateLimiterOptions`: `Window` `PermitLimit` `QueueLimit` `QueueProcessingOrder` `AutoReplenishment`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pipeline admission and strategy options
 
@@ -114,7 +103,7 @@ Each options value carries its settable members, and `AutoReplenishment` default
 - `RateLimiter` is `IDisposable` and `IAsyncDisposable`; `PartitionedRateLimiter<TResource>` implements both and disposes every partition it minted, while `RateLimitLease` is `IDisposable` alone and releases its permits back to the instance that ISSUED it.
 - `AddConcurrencyLimiter` is not a distinct strategy: both overloads construct a `RateLimiterStrategyOptions` carrying `DefaultRateLimiterOptions` and forward to `AddRateLimiter`, so a chain stacking both verbs seats two limiter strategies, not one limiter with two policies.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Rate limiting folds onto the resilience pipeline as one admission strategy binding `PermitLimit`, `QueueLimit`, and `QueueProcessingOrder` from policy; a lease spans the whole guarded call, so admission placed inside a retry loop converts retry storms into permit starvation.
@@ -154,9 +143,3 @@ Each options value carries its settable members, and `AutoReplenishment` default
 - Every limiter row carries its own `Name` so two admission strategies in one pipeline stay distinguishable at the meter.
 - `OnRejected` observes and projects rejection; it runs no side-effect retry and retains nothing from the lease.
 - Per-key admission composes through the partitioned surface rather than a hand-held limiter map.
-
-[RAIL_LAW]:
-- Package: `Polly.RateLimiting`
-- Owns: rate-limiter admission on the resilience pipeline
-- Accept: explicit concurrency, windowed, and partitioned rate-limit policy
-- Reject: hidden semaphores around resilient operations

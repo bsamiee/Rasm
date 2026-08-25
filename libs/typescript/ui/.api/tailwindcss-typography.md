@@ -4,16 +4,7 @@
 
 Its selectors nest under `:where()` at zero specificity and exclude the `not-prose` subtree, so any utility class on a child wins without `!important` and any region opts out whole.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@tailwindcss/typography`
-- package: `@tailwindcss/typography` (MIT)
-- module: CJS plugin (`src/index.js`) with a one-declaration `.d.ts`; loaded from the stylesheet through `@plugin "@tailwindcss/typography"`, never imported by application code
-- runtime: build-time only — the plugin registers variants and component classes into the Tailwind compile and ships zero client JavaScript
-- depends: `postcss-selector-parser` (hoists common trailing pseudo-elements out of the `:where()` wrapper); peer `tailwindcss` as the compile host
-- rail: token/type — the prose class vocabulary and the variable surface `view/content`'s token bridge overrides
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the color registers — eighteen properties, each mirrored by a `--tw-prose-invert-*` twin
 
@@ -43,7 +34,7 @@ Every color the plugin paints reads one of these variables, so the token bridge 
 |  [01]   | `className` (default `'prose'`)   | struct        | renames the base class, its size/color modifiers, and the `not-prose` escape |
 |  [02]   | `target` (`'modern' \| 'legacy'`) | union         | `'modern'` emits the zero-specificity `:where()` selectors                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: loading the plugin and the base class
 
@@ -79,7 +70,7 @@ Each spells `prose-<name>:<utility>` and compiles to `& :is(:where(<selector>):n
 |  [08]   | `prose-img:` `prose-picture:` `prose-video:` `prose-figure:`            | fold    | media and its frame                                  |
 |  [09]   | `prose-figcaption:`                                                     | fold    | the figure caption                                   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every generated selector wraps in `:where()` and excludes the `not-prose` subtree, so the whole plane carries zero specificity: a utility class on any child overrides the prose rule with no `!important` and no ordering fight, and `not-prose` on a wrapper drops its entire subtree out of the plane for a rendered component, table widget, or code viewer.
@@ -104,10 +95,3 @@ Each spells `prose-<name>:<utility>` and compiles to `& :is(:where(<selector>):n
 - Reach for an element modifier before authoring a descendant selector; the variant composes with every other Tailwind variant and the raw selector does not.
 - Mark every embedded component, widget, or rendered fence `not-prose` rather than unwinding the plane's rules on it.
 - Keep `target: 'modern'`; the legacy selectors carry real specificity and re-open the override fight the plane exists to end.
-
-[RAIL_LAW]:
-- Package: `@tailwindcss/typography`
-- Owns: the prose plane — the `prose` base class and its em-relative element rhythm, the five size modifiers, the twenty-two color modifiers, `prose-invert`, the thirty-three element variants, the `not-prose` escape, and the thirty-six `--tw-prose-*` color registers
-- Accept: `@plugin` loading in the CSS-first entry, palette-driven register assignment through the token bridge, element modifiers for every override, `not-prose` around embedded components, `max-w-none` where layout owns width, the plane hosting the editor's content DOM
-- Reject: a hand-authored stylesheet for unclassed content, descendant selectors where an element modifier reaches, `!important` overrides against a zero-specificity plane, a literal color where a register carries it, a second dark-mode stylesheet where `prose-invert` remaps, the legacy target, and unsanitized HTML entering a prose container
-

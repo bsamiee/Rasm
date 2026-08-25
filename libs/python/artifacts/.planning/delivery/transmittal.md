@@ -1,7 +1,5 @@
 # [PY_ARTIFACTS_TRANSMITTAL]
 
-
-
 ## [01]-[INDEX]
 
 - [02]-[TRANSMITTAL]: `Transmittal` — the ISO 19650 issue-for-construction orchestrator over its closed `tagged_union` (`Assemble` the press form, `Seal` the container, `Issue` the concurrent PAdES + C2PA sign, `Manifest` the issued index and record XML), gated by the purpose-keyed register audit, folded once into the shared `TransmittalEvidence`, and scheduled as one `core/plan#PLAN` `ArtifactWork`.
@@ -17,7 +15,7 @@
 - Growth: a new issue product is one `Transmittal` case with its payload, one `close` arm, and one case-body method; a new imposition scheme rides `Scheme`, a new container algorithm arrives as one composed `CodecProfile` case admitted by `SealSpec.resolved`, a new PAdES level or signer rides `PadesSpec`, and a new C2PA relationship or intent rides `CoseSpec`. New record-header fields land on `TransmittalPayload`, `TransmittalRecord.canonical`, `_record_xml`, and `TransmittalEvidence`; a new sealed attachment is one `(name, bytes)` row; a new purpose is one `Purpose` member whose audit policy derives in `_PURPOSE_AUDIT`; a new legal-header requirement is one `_REQUIRED_CLOSE` row value; a new issue-gate refusal is one row in the `_gated` fold; a new quality threshold, verdict family, or per-kind bar is one row at `delivery/gate#GATE` and reaches this owner untouched, because the seam reads `GateVerdict.ships` rather than any grade or coordinate this page names; a new announced scalar is one `TransmittalIssued` field the `_announced` projection fills. Zero new surface — the owner grows by case, composed-owner vocabulary, policy row, and evidence field, never by method family.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from datetime import UTC, date, datetime
 from enum import StrEnum
 from functools import cache

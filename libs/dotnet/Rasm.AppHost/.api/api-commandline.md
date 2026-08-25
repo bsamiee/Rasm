@@ -2,16 +2,7 @@
 
 `System.CommandLine` owns the app-root verb boundary: a `RootCommand` symbol tree parses argv into a typed `ParseResult`, and each command binds a synchronous or asynchronous action dispatched off that result. Typed `Option<T>` and `Argument<T>` carry arity, aliases, and completions, and parse failures surface as `ParseResult.Errors` data rather than a thrown exception.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.CommandLine`
-- package: `System.CommandLine`
-- assembly: `System.CommandLine`
-- namespace: `System.CommandLine`, `.Parsing`, `.Invocation`, `.Completions`
-- asset: runtime library
-- rail: configuration
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: command and symbol family
 
@@ -40,7 +31,7 @@
 
 [ArgumentArity]: `Zero` `ZeroOrOne` `ExactlyOne` `ZeroOrMore` `OneOrMore`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: symbol construction
 
@@ -90,7 +81,7 @@
 |  [07]   | `ParseResult.Invoke(config?) -> int`            | instance | runs the matched sync action  |
 |  [08]   | `ParseResult.InvokeAsync(config?, ct) -> Task`  | instance | runs the matched async action |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RootCommand` roots the symbol tree; `Command` nodes nest subcommands, options, and arguments.
@@ -105,9 +96,3 @@
 - Build the `RootCommand` tree at composition; bind typed `Option<T>` and `Argument<T>` to consumers through `ParseResult.GetValue<T>` inside `SetAction` delegates.
 - `SetAction(Func<ParseResult, CancellationToken, Task<int>>)` is the async entry point.
 - `Command.Validators` run after parse and before invocation for cross-option constraints.
-
-[RAIL_LAW]:
-- Package: `System.CommandLine`
-- Owns: CLI argument parsing and command dispatch
-- Accept: `RootCommand`-rooted parse tree with typed `Option<T>` and `Argument<T>` surfaces
-- Reject: hand-rolled `args` parsing or positional-index access without `Argument<T>` binding

@@ -2,19 +2,7 @@
 
 `confluent-kafka` binds librdkafka: the producer, consumer, share consumer, message, partition, and error types are one C extension, and everything above them — the admin client, the model carriers, the serialization contracts, and the Schema Registry stack — is pure Python over that base. Every blocking C call releases the GIL, so the synchronous clients compose under a thread lane while their delivery, rebalance, and settlement callbacks fire on whichever thread drove `poll`, `consume`, or `flush`. Schema Registry rides a genuine async client over `httpx.AsyncClient` beside its synchronous twin, and its serializers frame every payload with a magic byte and a schema coordinate.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `confluent-kafka`
-- package: `confluent-kafka` (Apache-2.0)
-- module: `confluent_kafka`
-- namespaces: `confluent_kafka`, `confluent_kafka.{cimpl,error,serialization,admin,aio,avro,kafkatest}`, `confluent_kafka.schema_registry` with its `_sync`/`_async`/`common`/`rules` trees
-- target: compiled wheel — `cimpl.cpython-315-darwin.so` over the linked librdkafka; the rest is pure Python
-- extras: `[schemaregistry]` attrs, cachetools, certifi, httpx, authlib; `[avro]` fastavro, avro; `[json]` jsonschema; `[protobuf]`; `[rules]` the KMS, CEL, and jsonata stack
-- rail: broker-transport
-
-`libversion()` answers `tuple[str, int]` — the librdkafka version beside its packed hexadecimal ordinal — while `version()` answers a bare `str`, a fifth stub divergence against `cimpl.pyi`'s `Tuple[str, int]`.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CLIENT_SCOPE]: `confluent_kafka.cimpl`, re-exported at the package root
 
@@ -91,7 +79,7 @@
 
 `KafkaError` carries its codes as CLASS attributes in two families — broker codes such as `UNKNOWN_TOPIC_OR_PART` and `TRANSACTION_ABORTABLE`, and underscore-led local codes such as `_MSG_TIMED_OUT`, `_PARTITION_EOF`, `_QUEUE_FULL`, `_PURGE_QUEUE`, `_PURGE_INFLIGHT`, `_ASSIGNMENT_LOST`, `_MAX_POLL_EXCEEDED`, and `_TRANSPORT`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Producer`
 
@@ -198,7 +186,7 @@ Each rebalance callback takes `(consumer, partitions)` with the ABSOLUTE partiti
 
 Every serde answers `__call__(obj, ctx: SerializationContext | None = None)`. Avro and Protobuf constructors tail `rule_conf=None` beside `rule_registry=None`; the JSON pair tails its own encode hook past them — `JSONSerializer(..., rule_conf, rule_registry, json_encode=None)` and `JSONDeserializer(..., rule_conf, rule_registry, json_decode=None)`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every blocking C call RELEASES the GIL — `poll`, `consume`, `flush`, a synchronous `commit`, the transaction verbs, `list_topics`, and the admin operations — so a thread hop is sound and does not stall a sibling task.
@@ -232,9 +220,3 @@ Every serde answers `__call__(obj, ctx: SerializationContext | None = None)`. Av
 - `enable.auto.commit` is false and offsets settle explicitly, so a commit never outruns the durable write it stands for.
 - `SchemaRegistryError` and `OAuthTokenError` are caught by name beside `KafkaException`, never through it.
 - Legacy `confluent_kafka.avro` and the three wrapper clients are refused whole; serializers compose directly.
-
-[RAIL_LAW]:
-- Package: `confluent-kafka`
-- Owns: the librdkafka protocol, group membership and settlement, transactions, cluster administration, and the Schema Registry client with its framing and rule engine
-- Accept: `Producer`, `Consumer`, `Message`, `TopicPartition`, `KafkaError`/`KafkaException`, `admin.AdminClient`, `serialization.SerializationContext`/`MessageField`, `AsyncSchemaRegistryClient` with the `Async*` serdes
-- Reject: `confluent_kafka.aio`; the `confluent_kafka.avro` legacy tree; `SerializingProducer`/`DeserializingConsumer`/`DeserializingShareConsumer`; `alter_configs`; `ConsumerGroupState.UNKOWN`; a value read before `Message.error()`

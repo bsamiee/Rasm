@@ -2,16 +2,7 @@
 
 `ACadSharp` owns the managed AutoCAD drawing wire — DWG (AC1012/R13 through AC1032) and DXF (ASCII and binary) — over one `CadDocument` model root, read and write. Three folders partition one document model: `Rasm.Bim` folds the mesh-bearing entity families — flattened to WCS through `Insert` explosion — into the canonical `ImportedGeometry` triangle-soup, `Rasm.Fabrication` projects the 2D-profile entities into `Loop` values and the annotation entities into markings, and `Rasm.AppUi` holds CAD WRITE authority alone, folding one authored `CadDocument` to DWG, DXF, and SVG through `DwgWriter`/`DxfWriter`/`SvgWriter`. Every bulge, conic, spline span, and nested block tessellates through the package sampler and `Insert.Explode`, never hand-rolled trigonometry or NURBS.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp` (MIT)
-- assembly: `ACadSharp` (`lib/net10.0/ACadSharp.dll`)
-- namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`, `ACadSharp.Header`, `ACadSharp.Types.Units`, `CSMath`
-- asset: pure-managed AnyCPU IL (depends `CSMath`, `CSUtilities`) — no native asset, no RID burden, ALC-safe, coexists with the Rhino-native host-bound file I/O
-- rail: geometry — CAD read at the Bim and Fabrication boundaries, drafting write at AppUi
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reader facades, configuration, and the notification/progress rail
 
@@ -146,7 +137,7 @@
 |  [13]   | `SvgWriter`              | IO writer          | SVG emit entry (`ACadSharp.IO.SVG`) |
 |  [14]   | `DxfWriterConfiguration` | writer config      | DXF write options                   |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: format dispatch and file/stream read — every read/create overload takes a trailing `NotificationEventHandler = null`
 
@@ -283,7 +274,7 @@
 - `LineType.AddSegment`: signed `Segment.Length` encodes dash (positive), space (negative), dot (zero).
 - `LineType.ByLayer`/`ByBlock`/`Continuous` and `Layer.Default`/`Defpoints` are FACTORY properties minting a fresh unregistered entry per read; a document built through `new CadDocument()` already seats those defaults, so a layer binds `doc.LineTypes.Continuous` (the table's own registered accessor) and a per-read static seats duplicate table rows the writers reject.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One read folds format-route → reader → `CadDocument` → entity-family discrimination: the `Dwg`/`Dxf` extension selects `CadReaderFactory.CreateReader` (filename) or `DxfReader.Read`/`DwgReader.Read` (stream) under a tuned `*ReaderConfiguration`, and `CadDocument.Entities` traverses to the families each consuming boundary admits.
@@ -312,9 +303,3 @@
 - `Rasm.Bim` READ: a DWG/DXF stream or filename enters through `CadReaderFactory`/`DxfReader`/`DwgReader` under a tuned config, then folds onto `ImportedGeometry` in `Exchange/import`; a hard reader throw enters `Op.Catch` at `BimIo` and remains the captured exceptional `Error` unless the provider exposes a documented verdict that maps to a caused Bim boundary case.
 - `Rasm.Fabrication` READ: admitted profiles are `LwPolyline`, `Polyline2D`, `Line`, `Arc`, `Circle`, `Ellipse`, `Spline`, and `Insert` block references flattened through `Insert.Explode()` beside the placed `Insert.Attributes`; admitted annotation is `Point`, `TextEntity`, `MText`, and `AttributeEntity`, each lowering its content, placement, height, style name, and justification into the profile owner's own marking vocabulary — the provider justification, attachment, stretch, and attribute-flag enums re-close at that lowering arm and none survives into the domain result. A hard reader throw enters `Op.Catch` and remains the captured exceptional `Error`; `GeometryFault.DegenerateInput` is reserved for typed geometric evidence, not exception reminting. `LwPolyline.Vertices` is `List<Vertex>` and `LwPolyline.Elevation`/`Normal` carry the OCS Z and extrusion direction the 2D `Location` omits, so reading `Location` alone flattens every polyline onto Z zero; `Polyline2D.Vertices` is a `SeqendCollection<Vertex2D>` whose `Location` is a plain `XYZ`.
 - `Rasm.AppUi` WRITE: AppUi emits a CAD file, never opens one; entity construction flows through the typed entity constructor then collection `Add`, and the output version is an `ACadVersion` policy row.
-
-[RAIL_LAW]:
-- Package: `ACadSharp`
-- Owns: DWG/DXF format dispatch and stream/file read into the `CadDocument` model, the reader configuration/notification rail, the mesh-bearing entity surface Bim folds into triangle-soup, the 2D-profile and annotation surface Fabrication tessellates into `Loop` sets and markings, and DWG/DXF/SVG CAD WRITE over one authored `CadDocument` at AppUi
-- Accept: a DWG/DXF stream or filename through `CadReaderFactory`/`DxfReader`/`DwgReader` under a tuned config; entity families sampled through `CreateFromBulge`/`PolygonalVertexes`/`TryPointOnSpline` and flattened through `Insert.Explode()`/`GetTransform()`/`ApplyTransform` beside `Insert.Attributes`; `NotificationType` events folded into the boundary log; export flowing through `DwgWriter`/`DxfWriter`/`SvgWriter` WRITE entry points
-- Reject: a `CadDocument` or ACadSharp entity type escaping a boundary into a domain signature; a second managed CAD library or document model where `ACadSharp` covers the row; a reader exception escaping a boundary unlowered; hand-rolled format/binary detection, bulge, NURBS, or `Insert` transform algebra the package owns; MTEXT format-code parsing where `PlainText`/`GetPlainTextLines()` own the stripped body; a CAD write outside AppUi or a CAD read inside it; raw entity re-reads across folders — each partition projects only the entity families its domain owns

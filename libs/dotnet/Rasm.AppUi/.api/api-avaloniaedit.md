@@ -2,24 +2,7 @@
 
 `Avalonia.AvaloniaEdit` mints a code-editor control over a rope-backed `TextDocument`: a `TextArea`/`TextView` render stack with colorizing transformers and element generators, undo grouping, code folding, xshd highlighting, `CompletionWindow` IntelliSense, regex search, and snippet and indentation engines. Styled properties across `TextView`, `TextArea`, `TextEditor`, and the margins own every chrome brush, pen, and glyph the render stack paints outside a token run.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia.AvaloniaEdit`
-- package: `Avalonia.AvaloniaEdit` (MIT)
-- assembly: `AvaloniaEdit` (name ≠ package id; compiled-XAML resources embedded)
-- namespace: `AvaloniaEdit` (control + routed commands), `.Document`, `.Editing`, `.Folding`, `.Highlighting`(+`.Xshd`), `.CodeCompletion`, `.Search`, `.Snippets`, `.Indentation`(+`.CSharp`), `.Rendering`
-- asset: runtime library
-- rail: editor
-
-[PACKAGE_SURFACE]: `AvaloniaEdit.TextMate`
-- package: `AvaloniaEdit.TextMate` (MIT)
-- assembly: `AvaloniaEdit.TextMate`
-- namespace: `AvaloniaEdit.TextMate`
-- asset: runtime library
-- depends: `TextMateSharp`, `TextMateSharp.Grammars` (transitive) — the provider rail `api-textmatesharp.md` owns
-- adapter: `TextEditorModel`/`DocumentSnapshot` bridge `TextDocument` onto the tokenizer's `IModelLines`/`IModelTokensChangedListener`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [EDITOR_TYPES]: control, options, editing surface, and rope document model
 
@@ -162,7 +145,7 @@
 - `ForegroundTextTransformation`: `ColorMap` `ForegroundColor` `BackgroundColor` `FontStyle` `ExceptionHandler` `Transform(GenericLineTransformer, DocumentLine)` — one record per token, its two color ids resolved through `ColorMap` and its `FontStyle` mask lowered to italic, `FontWeight` 700, and underline
 - `TextMateColoringTransformer` paints token spans alone: foreground, background, italic, bold, and underline drawn from the winning `Theme.Match` rule. `FontStyle.Strikethrough` never lowers, and no chrome pixel — control background, current line, selection, caret, line numbers, fold markers — is touched, so chrome alignment is entirely the consumer writing the styled-property set.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [EDITOR_ENTRYPOINTS]: `TextEditor` content, state, IO, and change-grouping operations
 
@@ -414,7 +397,7 @@
 - `TryGetThemeColor(colorKey, out colorString)`: returns the hex string the applied theme's own `colors` block declared under that key, refreshed on every `SetTheme` and cleared on `Dispose` — a call after disposal throws `ObjectDisposedException`. Key coverage is theme-authored, so a `false` return is the normal path and the consumer's fallback owns that pixel.
 - `AppliedTheme`: `EventHandler<Installation>` raised after each `SetTheme` swaps the color map; the handler re-reads every chrome key and rewrites the styled-property set.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every editor surface is one `TextEditor` over a `TextDocument`; feature owners (`FoldingManager`, `SearchPanel`, `CompletionWindow`, `CSharpIndentationStrategy`) mount onto its `TextArea`/`TextView`, and each multi-edit folds through one `DeclareChangeBlock` undo step.
@@ -428,9 +411,3 @@
 [LOCAL_ADMISSION]:
 - Code-view intent admits as a `TextEditor` over `TextDocument` state with feature owners installed on its `TextArea`; a `TextBox`-derived custom editor is the deleted form.
 - Unshipped visuals — indent guides, a diff gutter, an inline squiggle — admit as an `IBackgroundRenderer`, `IVisualLineTransformer`, or `VisualLineElementGenerator` on the owning `TextView`, and a gutter as an `AbstractMargin` in `TextArea.LeftMargins`; a control floated over the editor is the deleted form.
-
-[RAIL_LAW]:
-- Package: `Avalonia.AvaloniaEdit`
-- Owns: the code-editor control, rope document model, chrome property set, and the TextMate adapter binding one editor to a `TextMateSharp` provider.
-- Accept: edits grouped through `DeclareChangeBlock`; completion insertion through `ICompletionData.Complete`; one `Installation` per editor against one `IRegistryOptions`, where TextMate colorization replaces xshd per editor and raises `AppliedTheme` for the chrome property set to follow; every chrome color written to that property set.
-- Reject: direct document mutation bypassing the `UndoStack` or `ICompletionData.Complete`; a second `InstallTextMate` where the standalone `Registry`/`IGrammar.TokenizeLine` rail serves a non-editor surface; treating `IRegistryOptions`/`ThemeName` as AvaloniaEdit types; a chrome color hardcoded in a style or transformer where a styled property owns it.

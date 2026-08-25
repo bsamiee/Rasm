@@ -2,10 +2,6 @@
     "version": 1,
     "isRoot": true,
     "tools": {
-        "dotnet-ef": {
-            "version": "10.0.10",
-            "commands": ["dotnet-ef"]
-        },
         "dotnet-gcdump": {
             "version": "9.0.661903",
             "commands": ["dotnet-gcdump"]
@@ -13,10 +9,6 @@
         "dotnet-stryker": {
             "version": "4.16.0",
             "commands": ["dotnet-stryker"]
-        },
-        "ilspycmd": {
-            "version": "10.1.1.8388",
-            "commands": ["ilspycmd"]
         }
     }
 }

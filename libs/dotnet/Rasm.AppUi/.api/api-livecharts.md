@@ -2,17 +2,7 @@
 
 `LiveChartsCore.SkiaSharpView.Avalonia` binds LiveCharts2 to Avalonia: retained chart `UserControl`s, source-generated chart properties, and XAML axes, series, gauges, sections, and Skia paint markup extensions. Every `Xaml*` shell implements the `LiveChartsCore` contract it declares, so a chart projects one data-driven series model onto a Skia canvas the process-wide theme rail styles.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `LiveChartsCore.SkiaSharpView.Avalonia`
-- package: `LiveChartsCore.SkiaSharpView.Avalonia` (MIT)
-- assembly: `LiveChartsCore.SkiaSharpView.Avalonia`
-- namespaces: `LiveChartsCore.SkiaSharpView.Avalonia` (public charts, `Xaml*`, `*Collection`, `*Extension`), `LiveChartsGeneratedCode` (source-generated `SourceGen*` bases)
-- target: `lib/net8.0`
-- depends: `LiveChartsCore.SkiaSharpView` (paints, `SKCharts`, drawn visuals, theme registration), `LiveChartsCore` (chart math, `Themes`, `Geo`), `Avalonia`, `Avalonia.Skia`
-- rail: charts
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CHART_CONTROLS]: chart and canvas controls
 
@@ -211,7 +201,7 @@
 |  [08]   | `LandDefinition`                            | class         | resolved land record — the `FindLand` result        |
 |  [09]   | `MapLayer`                                  | class         | loaded layer record — every `AddLayerFrom*` result  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [CHART_ENTRYPOINTS]: members on `SourceGenChart`, exposed by every public chart
 
@@ -537,7 +527,7 @@
 
 - `CoreHeatLandSeries<TModel>` declares one ctor, `(ICollection<TModel>? lands)`; the four arities are `HeatLandSeries<TModel>`'s own, and `HeatLandSeries : HeatLandSeries<HeatLand>` fixes the model to the shipped `HeatLand`. Bind a domain land type implementing `IWeigthedMapLand` as `HeatLandSeries<TLand>` directly, so an in-place `Value` write on a member of `Lands` IS the invalidation the deep observer redraws on — a projected parallel collection is never watched.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Three assemblies stack behind one Avalonia surface: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, the `Themes` rail, and the Skia draw kernel (`LiveChartsCore.Geo` carries `DrawnMap`/`MapProjection`/`IGeoMapView`); `LiveChartsCore.SkiaSharpView` owns the paint concretes, drawn visuals, `SKCharts`, and theme registration; this package owns the `UserControl` and XAML-markup layer over them.
@@ -563,9 +553,3 @@
 
 [LOCAL_ADMISSION]:
 - AppUi admits a chart only as an `Xaml*` control whose `Values` binds a `DynamicData` projection and whose paints resolve through the process `Theme`, and rejects a bespoke Skia surface drawing chart semantics.
-
-[RAIL_LAW]:
-- Package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- Owns: the product chart rail — retained Avalonia charts, source-generated chart properties, XAML axes, series, gauges, sections, visual elements, Skia paint markup extensions, the process-wide theme, and headless chart export across panels, companion windows, sidecars, and diagnostics.
-- Accept: chart intent maps to explicit series, axes, sections, visuals, legends, tooltips, and animation state through the generated property surface, paints declared as `*PaintExtension` markup or theme rules, and state stays data-driven off one chart rail.
-- Reject: hand-drawn chart controls, a reimplemented `IChartView`, per-control colour literals a theme rule owns, one-off drawing code for chart semantics, and mutating the bound values collection outside the live-data rail.

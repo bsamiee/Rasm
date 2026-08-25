@@ -2,15 +2,7 @@
 
 `Eto.Forms` is the host-neutral widget, layout, window, and command construction spine both Rhino host boundaries cross: one host-loaded `Eto.dll` resolves every control through the ambient platform handler, four orthogonal layout owners place them, the window and dialog hierarchy presents them, and one `Command` drives every chrome projection of an action. One construction row produces a native control on each host, and host divergence lives in the handler, never in the row. This branch catalogue owns the spine; each host-boundary folder registers it and tables only the widgets and seams its own boundary adds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` widget substrate
-- host: Rhino host runtime, in-process; the same `Eto.dll` every boundary binds, never a second NuGet admission (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`) from the RhinoWIP `RhCore.framework` bundle
-- namespace: `Eto.Forms`, `Eto` (widget base, `Padding`, `Size`)
-- rail: native-ui
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: control base and the inherited event surface
 
@@ -224,7 +216,7 @@
 
 [THEMED_STATE]: `ThemedMessageBox.AddButton`; result, text, alignment, image · `ThemedPropertyGrid` selection, categories, description, refresh, change · `ThemedCollectionEditor.DataStore`/`ElementType`/`ExtraContent` — the `Themed*Handler` backends register at the platform-handler seam, never as construction rows
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: control lifecycle, input, and drag
 
@@ -309,7 +301,7 @@
 |  [01]   | `ContextMenu.Show(Control, PointF)` | instance | popup at a control point         |
 |  [02]   | `Command.Execute()`                 | instance | raise the shared execution event |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every widget derives from `Control` and resolves a backend handler through the ambient platform (`.api/api-eto-platform.md`); one construction row produces a native control on each host, and host divergence lives in the handler.
@@ -330,9 +322,3 @@
 - A hosted surface is an `Eto.Forms` composition: a `Panel`/`Scrollable` root holds one layout owner, and the layout holds the field, data-view, and container roster; a new control capability lands as a subclass or a composition of the admitted roster, never a wrapper renaming a host member or a re-implemented native widget.
 - A screen is built once from element rows against these construction, layout, and presentation surfaces; `Eto.Forms.*` types stay behind the owning boundary and downstream code composes screen definitions rather than raw widget calls.
 - Boundary faults lower onto the LanguageExt rail.
-
-[RAIL_LAW]:
-- Package: `Eto`
-- Owns: the native widget roster, the cell, item, and grid families, the four layout owners, the window, dialog, and chooser hierarchy, the popup-menu and command surface, and the `Control` event families every widget inherits
-- Accept: panel chrome, form fields, grid and list data views, modal and modeless presentation, native file, colour, and font choosers, command dispatch
-- Reject: immediate 2D painting (`.api/api-eto-drawing.md`), platform-handler selection and native hosting (`.api/api-eto-platform.md`), UI-thread dispatch and ambient runtime state (`.api/api-eto-runtime.md`), a local wrapper renaming a host member, an exception-style fault path beside the LanguageExt rail, and a folder partition re-tabling this spine at member depth

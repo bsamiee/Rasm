@@ -2,16 +2,7 @@
 
 `SwiftCollections.Lean` owns the 3D AABB broad-phase behind the `Model/systems#INTERFERENCE` clash-candidate build and the `Review/coordination#COORDINATION` `ClashProposal` fold. `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` implement one generic `IBoundVolume<TVolume>` contract, so each answers the modality its partition fits — the BVH tight-volume overlap, the hash the padded neighborhood ring. The handle-stable `SwiftBucket`/`SwiftSparseMap` collections own the handle↔volume registry a co-indexed pair shares.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `SwiftCollections.Lean`
-- package: `SwiftCollections.Lean` (MIT)
-- assembly: `SwiftCollections`
-- namespace: `SwiftCollections.Query`, `SwiftCollections`
-- asset: multi-target net8.0 + netstandard2.1; the net10.0 consumer binds `lib/net8.0` (AnyCPU, no `runtimes/` folder), the MemoryPack-free `.Lean` variant carrying `Chronicler.Core.Lean` as its zero-dep diagnostic core
-- rail: clash
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: spatial broad-phase structures
 
@@ -45,7 +36,7 @@ Each backing collection holds the member→AABB mapping under stable integer han
 |  [05]   | `SwiftHashSet<T>`      | class         | deduped `Query` sink; `IStateBacked<SwiftArrayState<T>>`                 |
 |  [06]   | `IStateBacked<TState>` | interface     | `State` snapshot property + state ctor; spatial structures omit it       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: broad-phase build and query
 
@@ -98,7 +89,7 @@ Each backing collection holds the member→AABB mapping under stable integer han
 |  [04]   | `BoundVolume.GetCost(BoundVolume) -> long`      | instance | SAH surface-area cost driving BVH insertion |
 |  [05]   | `BoundVolume.Center` / `Size` / `Volume`        | property | derived AABB metrics                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every structure binds one `IBoundVolume<TVolume>` contract (`Union`/`Intersects`/`GetCost`/`BoundsEquals`), so the clash engine folds through a single code path and the concrete structure and volume type are tuning choices, never forked implementations.
@@ -112,9 +103,3 @@ Each backing collection holds the member→AABB mapping under stable integer han
 - `SwiftCollections.Query` and the handle-stable registry collections are admitted for broad-phase indexing only; the general-purpose `Pool`/`Dimensions`/`Diagnostics` surfaces are not this folder's owners.
 - The handle a `SwiftBucket.Add` returns is the index's whole key space: a second registry keyed on a domain id beside it desynchronizes on the first partial refit, so a co-indexed structure pair takes the bucket handle and gates every refit on `IsAllocated`/`TryGetValue`.
 - Narrow-phase exact intersection, clash policy, and `BcfTopic` authoring stay COORDINATION concerns; structure kind, entry count, and candidate-pair count are the facts the INTERFERENCE/COORDINATION fold carries on its result.
-
-[RAIL_LAW]:
-- Package: `SwiftCollections.Lean`
-- Owns: 3D AABB broad-phase (BVH/octree/spatial-hash) candidate generation
-- Accept: the INTERFERENCE clash-candidate build and the COORDINATION clash fold's broad phase
-- Reject: exact narrow-phase intersection, clash policy, the 2D planar Simple-Features index, the BCF issue model

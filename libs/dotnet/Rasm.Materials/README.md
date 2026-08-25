@@ -48,7 +48,7 @@ Component rows feed generated assemblies and fabrication physics, capacity verdi
 - [35]-[TILE](.planning/Raster/tile.md): Set-coherent tiling synthesizer and the deterministic tileability gate.
 - [36]-[SET](.planning/Raster/set.md): Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind.
 - [37]-[PRESS](.planning/Raster/press.md): Bake engine over the batched plane evaluator and its content-identity veto.
-- [38]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its golden vectors.
+- [38]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its oracle vectors.
 
 [PROPERTIES]:
 - [39]-[PROPERTIES](.planning/Properties/properties.md): Published engineering data per material, the fib durability table, and the mix-design fold.

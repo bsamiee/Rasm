@@ -84,7 +84,7 @@ public sealed record HealthContributorPort(
 - Boundary: `WireJson` owns the statement-shaped stream doors, `FaultWire.Raise` owns the transport-required throw, and every temporal generated member crosses through protobuf well-known types. `SuiteContracts` remains local and exports no schema.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -594,7 +594,7 @@ Codec residence is fixed per wire surface; producer and consumer cells name endp
 |  [04]   | wire faults                | `google.rpc.Status` details via `FaultWire`  | `FaultWire.Raise`     | `FaultWire.Decode`    |
 |  [05]   | snapshot blobs             | MessagePack                                  | snapshot rows         | @msgpack/msgpack      |
 |  [06]   | telemetry signals          | OTLP                                         | exporters             | OTLP collector        |
-|  [07]   | in-process domain facts     | source-generated STJ with ProtoJSON members | `SuiteContracts.Host` | local hook/event rail |
+|  [07]   | in-process domain facts    | source-generated STJ with ProtoJSON members  | `SuiteContracts.Host` | local hook/event rail |
 |  [08]   | semantic-time fields       | `Timestamp`/`Duration`; NodaTime STJ on [07] | owning mapper         | well-known types      |
 
 Every family group riding row [01] has one generated-message producer. Mapperly owns structural correspondences; direct constructors own operational folds whose source is not a shape twin.

@@ -2,15 +2,7 @@
 
 `System.Xml` owns every XML ingress and egress the branch crosses: an owned in-memory document, a streaming byte edge, XPath evaluation, XSD validation, XSLT transformation, and object-graph serialization. `XDocument` is the shape a consumer builds, queries, and mutates; `XmlReader`/`XmlWriter` hold the edge a payload too large or too async for a materialized tree crosses, and file or stream egress stays an explicit boundary act.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Xml`
-- package: `System.Xml` (MIT)
-- assembly: `System.Xml.ReaderWriter.dll`, `System.Xml.XDocument.dll`, `System.Xml.XPath.dll`, `System.Xml.XPath.XDocument.dll`, `System.Xml.XmlSerializer.dll`, `System.Runtime.Serialization.Xml.dll`
-- namespace: `System.Xml`, `System.Xml.Linq`, `System.Xml.Schema`, `System.Xml.XPath`, `System.Xml.Xsl`, `System.Xml.Serialization`, `System.Runtime.Serialization`
-- rail: document, stream, and object-graph XML codec behind every markup boundary
-
-## [02]-[LINQ_XML]
+## [01]-[LINQ_XML]
 
 [LINQ_XML_TYPE_SCOPE]: owned-document family a consumer builds from functional content and queries by axis
 
@@ -88,7 +80,7 @@ Every axis takes an optional `XName?` filter and carries an `IEnumerable<T>` seq
 
 [LINQ_XML_RESERVED]: `XNamespace.None` `XNamespace.Xml` `XNamespace.Xmlns`
 
-## [03]-[READER]
+## [02]-[READER]
 
 [READER_TYPE_SCOPE]: forward-only pull edge and the settings record fixing its conformance and entity posture
 
@@ -143,7 +135,7 @@ Each typed read carries a `ReadElementContentAs*` element form and an async mirr
 
 [READER_SETTINGS]: `Async` `ConformanceLevel` `DtdProcessing` `XmlResolver` `IgnoreWhitespace` `IgnoreComments` `IgnoreProcessingInstructions` `CheckCharacters` `CloseInput` `MaxCharactersInDocument` `MaxCharactersFromEntities` `LineNumberOffset` `LinePositionOffset` `NameTable` `Schemas` `ValidationType` `ValidationFlags`
 
-## [04]-[WRITER]
+## [03]-[WRITER]
 
 [WRITER_TYPE_SCOPE]: forward-only push edge and its formatting record
 
@@ -188,7 +180,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [WRITER_SETTINGS]: `Async` `Indent` `IndentChars` `NewLineChars` `NewLineHandling` `NewLineOnAttributes` `Encoding` `OmitXmlDeclaration` `ConformanceLevel` `NamespaceHandling` `CheckCharacters` `CloseOutput` `WriteEndDocumentOnClose` `DoNotEscapeUriAttributes` `OutputMethod`
 
-## [05]-[XPATH]
+## [04]-[XPATH]
 
 [XPATH_TYPE_SCOPE]: expression evaluation over an owned tree and over the immutable navigator store
 
@@ -228,7 +220,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [XPATH_SELECT_AXIS]: `SelectChildren` `SelectAncestors` `SelectDescendants`
 
-## [06]-[SCHEMA]
+## [05]-[SCHEMA]
 
 [SCHEMA_TYPE_SCOPE]: XSD registration, compilation, and the validation-event rail
 
@@ -271,7 +263,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [SCHEMA_VALIDATION_FLAG]: `ReportValidationWarnings` `ProcessSchemaLocation` `ProcessInlineSchema` `ProcessIdentityConstraints` `AllowXmlAttributes`
 
-## [07]-[XSLT]
+## [06]-[XSLT]
 
 [XSLT_TYPE_SCOPE]: XSLT 1.0 compilation, argument binding, and the trusted-feature gate
 
@@ -303,7 +295,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 - `XslCompiledTransform.Transform`: build the result `XmlWriter` from `OutputSettings` so the stylesheet's own `xsl:output` binds.
 
-## [08]-[SERIALIZATION]
+## [07]-[SERIALIZATION]
 
 [SERIALIZATION_TYPE_SCOPE]: object-graph boundaries — attribute-driven public members, opt-in contracts, and the binary-XML wire
 
@@ -344,7 +336,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [SERIALIZATION_QUOTA]: `MaxDepth` `MaxStringContentLength` `MaxArrayLength` `MaxBytesPerRead` `MaxNameTableCharCount`
 
-## [09]-[DOM_INTEROP]
+## [08]-[DOM_INTEROP]
 
 [DOM_INTEROP_TYPE_SCOPE]: mutable DOM a host API hands back
 
@@ -373,7 +365,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 - `XmlDocument.Save(string)`: encoding carries from the first `XmlDeclaration`.
 
-## [10]-[IMPLEMENTATION_LAW]
+## [09]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `XDocument` carries every owned document; `XmlDocument` enters only where a host API hands one back, and `XmlNodeReader` returns it to the owned surface.
@@ -392,9 +384,3 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [LOCAL_ADMISSION]:
 - Every XML wire this branch defines admits through `System.Xml.Linq`; a foreign package enters only where it owns the format's own schema, as `Xbim.InformationSpecifications` owns IDS and the host `MaterialX` runtime owns `.mtlx` schema validation.
-
-[RAIL_LAW]:
-- Package: `System.Xml`
-- Owns: every XML document, stream, and object-graph codec the branch crosses
-- Accept: `XDocument` trees, `XmlReader`/`XmlWriter` edges under an explicit settings record, `XmlSchemaSet` validation, `XslCompiledTransform` transforms, attribute and contract serializers
-- Reject: a hand-rolled XML tokenizer or emitter beside this surface

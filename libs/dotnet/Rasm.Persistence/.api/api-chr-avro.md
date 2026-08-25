@@ -2,17 +2,7 @@
 
 `Chr.Avro` owns the abstract Avro schema-model core: the `Schema` algebra, the `LogicalType` decorators, the reflection-driven `SchemaBuilder` deriving a schema from a CLR `Type`, and the open expression-builder codec framework the binary and registry legs specialize. It ships no encoder and no JSON codec — `Chr.Avro.Binary` carries the binary codec and the first-party Confluent serde the registry frame — so schema derivation is its whole governance, and it supplies the evolution-safe interchange rail the `Arrow`/`Parquet`/`MessagePack`/`CBOR` set lacks.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Chr.Avro`
-- package: `Chr.Avro` (MIT)
-- assembly: `Chr.Avro`
-- namespace: `Chr.Avro`, `Chr.Avro.Abstract`, `Chr.Avro.Representation`, `Chr.Avro.Serialization`, `Chr.Avro.Infrastructure`
-- target: `net6.0` (multi-targets `net6.0`/`netstandard2.0`; the `net10.0` consumer binds the `net6.0` surface)
-- depends: `Microsoft.CSharp`, `System.Collections.Immutable`, `System.ComponentModel.Annotations`; pure-managed AnyCPU, no native asset
-- rail: avro-schema
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [SCHEMA_MODEL_TYPES]: the `Schema` algebra (namespace `Chr.Avro.Abstract`)
 
@@ -94,7 +84,7 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 
 `JsonSchemaReader`/`JsonSchemaWriter` (and `IJsonSchemaReader`/`IJsonSchemaWriter`), the concrete implementations of these contracts, ship in the transitive `Chr.Avro.Json`, not this assembly.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schema construction from a CLR type
 - `SchemaBuilder` ctors take the `(memberVisibility, enumBehavior, nullableReferenceTypeBehavior, temporalBehavior)` policy quartet (shared with `CreateDefaultCaseBuilders`) or a custom `IEnumerable<Func<ISchemaBuilder, ISchemaBuilderCase>>` case list.
@@ -120,7 +110,7 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 |  [06]   | `new FixedSchema(string name, int size)`                        | ctor     | fixed-length byte blob                     |
 |  [07]   | `schema.LogicalType = new DecimalLogicalType(precision, scale)` | property | attaches a logical type to a base schema   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every codec is a LINQ `Expression` tree `Compile()`d once to a delegate from a `Schema` derived once from a CLR `Type`; no per-message reflection on the hot path.
@@ -141,9 +131,3 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 - Schemas derive from the canonical record type via `SchemaBuilder`, never hand-authored as JSON text inside Persistence code.
 - Schema evolution rides `RecordField.Default` + `NamedSchema.Aliases` on the model, never ad-hoc payload patching.
 - `Chr.Avro.Binary` owns the encoder and `Chr.Avro.Json` the JSON codec; this core ships neither, so a catalog citing a binary `Encode`/`Decode` or a `JsonSchemaReader` against this assembly is wrong.
-
-[RAIL_LAW]:
-- Package: `Chr.Avro`
-- Owns: the abstract Avro schema model, logical-type decorators, reflection-driven schema derivation, and the open expression-builder codec framework
-- Accept: `SchemaBuilder.BuildSchema<T>` derivation, model-level evolution via defaults/aliases, custom `ISchemaBuilderCase`/`*BuilderCase` extension
-- Reject: hand-authored schema JSON in Persistence code, per-message reflection, treating this core as an encoder

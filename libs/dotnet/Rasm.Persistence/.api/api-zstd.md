@@ -2,18 +2,7 @@
 
 `ZstdSharp.Port` transpiles libzstd into managed C#, so Zstandard compression ships with no native runtime and no RID-specific asset. It owns the high-ratio half of the snapshot-compression axis: a reusable context tuned across the full advanced parameter surface, an `OperationStatus` pump for payloads past one contiguous buffer, and trained dictionaries for the small-similar-blob regime. Framing happens exactly once here, so a body its serializer or IPC stream already compressed pairs with an uncompressed policy row.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ZstdSharp.Port`
-- package: `ZstdSharp.Port` (MIT)
-- assembly: `ZstdSharp`
-- namespace: `ZstdSharp`, `ZstdSharp.Unsafe`
-- target: the `net10.0` consumer binds `lib/net9.0`
-- asset: pure-managed AnyCPU runtime library, no native runtime
-- abi: spans in, `System.Buffers.OperationStatus` out of the pump; `Compressor` and `Decompressor` are `IDisposable`
-- rail: snapshot-codec
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: codec contexts, stream adapters, trainer, fault (`ZstdSharp`)
 
@@ -48,7 +37,7 @@
 
 [ZDICT_fastCover_params_t]: `k` `d` `f` `steps` `nbThreads` `splitPoint` `accel` `shrinkDict` `shrinkDictMaxRegression` `zParams`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot codec
 
@@ -127,7 +116,7 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 - TRAP: `leaveOpen` defaults TRUE on both adapters, the INVERSE of the BCL convention and of `api-lz4`'s `LZ4Stream` twins, which default it false. Frame walks writing many adapters into one shared sink therefore behave oppositely across the two codec rows unless both arms spell the flag, so a codec family carrying both states it rather than reading either default.
 - `CompressionStream.CanRead` is false, `CanSeek` is false, `CanWrite` is true — the adapter is write-only and a caller sizing a destination reads `Compressor.GetCompressBound` rather than seeking the sink.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Compressor` and `Decompressor` hold a context across many calls — level, parameters, and dictionary set once, `Wrap`/`Unwrap` many, disposal at the owning scope — and a parallel fan gives each worker its own context.
@@ -149,9 +138,3 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 - `PackStream`/`UnpackStream` carry a payload past one contiguous buffer, and `GetCompressBound` bounds a one-shot destination.
 - `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value rail.
 - Level, frame flags, dictionary id, and pledged size remain on the codec policy row.
-
-[RAIL_LAW]:
-- Package: `ZstdSharp.Port`
-- Owns: Zstandard compression for snapshot and blob payloads — one-shot span codec, the `OperationStatus` pump, async-mirrored `Stream` adapters, the advanced parameter surface, and trained dictionaries
-- Accept: `CompressionPolicy` rows configured through `SetParameter`; `GetCompressBound`-sized one-shot destinations; the pump or the adapters for large payloads; `LoadDictionary` for the small-similar-blob regime; `TryWrap`/`TryUnwrap` folded into `Fin`
-- Reject: a second frame over a body its serializer or IPC stream already compressed; a sidecar decoded length where `contentSizeFlag` self-describes the frame; one context shared across parallel workers; a thrown `ZstdException` crossing the codec boundary; a `ZSTD_c_experimentalParam*` value in a policy row

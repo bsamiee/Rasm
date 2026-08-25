@@ -22,7 +22,7 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 - Boundary: point-cloud registration is `scan/registration#REGISTRATION`'s; IFC tessellation is `mesh/daemon#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial#SPATIAL`'s; the compas half-edge algebra is `graph/algebra#ALGEBRA`'s.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from enum import StrEnum
 from functools import partial

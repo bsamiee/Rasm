@@ -30,7 +30,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 - Boundary: the output-type gates are COMPILE-SHAPE capability gates on a generic operation — the legitimate generic-dispatch idiom, never the runtime raw→typed projection dispatch the `Numerics/atoms` `ProjectionRow` rail owns; selecting WHICH measured column a station publishes is value dispatch and has exactly one owner, `SampleColumn`, so no arm re-discriminates `TOut` beside another; `Sweep` is the one native-sampling builder, a per-row bespoke `Operation.Build` the spam it absorbs; requirement values arrive from locator columns or family builders, never inline per arm.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 
 using System.Runtime.InteropServices;
 using Rasm.Analysis;

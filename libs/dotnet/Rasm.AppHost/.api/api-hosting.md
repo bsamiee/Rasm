@@ -2,17 +2,7 @@
 
 `Microsoft.Extensions.Hosting` roots the AppHost process: `Host.CreateApplicationBuilder` mints one `HostApplicationBuilder` whose configuration, service, logging, and metrics rails `Build` freezes into an `IHost` that runs every `IHostedService` through one start/stop lifecycle. Its boundary is bootstrap — a hosted service adapts an external integration lifetime into runtime state transitions, never a second bootstrap framework.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting`
-- package: `Microsoft.Extensions.Hosting`
-- assembly: `Microsoft.Extensions.Hosting`
-- contract_assembly: `Microsoft.Extensions.Hosting.Abstractions`
-- namespace: `Microsoft.Extensions.Hosting`
-- asset: runtime library
-- rail: bootstrap
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: host implementation family
 
@@ -42,7 +32,7 @@
 |  [10]   | `HostBuilderContext`       | builder context      | config/environment view |
 |  [11]   | `HostAbortedException`     | abort exception      | bootstrap abort signal  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
 
@@ -85,7 +75,7 @@
 |  [14]   | `IHostApplicationLifetime.ApplicationStopping` | property | stopping token         |
 |  [15]   | `IHostApplicationLifetime.ApplicationStopped`  | property | stopped token          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every host folds through one builder: `Host.CreateApplicationBuilder` mints a `HostApplicationBuilder` exposing `Configuration`, `Environment`, `Services`, `Logging`, and `Metrics`, and `Build` freezes that rail into an `IHost` no later call reconfigures.
@@ -105,9 +95,3 @@
 - Process-backed integrations boot through Generic Host; a hosted service adapts an external lifetime into runtime state transitions through the ordered lifecycle hooks.
 - Host configuration, app configuration, logging, and metrics enter through the builder rail, and AppHost bootstrap captures environment identity and `HostOptions` policy.
 - Host lifetime events advance the lifecycle owner, never a second runtime state machine.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Hosting`
-- Owns: process bootstrap and the host lifecycle
-- Accept: builder rails admit configuration, services, logging, and lifetime; hosted services adapt external lifetimes
-- Reject: a hand-rolled bootstrap framework or a second lifetime state machine

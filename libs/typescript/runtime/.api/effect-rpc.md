@@ -2,17 +2,7 @@
 
 `@effect/rpc` mints Schema-typed procedures and serves them across two orthogonal, swappable Layers — one transport (http | websocket | worker | stdio) crossed with one serialization codec (json | ndjson | jsonRpc | msgpack) — as the RPC peer of `HttpApi` under the edge contribution law. A procedure is defined once from its payload/success/error/stream `Schema`s and flows unchanged into both the handler and the group-derived client, so request and response types never drift; the wire protocol, framing, and interruption stay internal and never hand-rolled.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@effect/rpc`
-- package: `@effect/rpc` (MIT)
-- asset: ESM `.d.ts` declaration surface
-- owner: `edge`
-- rail: rpc
-- peer: `effect` (Schema/Layer/Effect/Stream rails), `@effect/platform` (the transports), `msgpackr` (msgpack engine)
-- namespaces: `Rpc` procedure, `RpcGroup` contribution family, `RpcServer` protocol+serve rows, `RpcClient` derived caller, `RpcMiddleware` schema-typed middleware, `RpcSerialization` codec rows, `RpcSchema` streaming schema, `RpcMessage` wire union, `RpcWorker` worker init, `RpcTest` in-memory client, `RpcClientError`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: procedure model (`Rpc`)
 
@@ -46,7 +36,7 @@
 |  [06]   | `RpcClientError`                                     | error class   | client transport `TaggedError`                            |
 |  [07]   | `RpcMessage.FromClient`/`FromServer`                 | wire union    | the wire protocol message unions                          |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: procedure definition (`Rpc`)
 - `Rpc.make` options beyond the schemas: `stream: true` lifts `success` to `RpcSchema.Stream`, `primaryKey` keys request dedup, and `defect` schemas an uncaught failure.
@@ -130,7 +120,7 @@
 |  [06]   | `RpcWorker.initialMessage(schema)`                                                  | worker         | receive the worker handshake     |
 |  [07]   | `RpcTest.makeClient(group, { flatten? })`                                           | test           | in-memory client, no transport   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `RpcGroup` is the edge contribution family peer to `HttpApiGroup`: domain folders export groups as data, and the app merges selected groups into one served value at the app root.
@@ -150,9 +140,3 @@
 - Deployment selects the protocol row: `live` → `layerProtocolWebsocket`, `work` compute → `layerProtocolWorkerRunner`, MCP/CLI → `layerProtocolStdio`, edge/fetch → `toWebHandler`; one group serves every row.
 - Internal service-to-service calls select `layerMsgPack` for compactness; browser and public calls select `layerJson`/`layerNdjson`; the caller is always `RpcClient.make(group)` against the exact group.
 - Specs drive `RpcTest.makeClient(group)` with full Schema typing and zero transport; one group backs the test and production clients.
-
-[RAIL_LAW]:
-- Package: `@effect/rpc`
-- Owns: Schema-typed procedure definition, group contribution/assembly with group-scoped middleware, the orthogonal protocol × serialization serve axes, the group-derived typed client with per-request headers, first-class streaming, and the transport-free test client
-- Accept: `Rpc.make` procedures, `RpcGroup.make`/`.middleware`/`.toLayer` assembly, one `layerProtocol*` × one `RpcSerialization.layer*` at the app root, `RpcClient.make` derived callers, `RpcMiddleware.Tag` schema-typed middleware, `RpcSchema.Stream` streaming, `RpcTest.makeClient` in specs
-- Reject: hand-rolled JSON-over-HTTP procedure endpoints, a client typed separately from its group, manual stream framing over unary calls, transport or codec choice baked into handlers, untyped/ad-hoc middleware, a centralized RPC contract with lib-side existence

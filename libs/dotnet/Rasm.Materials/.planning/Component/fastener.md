@@ -19,7 +19,7 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` roster and law, the t
 - Boundary: the retired `bool Metric` on the grade row DERIVES — the thread system is the authority's PRINT system, so `Admits` spells `(Authority == ComponentAuthority.En) == thread.Series.Metric` reading the owning `MaterialGrade` row's own authority column. `Admits`/`At` therefore land on `MaterialGrade` rather than on the arm: the arm carries no authority, and a member seated there takes one as an argument the call site supplies. A non-fastener grade answers `false` and `None` respectively, the arm mismatch stated at the refusal site.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

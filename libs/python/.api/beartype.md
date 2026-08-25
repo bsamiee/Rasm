@@ -2,16 +2,7 @@
 
 `beartype` mints near-O(1) runtime type enforcement: `@beartype` rewrites a callable into branch-minimal validation code and `beartype.claw` hooks it across a whole package at import. It holds the internal call-boundary contract on domain functions the wire never touches, `BeartypeConf(violation_type=...)` folds every violation onto a domain error rail, and the DOOR API answers `isinstance`-for-any-hint checks and decidable subhint queries inline.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `beartype`
-- package: `beartype` (MIT)
-- module: `beartype`
-- asset: runtime library
-- rail: type-enforcement
-- namespaces: `beartype`, `beartype.claw`, `beartype.door`, `beartype.vale`, `beartype.roar`, `beartype.typing`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration and strategy
 
@@ -58,7 +49,7 @@ Every violation catches as `BeartypeCallHintViolation`; catch the canonical root
 |  [09]   | `BeartypeWarning`                           | base warning   | root of every beartype warning                           |
 |  [10]   | `BeartypeDecorHintPep585DeprecationWarning` | warning        | deprecated PEP 585 hint form                             |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decorator and configuration
 
@@ -90,7 +81,7 @@ Every violation catches as `BeartypeCallHintViolation`; catch the canonical root
 |  [04]   | `beartype_all(*, conf=...)`                | static  | hook all subsequently imported modules      |
 |  [05]   | `beartyping(*, conf=...)`                  | factory | transient `with`-scoped import hook         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `@beartype` rewrites the callable into branch-minimal wrapper code; `O1` (default) samples one item per container, holding a check constant-time regardless of container size, `Ologn`/`On` deepen traversal, `O0` makes the decorator a no-op for opt-out hot paths.
@@ -110,9 +101,3 @@ Every violation catches as `BeartypeCallHintViolation`; catch the canonical root
 - Map a violation onto a domain error via `BeartypeConf(violation_type=...)`, reserving the `BeartypeCallHintViolation` catch for the one egress boundary that lifts into `Result`.
 - Use `door.is_bearable(obj, hint)` for the narrowing guard and `door.is_subhint(a, b)` for registry and dispatch validation.
 - Encode a refinement constraint once as an `Annotated[T, beartype.vale.Is[...]]` alias shared across the call site and its schema annotation.
-
-[RAIL_LAW]:
-- Package: `beartype`
-- Owns: near-O(1) runtime type enforcement, import-hook activation, procedural DOOR checks and subhint reasoning, `Annotated` validator algebra, violation→domain-error redirection
-- Accept: `@beartype` with a shared cached `BeartypeConf`, `beartype.claw` whole-package hooks, `beartype.door` guards, `beartype.vale` refinement annotations, `violation_type=` error mapping
-- Reject: hand-rolled `isinstance`/`issubclass` guards at internal call sites, per-decoration ad-hoc `BeartypeConf`, catching `BeartypeException` broadly instead of the canonical violation roots

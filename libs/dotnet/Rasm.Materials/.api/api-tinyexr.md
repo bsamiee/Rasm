@@ -2,16 +2,7 @@
 
 `TinyEXR.NET` is the pure-managed OpenEXR estate the flat scanline codecs cannot reach: a V3 block-level reader and writer over tiled, mip-levelled, deep, and multi-part files with the full compression roster including DWAA, DWAB, and HTJ2K, beside a V1 whole-image facade for one-call round trips. Its `ImageProcessing` and `Spectral` folds carry transfer, tone-map, colour-matrix, LUT, resize, and wavelength-sampled channel law on the same float planes.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TinyEXR.NET`
-- package: `TinyEXR.NET` (MIT)
-- assembly: `TinyEXR.NET`
-- namespace: `TinyEXR` (V1 facade), `TinyEXR.V3` (streaming plane), `TinyEXR.V3.IO`, `TinyEXR.V3.Codecs`, `TinyEXR.V3.Format`
-- asset: multi-target; the `net10.0` consumer binds `lib/net8.0/TinyEXR.NET.dll` and takes no dependency
-- rail: openexr container
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: V3 streaming reader, writer, and their results — `TinyEXR.V3`
 
@@ -112,7 +103,7 @@
 |  [09]   | `CompressionType` and the four V1 header enums      | enum          | the V1 header vocabularies              |
 |  [10]   | `SinglePartExrReader` / `ScanlineExrWriter`         | class         | the facade's own reader and writer      |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: whole-file load and save — `TinyEXR.V3.ExrFile`
 
@@ -243,7 +234,7 @@
 |  [10]   | `Exr.SaveEXRImageToMemory(ExrImage, ExrHeader, out byte[]) -> ResultCode`                | static  | encode a parsed model            |
 |  [11]   | `Exr.SaveEXRMultipartImageToMemory(ExrMultipartImage, ExrMultipartHeader, out byte[])`   | static  | encode every part                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Two API planes, one file format. Its V1 facade (`Exr`, `ExrImage`, `ExrHeader`) round-trips a whole image through `out` parameters and a `ResultCode`; the V3 plane (`ExrReader`, `ExrWriter`, `ExrFile`, `Image`/`Part`/`Header`/`ChannelBuffer`) is the block-level model. Composing surfaces pick ONE and never mix their vocabularies — `TinyEXR.ExrPixelType` and `TinyEXR.V3.PixelType` are distinct types with the same rows.
@@ -281,9 +272,3 @@
 - `Compression.PXR24`, `B44`, `B44A`, `DWAA`, and `DWAB` are lossy for float data and are refused on a solver-grade or content-keyed plane; `HTJ2K256` and `HTJ2K32` are refused on EVERY float plane, keyed or not, because their small-extent decode is NaN rather than approximate; `Zip`/`Zips` is the durable default and `None` the debug form.
 - `ExrResult.WouldBlock` is a protocol state, never a fault row: it lowers to a resumed read, and only the remaining `ExrResult` rows and the typed limit exceptions reach the folder's fault rail.
 - `ReaderLimits` and `WriterLimits` are set explicitly on any path admitting an outside file, because the defaults bound a trusted producer rather than untrusted input.
-
-[RAIL_LAW]:
-- Package: `TinyEXR.NET`
-- Owns: the managed OpenEXR estate beyond flat scanline — block, tile, and mip-level addressing; deep scanline and deep tiled parts; multi-part files; the full compression roster through PIZ, PXR24, B44, DWAA, DWAB, and HTJ2K; the named-channel planar model with its luminance-chroma discrimination; and the float-span folds for pixel-type conversion, separable and streaming resample, tone mapping, colour-matrix derivation and application, luminance-weight derivation, transfer transforms, `.cube` LUT application, and wavelength-sampled spectral parts across the reflective, emissive, and Stokes-component polarised arms.
-- Accept: the V3 plane throughout — `ExrReader`/`ExrWriter` over a `Stream`, memory, or supplied source and sink; `ReaderResult`/`WriterResult` folded onto the typed fault rail with `WouldBlock` resumed; explicit `ReaderLimits`/`WriterLimits` on outside input; `Header` + `Channel` + `ChannelBuffer` as the model; `Compression.ZIP`/`ZIPS` for durable planes; `PartConversion` as the bridge to any interleaved consumer.
-- Reject: V1 and V3 vocabularies mixed in one fold; the V1 facade across a folder boundary; a lossy compression row on a content-keyed or solver-grade plane; `WouldBlock` classed as failure; a deep sample read before its counts; a write that never reaches `End`; a fixed RGBA slot assumption over a named-channel part; `ToInterleavedFloat` reached without the `IsLuminanceChroma` probe, or the chroma expander offered as a caller knob; a hand-rolled colour matrix, luminance weight triple, span-shaped half-to-float, resample, tone-map, or transfer fold this surface already lowers — a per-texel half decode inside a struct texel rail sits outside the span folds and stays legal; a spectral read parsing wavelengths without `TryGetStokesComponent`, which flattens the four polarisation components of one wavelength onto one channel.

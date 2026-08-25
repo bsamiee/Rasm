@@ -95,8 +95,6 @@ internal static class SessionKernel {
         private readonly List<BridgeEvent> stream = [];
         private readonly string runId;
         private readonly string reportDir;
-        private ReferenceRoot[] referenceRoots = [];
-        private EvidenceMode evidenceMode = EvidenceMode.Verify;
         private long sequence;
 
         internal SessionRun(SupervisorVerb verb, SupervisorRuntime runtime) {
@@ -123,9 +121,6 @@ internal static class SessionKernel {
                     SupervisorVerb.Status => await StatusAsync().ConfigureAwait(false),
                     SupervisorVerb.Verify verify => await VerifyAsync(verify: verify).ConfigureAwait(false),
                     SupervisorVerb.Quit => await QuitAsync().ConfigureAwait(false),
-                    SupervisorVerb.Redeploy redeploy => Fold(
-                        final: Faulted(new BridgeFault.CapabilityAbsent(Capability: "redeploy.supervisor", Detail: $"the direct supervisor does not own redeploy; Assay owns the package cycle for '{redeploy.PackagePath}'"), SessionPhase.Install),
-                        spoolTail: Evidence.SpoolTail(reportDir: reportDir)),
                     _ => throw new InvalidOperationException(message: "unknown supervisor verb"),
                 };
             } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
@@ -165,24 +160,20 @@ internal static class SessionKernel {
                 if (shellContent.Key is null || shellContent.Outcome != PhaseStatus.Ok) {
                     BridgeFault fault = new BridgeFault.HostDrift(
                         MissingMember: shellContent.Key is null ? Handshake.ShellContentCapability : $"{Handshake.ShellContentCapability}:{shellContent.Detail}",
-                        BuiltAgainst: live.Fingerprint,
                         Running: negotiated.Fingerprint);
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
                 Phase(SessionPhase.Hello, PhaseStatus.Ok);
-                Fin<StagedCargo> staged = Evidence.Stage(
-                    closureManifest: verify.ClosureManifest, sessionId: sessionId, reportDir: reportDir,
+                Fin<CargoManifest> staged = Evidence.Stage(
+                    payloadRoot: runtime.CargoSourceRoot, sessionId: sessionId, reportDir: reportDir,
                     refsRoot: Path.Combine(path1: reportDir, path2: "refs"));
-                if (staged is not Fin<StagedCargo>.Succ(StagedCargo stage)) {
-                    BridgeFault fault = new BridgeFault.NugetLockDrift(
-                        Detail: staged is Fin<StagedCargo>.Fail(Error error) ? error.Message : "closure staging unresolved");
+                if (staged is not Fin<CargoManifest>.Succ(CargoManifest manifest)) {
+                    BridgeFault fault = new BridgeFault.LaunchFailed(
+                        Detail: staged is Fin<CargoManifest>.Fail(Error error) ? error.Message : "bridge payload staging unresolved");
                     Phase(SessionPhase.Stage, fault.Status, fault: fault);
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Stage), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
-                CargoManifest manifest = stage.Manifest;
-                referenceRoots = stage.ReferenceRoots;
-                evidenceMode = verify.EvidenceMode;
                 Phase(SessionPhase.Stage, PhaseStatus.Ok);
                 LoadedCargo cargo = await machine.RunPhaseAsync(phase: SessionPhase.Load, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
                     rpc: ct => connection.LoadAsync(manifest: manifest, ct: ct)).ConfigureAwait(false);
@@ -317,8 +308,7 @@ internal static class SessionKernel {
 
         private SessionEnvelope Fold(SessionState final, (long Count, long LastSequence) spoolTail) =>
             SessionFold.Run(
-                runId: runId, verb: verb, final: final, stream: toSeq(stream), spoolTail: spoolTail, reportDir: reportDir,
-                evidenceMode: evidenceMode, referenceRoots: referenceRoots);
+                runId: runId, verb: verb, final: final, stream: toSeq(stream), spoolTail: spoolTail, reportDir: reportDir);
 
         private void Publish(BridgeEvent evt) => stream.Add(item: evt);
 
@@ -578,8 +568,7 @@ internal static class SessionFold {
     }
 
     internal static SessionEnvelope Run(string runId, SupervisorVerb verb, SessionState final,
-        Seq<BridgeEvent> stream, (long Count, long LastSequence) spoolTail, string reportDir,
-        EvidenceMode? evidenceMode = null, ReferenceRoot[]? referenceRoots = null) {
+        Seq<BridgeEvent> stream, (long Count, long LastSequence) spoolTail, string reportDir) {
         ArgumentNullException.ThrowIfNull(argument: verb);
         ArgumentNullException.ThrowIfNull(argument: final);
         if (final is SessionState.Terminal terminal)
@@ -606,24 +595,19 @@ internal static class SessionFold {
         double duration = ordered.Head.Case is BridgeEvent head && ordered.Last.Case is BridgeEvent tail
             ? tail.Stamp.AtUnixMs - head.Stamp.AtUnixMs
             : 0.0;
-        ReferenceEvidenceResult[] references = verb is SupervisorVerb.Verify
-            ? Evidence.ReferenceResults(mode: evidenceMode ?? EvidenceMode.Verify, roots: referenceRoots ?? [], outcomes: outcomes, evidence: carried, reportDir: reportDir)
-            : [];
-        outcomes = AttachReferences(outcomes: outcomes, references: references);
         PhaseStatus scenarioStatus = outcomes.Map(f: static outcome => outcome.ScenarioStatus)
             .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
         PhaseStatus status = scenarioStatus.Worst(other: sessionStatus);
         (string firstScenarioFailure, _) = FirstScenarioFailure(outcomes: outcomes);
         string firstFailure = firstScenarioFailure.Length > 0 ? firstScenarioFailure : firstSessionFault;
-        Evidence.EnsureReportFiles(reportDir: reportDir, outcomes: outcomes);
         ArtifactRef[] artifacts = Evidence.ArtifactRefs(reportDir: reportDir);
-        EvidenceCounts counts = Counts(evidence: carried, artifacts: artifacts, references: references);
+        EvidenceCounts counts = Counts(evidence: carried, artifacts: artifacts);
         ScenarioCounts scenarioCounts = ScenarioCountsOf(outcomes: outcomes);
         PhaseOutcome[] phaseOutcomes = [.. phases.Map(f: static phase => new PhaseOutcome(Phase: phase.Phase, Status: phase.Status, DurationMs: phase.DurationMs, Fault: phase.Fault))];
         EvidenceCertificate certificate = new(
             RunId: runId, Scenario: "session",
             Status: new StatusBreakdown(ScenarioStatus: scenarioStatus, SessionStatus: sessionStatus, OverallStatus: status),
-            Classes: Classes(counts: counts), Counts: counts, Artifacts: artifacts, References: references,
+            Classes: Classes(counts: counts), Counts: counts, Artifacts: artifacts,
             ObjectManifests: [], GeometryManifests: [], ViewportManifests: [], Gh2CanvasManifests: [],
             ScratchManifests: [], Phases: phaseOutcomes,
             FirstFault: firstFailure.Length > 0 ? new FaultSummary(Phase: firstPhase, Fault: fault, Message: firstFailure) : null);
@@ -687,22 +671,7 @@ internal static class SessionFold {
                 : first.Fault?.Prescription ?? $"{first.Scenario} {first.ScenarioStatus.Key}"), SessionPhase.Execute)
             : (string.Empty, null);
 
-    private static Seq<ScenarioOutcome> AttachReferences(Seq<ScenarioOutcome> outcomes, ReferenceEvidenceResult[] references) =>
-        outcomes.Map(f: outcome => {
-            ReferenceEvidenceResult[] rows = [.. references.Where(predicate: result => string.Equals(a: result.Scenario, b: outcome.Scenario, comparisonType: StringComparison.Ordinal))];
-            ReferenceEvidenceResult? firstFailure = rows.FirstOrDefault(predicate: static result =>
-                !result.Matched && result.Admission != ReferenceAdmission.Candidate && result.Admission != ReferenceAdmission.Unpromoted);
-            bool unpromoted = rows.Any(predicate: static result => result.Admission == ReferenceAdmission.Unpromoted);
-            return outcome with {
-                ScenarioStatus = firstFailure is not null ? PhaseStatus.Failed
-                    : unpromoted ? outcome.ScenarioStatus.Worst(other: PhaseStatus.Degraded)
-                    : outcome.ScenarioStatus,
-                ReferenceResults = rows,
-                FirstScenarioFailure = firstFailure is null ? outcome.FirstScenarioFailure : firstFailure.Detail,
-            };
-        });
-
-    private static EvidenceCounts Counts(Seq<BridgeEvent> evidence, ArtifactRef[] artifacts, ReferenceEvidenceResult[] references) {
+    private static EvidenceCounts Counts(Seq<BridgeEvent> evidence, ArtifactRef[] artifacts) {
         Seq<EvidenceRole> factRoles = evidence.Choose(selector: static evt =>
             evt is BridgeEvent.FactCase fact ? Some(value: EvidenceRole.OfFactKey(key: fact.Key)) : Option<EvidenceRole>.None);
         int Manifests(EvidenceRole role) =>
@@ -710,10 +679,6 @@ internal static class SessionFold {
         return new EvidenceCounts(
             Facts: factRoles.Count,
             Assertions: factRoles.Filter(f: static role => role == EvidenceRole.Assertion).Count,
-            References: references.Length,
-            ReferenceMatches: references.Count(predicate: static reference => reference.Matched && reference.Admission == ReferenceAdmission.Matched),
-            ReferenceFailures: references.Count(predicate: static reference =>
-                !reference.Matched && reference.Admission != ReferenceAdmission.Candidate && reference.Admission != ReferenceAdmission.Unpromoted),
             Captures: evidence.Filter(f: static evt => evt is BridgeEvent.CaptureCase).Count,
             Artifacts: artifacts.Length,
             ObjectManifests: Manifests(role: EvidenceRole.ObjectManifest),
@@ -729,7 +694,6 @@ internal static class SessionFold {
             counts.Facts > 0 ? EvidenceClass.Semantic : null,
             counts.ObjectManifests + counts.GeometryManifests > 0 ? EvidenceClass.Geometry : null,
             counts.Captures > 0 || counts.Gh2CanvasManifests > 0 ? EvidenceClass.Visual : null,
-            counts.References > 0 ? EvidenceClass.CertifiedReference : null,
         }.OfType<EvidenceClass>()];
 
     private static ScenarioCounts ScenarioCountsOf(Seq<ScenarioOutcome> outcomes) =>

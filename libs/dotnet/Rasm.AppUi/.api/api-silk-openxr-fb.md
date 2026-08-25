@@ -2,19 +2,7 @@
 
 `Silk.NET.OpenXR.Extensions.FB` layers Meta vendor entrypoints over canonical `Silk.NET.OpenXR`: generated `FB*` function-table roots return `Result` while pointer-passing descriptors, handles, flags, and purpose enums remain core declarations. Instance creation enables each extension against the same `XR.GetApi()` root and host OpenXR loader, so passthrough, spatial anchors, scene understanding, tracking, foveation, color, refresh, render-model, mesh, and composition surfaces share one `Session`/`Swapchain` with the `Wgpu` `GpuBackend` presentation rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Silk.NET.OpenXR.Extensions.FB`
-- package: `Silk.NET.OpenXR.Extensions.FB` (MIT)
-- assembly: `Silk.NET.OpenXR.Extensions.FB`
-- namespace: `Silk.NET.OpenXR.Extensions.FB` (entrypoint roots only)
-- struct/enum home: `Silk.NET.OpenXR` (all `*FB` descriptors, handles, flags, purpose/component enums)
-- target: `lib/net5.0` is the highest TFM shipped; the `net10.0` consumer binds it (Silk.NET 2.x tops out at `net5.0`/`netstandard2.1`, no `net10.0` asset)
-- asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime
-- depends: `Silk.NET.OpenXR`, `Silk.NET.Core`
-- rail: viewport
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension function-table roots — every member is an instance method returning `Result`; each root has a paired `*Overloads` static-extension class and a private `_B` slot table
 - rail: viewport
@@ -97,7 +85,7 @@
 |  [12]   | `Rect3DfFB` / `Rect2Df` / `Boundary2DFB`            | struct        | 3D box and 2D surface boundary polygon                           |
 |  [13]   | `SpaceUserFB`                                       | native handle | share-target user the `ShareSpacesFB` set names                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: passthrough lifecycle, layer transport, style, and geometry-instance projection — every surface returns `Result`; Silk.NET ships 4 ptr/ref overloads of each pointer arg
 - rail: viewport
@@ -181,7 +169,7 @@
 - `GetHandMeshFB`: `Result GetHandMeshFB(HandTrackerEXT, HandTrackingMeshFB*)`
 - `FoveationLevelFB`: `NoneFB` / `LowFB` / `MediumFB` / `HighFB` — a four-row ladder, so a governor rank crosses through a declared row table rather than an ordinal cast
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [FB_PASSTHROUGH_TOPOLOGY]:
 - Each `FB*` root loads against the live `XR` core instance through `new FBPassthrough(xr.Context)` or `xr.TryGetInstanceExtension(out FBPassthrough fb)` against the created `Instance`.
@@ -210,9 +198,3 @@
 - `Silk.NET.OpenXR.Extensions.FB` binds the host loader already loaded by `Silk.NET.OpenXR`; `Silk.NET.WebGPU` and `Silk.NET.OpenXR` share `Silk.NET.Core` and `Silk.NET.Maths` without restoring a second native asset.
 - Quest and Quest Link runtimes advertise Meta `FB_*` capabilities. SteamVR, Varjo, and Monado fold unsupported extensions to degraded forms, while an absent macOS loader folds immersive output to the flat viewport.
 - Silk.NET publishes core and every `KHR`/`EXT`/`FB`/`WGPU` extension in lockstep over one `Silk.NET.Core` floor; the consumer binds the available `net5.0` asset without a split package pin.
-
-[RAIL_LAW]:
-- Package: `Silk.NET.OpenXR.Extensions.FB`
-- Owns: the Meta/FB OpenXR vendor-extension binding — passthrough environment-blend (feature/layer/geometry-instance/style), spatial-entity world-locked anchors with local/cloud persistence and cross-user sharing, scene understanding (room layout, semantic labels, real-world bounds), foveation, color space, display-refresh-rate, render models, and body/hand/face/eye tracking — layered over the `api-silk-openxr.md` core session.
-- Accept: `Result`-returning raw-pointer `*FB` calls on the extension function-table roots with the descriptor structs resolved from `Silk.NET.OpenXR` core; native-handle scoped create-and-destroy pairs at the boundary capsule; async anchor/scene operations retired through the `ulong` request id on the core `PollEvent` drain against one pending-request table; a foveation profile applied per eye swapchain through `UpdateSwapchainFB`; per-extension capability probe folding each missing `FB_*` to its degraded form.
-- Reject: a managed convenience wrapper renaming the native surface; a second OpenXR session or instance for passthrough or anchors — every FB feature is created against the one session the `api-silk-openxr.md` core owns and the `Wgpu` `GpuBackend` device presents from, the FB layer chained into the same `EndFrame` layer array; an async verb composed against a session with no event drain, whose request can never complete; a blocking wait on an anchor save/query where the async request id retires on the event poll; a per-verb completion path where one request table keyed on the completion `StructureType` retires all of them; a created foveation profile never written onto a swapchain; hand-registering the model origin each visit where a persisted spatial anchor world-locks it.

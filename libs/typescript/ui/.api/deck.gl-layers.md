@@ -2,16 +2,7 @@
 
 `@deck.gl/layers` owns the primitive GPU mark vocabulary the `ui/viewer/geo/layers` plane instantiates over the `@deck.gl/core` engine: point, path, area, and raster marks with the `GeoJsonLayer` omnibus that fans one Feature stream to every mark. One shape law generic over the row type governs every layer; `@deck.gl/core` owns the base prop axes and the `Accessor`/`Position`/`Color`/`Unit` types this surface styles with.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `@deck.gl/layers`
-- package: `@deck.gl/layers` (MIT)
-- module: esm barrel re-exporting the layer classes and their `XxxLayerProps` types
-- runtime: browser WebGL2/WebGPU through the `@deck.gl/core` luma.gl `Device`; `scope:viewer`
-- rail: the primitive mark vocabulary a `Deck.layers` array instantiates
-- depends: `@deck.gl/core`, `@loaders.gl/core`, `@luma.gl/core`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mark classes in taxonomy order — point, path, area, then the `BitmapLayer` raster and the `GeoJsonLayer` omnibus; a `composite` renders sublayers, a `class` renders one primitive.
 
@@ -33,7 +24,7 @@
 
 - Aux exports: `BitmapBoundingBox` (bounds tuple `[left,bottom,right,top]` or four `Position` corners), `BitmapLayerPickingInfo` (`{bitmap, uv}`), `_MultiIconLayer`/`_TextBackgroundLayer` (`TextLayer` sublayers, not instantiated directly).
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: distinctive `get*` accessors and toggles each mark adds over the core base; the `*Units`/`*Scale`/`*MinPixels`/`*MaxPixels` unit quartet is one core axis, shown brace-compressed per layer.
 
@@ -51,7 +42,7 @@
 - [12]-[BITMAPLAYER]: `image` `bounds` `desaturate` `transparentColor` `tintColor` `textureParameters` `_imageCoordinateSystem`
 - [13]-[GEOJSONLAYER]: `data` `pointType` `getFillColor` `filled` `getLineColor` `getLineWidth` `stroked` `lineWidthUnits` `getElevation` `extruded` `wireframe` `getPointRadius` `pointRadius{Units,Scale,MinPixels,MaxPixels}` `getIcon` `iconAtlas` `getText` `getTextSize`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every layer is `XxxLayerProps<DataT> = _XxxLayerProps<DataT> & (LayerProps | CompositeLayerProps)`, generic over `DataT`; a new mark subclasses `Layer`/`CompositeLayer` with distinctive `get*` accessors, never forking another layer's props.
@@ -70,9 +61,3 @@
 - Import only inside `ui/viewer` (`scope:viewer`); a layer instance is a declarative value, never a stateful service.
 - `GeoJsonLayer`'s parameterized dispatch renders a mixed Feature source; reach for the individual primitives only for single-geometry, performance-critical, or non-GeoJSON data.
 - Atlas-backed marks (`IconLayer`/`TextLayer`) load sprites and fonts through loaders.gl; supply `iconAtlas`/`fontSettings` or let the auto-packer build them, keeping the atlas source in `viewer` assets, never inlined per frame.
-
-[RAIL_LAW]:
-- Package: `@deck.gl/layers`
-- Owns: the primitive point, path, area, and raster mark vocabulary with the `GeoJsonLayer` Feature-stream omnibus.
-- Accept: one subclass per mark with distinctive `get*` accessors over the core base, `GeoJsonLayer` as the Feature-stream dispatch, the fill/stroke/extrude split from `PolygonLayer`, `ArcLayer{greatCircle:true}` for geodesics, GeoArrow `RecordBatch` mirrors for columnar Arrow input.
-- Reject: forking a layer's props instead of subclassing, per-object styling as parallel props instead of one accessor function, re-deriving the unit quartet per layer, hand-wiring point+line+fill for a Feature collection `GeoJsonLayer` already dispatches.

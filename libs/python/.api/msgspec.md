@@ -2,16 +2,7 @@
 
 `msgspec` owns wire serialization and decode-time validation on `Struct`, a C-extension record whose field schema resolves at class creation. It binds zero-copy JSON and MessagePack codecs, `Annotated[T, Meta(...)]` field constraints validated during decode, runtime struct construction via `defstruct`, `msgspec.inspect` type-node introspection, and JSON Schema emission from Python types. It is the serialization rail's sole wire-model owner — every cross-boundary payload mints as a `Struct`.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `msgspec`
-- package: `msgspec` (BSD-3-Clause)
-- module: `msgspec`
-- namespaces: `msgspec`, `msgspec.json`, `msgspec.msgpack`, `msgspec.toml`, `msgspec.yaml`, `msgspec.structs`, `msgspec.inspect`
-- abi: C-extension `_core` (compiled, not pure-Python)
-- rail: serialization
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core record type
 
@@ -82,7 +73,7 @@
 |  [18]   | `inspect.BoolType`       | scalar node    | bool descriptor                                                    |
 |  [19]   | `inspect.NoneType`       | scalar node    | none/null descriptor                                               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: top-level encode/decode/convert
 
@@ -141,7 +132,7 @@ Constructor signatures the table abbreviates as `...`; the numeric and non-numer
 |  [03]   | `inspect.is_struct(obj)`         | static  | True if instance is a Struct       |
 |  [04]   | `inspect.is_struct_type(type)`   | static  | True if type is a Struct subclass  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Struct` is a C-extension class; field types resolve at class creation, never at decode, so a malformed annotation fails at subclass definition rather than on first payload.
@@ -164,9 +155,3 @@ Constructor signatures the table abbreviates as `...`; the numeric and non-numer
 - `DecodeError`/`ValidationError`/`EncodeError` catch only at I/O boundaries and map to domain error types; `ValidationError` carries the JSON-pointer path of the offending field and is terminal, never retried.
 - runtime wire shapes mint once in `transport/shapes` with `frozen=True` the default, `structs.force_setattr` reserved for the decode-time post-init hook; the `runtime/evidence/clock#CLOCK` `Hlc`/`ElementId` leaf cells carry `gc=False`, and `runtime/reliability/faults#FAULT` `boundary` lifts a caught fault to a `BoundaryFault` once at egress.
 - `json.schema`/`json.schema_components` emit JSON Schema from `Struct` types for OpenAPI/contract surfaces, `schema_hook` covering custom-typed fields.
-
-[RAIL_LAW]:
-- Package: `msgspec`
-- Owns: `Struct` definition, JSON/MessagePack encode-decode, decode-time validation, schema generation, struct introspection
-- Accept: `Struct`, `msgspec.json`/`msgspec.msgpack` `encode`/`decode`, `convert`, `Meta`, `defstruct`
-- Reject: hand-rolled JSON validation, `isinstance` guards replacing `convert`, a separate DTO type for a wire shape a `Struct` already owns

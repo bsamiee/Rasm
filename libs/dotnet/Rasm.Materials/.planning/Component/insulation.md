@@ -18,7 +18,7 @@ THE INSULATION SEED PAGE owns the `insulation` `ComponentFamily` row facts (`Com
 - Boundary: the R design read is the band FLOOR — the conservative published minimum — so a stamped `ThermalResistance` never exceeds what every product in the band delivers; a product with no two-sourced band stamps NO thermal row (`woodfibre-batt`, `glasswool-loose`), and a single declared λD is structurally absent — EN 13162 λD is a per-product declaration, so only the typical band is representable. `Facer` reuses the panel axis (`Facer.Kraft` the single-faced kraft row); the ASTM C665 facing-type/flame-class roster reached no second source, so faced rows carry the facer token alone and the C665 class axis lands only with its proof. IfcBinding claim ambiguity is BY DESIGN: the panel rigid-board rows and every row here stamp `IfcCovering`/`INSULATION`, so `ComponentCatalogue.AdmitImported` elects NOTHING for that pair — an imported insulation type cannot be told board from batt off its IFC stamp, and the typed skip is the honest verdict. The spray substance rides `insulation.pur`; open-cell field density sits far below that substance row's rigid-foam density, a divergence the property library resolves at its own owner, never by a density column here.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

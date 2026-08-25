@@ -2,18 +2,7 @@
 
 `Confluent.SchemaRegistry` owns the registry REST control-plane every `Confluent.SchemaRegistry.Serdes.*` codec shares: subject register/lookup, schema-id and GUID resolution, compatibility governance, wire-id framing, subject naming, and the client-side data-contract rule engine backing field-level encryption and migration. It is the registry leg of the `Version/egress#EGRESS_SINK` rail — one codec builds once against one `ISchemaRegistryClient`, the registry governs evolution out-of-band, and only the registered schema id rides each Kafka payload.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Confluent.SchemaRegistry`
-- package: `Confluent.SchemaRegistry` (Apache-2.0)
-- assembly: `Confluent.SchemaRegistry`
-- namespace: `Confluent.SchemaRegistry`
-- target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0`
-- managed: pure-managed AnyCPU, no native asset; REST/JSON client only
-- transitive: `Newtonsoft.Json` (registry wire model), `Microsoft.Extensions.Caching.Memory` (latest-cache TTL), BCL `HttpClient` (`RestService` transport)
-- rail: schema-registry control-plane governing `cdc-egress`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client contract family
 
@@ -110,7 +99,7 @@
 |  [08]   | `BearerAuthCredentialsSource`                      | bearer enum     | bearer-auth credential source          |
 |  [09]   | `SchemaRegistryException`                          | client fault    | REST failure with `ErrorCode`/`Status` |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction
 
@@ -170,7 +159,7 @@
 |  [10]   | `RuleRegistry.RegisterRuleOverride(ruleOverride)`                     | static   | registers a global per-rule override           |
 |  [11]   | `ruleRegistry.TryGetExecutor(name, out executor)`                     | instance | resolves a per-serde executor by name          |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One namespace `Confluent.SchemaRegistry` carries client, schema model, wire-id framing, naming strategy, rule engine, auth, and errors.
@@ -193,9 +182,3 @@
 - Durable changefeed producers set `AutoRegisterSchemas = false` and register schemas out-of-band through `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level (`Backward`/`FullTransitive`), so an incompatible producer schema is rejected at deploy; the consumer pins reader behaviour through `GetLatestWithMetadataAsync` against a `Metadata` tag.
 - Field-level encryption routes through the rule engine: a `DomainRule` of `RuleMode.WriteRead` naming a field-encryption `IRuleExecutor` (registered once via `RuleRegistry.RegisterRuleExecutor`) wraps/unwraps per-field DEKs, the `Metadata` sensitive-field set marking which fields it encrypts. `Element/identity#KMS_CUSTODY` owns the `KmsProvider` axis binding registry-governed encryption to the KMS authority.
 - Registry auth mints its token from the same runtime authority the Kafka SASL/OAUTHBEARER refresh uses; `AzureIMDSBearerAuthenticationHeaderValueProvider` is the managed-identity path for an Azure-hosted registry. Auth is configured once on the client, never per request.
-
-[RAIL_LAW]:
-- Package: `Confluent.SchemaRegistry`
-- Owns: the registry REST control-plane — subject register/lookup, schema-id/GUID resolution, compatibility governance, latest-by-metadata pinning, wire-id framing, subject naming, and the client-side data-contract rule engine (migration + CSFLE).
-- Accept: one shared `CachedSchemaRegistryClient` per endpoint, fixed `SubjectNameStrategy`, out-of-band `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level, rule-engine CSFLE through `RuleRegistry`, and `Dual` decoding for prefix->header migration windows.
-- Reject: a per-message or per-topic client, `AutoRegisterSchemas` on the durable changefeed producer, hand-rolled magic-byte framing in place of `ISchemaIdEncoder`, a field-encryption pass outside the rule engine, and the Newtonsoft registry wire model treated as a System.Text.Json surface.

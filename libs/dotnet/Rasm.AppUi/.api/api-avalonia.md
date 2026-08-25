@@ -2,19 +2,7 @@
 
 `Avalonia` owns the retained UI object model every `SurfaceMount` mounts onto: typed property and element trees, binding, selector styling, resources, layout, paint, effects, transitions, input, routed events, and the render dispatcher. It holds the data-transfer boundary — clipboard and drag-drop — the shell input page composes, and marshals every cross-thread UI mutation through one render-thread hop. Every `SurfaceMount` case binds the whole substrate through the retained-ui rail.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Avalonia`
-- package: `Avalonia` (MIT)
-- assembly: `Avalonia.Base` (object model, input, data-transfer, threading, styling, media, effects, animation, layout)
-- assembly: `Avalonia.Controls` (controls, panels, window chrome, notifications, name scope)
-- assembly: `Avalonia.Markup.Xaml` (XAML loader, markup extensions, XAML template classes)
-- assembly: `Avalonia.Dialogs` (managed file dialogs)
-- namespace: `Avalonia`, `Avalonia.Animation`, `Avalonia.Animation.Easings`, `Avalonia.Automation`, `Avalonia.Automation.Peers`, `Avalonia.Controls`, `Avalonia.Controls.Chrome`, `Avalonia.Controls.Embedding`, `Avalonia.Controls.Metadata`, `Avalonia.Controls.Notifications`, `Avalonia.Controls.Primitives`, `Avalonia.Controls.Templates`, `Avalonia.Data`, `Avalonia.Input`, `Avalonia.Input.Platform`, `Avalonia.Interactivity`, `Avalonia.Layout`, `Avalonia.Markup.Xaml`, `Avalonia.Markup.Xaml.MarkupExtensions`, `Avalonia.Markup.Xaml.Templates`, `Avalonia.Media`, `Avalonia.Media.Imaging`, `Avalonia.Media.Transformation`, `Avalonia.Platform`, `Avalonia.Styling`, `Avalonia.Threading`
-- target: `net10.0` reference assemblies
-- rail: retained-ui
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [BASE_OBJECTS]: retained property and element model
 
@@ -380,7 +368,7 @@
 |  [12]   | `DragDropEffects`     | enum          | drag-effect flags            |
 |  [13]   | `DragEventArgs`       | class         | drop payload                 |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [PROPERTY_OPERATIONS]: retained property registration and observation
 
@@ -955,7 +943,7 @@
 - `IClipboard.SetDataAsync`: Avalonia takes ownership of the passed `IAsyncDataTransfer` and disposes it once the transfer leaves the clipboard.
 - `DragDrop.DoDragDropAsync`: returns the accepted `DragDropEffects`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every product UI concept enters as a typed retained surface — an `AvaloniaObject` property, a `StyledElement` tree node, a `Style` or `ResourceDictionary` entry — and its state flows through the property system, observed as a stream, never polled through a manual change-handler chain.
@@ -976,9 +964,3 @@
 
 [LOCAL_ADMISSION]:
 - Product UI concepts enter through typed retained surfaces; `TopLevel.GetTopLevel(control)` resolves the per-surface `Clipboard`/`FocusManager`/`StorageProvider`, and generated and handwritten markup share one namescope through `AvaloniaXamlLoader.Load`/`Parse`.
-
-[RAIL_LAW]:
-- Package: `Avalonia`
-- Owns: retained object, property, selector-style, resource, layout, paint, effect, transition, input, routed-event, drag-drop, data-transfer, and render contracts behind the one `SurfaceMount` axis — application roots, top levels, windows, screens, and panels — with window translucency and decoration, XAML load, style and resource include, template metadata, compiled-binding generation, and namescope identity.
-- Accept: product UI concepts enter through typed retained surfaces observed via `GetObservable`; appearance variation enters as a selector rule, a `ControlTheme`, or a variant-keyed resource entry; motion enters as a `Transitions` row or an `Animation`; host, sidecar, companion, and diagnostics shells share one UI rail; generated and handwritten markup share one namescope and resource rail.
-- Reject: untyped wrapper layers over controls, properties, resources, or events; per-state appearance driven from imperative property writes where a selector rule fires; hand-rolled frame-timer motion where a transition or keyframe animation interpolates; separate UI families per host modality; reflection `{Binding}` where a compiled binding is admissible; the `DataObject`/`DataFormats`/`IDataObject` clipboard surface.

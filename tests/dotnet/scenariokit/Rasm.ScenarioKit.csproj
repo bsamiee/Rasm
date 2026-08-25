@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <IsTestProject>false</IsTestProject>
+        <RasmHost>common</RasmHost>
+    </PropertyGroup>
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />
+    </ItemGroup>
+    <ItemGroup Label="Assembly Visibility">
+        <InternalsVisibleTo Include="Rasm.Bridge.Cargo" />
+    </ItemGroup>
+</Project>

@@ -2,9 +2,7 @@
 
 `LayeredExport` owns the editable named-layer export close — it authors the separable, toggleable, lockable layer structure an external editor re-orders and re-colors, the inverse of the `document/egress#FINISH` `FINISHERS` table that strips the layers this owner authors. One owner discriminates the editor family over the closed `ExportTarget` vocabulary, each target a `LayerEngine` row in `ENGINES` binding one `LayerFact` arm and its crossing `KernelTrait`. `LayerFact` separates `preview` and `egress` payloads, so output dispatch reads the fact without a boolean or default-filled cross-mode record. Placement, scaling, and rasterization stay upstream. `BlendMode` composes from `graphic/color/derive#DERIVE`; its value derives SVG, and its name derives both `psd_tools.constants.BlendMode` and `psdtags.PsdBlendMode` off one shared correspondence.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[LAYERED]
 
@@ -15,7 +13,7 @@
 - Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `psd-tools` alone authors PSD/PSB and re-proves its own output; no second native writer rides the interpreter. The PSD/PSB arms author the display-referred 8-bit RGBA family — `PixelLayer.frompil` admits pixels only across the PIL seam, which carries no multichannel plane past 8 bits — so bit depth follows the plane's referent and every deep plane stays with the TIFF/ORA/EXR owners. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections import Counter
 from collections.abc import Callable
 from enum import IntEnum, StrEnum

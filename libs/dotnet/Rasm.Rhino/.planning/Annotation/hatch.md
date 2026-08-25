@@ -22,7 +22,7 @@
 - Growth: a pattern attribute lands in `PatternDef`, its validation gate, `Apply`, and `Read`; no mutation case carries a partial parallel definition.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;

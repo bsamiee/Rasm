@@ -1,6 +1,5 @@
 # [PY_CAD_PROFILE]
 
-
 Loop closure and span kind are structural on the wire, so this owner refuses only what the kernel refuses, returning `CadRail` over `BREP_INPUT` and `BREP_KERNEL`. Span construction composes `placement#SPANS` under the planar lift a once-lowered `Basis` supplies, which is what keeps the 2-D knot family and the 3-D segment family on one algebra. `PlacedProfile.offset` projects to `Option` at its single read and never travels inward as a null.
 
 ## [01]-[INDEX]

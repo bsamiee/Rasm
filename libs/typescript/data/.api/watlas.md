@@ -4,16 +4,7 @@
 
 Its one consumer seam on this branch is injection: `@gltf-transform/functions` `unwrap({ watlas, ... })` takes the whole initialized module as its engine instance, exactly as `meshoptimizer` instances inject into the transform rows.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `watlas`
-- package: `watlas` (MIT)
-- module: `"type": "module"` with `main: dist/watlas.js` beside `dist/watlas.wasm`; the manifest declares NO `types` field and NO `exports` map, so the hand-maintained `dist/watlas.d.ts` resolves as the sibling declaration of the main entry and no subpath is importable — the whole module arrives under one namespace binding
-- runtime: both lanes — wasm module with no native binding; the loader resolves `watlas.wasm` beside the js entry
-- rail: derivative-spine engine instance; every call is synchronous after the one async `Initialize()` readiness gate
-- boundary: UV generation ONLY — geometry in, chart/pack coordinates out; the caller owns writing the result into its own vertex streams
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: declaration records and result views
 
@@ -33,7 +24,7 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 - `ChartType.Invalid` marks a chart the segmenter could not parameterize; a result carrying one is evidence, not a throw.
 - `Atlas` is declared with a `new(): Atlas` INSTANCE member beside its implicit zero-argument constructor — a hand-typing artifact of the manual declarations, not a factory; construction is `new Atlas()` and the member is never called.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one readiness gate, one atlas class
 
@@ -51,7 +42,7 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 - `atlas.delete()` is mandatory: the handle owns emscripten-heap allocations no GC reclaims, so construction brackets `Effect.acquireRelease`.
 - `getMesh(index)` answers by ingest order — result mesh `i` is declaration `i`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - The kernel is synchronous and CPU-bound after readiness — a large assembly parameterization stalls its thread, so the server lane runs it inside the derivative spine's existing budget bracket and never on a request path.
@@ -69,9 +60,3 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 - UV generation only — the atlas extent (`width`/`height`) sizes a bake TARGET; the raster plane mints the bytes, and `watlas` never touches a texel.
 - One readiness proof per process: `Initialize()` races safely but the branch proves it once at engine construction beside the meshopt `ready` awaits, never per transform call.
 - The result's split-vertex census (`vertexCount` growth) rides the result; a consumer assuming input-count parity mis-gathers every attribute after the first seam split.
-
-[RAIL_LAW]:
-- Package: `watlas`
-- Owns: xatlas chart segmentation and packing as an injectable wasm engine — mesh/uv-mesh ingest, chart and pack policy records, per-vertex `uv`/`xref` results, per-chart provenance, page utilization
-- Accept: injection into `@gltf-transform/functions` `unwrap` as the whole initialized module, `Effect.tryPromise`-gated `Initialize()`, `acquireRelease`-bracketed `Atlas` lifetime, staged `packCharts` re-runs for density sweeps
-- Reject: hand-driving `Atlas` against a glTF document the `unwrap` transform already flattens, an un-deleted `Atlas` handle, a bake or raster byte minted here, per-call `Initialize()` re-proof, positional attribute copy that ignores `xref`

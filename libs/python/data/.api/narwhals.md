@@ -2,17 +2,7 @@
 
 `narwhals` owns the dataframe-agnostic translation layer: one frame, series, and expression surface drives any supported backend without materializing data. `from_native` and `@narwhalify` admit a native frame at the boundary, `to_native` extracts the backend object at egress, and the library unifies the dtype vocabulary and the backend-agnostic `Expr` combinator set so a consumer never branches on backend type.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `narwhals`
-- package: `narwhals` (MIT)
-- owner: `data`
-- module: `narwhals`
-- namespaces: `narwhals.stable.v1` (version-frozen mirror of the full surface), `narwhals.selectors` (column-set algebra)
-- asset: pure Python, no compiled extension, zero hard backend dependency
-- rail: dataframe-agnostic
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frame and series types
 
@@ -71,7 +61,7 @@
 |  [04]   | `ShapeError` / `DuplicateError` / `MultiOutputExpressionError` | exception | frame-shape and column-identity faults        |
 |  [05]   | `UnsupportedDTypeError` / `ComputeError`                       | exception | backend dtype gap and backend compute failure |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame and series construction
 
@@ -276,7 +266,7 @@ Column selectors are composable expression-like objects accepted anywhere an exp
 |  [05]   | `matches(pattern)`                                       | columns whose name matches a regex |
 |  [06]   | `all()`                                                  | all columns                        |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `from_native`/`@narwhalify` are the sole intake and `to_native` the sole export; `pass_through=True` flows a non-narwhalifiable object through unchanged.
@@ -298,9 +288,3 @@ Column selectors are composable expression-like objects accepted anywhere an exp
 - `backend=` on `from_dict`/`from_arrow`/`read_csv`/`new_series` selects the output backend; omit it only when the input already carries a native backend identity.
 - `scan_csv`/`scan_parquet` return `LazyFrame` for deferred paths; stream the result with `LazyFrame.sink_parquet`.
 - reach `maybe_*` only at a pandas-specific boundary; they no-op off pandas.
-
-[RAIL_LAW]:
-- Package: `narwhals`
-- Owns: the dataframe-agnostic surface over every supported backend, the full `Expr`/`Series` combinator set, the typed namespaces, `selectors`, and the version-frozen `stable.v1` mirror.
-- Accept: any `from_native`-compatible frame, series, or `__arrow_c_stream__` table, plus dicts, row-dicts, and NumPy arrays with an explicit `backend=`.
-- Reject: a direct backend API call inside a wrapped function; an `Implementation` branch on a non-feature-gated path; a drop to a native window/string/date spec the `Expr` namespace owns; a Python-list hop where `from_arrow` passes an Arrow capsule straight through.

@@ -2,16 +2,7 @@
 
 `pyvista` wraps the VTK render engine into a numpy-native 3D scientific-visualization surface for the `scene` rail: a `DataSet` mesh hierarchy, an offscreen `Plotter` render owner, the `read`/`wrap` ingest pair, geometric sources, and the dataset filter family for clipping, slicing, contouring, mesh repair, and CSG. It renders host-free through `Plotter(off_screen=True)` over a software-GL backend and never re-implements the demand-driven VTK pipeline or the reader/writer pairs `vtk` owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pyvista`
-- package: `pyvista` (MIT)
-- module: `pyvista` (import as `pv`)
-- abi: pure python over the `vtk` native extension; the Forge python-overlay `.pth` supplies `pyvista` beside its engine at the interpreter floor, and the import stays worker-side under the `HOSTILE` process lane
-- rail: scene
-- depends: `trame` gates `Plotter.export_html`; the offscreen render, screenshot, and glTF/VRML/OBJ paths need none
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: dataset mesh family — mesh kind is a `DataSet` subclass row
 
@@ -39,7 +30,7 @@
 |  [07]   | `Line`     | source        | line/spline mesh (also `Spline`/`lines_from_points`)               |
 |  [08]   | `Text3D`   | source        | extruded 3D text mesh                                              |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingest, render, capture
 
@@ -123,7 +114,7 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 |  [07]   | `Plotter.save_graphic(filename, raster=, painter=)`    | vector figure (`.svg`/`.eps`/`.ps`/`.pdf`/`.tex`)                    |
 |  [08]   | `PolyData.from_regular_faces(points, faces)`           | surface from `(N,3)` points + `(M,k)` faces, `regular_faces` inverse |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - offscreen host-free: `Plotter(off_screen=True)` over a headless software-GL backend renders without an interactive window; `screenshot(return_img=True)`/`screenshot(filename=)` rasterize the framebuffer. Bracket every plotter in `try`/`finally` `plotter.close()` for deterministic render-window and GL-context teardown.
@@ -144,9 +135,3 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 - Stay on the pyvista surface for meshes, filters, camera, and export; drop to raw `vtk` only for `Plotter.render_window`.
 - Import `pyvista`/`vtk` inside the offloaded worker; the runtime producer imports neither native package.
 - Chain filters as one composed sequence over a dataset; carry large mesh/scalar buffers through the numpy seam, never a per-element loop.
-
-[RAIL_LAW]:
-- Package: `pyvista`
-- Owns: VTK-backed 3D mesh visualization, `read`/`wrap` ingest, headless render, scalar/PBR styling, filters, mesh repair, CSG, geometric sources, render controls, screenshots, numpy mesh views, mesh-file write, and scene export
-- Accept: qualified-name process offload; `wrap` for native in-memory adapters; composed filter chains; screenshot rasters and glTF/VRML/OBJ/HTML export; the USD numpy-buffer seam and the `vtkIOUSD`-gated `render_window`
-- Reject: a re-derived `vtkRenderWindow`/`vtkRenderer` pipeline, a per-filter mesh wrapper type, an interactive event loop in a headless path, and a per-element buffer copy where the numpy seam is zero-copy

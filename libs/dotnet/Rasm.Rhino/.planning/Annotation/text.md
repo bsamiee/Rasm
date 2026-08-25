@@ -25,7 +25,7 @@
 - Growth: a host formatting member joins as a column on the `FaceDecoration` row that already names its concept; a new run edit is one case with its factory and its arm.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;

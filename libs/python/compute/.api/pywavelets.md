@@ -2,14 +2,7 @@
 
 `pywavelets` (import `pywt`) owns the discrete and continuous wavelet-transform surface for the compute signal rail — single/multilevel 1D/2D/nD DWT and inverse, stationary and wavelet-packet decompositions, additive MRA, the fully-separable transform, and the CWT over a `Wavelet`/`ContinuousWavelet` catalogue. `compute`'s signal owner composes it beside `scipy.signal`, which holds Fourier/FIR-IIR spectral analysis; the cascade filter-bank convolution stays PyWavelets', never re-implemented.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `pywavelets`
-- package: `pywavelets`
-- module: `pywt` (dist `pywavelets`; all public transforms, types, and helpers at top level)
-- rail: signal processing
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: wavelet, packet, and mode types
 - Discrete/continuous wavelets construct by name — `Wavelet(name)`, `ContinuousWavelet(name)`; packet trees as `WaveletPacket*(data, wavelet, mode=…, maxlevel=None, axis)`; `wavefun` returns scaling/wavelet functions on a grid.
@@ -30,7 +23,7 @@
 [ContinuousWavelet]: `center_frequency` `bandwidth_frequency` `lower_bound` `upper_bound` `complex_cwt` `wavefun(level=8, length=None)`
 [Modes]: `symmetric` `reflect` `periodic` `periodization` `zero` `constant` `smooth` `antisymmetric` `antireflect`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: discrete transforms (single and multilevel)
 - `wavelet` takes a `Wavelet` or its name; multilevel forms return the approximation and a detail list, and nD forms key details by corner string (`'aa'`, `'ad'`, …).
@@ -90,7 +83,7 @@
 |  [15]   | `qmf(filt)`                                                                 | static  | quadrature-mirror filter flip                    |
 |  [16]   | `pad(x, pad_widths, mode)`                                                  | static  | mode-aware array padding                         |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One DWT family spans dimensionality by axis rank and depth by `level`; `idwt`/`waverec*` are exact inverses, and the signal owner returns the provider coefficient collection beside its reconstruction.
@@ -107,9 +100,3 @@
 
 [LOCAL_ADMISSION]:
 - `pywavelets` admits the `dwt`/`wavedec`, `swt`, `mra`, `fswavedecn`, `cwt`, catalogue, thresholding, and coefficient-packing surfaces at boundary scope; a live fence reaching a wider member binds it under a named signal consumer.
-
-[RAIL_LAW]:
-- Package: `pywavelets`
-- Owns: discrete (decimated and stationary), additive-MRA, fully-separable, and continuous wavelet transforms in 1D/2D/nD, wavelet-packet trees, coefficient thresholding, the flat↔nested coefficient bijection, and the wavelet catalogue with filter banks and `wavefun`
-- Accept: the `dwt`/`wavedec` family over `mode`/`level`/`axis` rows, `swt*` for shift-invariance, `mra*` for additive bands, `fswavedecn` for per-axis-independent decomposition, `cwt` for continuous analysis, `threshold`/`threshold_firm` for denoising, `ravel_coeffs`/`coeffs_to_array` feeding an optimizer
-- Reject: a wrapper-rename of `dwt`/`wavedec`; a hand-rolled cascade filter bank, hardcoded wavelet coefficients, or a hand-built coefficient index map; reconstructing an additive band sum from `waverec` where `mra`/`imra` own it; a parallel engine per dimensionality or decimation mode

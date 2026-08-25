@@ -2,18 +2,7 @@
 
 `PeterO.Numbers` mints four arbitrary-precision carriers — `EInteger`, `EFloat`, `EDecimal`, `ERational` — over a self-contained `uint[]` bignum sharing no substrate with `System.Numerics.BigInteger`. `EContext` threads precision, rounding, exponent, trap, and flag policy through every rounded operation; `EContext.Unlimited` holds arithmetic exact. Two folders bind disjoint lanes: the `Rasm` kernel seats `EFloat` as the binary predicate adjudicator and `ERational` as an independent exact-rational oracle on the geometry predicate ladder, and `Rasm.Compute` carries `ERational` as the ℚ⁷ SI dimension-exponent vector — bridging the AngouriMath numeric tower, where `Entity.Number.Rational` leaves carry `ERational` and `Real` leaves carry `EDecimal` — beside the `EFloat` exact criterion-sum accumulator.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `PeterO.Numbers`
-- package: `PeterO.Numbers` (CC0-1.0)
-- assembly: `Numbers.dll` (assembly name `Numbers`)
-- namespace: `PeterO.Numbers`
-- asset: pure-managed AnyCPU, no native runtime or package dependency
-- target: binds the `netstandard1.0` asset — no `ReadOnlySpan<char>` parse overload
-- abi: carriers implement `IComparable<T>` and `IEquatable<T>`, never `INumber<T>`, `ISpanParsable<T>`, or general `IFormattable`; explicit `ToString` overloads own formatting
-- rail: arbitrary-precision exact arithmetic — predicate adjudication at the kernel, exact-rational dimension algebra at Compute
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the numeric four interconvert losslessly upward — `EInteger` into `EFloat`/`EDecimal`/`ERational`, `EFloat`/`EDecimal` into `ERational` — and adjudicate downward through `EContext`.
 
@@ -28,7 +17,7 @@
 
 `[EROUNDING]`: `None` `Up` `Down` `HalfUp` `HalfDown` `HalfEven` `Ceiling` `Floor` `OddOrZeroFiveUp` — `Floor` and `Ceiling` direct interval bounds; `None` raises on inexact output.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `EContext` threads into every rounding operation; `Unlimited` governs exact predicate determinants and `WithBlankFlags()` arms condition recording, where an absent `FlagInexact` certifies exact output.
 
@@ -123,7 +112,7 @@
 - `[EINTEGER_INSPECT]`: `IsZero` `IsEven` `GetSignedBit(int)` — parity and signed-bit inspection.
 - `[EINTEGER_ANCHORS]`: `Zero` `One` — canonical values.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Representation independence: `EInteger` shares no substrate with `System.Numerics.BigInteger`, `Fraction`, or `BigRational`, so agreement between the `PeterO` and `Fraction` oracles verifies a determinant sign across unrelated implementations.
@@ -146,9 +135,3 @@
 - `EFloat` under `EContext.Unlimited` is the arbitrary-precision binary tier of the kernel predicate ladder above interior `double`, 106-bit `ddouble`, and exact `Expansion`. `Unlimited` carries an unlimited exponent range, so it governs the accumulate-and-read-sign path ALONE — the adjacency neighbours and every analytic operation take the bracket's finite bounded context instead, and reusing the ladder's own context there returns NaN or raises `FlagInvalid` rather than refusing.
 - `EDecimal` carries General Decimal Arithmetic and IEEE-754 decimal semantics for exact human-readable I/O and banker's rounding; geometry adjudication uses `EFloat` and `ERational`.
 - At Compute, `ERational` is the sole dimension-exponent carrier and the CAS numeric leaves consume the engine's own carriers with zero conversion loss.
-
-[RAIL_LAW]:
-- Package: `PeterO.Numbers`
-- Owns: arbitrary-precision binary, decimal, rational, and integer arithmetic (`EFloat`/`EDecimal`/`ERational`/`EInteger`); `EContext` and `ERounding` own precision, rounding, exponents, traps, flags, directed rounding, and exactness proof
-- Accept: determinants lifted through `EFloat.FromDouble`, accumulated under `Unlimited`, read through `EFloat.Sign`; the cross-tier, four-way differential, and interval-bracket compositions; the ℚ⁷ dimension-exponent algebra, CAS numeric-leaf bridging, and exact component egress; exact decimal I/O through `EDecimal`
-- Reject: generic-math or span-parsing bindings absent from the ABI; finite-context analytic operations inside predicate adjudication; `EContext.Unlimited` threaded into `NextPlus`/`NextMinus`, or either called with an unread `Flags`; `double` or `EDecimal` readouts substituted for exact sign verdicts; single-oracle collapse of differential checks; general numeric computation (dense/sparse algebra rides MathNet/CSparse, tensor kernels `System.Numerics.Tensors`); `IRadixMathHelper` interface plumbing presented as consumer API

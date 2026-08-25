@@ -2,15 +2,7 @@
 
 `Eto.Drawing` is the host-neutral immediate-mode 2D paint algebra both Rhino host boundaries cross: one `Graphics` command stream strokes, fills, blits, and lays out text against a save/restore transform and clip stack with no retained scene, `GraphicsPath` accumulates the geometry and hit-tests it, the brush/pen/dash family separates fill from stroke by source, `Font`/`FormattedText` measure and lay out, and `Bitmap`/`Image` stage the raster. The host re-issues the whole paint on invalidation. This branch catalogue owns the algebra; each host-boundary folder registers it and tables only the carriers its own boundary adds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Eto` drawing substrate
-- host: Rhino host runtime, in-process; the same `Eto.dll` every boundary binds, never a second NuGet admission (BSD-3-Clause)
-- assembly: `Eto` (`Eto.dll`) from the RhinoWIP `RhCore.framework` bundle
-- namespace: `Eto.Drawing`, `Eto.Forms` (`Drawable` paint seam)
-- rail: paint
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: value geometry and affine transform
 
@@ -93,7 +85,7 @@
 
 [SYSTEM_FONT_ROLES]: `Default` `Bold` `Label` `Menu` `MenuBar` `Message` `Palette` `StatusBar` `TitleBar` `ToolTip` `User`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Graphics` — state, transform, and clip
 
@@ -256,7 +248,7 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 
 - `CreateGraphics` is gated on `SupportsCreateGraphics`, so an off-event acquisition probes the flag first and falls back to invalidation where the handler refuses.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Graphics` is the one immediate surface: paint state, the transform stack (`SaveTransform`/`RestoreTransform`, `SaveTransformState`), and the clip stack (`SetClip`/`ResetClip`) fold through a single context, `IsVisible` early-culls against the active clip, and `PointsPerPixel`/`PixelsPerPoint` carry the device-pixel ratio the painter scales against.
@@ -277,9 +269,3 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 - A `Graphics` handle comes from a `Drawable` paint event or a boundary-owned off-event acquisition; a painter draws through the admitted `Graphics`/`GraphicsPath`/`Brush`/`Pen` surface, never a local wrapper renaming or partially re-exporting an Eto member.
 - A new fill, stroke, or geometry is a brush value, a pen value, or a `GraphicsPath` figure, never a hand-rolled tessellator beside the path.
 - Paint code holds canonical geometry and perceptual colour internally and projects to these primitives at the render edge; boundary faults ride the LanguageExt rail with no exception-style control flow beside it.
-
-[RAIL_LAW]:
-- Package: `Eto`
-- Owns: the host-neutral immediate `Graphics` command stream, `GraphicsPath` geometry with fill and stroke hit-testing, the brush/pen/dash fill-stroke vocabulary, the sRGB colour projections, measured `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap` staging with lock and pixel access, and the `Drawable` paint seam
-- Accept: `Graphics` from `PaintEventArgs`, `IGraphicsPath` from `GraphicsPath.Create`, `Brush`/`Pen` fill-stroke sources, `Format32bppRgba` staging rasters, `SizeF` measurement results
-- Reject: a hand-rolled bezier or round-rect tessellator beside `GraphicsPath`, a per-primitive fill/stroke method family, perceptual colour math the `Unicolour` owner holds, a raster decode that bypasses `Op.Catch` before landing on `Fin<A>`, widget construction and layout, platform-handler selection, and a folder partition re-tabling this algebra at member depth

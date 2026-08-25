@@ -2,17 +2,7 @@
 
 `azure-identity` mints the `TokenCredential` every Azure data-plane client authenticates through — the credential-chain owner behind the Azure Key Vault `SecretTier.cloud` arm. Runtime composition binds exactly one member on the resolve path: `DefaultAzureCredential`, whose chain resolves ambient workload identity (environment, workload identity federation, managed identity, shared cache, CLI) inside its own construction, which is what lets the admission boundary hold "no rasm code reads `os.environ` after admission" while the SDK's own credential legs read theirs.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `azure-identity`
-- package: `azure-identity` (MIT)
-- module: `azure.identity`
-- owner: `runtime`
-- rail: settings/secrets — the `TokenCredential` leg of the `SECRET_LADDER` cloud rung's Azure arm
-- depends: `azure-core` (the `TokenCredential`/`AccessToken` protocol shapes), `msal`/`msal-extensions` (the token broker underneath)
-- capability: ambient credential-chain resolution (`DefaultAzureCredential`), single-leg credentials (managed identity, workload identity federation, environment, CLI, certificate/secret service principals), an explicit `ChainedTokenCredential` composer, the `close()`/context-manager release seam every leg's transport rides, and the typed unavailability family
-
-## [02]-[CREDENTIALS]
+## [01]-[CREDENTIALS]
 
 [ENTRYPOINT_SCOPE]: credential construction and the token read
 
@@ -29,7 +19,7 @@
 |  [09]   | `__enter__` / `__exit__`                                            | bracket   | `__enter__` yields the inner `ChainedTokenCredential`  |
 |  [10]   | `aio` twin `__aenter__` / `await close()`                           | bracket   | async-chain release seam                               |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `TokenCredential` IS the injection value both legs take: a data-plane client (`SecretClient(vault_url, credential)`) and the pydantic-settings `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` each accept the credential and never a pre-built client, so the credential is the one seam the two legs share.
@@ -40,9 +30,3 @@
 [STACKING]:
 - `azure-keyvault-secrets`(`.api/azure-keyvault-secrets.md`): the one consuming client — `execution/admission#SETTINGS` `CloudVault.read`'s Azure arm names the credential and brackets both handles per resolve (`with DefaultAzureCredential() as credential, SecretClient(vault_url, credential) as client:`), so the chain's transport dies with the read that built it; the declared-field twin injects the same credential into `AzureKeyVaultSettingsSource`, where the source's own lifetime holds it.
 - `reliability/resilience`(`runtime/.planning/reliability/resilience.md`): the `RetryClass.SECRET` row carries the Azure transport transients by module-qualified spelling at the BASE tier; `CredentialUnavailableError` is NOT transient — absent material never heals inside a retry window.
-
-[RAIL_LAW]:
-- Package: `azure-identity`
-- Owns: Azure credential-chain resolution, the single-leg credential ctors, the explicit chain composer, the credential release seam, and the typed unavailability family
-- Accept: `DefaultAzureCredential` as the ladder's ambient chain; a single-leg ctor where a deployment pins one identity; the credential handed to `SecretClient`/`AzureKeyVaultSettingsSource` as the shared seam value; a named per-resolve credential bracketed under the same `with` as the client it authenticates
-- Reject: a process-global memoized credential (per-composition binding rules it), an unnamed credential constructed inline as the client's argument where nothing can close it, a hand-rolled token acquisition over `msal` where the chain owns it, `CredentialUnavailableError` in a retry target, and a pre-built `SecretClient` injected where the settings source takes the credential

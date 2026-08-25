@@ -17,7 +17,7 @@ Every produced blob, field, plate, and lattice lands at an `OutPath`. `Managed` 
 - Packages: `opencolorio` (the config-driven transform graph — `Config.CreateFromBuiltinConfig`/`CreateFromEnv`/`CreateFromFile`/`CreateRaw`, `getProcessor` over a name pair, a `LookTransform`, a `DisplayViewTransform`, or a `GroupTransform` of `FileTransform`s, `getOptimizedCPUProcessor`, `PackedImageDesc`, `isNoOp`/`hasChannelCrosstalk`/`getCacheID`, `getColorSpaceFromFilepath`/`getCanonicalName`, and `Baker`), `pyvips` (`icc_transform` device egress and `write_to_buffer` under `ForeignKeep.ICC`), `imagecodecs` (the lcms2 `cms_profile`/`cms_profile_validate`/`cms_transform` float ICC edge), `colour-science` (the CCTF, broadcast-transfer, RGB-colourspace, matrix-correction, image-write, and `LUT1D`/`LUT3D`/`LUTSequence` surfaces), `pillow` (`ImageCms.buildProofTransform` soft proofing alone), `pikepdf` (the `/Separation` and `/DeviceN` raw object model), `pdf_oxide` (`render_separations`), `colour-cxf` (`read_cxf` device half), with `expression`/`numpy`/`beartype` and the runtime `Metrics`/`LanePolicy`/`Kernel`/`KernelTrait`/`Wire`; the full member surface lives in the package `.api` catalogs.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass

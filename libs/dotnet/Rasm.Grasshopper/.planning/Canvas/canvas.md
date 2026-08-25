@@ -28,7 +28,7 @@ Settlement is the kernel gauge composed: `Apply` answers the `GaugedSpan<CanvasL
 - Growth: a new read is one result-typed factory; a new pick corner is one legal row on `CanvasPick.Law`; a new host drag grain is one `PickGrain` row keyed on its ordinal; a new raster layer is one `RasterLayer` row.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -297,7 +297,7 @@ internal static partial class CanvasMap {
 - Growth: a command is one `CanvasOp` case; a public overlay is one `SparkleSpec` case; an action gate is one dual-column `ActionGate` row; a gauged concern is one `CanvasLane` row deriving its bound.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;

@@ -2,16 +2,7 @@
 
 `optimistix` owns JAX-native nonlinear solving — minimisation, least squares, root finding, and fixed-point iteration — behind four unified entry points where the solver instance, never the entry point, selects the algorithm. Every solve compiles under `jax.jit`, batches under `vmap`, and differentiates through `ImplicitAdjoint` (one `lineax` solve per backward) or `RecursiveCheckpointAdjoint`, so a converged solve nests inside a `diffrax` adjoint or an outer `optax` design loop without unrolling.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `optimistix`
-- package: `optimistix`
-- import: `optimistix` (alias `optx`); submodule `optimistix.compat`
-- owner: `compute`
-- rail: differentiable nonlinear optimization
-- capability: unified minimise/least-squares/root-find/fixed-point solving with composable descent and line-search/trust-region strategies, `BestSoFar*` wrappers, and implicit/recursive-checkpoint adjoints
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: minimizer solver types
 
@@ -98,7 +89,7 @@
 
 [RESULTS_ITEMS]: `successful` (zero code) `max_steps_reached` `nonlinear_max_steps_reached` `nonlinear_divergence` `singular` `breakdown` `stagnation` `nonfinite` `conlim` `nonfinite_input` — the termination vocabulary a `Solution.result` carries, read to a message via `RESULTS[item]`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: unified solve entry points
 - shared: every entry has `(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` -> `Solution[Y, Aux]`; only `fn`'s shape differs.
@@ -126,7 +117,7 @@
 
 - [08]-[compat.minimize]: `compat.minimize(fun, x0, args=(), *, method, tol=None, options=None)` -> `compat.OptimizeResults`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `fn` shape per entry: `minimise` is `(y, args) -> scalar` (or `(scalar, aux)` under `has_aux=True`), `least_squares`/`root_find` are `(y, args) -> residuals`, `fixed_point` is `(y, args) -> y`; `y0`/`args` are arbitrary JAX PyTrees the solver tracks through iteration.
@@ -146,9 +137,3 @@
 - construct solver instances outside JIT with their hyperparameters, so no per-call recompile fires; the line-search/descent/trust-region strategy composes into the solver.
 - inner linear solves route to `lineax`; a hand-rolled Krylov or QR solve is rejected.
 - a first-order `optax` step enters through `OptaxMinimiser`; a parallel hand-written descent loop beside the unified solve is rejected.
-
-[RAIL_LAW]:
-- Package: `optimistix`
-- Owns: JAX-native nonlinear minimization, least-squares, root-finding, and fixed-point iteration with composable descent/search strategies and differentiable implicit/recursive-checkpoint adjoints
-- Accept: `minimise`/`least_squares`/`root_find`/`fixed_point` as the solve entries, a `lineax` solver as `linear_solver=`, an `optax` optimizer via `OptaxMinimiser`, an `equinox` PyTree as `y0`/`args`, a `Solution` carrying a `RESULTS` verdict
-- Reject: `scipy.optimize` where JAX autodiff, JIT, or PyTree inputs are required (`compat.minimize` bridges only at a non-JAX boundary); a hand-rolled inner linear solve or first-order loop the siblings own

@@ -2,17 +2,7 @@
 
 `Thinktecture.Runtime.Extensions` mints every generated domain owner in the branch: one declaration attribute over a `partial` type emits that owner's key member, factory pair, validation seam, conversion operators, comparison policy, and exhaustive dispatch, and each policy property narrows the emission rather than replacing it. Its runtime half carries the static-abstract contracts and the cached metadata a companion adapter binds, so an adapter projects a generated owner onto its own wire while identity, admission, and key projection stay here.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions`
-- package: `Thinktecture.Runtime.Extensions` (LICENSE.md)
-- assembly: `Thinktecture.Runtime.Extensions` carries the attributes, contracts, comparers, and metadata; the source generator, analyzers, and refactorings ride as compile-only companions that never bind at runtime
-- namespace: `Thinktecture`, `Thinktecture.Collections`, `Thinktecture.Internal`, `JetBrains.Annotations`
-- depends: `Thinktecture.Runtime.Extensions.SourceGenerator`, `Thinktecture.Runtime.Extensions.Analyzers`, `Thinktecture.Runtime.Extensions.Refactorings`
-- abi: a generated owner implements the static-abstract `IMetadataOwner` and `IObjectFactoryOwner`, so `MetadataLookup` resolves it through one type-keyed cache instead of an attribute scan
-- rail: generated-domain-owners
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: declaration attributes — one concrete form per owner kind, each abstract base carrying the generation policy its forms share.
 
@@ -139,7 +129,7 @@
 [Empty]: `Collection` `Collection<T>` `Dictionary<TKey, TValue>` `Set<T>` `Lookup<TKey, TValue>` `Disposable` `AsyncDisposable` `Action<T1..T16>`
 [SingleItem]: `Dictionary<TKey, TValue>` `Lookup<TKey, TElement>` `Set<T>`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the declaration a domain owner carries and the members the generator emits onto it.
 
@@ -221,7 +211,7 @@
 - `StaticAbstractInvoker.Validate` and `ParseValue`: each carries a `ReadOnlySpan<char>` arity beside the `TKey`/`string` one and a `TryParseValue` counterpart returning `bool`, so a UTF-8 wire read validates without materializing a `string`.
 - `TrimOrNullify` omits the length bound at its bare arity.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Single-key domain owners declare `[ValueObject<T>]` or `[SmartEnum<TKey>]` and derive equality, conversion, validation, and codec metadata from the key; a multi-member owner declares `[ComplexValueObject]`, and a closed case set declares `[Union]` so exhaustive dispatch and codec metadata generate together.
@@ -244,10 +234,3 @@
 - Generated domain owners keep the default `ValidationError`; the kernel admission bridge maps that ephemeral evidence onto `Validation<Error, T>`, while package fault unions remain semantic cases rather than message factories.
 - Owning vocabularies lift `TryGet` onto `Option<T>` where a domain rail requires optional lookup, so the throwing `Get` stays behind that lift.
 - Hand-written parse, validate, switch, and key-conversion helpers beside a generated owner are defects unless they are the `ValidateFactoryArguments` partial the generator calls.
-
-[RAIL_LAW]:
-- Package: `Thinktecture.Runtime.Extensions`
-- Owns: generated domain-owner declaration with the runtime contracts, comparison policy, generation vocabularies, and cached metadata every companion adapter binds.
-- Accept: `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, and `[ObjectFactory<T>]` declarations; the generated `Create`/`TryCreate`/`Validate`/`ToValue`/`Switch`/`Map` rail; `MetadataLookup` and `StaticAbstractInvoker` for adapter authoring.
-- Reject: a hand-written parse, validate, equality, or key-conversion helper beside a generated owner, a codec that rediscovers declaration attributes instead of reading metadata, and `Generator.Equals` stacked on a key-projected owner.
-- `Rasm.Element`: the full generated estate — `[Union]` class-roots with `[Equatable]` for merge-drill families and record-roots for transient results (`CoverageSample`), total `Switch`/`Map` state-threaded with zero catch-alls, `[SmartEnum]` rows carrying `[UseDelegateFromConstructor]` behavior columns (`CrossingFamily.WireArms`, `CorpusOp.Run`, `DimensionAxis.Exponent`), `[ComplexValueObject]` with `ValidateFactoryArguments` ref-canonicalization deriving stored members at construction (`ProjectedCrs.Epsg`), `ValidateConstructorArguments` name-vs-key proofs (`ElementInstrument`), `SkipFactoryMethods` closing throwing `Create` (`Classification`), and `[ValueObject<UInt128>]` string-factory admissions (`ContentAddress`/`BlobKey`).

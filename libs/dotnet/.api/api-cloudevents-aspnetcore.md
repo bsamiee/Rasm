@@ -4,17 +4,7 @@
 
 `Rasm.AppHost` is the one folder that reaches it, serving the estate's HTTP ingress and its abuse-protection handshake over the envelope owner at `Rasm/Domain/event#ENVELOPE_MINT`. This package ships no model binder, no input formatter, and no middleware — an endpoint calls the extensions directly.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CloudNative.CloudEvents.AspNetCore`
-- package: `CloudNative.CloudEvents.AspNetCore` (Apache-2.0)
-- assembly: `CloudNative.CloudEvents.AspNetCore`
-- namespace: `CloudNative.CloudEvents.AspNetCore`
-- asset: `net10.0` beside `net8.0` and `netstandard2.0`; the consumer binds `lib/net10.0` — pure-managed AnyCPU IL, no native asset
-- depends: `CloudNative.CloudEvents` (`api-cloudevents.md`) with a `Microsoft.AspNetCore.App` framework reference on the `net10.0` and `net8.0` targets, so a net10.0 consumer takes no ASP.NET Core package row at all; the `Microsoft.AspNetCore.Http` and `System.Text.Encodings.Web` package dependencies bind on `netstandard2.0` alone
-- rail: HTTP binding
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two extension classes
 
@@ -29,7 +19,7 @@
 - [02]-[RESPONSE_WRITE]: `CopyToHttpResponseAsync(this CloudEvent, HttpResponse, ContentMode, formatter)` writes structured or binary mode; `CopyToHttpResponseAsync(this IReadOnlyList<CloudEvent>, HttpResponse, formatter)` writes the batch body and takes NO content mode, because batch carries only structured framing.
 - [02]-[HEADER_WRITE]: single-event writes append `ce-specversion` and one `ce-<name>` header per populated attribute EXCEPT `datacontenttype`, which lands on `Content-Type`; every value crosses `HttpUtilities.EncodeHeaderValue`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: request decode and response write
 
@@ -44,7 +34,7 @@
 |  [07]   | `ce.CopyToHttpResponseAsync(response, contentMode, formatter)`       | egress map  | structured or binary write, headers stamped      |
 |  [08]   | `events.CopyToHttpResponseAsync(response, formatter)`                | egress map  | batch write; no content-mode parameter exists    |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Extension methods are the WHOLE package: it registers nothing, hosts nothing, and carries no middleware, model binder, input formatter, or result type, so an endpoint composes the decode and the write directly and no startup call exists to forget.
@@ -63,9 +53,3 @@
 - Every call takes the shared formatter instance and the one declared extension roster; a call-site roster literal and a per-request formatter are both the rejected forms.
 - Routes serving both single and batch bodies probe with both members, because `IsCloudEvent` answers FALSE for a batch by design.
 - Response writes go through these extensions, so no leg hand-stamps a `ce-` header or hand-serializes an envelope into a body.
-
-[RAIL_LAW]:
-- Package: `CloudNative.CloudEvents.AspNetCore`
-- Owns: the CloudEvents HTTP binding over ASP.NET Core — the request content probe, the structured and binary ingress decode, the batch ingress decode, and the single and batch response writes
-- Accept: decode and write through the shared formatter and the one declared roster, both content modes on the single-event legs, and the content-type-only batch legs
-- Reject: a hand-stamped `ce-` header, a hand-built envelope body, a call-site extension-roster literal, a per-request formatter instance, and a content-mode argument on the batch write, which carries none

@@ -23,11 +23,7 @@
     "tempDirName": ".cache/stryker/tmp",
     "incremental": true,
     "incrementalFile": ".cache/stryker/incremental.json",
-    "reporters": [
-        "html",
-        "json",
-        "progress"
-    ],
+    "reporters": ["html", "json", "progress"],
     "htmlReporter": {
         "fileName": ".artifacts/typescript/stryker/mutation-report.html"
     },

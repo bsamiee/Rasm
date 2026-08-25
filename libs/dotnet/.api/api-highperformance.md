@@ -2,16 +2,7 @@
 
 `CommunityToolkit.HighPerformance` owns the staging rail's payload substrate: pooled rentals released deterministically, dense plane views over contiguous storage, and struct-action partitioning that keeps a parallel kernel allocation-free. Every shape it mints stops at the staging boundary — codec, cache, and IO rails consume its buffers, and domain vocabulary names its own value types.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `CommunityToolkit.HighPerformance`
-- package: `CommunityToolkit.HighPerformance` (MIT)
-- assembly: `CommunityToolkit.HighPerformance`
-- namespaces: `CommunityToolkit.HighPerformance`, `.Buffers`, `.Enumerables`, `.Helpers`
-- asset: runtime library binding the `net8.0` ABI
-- rail: staging
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pooled ownership, plane views, and ref carriers
 
@@ -52,7 +43,7 @@
 |  [12]   | `BitHelper`                 | static class        | packs and reads word-level bit flags    |
 |  [13]   | `ObjectMarshal`             | static class        | addresses object payload by byte offset |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pooled rentals and interned text
 
@@ -224,7 +215,7 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 |  [14]   | `SpanExtensions.IndexOf<T>(Span<T>, ref T)`                         | extension | recover an element index from its reference |
 |  [15]   | `ListExtensions.AsSpan<T>(List<T>)`                                 | extension | address list backing storage                |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Pooled owners bound the staging lifetime: a rental enters through `Allocate`, projects as span, memory, plane, or array segment while live, and returns to its pool on `Dispose`.
@@ -250,9 +241,3 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 - Parallel entrypoints become a default execution path only when the benchmark report admits them.
 - Pooled text is a staging value; a domain value carries its own string.
 - Byte projections declare codec and endianness ownership at the calling rail.
-
-[RAIL_LAW]:
-- Package: `CommunityToolkit.HighPerformance`
-- Owns: pooled rental lifetime, dense plane views, ref carriers, stream projection over materialized bytes, struct-action partitioning
-- Accept: bounded execution-payload staging composed from pooled owners, planes, writers, and partition kernels
-- Reject: a package-local span wrapper over these shapes; `HashCode<T>.Combine` value-span digests, which `System.IO.Hashing` owns

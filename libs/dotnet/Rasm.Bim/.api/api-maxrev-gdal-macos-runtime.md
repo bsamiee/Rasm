@@ -2,16 +2,7 @@
 
 `MaxRev.Gdal.MacosRuntime.Minimal.arm64` ships the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` on Apple Silicon. Its managed assembly is an empty `<Module>` carrier; the payload is `runtimes/osx-arm64/native/` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS and PROJ, and the raster/vector format and compression tree. Presence on the publish RID is the precondition for every `OSGeo.GDAL`/`OGR`/`OSR` call to bind, and the bundled native GEOS and PROJ are the ABI substrate the `MaxRev.Gdal.Core` seam decisions escalate to.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64` (MIT)
-- assembly: empty `<Module>` carrier, zero public types — carries the RID and triggers NuGet runtime-asset resolution
-- target: `osx-arm64` only; sibling `*.WindowsRuntime.*`, `*.LinuxRuntime.*`, and `*.MacosRuntime.Minimal.x64` packages own the other publish RIDs
-- asset: `runtimes/osx-arm64/native/**` — the native dylib closure with the `maxrev.gdal.core.libshared` load manifest
-- rail: geometry (native substrate)
-
-## [02]-[NATIVE_PAYLOAD]
+## [01]-[NATIVE_PAYLOAD]
 
 Every dylib lands under `runtimes/osx-arm64/native/` on the geometry rail; `GdalBase.ConfigureAll()` reads `maxrev.gdal.core.libshared` to discover and load the set.
 
@@ -66,13 +57,13 @@ Every dylib lands under `runtimes/osx-arm64/native/` on the geometry rail; `Gdal
 |  [03]   | `libbrotli*` + `libaec`/`libsz` + `libminizip`                        | Brotli + AEC + minizip (`/vsizip/`)                 |
 |  [04]   | `libfontconfig` + `libfreetype` + `libpcre2-8` + `libhwy` + `libltdl` | text render + regex + Highway SIMD + libtool loader |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: none — the package is consumed transitively, never called
 
 Restoring the package for the `osx-arm64` RID stages its native assets into the output, and `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` discovers and loads them from there. A design page composes `MaxRev.Gdal.Core`; this package is its silent native prerequisite.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Pure native-asset carrier for one RID (`osx-arm64`); the managed assembly is empty by design. Cross-platform publish binds the sibling runtime packages, each carrying the GDAL/PROJ build matching the bindings.
@@ -88,9 +79,3 @@ Restoring the package for the `osx-arm64` RID stages its native assets into the 
 [LOCAL_ADMISSION]:
 - Admitted as the transitive native prerequisite of `MaxRev.Gdal.Core` on osx-arm64, never referenced or called directly by `Rasm.Bim`.
 - Admission obligates a RID-pinned `osx-arm64` publish so the natives stage, in version lockstep with the bindings.
-
-[RAIL_LAW]:
-- Package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- Owns: the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS/PROJ, and the raster/vector format and compression tree
-- Accept: being the RID-keyed native runtime that binds every `OSGeo.GDAL`/`OGR`/`OSR` call on Apple Silicon, and the ABI source for the GEOS/PROJ seam escalations
-- Reject: exposing any managed API (it has none), covering RIDs other than osx-arm64 (sibling packages own those), and the full GDAL plugin set (this is the minimal driver subset)

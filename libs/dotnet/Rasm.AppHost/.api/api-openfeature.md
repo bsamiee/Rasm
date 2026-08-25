@@ -2,16 +2,7 @@
 
 `OpenFeature` owns config-backed flag evaluation for the AppHost features rail: a process-singleton `Api` binds one `InMemoryProvider` per domain, and each `Flag<T>` folds a variant map and a context evaluator for sticky bucketing into typed results. Provider failures surface as `ErrorType` on the result, never as thrown exceptions across the client boundary.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `OpenFeature`
-- package: `OpenFeature`
-- assembly: `OpenFeature`
-- namespace: `OpenFeature`, `OpenFeature.Model`, `OpenFeature.Constant`, `OpenFeature.Providers.Memory`, `OpenFeature.Error`
-- asset: runtime library
-- rail: features
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluation api and client family
 
@@ -83,7 +74,7 @@
 - [REASON]: `TargetingMatch` `Split` `Disabled` `Default` `Static` `Cached` `Unknown` `Error` — EIGHT constants; there is no `Stale`, so a consumer lowering onto a wider peer vocabulary admits the unrostered case rather than naming a member the SDK does not publish
 - [ERROR_TYPE]: `None` `ProviderNotReady` `FlagNotFound` `ParseError` `TypeMismatch` `General` `InvalidContext` `TargetingKeyMissing` `ProviderFatal`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: api registration and client acquisition
 
@@ -125,7 +116,7 @@
 
 - `Flag<T>`: `disabled` ctor argument is the sole off-gate that the `Evaluate` branch reads rather than flag metadata.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `Api` is a process singleton reached through `Api.Instance`, holding the default and domain-scoped providers, the global `EvaluationContext`, hooks, and the transaction-context propagator.
@@ -144,9 +135,3 @@
 - Sticky bucketing lives in the `Flag<T>` context evaluator, which reads the `EvaluationContext` targeting key and returns the variant, never re-implemented at a call site.
 - Callers evaluate through `Get<Type>DetailsAsync`, read `Reason` and `Variant` off the typed `FlagEvaluationDetails<T>`, and build targeting context once per request through `EvaluationContext.Builder().SetTargetingKey(...)`.
 - `ErrorType` and `Reason` map to `FlagVerdict` at the boundary; `FeatureProviderException` never crosses into domain logic.
-
-[RAIL_LAW]:
-- Package: `OpenFeature`
-- Owns: feature-flag and experimentation evaluation with sticky bucketing and variants
-- Accept: config-backed `InMemoryProvider`, `Flag<T>` variant maps, and explicit `EvaluationContext` targeting
-- Reject: hand-rolled flag lookup, ad hoc percentage rollout math, or string-keyed config reads bypassing the provider

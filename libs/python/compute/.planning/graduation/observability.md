@@ -21,7 +21,7 @@ Tenant attribution joins at the backend through the `rasm.tenant` baggage fold o
 - Boundary: the runtime owns the registry, the taps, the domain roster, and the instrument table — `domain="compute"` is a `DOMAINS` row and each measure a mapped `InstrumentSpec` row on `runtime/observability/metrics#METRIC`, a runtime ripple landing in the same change, never a compute-side mint. Composition custody reaches point rows, tap fan-out, and recorded series alike: `tapped` threads its key into the `TapRow` it binds through the one subscribe door, so an embedded composition's series carry its stamp exactly as its log lines do and a page-local recording closure beside the tap stays the forked projection this owner refuses. No folder-local process handle or `oneshot` bracket beside the runtime `Cost` owner, and no folder-local honest-RSS or no-peak rationale re-stated beside it. Libraries register points only; subscriber attachment stays at app composition, and no second egress rides beside the taps.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
 from inspect import iscoroutinefunction

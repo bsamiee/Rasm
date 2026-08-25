@@ -2,9 +2,7 @@
 
 `Idml` owns the IDML template-mutation hand-off — the editable InDesign deliverable authored by mutating an InDesign-exported `.idml` template, never synthesized from scratch. `Idml` is one frozen `msgspec.Struct` binding a `base: IdmlSource` template admitted through `IndesignPayload` and a `steps: tuple[IdmlStep, ...]` fold threaded over one running `IDMLPackage` and drained once into `IdmlFact`. `IdmlStep` is the closed `expression.tagged_union` over SimpleIDML's step-eligible `@use_working_copy` algebra; `prefix` applies once to `Idml.base`, and batch `add_pages_from_idml` subsumes singular page insertion. IDML carries the named XML tag tree, so this owner feeds content into designer-authored structure instead of emitting page geometry.
 
-
 ## [01]-[INDEX]
-
 
 ## [02]-[INDESIGN]
 
@@ -16,7 +14,7 @@
 - Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML outputs are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import re
 from contextlib import ExitStack
 from enum import StrEnum

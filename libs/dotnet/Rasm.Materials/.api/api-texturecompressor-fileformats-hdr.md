@@ -2,17 +2,7 @@
 
 `TextureCompressor.FileFormats.Hdr` is the managed Radiance `.hdr` leg: `HdrCodec` decodes the RGBE scanline format straight into an `ArrayBitmap<Rgba32Float>` and encodes any `IPixel` plane back out under run-length encoding. It closes the one HDR-environment container the raster estate otherwise cannot read, and its float output is the exact texel type BC6H encodes from.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `TextureCompressor.FileFormats.Hdr`
-- package: `TextureCompressor.FileFormats.Hdr` (MIT)
-- assembly: `TextureCompressor.FileFormats.Hdr`
-- namespace: `TextureCompressor.FileFormats.Hdr`
-- asset: `lib/net10.0` managed only
-- depends: `TextureCompressor`
-- rail: hdr image container
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec, format row, and options
 
@@ -23,7 +13,7 @@
 |  [03]   | `HdrFileFormatRegistration` | static class  | the `TextureFileFormatManager` registration extension |
 |  [04]   | `HdrEncodingOptions`        | sealed class  | `UseRunLengthEncoding`, defaulting true               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: probe and decode — `HdrCodec`
 
@@ -59,7 +49,7 @@
 
 - `HdrEncodingOptions.UseRunLengthEncoding` is settable and defaults true; RLE off writes a valid but materially larger file and exists for a reader that mishandles the run form.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Radiance `.hdr` stores RGBE — three 8-bit mantissas under one shared 8-bit exponent — so the format carries wide dynamic range at low precision. Decode expands to `Rgba32Float` and the mantissa quantization does not recover; a `.hdr` source is an INGEST format, never a texture-grade intermediate.
@@ -80,9 +70,3 @@
 - `DecodeRgba8` is preview-only; an environment plane decodes through the float overload.
 - Radiance carries no color-space declaration, so a decoded plane's primaries are the caller's to assert against the working space, never inferred from the file.
 - This package rides the same pre-1.0 hold as its engine: it composes behind the one raster codec gate, and a version bump re-verifies that gate's members before it lands.
-
-[RAIL_LAW]:
-- Package: `TextureCompressor.FileFormats.Hdr`
-- Owns: the managed Radiance `.hdr` RGBE container — signature probe, scanline decode into any `IPixel` texel type with `Rgba32Float` as the lossless default, and run-length-encoded generic encode.
-- Accept: `HasRadianceHeader` as the sniff; `Decode`/`DecodeRgba32Float` for every environment ingest; `Encode<TPixel>` over a `BitmapView`/`IBitmap` plane; `RegisterHdrFileFormat` on a bake-scoped manager; the decoded float plane handed straight to BC6H block encoding.
-- Reject: `.hdr` as an egress format for a produced environment product; `DecodeRgba8` on an ingest path; an assumed color space on a decoded plane; a mip, cube, or layer expectation against a flat single-level container; a hand-rolled RGBE expander.

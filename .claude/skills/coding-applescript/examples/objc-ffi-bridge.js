@@ -27,9 +27,18 @@ const CODE_WIDTH = 4;
 // 'psn ' and 'cut ' carry a trailing space, so no trim or pad runs on either edge of the fold.
 function fourCharCode(text) {
     if (text.length !== CODE_WIDTH) {
-        throw new Error(`four-char code must be exactly 4 bytes: ${JSON.stringify(text)}`);
+        throw new Error(
+            `four-char code must be exactly 4 bytes: ${JSON.stringify(text)}`,
+        );
     }
-    return text.split('').reduce((acc, ch) => ((acc << 8) | (ch.charCodeAt(0) & 0xff)) >>> 0, 0) >>> 0;
+    return (
+        text
+            .split('')
+            .reduce(
+                (acc, ch) => ((acc << 8) | (ch.charCodeAt(0) & 0xff)) >>> 0,
+                0,
+            ) >>> 0
+    );
 }
 
 // aeDesc hands out a raw AEDesc* the descriptor object owns. `use` receives that pointer and returns
@@ -63,7 +72,13 @@ function descriptorPayload(descriptor) {
         if (status !== 0) {
             throw new Error(`AEGetDescData returned ${status}`);
         }
-        return { size, text: $.NSString.alloc.initWithDataEncoding(buffer, $.NSUTF8StringEncoding).js };
+        return {
+            size,
+            text: $.NSString.alloc.initWithDataEncoding(
+                buffer,
+                $.NSUTF8StringEncoding,
+            ).js,
+        };
     });
 }
 
@@ -97,6 +112,8 @@ function run(argv) {
             hex: `0x${descriptorType.toString(16).padStart(8, '0')}`,
         },
         payload: descriptorPayload(target),
-        ...(bundlePath ? { dictionaryBytes: scriptingDefinition(bundlePath) } : {}),
+        ...(bundlePath
+            ? { dictionaryBytes: scriptingDefinition(bundlePath) }
+            : {}),
     });
 }

@@ -2,15 +2,7 @@
 
 `Rhino.ApplicationSettings` owns the process-wide preference tree every command and viewport reads: appearance, model-aid, file, general, view, OpenGL, and interaction settings, the visual-analysis presets, and the alias, shortcut, and never-repeat registries. Every owner is a static class paired with a serializable `{Owner}State` snapshot, and `GetCurrentState` → mutate → `UpdateFromState` is the atomic edit rather than mutable statics observed mid-flight. Storage under every owner is a `Rhino.PersistentSettings` node whose typed writer/reader surface `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` owns.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon application-settings surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon.dll` — in-process managed host runtime, host-resolved
-- namespace: `Rhino.ApplicationSettings`; `Rhino` (`PersistentSettings` custody, cross-referenced)
-- rail: host
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: settings owners
 
@@ -74,7 +66,7 @@ Each maps to a Thinktecture `SmartEnum` owner at the boundary; enum cases resolv
 |  [08]   | `CommandPromptPosition` | enum       | command-prompt placement             |
 |  [09]   | `Installation`          | enum       | license/install class                |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the state round-trip
 
@@ -116,7 +108,7 @@ Every owner repeats this shape; `AppearanceSettings` stands for the family.
 [ENTRYPOINT_SCOPE]: persistent-settings storage
 - A plugin reads its own tree through `Rhino.PlugIns.PlugIn.GetPluginSettings(Guid plugInId, bool load) -> PersistentSettings` (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md`), sharing the `PersistentSettings` node type this family stores under.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - one owner projects one concern: the static class exposes the read/write verbs, `{Owner}State` is the immutable snapshot, and `GetCurrentState` → mutate → `UpdateFromState` is the atomic edit, never a mutable static observed mid-flight.
@@ -135,9 +127,3 @@ Every owner repeats this shape; `AppearanceSettings` stands for the family.
 - `HistorySettings` accessors carry NO managed thread affinity — each is a bare `UnsafeNativeMethods.CRhinoHistoryManager_GetBool(int)`/`SetBool(int, bool)` P/Invoke over a process-global manager with no managed thread check — so exclusion is the consumer's own process-wide gate (`Objects/history` `HistoryConduct`), and no marshal crossing is owed.
 - color access enters through the keyed `GetPaintColor`/`GetWidgetColor` accessors, never a per-slot named field.
 - alias, shortcut, and never-repeat mutation enters through the registry's `Update(..., replaceAll)`; `PersistentSettings` typed I/O routes to `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`.
-
-[RAIL_LAW]:
-- Package: `RhinoCommon`
-- Owns: the process-wide preference tree — appearance, model-aid, file, general, view, OpenGL, interaction, and analysis settings, with the alias/shortcut/never-repeat registries
-- Accept: the state round-trip, keyed color access, flag-set osnap/selection policy, registry CRUD
-- Reject: raw `PersistentSettings` writes at this tier, per-slot named color duplication, mid-edit mutable-static observation, re-documented persistence typed-writer surface

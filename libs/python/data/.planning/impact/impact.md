@@ -21,7 +21,7 @@ Its self-describing eight-column frame crosses to the C# AEC domain as the seam 
 - Boundary: never a per-provider `EpdImpact`/`LcaImpact` carrier split, never a second normalization kernel, never a re-implemented solver or sparse-matrix assembly, and never a `NewDatabase(...).update()` build inside the fold — a licensed multi-hour sector transform is a composition step, not a normalization one. Deleted forms: a `premise_background` case whose scenario tuple keys an identity while the solve reads whatever background the project happens to hold; a frame missing its `source`/`declared_unit`/`content_key` columns — the C# decoder can neither attribute nor dedupe it; a display-name second chance behind a missed openLCA category ref, and the one map fusing refs with display names that made it spellable; one global unit table every arm reads regardless of edition; a characterization method elected by the lexicographic minimum of method spellings; an openLCA method UUID, a Brightway label, and an openepd method key sharing one column; `or 0.0`, `else ""`, and `else "?"` standing in for a measurement, a unit, or an identity component the source never supplied; `str(Amount)` lowering a pydantic repr into the decoder's declared-unit column, and the `Amount.unit` read that drops its `qty` and rescales every cell at the consumer.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, NoReturn, assert_never

@@ -4,16 +4,7 @@
 
 Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.Persistence` the `mqtt` binding-row deliver leg, and `Rasm.Compute` the CloudEvents-decoded sensor-ingest pump.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `MQTTnet`
-- package: `MQTTnet` (MIT)
-- assembly: `MQTTnet`
-- namespace: `MQTTnet`, `MQTTnet.Protocol`, `MQTTnet.Packets`, `MQTTnet.Formatter`
-- asset: pure-managed runtime library; control-packet framing rides the client's own socket or WebSocket channel
-- rail: outbound live-wire, egress-sink, sensor-ingest
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, factory, and extension surfaces
 
@@ -84,7 +75,7 @@ Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.P
 |  [07]   | `MqttApplicationMessageReceivedReasonCode` | enum          | PUBACK reason a handler returns |
 |  [08]   | `Formatter.MqttProtocolVersion`            | enum          | V310, V311, V500 selector       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `MqttClientFactory` construction
 
@@ -310,9 +301,3 @@ Five reason-code enums share one MQTT v5 code space, so a lane column marks memb
 - QoS, retain, last-will, and session-expiry are policy columns on the composing row, never new transports or cases.
 - Settlement posture and the receiving lane's overflow policy are ONE bargain a composing row states together: a row settling on admission over a dropping lane refuses `ExactlyOnce` at its own mint, since a discarded delivery the broker already released never redelivers.
 - MQTT reason codes map to typed transport outcomes at the edge; `MqttProtocolViolationException` and `InvalidOperationException` never cross an outbound boundary.
-
-[RAIL_LAW]:
-- Package: `MQTTnet`
-- Owns: legacy and v5 broker-client transport in both directions — session and channel assembly, builder-composed message assembly, the `UserProperties` tracing carrier, reason-code-typed results, and the subscribe leg beside its delivery event and acknowledgement control
-- Accept: factory-minted clients, builder-composed v5 sessions and subscriptions, `CancellationToken`-scoped publish and subscribe, handler-owned acknowledgement, and typed transport outcomes at the boundary
-- Reject: a direct `MqttClient` instantiation, a hand-rolled MQTT packet framer or second poller, exception-driven publish and subscribe flow, work inside the delivery handler, the `[Obsolete]` `MqttUserProperty.Value` read, and a raw result value crossing into an interior

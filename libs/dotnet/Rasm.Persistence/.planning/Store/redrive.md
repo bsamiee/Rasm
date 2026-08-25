@@ -22,7 +22,7 @@ Rasm.Persistence bands every process-seam store boundary into one closed fault f
 - Growth: a new boundary failure is one `RemoteStoreFault` case with its three projection rows; a new dialed operation is one `ObjectVerb` row every leg slot and every lifted fault then names; a new provider contributes its exception family to `Lift` alone; a per-leg exception catch, a second status fold, a band-local retriability interface, a per-case `bool`, or a re-drive executed at this tier is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
@@ -182,7 +182,7 @@ public abstract partial record RemoteStoreFault : Fault {
 - Growth: a third process-seam plane is one `StoreHop` arm carrying its own closed verb roster, with zero edits at the port or the verdict fold — that is the whole cost of expressing a coordination or provisioning re-drive the day either band's executor moves to the hop pipeline; a new re-drive posture is one kernel `Retriability` case with the `Settle` arm it selects; a new backoff shape is a `Schedule` composition at the policy mint; an `ObjectVerb`-typed port parameter, a delegate-column port, a second verdict vocabulary, or a retry loop at this tier is the deleted form.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------

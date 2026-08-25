@@ -20,7 +20,7 @@ The `Redaction` model, `REDACTION_KEY`, and the deterministic `ENCODE` arrive se
 - Boundary: this page renders, projects, and ships; it constructs no provider, exporter, or processor of the OTLP pipeline — `observability/telemetry#TELEMETRY` alone registers the `LoggerProvider` this chain resolves, and every runtime module below the composition root emits through `structlog`, never a direct stdlib-logging call. No SDK import enters: the logs API carries the whole emit seam, so the cold `sdk._logs` tier reifies at telemetry's install alone and `LogLimits` is a page-owned policy shape rather than the SDK type whose import reifies that tier in every composition root. Exception semantics stay the SDK's — handing `emit` the raised object is what lands the module-qualified type, the message, and the stack under the specification's own attribute names, so this page spells none of the three and admits no constant for them. SDK env-resolved record limits stand behind the wire as the deployment ceiling; the chain-resident bound is the policy floor both renders cross, applied before the record exists so a hostile payload reaches neither the console serializer nor the batch queue.
 
 ```python
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+# --- [IMPORTS] --------------------------------------------------------------------------
 import logging
 import sys
 import threading

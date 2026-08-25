@@ -1,17 +1,8 @@
 # [TS_TESTS_API_ELECTRIC_SQL_PGLITE]
 
-[PACKAGE_SURFACE]:
-- package: `@electric-sql/pglite` · license `Apache-2.0`
-- module: ESM (`type: module`) with a CJS mirror (`.cjs` + `.d.cts` under every export); subpath map is real — `.`, `./live`, `./worker`, `./template`, and `./contrib/*` per-extension entries.
-- asset: `dist/index.d.ts` (barrel over the hashed type bundle `dist/pglite-*.d.ts`); WASM binary + fs bundle ship inside the package (`fsBundle` / `pgliteWasmModule` overridable).
-- runtime: WebAssembly PGlite (a single Postgres build compiled to WASM) — single-connection, in-process, no socket, no Docker; runs identically in node, bun, browser, and worker.
-- plane: `plane:dev` — the `_testkit` fast unit lane; the container lane's counterpart is `testcontainers.md` (the real server-extension pg image `tests/containers.json` pins as the `pg` row).
-- canonical: the branch catalogue (`libs/typescript/data/.api/electric-sql-pglite.md`) owns the embedded-lane design surface; this dev-plane copy overlays it with the testkit lane facts.
-- rail: persistence-verification / in-process-sql.
+`@electric-sql/pglite` is the fast half of the `testkit` harness (`tests/typescript/testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds. `testkit`'s unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface.
 
-`@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds. `_testkit`'s unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface.
-
-It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane; `tests/typescript/_architecture` bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.
+It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows); schema setup here is raw `exec(ddl)`, never a migrator.
 
 ## [01]-[CORE]
 
@@ -129,13 +120,6 @@ Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options o
 
 [STACK: `PGlite` + `effect/Layer` + `@effect/vitest`] — the unit lane is a shared Layer, not a per-spec construct. `Layer.scoped(Tag, Effect.acquireRelease(Effect.promise(() => PGlite.create({ relaxedDurability: true })), db => Effect.promise(() => db.close())))` builds the handle once; the standalone `layer(PgLiteTest)("suite", (it) => …)` combinator (from `@effect/vitest`, see `fast-check.md` [05]) shares it across the block, and `Effect.tryPromise` wraps each `db.query`/`db.exec` into the folder's typed error rail. Seed DDL runs once in the Layer's acquire via `db.exec(schemaSql)`.
 
-[STACK CONSTRAINT: no migrator] — `@effect/sql` is admitted substrate, but the `tests/typescript/_architecture` suite asserts ZERO `@effect/sql/Migrator` / `@effect/sql-pg/PgMigrator` imports branch-wide. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver / the container lane). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir`; the container/real-pg lane (`testcontainers.md`) is migrator-free too, seeding server-extension DDL via raw `@effect/sql-pg` `sql` execute — the ban is branch-wide, so no lane runs a migrator, and the container lane owns real-pg, not a migration path.
+[STACK CONSTRAINT: no migrator] — no spec lane imports `@effect/sql/Migrator` or `@effect/sql-pg/PgMigrator`. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir`.
 
 [STACK: frozen-fixture reload] — a spec that must assert against a known database state reloads a `dumpDataDir` tarball through `PGliteOptions.loadDataDir`, aligning with the `libs/contracts/conformance/` byte-frozen vectors: the tarball is the frozen bytes, PGlite the reproducer.
-
-## [05]-[RAIL_LAW]
-
-- Owns: an in-process, single-connection Postgres for the fast verification lane; raw SQL execution, transactions with auto-rollback, tagged-template parametrization, reactive `live` queries, and `dumpDataDir`/`loadDataDir` snapshots.
-- Accept: `PGlite.create` with `relaxedDurability: true` and an in-memory `dataDir` for unit specs; raw `exec` DDL seeding; the `live` extension for convergence specs; the `./contrib/*` client extensions a query under test needs.
-- Reject: `@effect/sql-pg` / `PgMigrator` bridging (the container lane owns the real-pg `@effect/sql-pg` `PgClient` seam; migrations exist in NO lane — `PgMigrator` is banned branch-wide by the `tests/typescript/_architecture` suite, both lanes seed via raw DDL); server-extension-dependent assertions (route to `testcontainers`); concurrent access without `runExclusive` (single connection); importing from any `plane:runtime` folder — dev lane only.
-- Boundary: PGlite is one Postgres WASM connection — no parallel sessions, no `pg_stat` cross-connection visibility, no server extensions; when a spec needs any of those, it is a container-lane spec by definition.

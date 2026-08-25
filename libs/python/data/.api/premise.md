@@ -2,14 +2,7 @@
 
 `premise` transforms a present-day ecoinvent LCI database into prospective databases consistent with an integrated-assessment-model (IAM) climate/energy scenario and future year. It reads a source ecoinvent database (Brightway project or ecospold), applies per-sector transformations toward the IAM pathway, and writes the scenario database(s) back to Brightway, SimaPro, openLCA, sparse matrices, or a shareable datapackage. It builds the forward-looking background the Brightway solver scores; it computes no LCIA itself.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `premise`
-- package: `premise` (BSD-3-Clause)
-- module: `premise`
-- namespaces: `premise.{electricity, cement, steel, fuels, transport, heat, metals, battery, biomass, emissions}` — per-sector transformer modules dispatched by `NewDatabase.update()`
-- rail: epd-lca (prospective LCA background)
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the prospective-database builders
 
@@ -19,7 +12,7 @@
 |  [02]   | `IncrementalDatabase` | class         | stack sector transforms step-by-step for step sensitivity        |
 |  [03]   | `PathwaysDataPackage` | class         | time-series builder spanning a year grid for the `pathways` tool |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder methods (bare `.` owned by `NewDatabase`) and module utilities
 - ctor carry: `source_type` ∈ `brightway` (reads `source_db`) | `ecospold` (reads `source_file_path`); `system_model` ∈ `cutoff` | `consequential`; `key` decrypts the IAM scenario data
@@ -46,7 +39,7 @@
 |  [17]   | `get_regions_definition(model)`                              | static   | geographic region definitions for an IAM model             |
 |  [18]   | `scenario_downloader.download_csv(file_name, url)`           | static   | fetch an external scenario CSV                             |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - a scenario is `{"model", "pathway", "year"}`; `model` ∈ REMIND / IMAGE / TIAM-UCL / GCAM; `external_scenarios` injects a user IAM datapackage, `additional_inventories` imports extra LCI before transformation
@@ -69,9 +62,3 @@
 
 [LOCAL_ADMISSION]:
 - admit premise under the `[bw25]` extra so its Brightway store binds the `bw2data 4.x` line the admitted cluster requires, never the bw2-line default the bare install selects
-
-[RAIL_LAW]:
-- Package: `premise`
-- Owns: prospective ecoinvent database construction from IAM scenarios — the builders, the per-sector transformations, and the Brightway/SimaPro/openLCA/matrix/datapackage exporters
-- Accept: `NewDatabase(source_type='brightway', source_db=..., key=..., system_model=...).update().write_db_to_brightway(...)` as the canonical build→score path; `write_superstructure_db_to_brightway`/`write_datapackage` for multi-scenario/shareable forms; `IncrementalDatabase` for step sensitivity; `PathwaysDataPackage` for the year grid
-- Reject: scoring inside premise (route to `bw2calc`); building without a `bw2data` source project and `bw2setup()` biosphere; running without a valid ecoinvent license and decryption `key`; an outer process pool around `update()`; a stale inventory cache across an ecoinvent-version change

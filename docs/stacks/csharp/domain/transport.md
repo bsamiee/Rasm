@@ -50,7 +50,7 @@ public sealed partial class TransportRow {
         new GrpcChannelOptions {
             Credentials = ChannelCredentials.Insecure,
             HttpHandler = new SocketsHttpHandler { ConnectCallback = async (_, token) => {
-                var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+                Socket socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
                 await socket.ConnectAsync(new UnixDomainSocketEndPoint(route.SocketPath), token).ConfigureAwait(false);
                 return new NetworkStream(socket, ownsSocket: true);
             } },
@@ -84,8 +84,8 @@ public static class WireAxis {
     }
 
     private static async IAsyncEnumerable<TRes> Drained<TRes>(AsyncServerStreamingCall<TRes> call, [EnumeratorCancellation] CancellationToken token) {
-        using var owned = call;
-        await foreach (var item in call.ResponseStream.ReadAllAsync(token).ConfigureAwait(false)) { yield return item; }
+        using AsyncServerStreamingCall<TRes> owned = call;
+        await foreach (TRes item in call.ResponseStream.ReadAllAsync(token).ConfigureAwait(false)) { yield return item; }
     }
 }
 ```
@@ -157,7 +157,7 @@ public static class CallSeam {
     public static CallInvoker Stamped(GrpcChannel channel, Func<Seq<(string Key, string Value)>> departure) {
         ArgumentNullException.ThrowIfNull(channel);
         return channel.CreateCallInvoker().Intercept(headers => {
-            var stamped = headers ?? [];                                   // Exemption: Metadata is the mutable host collection the Func<Metadata,Metadata> seam returns; the pair sweep is the platform-forced statement seam, never a fold-costume over in-place mutation
+            Metadata stamped = headers ?? [];                                   // Exemption: Metadata is the mutable host collection the Func<Metadata,Metadata> seam returns; the pair sweep is the platform-forced statement seam, never a fold-costume over in-place mutation
             departure().Iter(pair => stamped.Add(pair.Key, pair.Value));
             return stamped;
         });
@@ -166,7 +166,7 @@ public static class CallSeam {
         TimeSpan budget, TimeProvider clock, CancellationToken caller, Func<FaultDetail, string, Error> remote) where TReq : class where TRes : class {
         ArgumentNullException.ThrowIfNull(invoker);
         ArgumentNullException.ThrowIfNull(clock);
-        var options = new CallOptions(deadline: clock.GetUtcNow().UtcDateTime + budget, cancellationToken: caller);
+        CallOptions options = new CallOptions(deadline: clock.GetUtcNow().UtcDateTime + budget, cancellationToken: caller);
         try { return Fin.Succ(await invoker.AsyncUnaryCall(method, host: null, options, request).ResponseAsync.ConfigureAwait(false)); }
         catch (RpcException wire) {
             Exception raised = wire;
@@ -180,7 +180,7 @@ public static class CallSeam {
         Op.Of().Catch(() => Fin.Succ(Optional(wire.GetRpcStatus())))
             .Match(
                 Succ: status => status
-                    .Bind(held => toSeq(held.Details).Filter(static any => any.Is(FaultDetail.Descriptor)) is [var only]
+                    .Bind(held => toSeq(held.Details).Filter(static any => any.Is(FaultDetail.Descriptor)) is [Any only]
                         ? Some(remote(only.Unpack<FaultDetail>(), held.Message))
                         : None)
                     .IfNone(() => wire.StatusCode switch {
@@ -296,7 +296,7 @@ public static class ServerRoot {
             .AddServiceOptions<RelayService>(static options => options.MaxReceiveMessageSize = null);
         builder.Services.AddGrpcHealthChecks(options => exposure.Rows.Iter(row => row.HealthTag.Iter(tag =>
             options.Services.Map(row.Service, registration => registration.Tags.Contains(tag)))));
-        var app = builder.Build();
+        WebApplication app = builder.Build();
         app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = false });
         exposure.Rows.Iter(row => ignore(row.Web ? row.Bind(app).EnableGrpcWeb() : row.Bind(app)));
         _ = app.MapGrpcHealthChecksService();
@@ -340,7 +340,7 @@ public static class Endpoint {
     public static Fin<Unit> Publish(Manifest manifest, string directory) =>
         Op.Of().Catch(() => {
             _ = Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staged = Path.Join(directory, $"{Name}.{manifest.Epoch}.staged");
+            string staged = Path.Join(directory, $"{Name}.{manifest.Epoch}.staged");
             File.WriteAllBytes(staged, JsonSerializer.SerializeToUtf8Bytes(manifest, ManifestContext.Default.Manifest));
             File.Move(staged, Path.Join(directory, Name), overwrite: true);
             return Fin.Succ(unit);
@@ -366,7 +366,7 @@ public static class Endpoint {
 
     private static Fin<bool> ConnectRefused(string socketPath) =>
         Op.Of().Catch(() => {
-            using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+            using Socket probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
             probe.Connect(new UnixDomainSocketEndPoint(socketPath));
             return Fin.Succ(false);
         }).BindFail(static captured => captured.Exception.Case is SocketException
@@ -401,9 +401,9 @@ public static class Corridor {
     public static Fin<byte[]> Stage(IMessage payload, FrameKind kind, Manifest manifest) {
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(kind);
-        var (cap, size) = (kind.Cap(manifest), payload.CalculateSize());
+        (int cap, int size) = (kind.Cap(manifest), payload.CalculateSize());
         if (size > cap) { return Fin.Fail<byte[]>(new TransportFault.Oversize(size, cap)); }
-        var frame = new byte[HeaderSize + size];
+        byte[] frame = new byte[HeaderSize + size];
         payload.WriteTo(frame.AsSpan(HeaderSize));
         (frame[0], frame[1]) = (Version, kind.Key);
         BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(2), size);
@@ -414,16 +414,16 @@ public static class Corridor {
     public static async Task<Fin<Admitted<T>>> Admit<T>(Stream lane, MessageParser<T> parser, Manifest manifest, CancellationToken token) where T : class, IMessage<T> {
         ArgumentNullException.ThrowIfNull(lane);
         return await Op.Of().Catch(async ct => {
-            var header = new byte[HeaderSize];
+            byte[] header = new byte[HeaderSize];
             try { await lane.ReadExactlyAsync(header, ct).ConfigureAwait(false); }
             catch (EndOfStreamException shortRead) {
                 Exception raised = shortRead;
                 return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("header", Error.New(raised.Message, raised)));
             }
-            if (header[0] != Version || FrameKind.Validate(header[1], null, out var kind) is not null) { return Fin.Fail<Admitted<T>>(new TransportFault.Misframed($"frame:{header[0]}:{header[1]}")); }
-            var (cap, length) = (kind!.Cap(manifest), BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(2)));
+            if (header[0] != Version || FrameKind.Validate(header[1], null, out FrameKind? kind) is not null) { return Fin.Fail<Admitted<T>>(new TransportFault.Misframed($"frame:{header[0]}:{header[1]}")); }
+            (int cap, int length) = (kind!.Cap(manifest), BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(2)));
             if (length > cap || length < 0) { return Fin.Fail<Admitted<T>>(new TransportFault.Oversize(length, cap)); }
-            var body = ArrayPool<byte>.Shared.Rent(length);
+            byte[] body = ArrayPool<byte>.Shared.Rent(length);
             try {
                 await lane.ReadExactlyAsync(body.AsMemory(0, length), ct).ConfigureAwait(false);
                 return Crc32.HashToUInt32(body.AsSpan(0, length)) != BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(6))
@@ -471,7 +471,7 @@ public static class SuiteCodecs {
             : Fin.Succ(unit);
 
     private static JsonSerializerOptions Frozen(Seq<PackageCodec> packages) {
-        var wire = new JsonSerializerOptions {
+        JsonSerializerOptions wire = new JsonSerializerOptions {
             TypeInfoResolver = JsonTypeInfoResolver.Combine([.. packages.Map(static package => package.Context)])
                 .WithAddedModifier(static info => info.UnmappedMemberHandling = info.Kind is JsonTypeInfoKind.Object ? JsonUnmappedMemberHandling.Disallow : info.UnmappedMemberHandling),
         };

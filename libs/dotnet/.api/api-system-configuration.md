@@ -2,15 +2,7 @@
 
 `System.Configuration.ConfigurationManager` owns the XML configuration document model end to end: one `Configuration` opened per file map and user level, the section, element, and property algebra its bodies declare, the settings-provider persistence rail, and the protected write-back that closes it. `Microsoft.Extensions.Configuration` owns runtime host configuration, so this surface enters only where a caller reads or writes an XML configuration document.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.Configuration.ConfigurationManager`
-- package: `System.Configuration.ConfigurationManager` (MIT)
-- assembly: `System.Configuration.ConfigurationManager.dll`
-- namespace: `System.Configuration`, `System.Configuration.Provider`, `System.Configuration.Internal`
-- rail: XML configuration document codec behind every `app.config` and `web.config` read or write
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: opened document, its section tree, and the open inputs
 
@@ -96,7 +88,7 @@
 [VALUE_CONVERTER]: `GenericEnumConverter` `TypeNameConverter` `InfiniteIntConverter` `InfiniteTimeSpanConverter` `TimeSpanMinutesConverter` `TimeSpanMinutesOrInfiniteConverter` `TimeSpanSecondsConverter` `TimeSpanSecondsOrInfiniteConverter` `WhiteSpaceTrimStringConverter` `CommaDelimitedStringCollectionConverter`
 [PROTECTION_PROVIDER]: `RsaProtectedConfigurationProvider` `DpapiProtectedConfigurationProvider` `ProtectedConfigurationProviderCollection` `ProviderCollection` `ProviderException`
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ConfigurationManager` — process-default reads and every mapped open
 
@@ -197,7 +189,7 @@
 [FILE_MAP_SLOT]: `ConfigurationFileMap.MachineConfigFilename` `ExeConfigurationFileMap.ExeConfigFilename` `ExeConfigurationFileMap.RoamingUserConfigFilename` `ExeConfigurationFileMap.LocalUserConfigFilename`
 [VALIDATOR_CTOR]: `IntegerValidator(int, int, bool, int)` `LongValidator(long, long, bool, long)` `StringValidator(int, int, string)` `RegexStringValidator(string)` `TimeSpanValidator(TimeSpan, TimeSpan, bool, long)` `SubclassTypeValidator(Type)` `CallbackValidator(Type, ValidatorCallback)`
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ConfigurationManager` opens one `Configuration` per file map and user level; every section read, element mutation, and save below it addresses that handle, never ambient process state.
@@ -213,9 +205,3 @@
 [LOCAL_ADMISSION]:
 - Non-default XML configuration documents open through a file map; the running executable's own opens through `ConfigurationManager.OpenExeConfiguration`.
 - New application settings route through the active host configuration owner.
-
-[RAIL_LAW]:
-- Package: `System.Configuration.ConfigurationManager`
-- Owns: XML configuration document model end to end — open, section algebra, element and property declaration, settings persistence, validation, protected write-back
-- Accept: documents opened through a file map or user level, `ConfigurationSection` subclasses declaring their own property table, `SettingsProvider` persistence, `ProtectedConfigurationProvider` encryption
-- Reject: a hand-parsed `app.config` or a bespoke XML settings reader beside this surface

@@ -2,15 +2,7 @@
 
 `jsPDF` mints one mutable PDF document a fluent draw/paginate/graphics-state API builds, emitting bytes through one polymorphic `output` a format token discriminates. `runtime/src/work/report.ts` internalizes it once: a document folds inside one `Effect.sync`, `output("arraybuffer")` crosses to `Uint8Array` a single time, and those bytes route to `FileSystem`, a jszip entry, or a nodemailer attachment under a durable report activity.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `jspdf`
-- package: `jspdf` (MIT)
-- module: dual — ESM (`dist/jspdf.es.min.js`) and a Node build (`dist/jspdf.node.min.js`); `exports` maps `.` and `./dist/*`; named exports (`jsPDF`, `GState`, `ShadingPattern`, AcroForm classes) beside `export default jsPDF`
-- runtime: isomorphic with a real Node build — the drawing API and `output("arraybuffer")` render headless; pure-JS, no native addon, CPU-bound, so a large document offloads off the request path. `html()` (html2canvas), `save()`, and `output("blob"\|"bloburi"\|"pdfobjectnewwindow")` need a DOM and never enter a Node job
-- rail: document egress; internalized at `runtime/src/work/report.ts`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the document root, its construction/security/metadata/text/image/table/viewer policy records, and the interactive, vector, and canvas-emulation types; each option struct's field roster rides the token lines below the grid.
 
@@ -43,7 +35,7 @@
 - `ViewerPreferencesInput`: `HideToolbar` `FitWindow` `DisplayDocTitle` `Duplex` `PrintScaling` `NumCopies`.
 - `Matrix` ops `multiply`/`inversed`/`decompose`/`applyToPoint`; `Context2d` ops `fillRect`/`arc`/`bezierCurveTo`/`drawImage`.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, draw, measure, paginate, set graphics state, and emit — every surface a `doc.*` method on the built document, its member families expanded in the token lines below.
 
@@ -72,7 +64,7 @@
 - graphics `setTextColor`/`setDrawColor`/`setFillColor`/`setLineWidth`/`setLineDashPattern`/`setLineCap`/`setLineJoin`/`setGState`/`saveGraphicsState`/`restoreGraphicsState`.
 - tabular `setTableHeaderRow` pins the header row.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `output` is one polymorphic egress: the format token selects the return (`"arraybuffer"` -> `ArrayBuffer`, `"blob"` -> `Blob`, `"datauristring"` -> `string`, `"pdfobjectnewwindow"` -> `Window`). A Node job pins the `arraybuffer` arm; the `Blob`/`URL`/`Window`/`save()` arms stay browser-only.
@@ -95,9 +87,3 @@
 - Build inside one `Effect.sync` and cross once at `output`; the mutable `jsPDF` never threads the `Effect` rail.
 - `addImage` takes `Uint8Array`/`RGBAData`/data-URI bytes; a DOM `HTMLImageElement`/`HTMLCanvasElement` source never enters a Node job.
 - `EncryptionOptions` passwords ride `Config.redacted`, `setCreationDate`/`compress` pin for byte stability, and shared furniture registers once on `jsPDF.API`.
-
-[RAIL_LAW]:
-- Package: `jspdf`
-- Owns: programmatic headless PDF rendering — the fluent draw/paginate/graphics-state API, the polymorphic `output` egress, measured layout, structured `table`/`cell`, `addImage` from bytes, encryption + metadata, AcroForm/outline/annotation structure, vector patterns/`GState`/`Matrix`, and the `jsPDF.API` registry
-- Accept: an `Effect.sync` build with one `output("arraybuffer")` -> `Uint8Array` crossing, `Schema`-typed rows, measured paging, byte-reproducible construction, `Redacted` passwords, bytes routed to `FileSystem`/`HttpBody`/jszip/nodemailer
-- Reject: `save()`/`html()`/`Blob`/`bloburi` egress in a Node job, the mutable document crossing the `Effect` boundary, hardcoded paging arithmetic, DOM image sources headless, inline passwords, per-call-site re-drawing of shared furniture

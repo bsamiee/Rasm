@@ -36,51 +36,11 @@
     </Folder>
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
-    <Folder Name="/tests/dotnet/_architecture/">
-        <Project Path="tests/dotnet/_architecture/Rasm.Architecture.Tests.csproj" />
+    <Folder Name="/tests/dotnet/scenariokit/">
+        <Project Path="tests/dotnet/scenariokit/Rasm.ScenarioKit.csproj" />
     </Folder>
-    <Folder Name="/tests/dotnet/_benchmarks/">
-        <Project Path="tests/dotnet/_benchmarks/Rasm.Benchmarks.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/_scenariokit/">
-        <Project Path="tests/dotnet/_scenariokit/Rasm.ScenarioKit.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/_testkit/">
-        <Project Path="tests/dotnet/_testkit/Rasm.TestKit.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/" />
-    <Folder Name="/tests/dotnet/libs/Rasm/">
-        <Project Path="tests/dotnet/libs/Rasm/Rasm.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.AppHost/">
-        <Project Path="tests/dotnet/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.AppUi/">
-        <Project Path="tests/dotnet/libs/Rasm.AppUi/Rasm.AppUi.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Bim/">
-        <Project Path="tests/dotnet/libs/Rasm.Bim/Rasm.Bim.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Compute/">
-        <Project Path="tests/dotnet/libs/Rasm.Compute/Rasm.Compute.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Element/">
-        <Project Path="tests/dotnet/libs/Rasm.Element/Rasm.Element.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Fabrication/">
-        <Project Path="tests/dotnet/libs/Rasm.Fabrication/Rasm.Fabrication.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Grasshopper/">
-        <Project Path="tests/dotnet/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Materials/">
-        <Project Path="tests/dotnet/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Persistence/">
-        <Project Path="tests/dotnet/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/Rasm.Rhino/">
-        <Project Path="tests/dotnet/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
+    <Folder Name="/tests/dotnet/testkit/">
+        <Project Path="tests/dotnet/testkit/Rasm.TestKit.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/scenarios/">
         <Project Path="tests/dotnet/scenarios/Rasm.Scenarios.csproj" />

@@ -30,7 +30,7 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 - Packages: Thinktecture.Runtime.Extensions (`[ValueObject<string>]`, `ComparerAccessors`), LanguageExt.Core (`Fin`, `Option`, `Try`), BCL inbox.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -149,7 +149,7 @@ public readonly partial struct Op {
 - Boundary: the attribute is designed vocabulary, not runtime behavior; a marked union with no sealed record cases is inert. Generator and analyzer rules home at the repository analyzer — this page owns only the contract name and the emitted `SelfOp` shape.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[Union]`), LanguageExt.Core (`Error`, `Option`, `Unit`), BCL inbox (`CultureInfo`, `[JsonIgnore]`), RhinoCommon (`UnitSystem`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
 using System.Text.Json.Serialization;
 using Rhino;
@@ -486,7 +486,7 @@ public static class FaultExtensions {
 - Packages: LanguageExt.Core (`Schedule`, `ScheduleTransformer`, `IO`, `Duration`, `Iterable`, `Option`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -575,7 +575,7 @@ public static class Redrive {
 - Boundary: `Owned.Project`'s `using` is the platform-forced disposal seam.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -673,7 +673,7 @@ public static class Custody {
 - Packages: LanguageExt.Core (`Atom`, `HashMap`, `Option`), Thinktecture.Runtime.Extensions (`[Union]`), `Rasm.Numerics` (`Dimension`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using Rasm.Numerics;
 
 namespace Rasm.Domain;
@@ -807,7 +807,7 @@ public static class Cell {
 - Packages: RhinoCommon (`RhinoMath`), System.Numerics.Tensors (`TensorPrimitives`), UnitsNet (`IQuantity`, `QuantityValue`).
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics.Tensors;
 using Rhino;
 using UnitsNet;
@@ -880,7 +880,7 @@ One Op-threading law rules every kernel page; no page re-decides it.
 - Growth: a new carrier is ONE `Carriers` row — the array shapes name the shared collection row, a distinct wire shape names its own converter. `Map<,>` is the one carrier still outside the table: it is ordered-keyed, so it lands as its own `Shaped` row with a converter that rebuilds through `toMap` rather than borrowing `HashMap`'s.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -989,7 +989,7 @@ One substrate floor; growth is a case, a band row, a claim row, a carrier row, o
 |  [05]   | Retriability + redrive | `Retriability` + `Redrive`            | `[Union]` discriminant + policy value   | `Error → Verdict`/`IO<T>`   |
 |  [06]   | Resource ownership     | `Lease<T>`                            | `[Union]` Owned/Borrowed cases          | `Lease<T>.Use → TResult`    |
 |  [07]   | Transition verdict     | `Transition<TState>` + `Cell`         | `[Union]` verdict + four CAS shapes     | `Atom<T> → Transition<T>`   |
-|  [08]   | Result validity       | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold             | `ValidityClaim.All → bool`  |
+|  [08]   | Result validity        | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold             | `ValidityClaim.All → bool`  |
 |  [09]   | Carrier codec          | `LanguageExtJsonConverterFactory`     | closed carrier-to-converter table       | mint registers, wire rides  |
 
 ## [12]-[RESEARCH]

@@ -49,9 +49,9 @@ public static class RenderCapsule {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(scene);
         return Op.Of().Catch(() => {
-            using var recorder = new SKPictureRecorder();
+            using SKPictureRecorder recorder = new SKPictureRecorder();
             scene(recorder.BeginRecording(cull, useRTree: true));
-            return recorder.EndRecording() is var recorded && recorded.ApproximateOperationCount <= policy.OpCeiling
+            return recorder.EndRecording() is SKPicture recorded && recorded.ApproximateOperationCount <= policy.OpCeiling
                 ? Fin.Succ(recorded)
                 : (fun(recorded.Dispose)(), Fin.Fail<SKPicture>(Error.New(7801, $"<op-budget:{recorded.ApproximateOperationCount}:{policy.OpCeiling}>"))).Item2;
         });
@@ -71,11 +71,11 @@ public static class RenderCapsule {
     static Fin<RenderedFrame> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
         if (info.BytesSize64 > policy.ByteCeiling) { return Fin.Fail<RenderedFrame>(Error.New(7802, $"<byte-gate:{info.BytesSize64}>")); }
         return Op.Of().Catch(() => {
-            using var surface = SKSurface.Create(info, policy.Props);
+            using SKSurface surface = SKSurface.Create(info, policy.Props);
             surface.Canvas.Clear(SKColors.Transparent);
             surface.Canvas.Scale(scale);
             surface.Canvas.DrawPicture(scene);
-            using var pixels = surface.PeekPixels();
+            using SKPixmap pixels = surface.PeekPixels();
             return Fin.Succ(new RenderedFrame(
                 Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
                 info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount));
@@ -122,9 +122,9 @@ public static class DocumentExport {
     public static Fin<ExportResult> Commit(DocumentFormat format, Stream sink, Seq<PageSpec> pages, RenderPolicy evidence, DateTime stamp) {
         ArgumentNullException.ThrowIfNull(format);
         ArgumentNullException.ThrowIfNull(sink);
-        var key = Op.Of();
+        Op key = Op.Of();
         return key.Catch(() => {
-            using var document = format.Open(sink, stamp);
+            using SKDocument document = format.Open(sink, stamp);
             return pages.Map((page, index) => Emit(document, evidence, index, page))
                 .TraverseM(identity).As()
                 .Bind(results => key.Catch(() => {
@@ -141,7 +141,7 @@ public static class DocumentExport {
     }
 
     static Fin<PageEvidence> Emit(SKDocument document, RenderPolicy evidence, int index, PageSpec page) {
-        var canvas = document.BeginPage(page.Width, page.Height);
+        SKCanvas canvas = document.BeginPage(page.Width, page.Height);
         canvas.DrawPicture(page.Content);
         document.EndPage();
         return RenderCapsule.Project(new Target.Evidence(), evidence, page.Content)
@@ -169,7 +169,7 @@ public sealed class FontHandle : IDisposable {
 
     public FontHandle(SKTypeface typeface) {
         ArgumentNullException.ThrowIfNull(typeface);
-        using var stream = typeface.OpenStream(out var ttcIndex);
+        using SKStreamAsset stream = typeface.OpenStream(out int ttcIndex);
         blob = stream.ToHarfBuzzBlob(); face = new Face(blob, ttcIndex); face.MakeImmutable();
         Font = new Font(face); Font.SetScale(DesignScale, DesignScale);
     }
@@ -186,20 +186,20 @@ public static class ShapeBoundary {
     public static ShapedRun Shape(string text, RunSpec spec, Font font, SKFont raster, params Feature[] features) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(raster);
-        using var buffer = new Buffer();
+        using Buffer buffer = new Buffer();
         buffer.AddUtf16(text);
         (buffer.Direction, buffer.Script, buffer.Language, buffer.ClusterLevel) = (spec.Direction, spec.Script, spec.Language, spec.Level);
         font.Shape(buffer, features);
         ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
         ReadOnlySpan<GlyphPosition> positions = buffer.GetGlyphPositionSpan();
-        var scale = raster.Size / (float)FontHandle.DesignScale;
-        using var builder = new SKTextBlobBuilder();
-        var run = builder.AllocatePositionedRun(raster, infos.Length);
+        float scale = raster.Size / (float)FontHandle.DesignScale;
+        using SKTextBlobBuilder builder = new SKTextBlobBuilder();
+        SKPositionedRunBuffer run = builder.AllocatePositionedRun(raster, infos.Length);
         Span<ushort> glyphs = run.Glyphs;
         Span<SKPoint> points = run.Positions;
-        var clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
-        var cursor = 0f;
-        for (var i = 0; i < infos.Length; i++) {                          // Exemption: zero-alloc shaped-run fill — GlyphInfos/GlyphPositions array properties recopy, the span accessors do not
+        ImmutableArray<int>.Builder clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
+        float cursor = 0f;
+        for (int i = 0; i < infos.Length; i++) {                          // Exemption: zero-alloc shaped-run fill — GlyphInfos/GlyphPositions array properties recopy, the span accessors do not
             glyphs[i] = (ushort)infos[i].Codepoint;
             points[i] = new SKPoint(cursor + (positions[i].XOffset * scale), -positions[i].YOffset * scale);
             clusters.Add((int)infos[i].Cluster);
@@ -244,7 +244,7 @@ public static class VectorAssets {
         return Op.Of().Catch(() => {
             owner = new SKSvg();
             if (owner.Load(source) is null) { return Fin.Fail<SKSvg>(Error.New(7821, "<parse-failure>")); }
-            var admitted = owner;
+            SKSvg admitted = owner;
             owner = null;
             return Fin.Succ(admitted);
         }).Rollback(owner);
@@ -296,7 +296,7 @@ public sealed record SeriesSpec(
 public static class ChartEvidence {
     public static ISeries Materialize(SeriesSpec spec, HashMap<string, SolidColorPaint> paints) {
         ArgumentNullException.ThrowIfNull(spec);
-        var projected = spec.Values.Select(spec.Projection).ToArray();
+        double[] projected = spec.Values.Select(spec.Projection).ToArray();
         return spec.Kind.Switch(
             state: (Values: projected, Paint: paints[spec.Paint], spec.Geometry),
             trend: static s => Posed(new LineSeries<double> {
@@ -364,9 +364,9 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
     public Resolved<TPayload> Current => cell.Value;
 
     public (int Generation, Seq<string> Changed, string Axis) Swap(string axis, string nextVariant, string nextDensity) {
-        var (next, prior) = (catalog.Resolve(nextVariant, nextDensity), Current);
-        var generation = cell.Swap(held => new Resolved<TPayload>((prior = held).Generation + 1, axis, next)).Generation;
-        var changed = toSeq(next.Filter((key, value) =>
+        (HashMap<string, TPayload> next, Resolved<TPayload> prior) = (catalog.Resolve(nextVariant, nextDensity), Current);
+        int generation = cell.Swap(held => new Resolved<TPayload>((prior = held).Generation + 1, axis, next)).Generation;
+        Seq<string> changed = toSeq(next.Filter((key, value) =>
             prior.Artifacts.Find(key).Map(was => !value.Equals(was)).IfNone(true)).Keys);
         return (generation, changed, axis);
     }
@@ -403,7 +403,7 @@ public static class Ramps {
     public static Fin<TweenRow> Build(
         MotionToken motion, Unicolour from, Unicolour to, int stops, Option<Unicolour> pivot = default) =>
         Stops(from, to, stops, pivot)
-            .Bind(seq => double.Sign(to.Oklab.L - from.Oklab.L) is var trend
+            .Bind(seq => double.Sign(to.Oklab.L - from.Oklab.L) is int trend
                       && seq.Zip(seq.Skip(1)).ForAll(pair => trend * (pair.Second.Oklab.L - pair.First.Oklab.L) >= 0)
                 ? Fin.Succ(seq)
                 : Fin.Fail<Seq<Unicolour>>(Error.New(7861, "<non-monotonic-lightness>")))

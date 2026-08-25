@@ -2,17 +2,7 @@
 
 `ziafont` outlines text to SVG `<path>` geometry with zero runtime dependencies: it reads a `glyf`/`CFF`/`CFF2` sfnt through the font's own cmap, shapes with full GSUB and GPOS, and lowers each glyph to an `xml.etree.ElementTree` `<path>` — surviving where the font is absent, the gap `drawsvg.Text`'s font-dependent `<text>` leaves. `Font` owns load, shape, and per-glyph access; `Text` owns the shaped run that serializes standalone or composites into an SVG tree via `drawon`. Math layout is `ziamath` and color-glyph raster is `blackrenderer`; this catalog owns the sfnt-to-`<path>` fold alone.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `ziafont`
-- package: `ziafont` (MIT)
-- module: `ziafont`
-- namespaces: `ziafont`, `ziafont.glyph`, `ziafont.fonttypes`, `ziafont.gsub`, `ziafont.gpos`, `ziafont.inspect`
-- owner: `artifacts`
-- rail: glyphset
-- depends: none — parses the sfnt binary itself, bundles `ziafont/fonts/DejaVuSans.ttf` as the no-argument fallback, and emits stdlib `xml.etree.ElementTree`
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the two owners, the shared glyph family, and the value records
 
@@ -28,7 +18,7 @@
 |  [08]   | `ziafont.fonttypes.FontInfo`  | font metrics         | parsed `head`/`hhea`/`OS/2` metrics — units-per-em, ascent/descent, advance       |
 |  [09]   | `ziafont.config`              | global render policy | the `Config` render policy, set once and read by every serialize                  |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Font` load, shape, and glyph access
 - run tail (shared, `Font.text` and `Text`): `size`, `linespacing`, `halign`, `valign`, `color`, `rotation`, `rotation_mode`
@@ -95,7 +85,7 @@
 
 - `find_font`, `system_fonts`: return `None` and an empty map when nothing resolves.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - two owners: `Font` owns load, cmap, GSUB, GPOS, and glyph access; `Text` owns the laid-out run and its SVG egress. `Font.text` returns a `Text`, so one run type exists — a design constructs through `Font.text` and reads `.svg()`/`.svgxml()`/`.drawon(...)`.
@@ -118,9 +108,3 @@
 - shaping is `Font.text`/`Font.advance` under `Font.language(script, language)`; the owned `gsub.Gsub`/`gpos.Gpos` engines apply the lookup-type dispatch.
 - run/font policy is a typed `msgspec.Struct` over `family`/`size`/`linespacing`/`halign`/`valign`/`color`/`rotation`/`script`/`language`; the render policy is `ziafont.config`, set once.
 - discovery binds the family through `system_fonts`/`find_font` and answers font-feature coverage through `inspect.DescribeFont`/`LookupDisplay`; the parse and discovery ride the `RuntimeRail` so a missing family or malformed sfnt is a typed failure.
-
-[RAIL_LAW]:
-- Package: `ziafont`
-- Owns: pure-Python text-to-SVG-`<path>` outlining — sfnt (`glyf`/`CFF`/`CFF2`) read through the font's own cmap, full GSUB and GPOS under a chosen script and language, per-glyph `<path>`/`<symbol>`/`<svg>` emission, and a shaped multi-line run serializing standalone or compositing into an SVG tree, with `system_fonts`/`find_font` discovery and the `inspect` feature-QA surface
-- Accept: a `FONT_OUTLINE` arm on `visualization/diagram/draw#DRAW` outlining label text to `<path>` inside the named SVG layer; the text-mark outline source `visualization/diagram/glyphset#GLYPHSET` admits; the outlined-label / text-on-path seam `typography/shape#SHAPE` composes via `SimpleGlyph.svgpath`/`Text.drawon`; the `Font`/glyph surface `ziamath` builds equation glyph runs on; the typed run/font policy struct and the global `config`
-- Reject: a font-dependent `<text>` element where outlined `<path>` geometry is the goal; a hand-walked `glyf`/`CFF` charstring or cmap lookup where `SimpleGlyph` decodes; a hand-rolled kern/ligature/alternate substitution where `gsub.Gsub`/`gpos.Gpos` apply it; a full-document complex-script run where `uharfbuzz` is the shaper, or a caption-to-outline routed to the heavier `uharfbuzz`+`blackrenderer` stack; a math-bearing annotation where the `ziamath` sibling owns it; `svg2`/`precision`/`fontsize` threaded per call where the global `ziafont.config` owns the render policy

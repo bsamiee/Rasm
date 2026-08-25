@@ -2,15 +2,7 @@
 
 `Microsoft.Extensions.Options` binds every runtime policy record to a named, validated value resolved through DI, folding configure, post-configure, and validation stages behind one `OptionsBuilder` pipeline that runs once per `(type, name)` and caches. Its boundary is composition: policy enters as bounded named options at the composition root and reaches runtime as an immutable typed value or an explicit `IOptionsMonitor` change transition, feeding the options rail every AppHost policy consumer binds.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.Options`
-- package: `Microsoft.Extensions.Options`
-- assembly: `Microsoft.Extensions.Options`
-- namespace: `Microsoft.Extensions.Options`, `Microsoft.Extensions.DependencyInjection`
-- rail: options
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: contracts, access, and the builder
 
@@ -49,7 +41,7 @@
 |  [14]   | `ValidateObjectMembersAttribute`   | class         | recurses validation into a member            |
 |  [15]   | `ValidateEnumeratedItemsAttribute` | class         | validates each collection item               |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and access operations
 
@@ -75,7 +67,7 @@
 |  [18]   | `IOptionsMonitorCache.TryRemove(string) -> bool`        | instance | evicts one named value                     |
 |  [19]   | `IOptionsMonitorCache.Clear()`                          | instance | evicts every cached value                  |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every value is keyed by a name; the default name is the empty string, and one `(type, name)` pair runs the configure → post-configure → validate pipeline once, then caches.
@@ -94,9 +86,3 @@
 - Runtime-critical policy binds `ValidateOnStart`; deferred first-access validation is rejected.
 - Reloads ride an explicit `IOptionsMonitor.OnChange` transition; ambient re-read of a mutable value rejects.
 - Configure and post-configure actions run at composition roots.
-
-[RAIL_LAW]:
-- Package: `Microsoft.Extensions.Options`
-- Owns: named, validated runtime policy values
-- Accept: policy bound from the config chain and validated at host start
-- Reject: static config singletons and scattered `IConfiguration.GetValue` reads

@@ -22,7 +22,7 @@ Under `SEED_ROW_LAW` the pure standards data are frozen row tables with per-colu
 - Boundary: PT hardware carries no dimension a certificate has not published, so no hardware `Component` seeds today — the hardware reaches the seam as the post-tensioned tendon's own `ReinforcementDetail` rows (`AnchorageType`/`DuctDiameter`/`TendonProfile`, each stamped only where its column is `Some`), and the `DuctDiameter` row rides BESIDE the strand's own `NominalDiameter` because a tendon assembly carries both facts as two rows, exactly as `Rasm.Element/Properties/property#DETAIL_SCHEMA` declares them. The retired `AnchorageRow` was a key beside a kind and nothing else, and its strand-count column restated the mono-versus-multi split the kind row already makes, so the assembly references `AnchorageKind` directly; `ConduitRow` survives as the certificate-slot CURRENCY: both rows carry `InnerDiameterMm: None` today, so the `DuctDiameter` stamp is TYPED-ABSENT until a certified diameter two-sources — the reader exists and fires the day one cell fills, and a row whose slot never fills falls to the `AnchorageRow` verdict at that census.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+// --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;

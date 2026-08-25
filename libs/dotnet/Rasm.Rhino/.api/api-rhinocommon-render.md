@@ -2,17 +2,7 @@
 
 `Rhino.Render` owns the batch-render lifecycle and its framebuffer. `RenderPipeline` drives an abstract batch session over a `RhinoDoc` — scene population, full-frame or view-region render, pause/resume gating — into a `RenderWindow` render target exposing the standard framebuffer channels, `Channel`/`ChannelGPU` per-pixel access, image adjustment, and post-effect registration; `RenderTexture` yields a live per-point `TextureEvaluator` or a simulated-texture bake; and the `Rhino.Render.PostEffects` family registers and gates the post-processing effects the framebuffer runs. `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render-realtime.md` owns the disjoint realtime slice, drawing this catalog's line at batch lifecycle, framebuffer channels, texture evaluation, and post-effects. `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-rendercontent.md` owns the `RenderTexture` content authoring and `SimulatedTexture` bake carrier this catalog evaluates; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-rendersettings.md` owns the `RenderSettings` a render consumes and the `PostEffectCollection` the effects populate; and `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document.md` owns the `RhinoDoc`/`ViewInfo`/`ViewportInfo` carriers the pipeline and window bind.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: RhinoCommon batch-render surface
-- host: Rhino host runtime, in-process (proprietary McNeel SDK)
-- assembly: `RhinoCommon`
-- namespaces: `Rhino.Render`, `Rhino.Render.PostEffects`
-- kernel: `Rasm` (host-agnostic color and size owners composed, never re-derived)
-- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
-- rail: batch-render boundary
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: batch renderer, framebuffer, and texture evaluation
 - rail: batch-render boundary
@@ -55,7 +45,7 @@
 - `public enum Rhino.Display.DisplayTechnology` — `None`, `OpenGL`, `Metal`, `DirectX`, `Software`, `Vulkan`; `ChannelGPU.DisplayTechnology` names which handle member carries the texture.
 - `public enum Rhino.Render.Dithering.Methods` — `None`, `FloydSteinberg`, `SimpleNoise`; the `RenderWindow.ImageAdjust.Dither` axis.
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [BATCH_PIPELINE]:
 - `Rhino.Render.RenderPipeline(RhinoDoc doc, RunMode mode, PlugIn plugin, Size sizeRendering, string caption, RenderWindow.StandardChannels channels, bool reuseRenderWindow, bool clearLastRendering)` / `RenderPipeline(RhinoDoc, RunMode, PlugIn, Size, string, RenderWindow.StandardChannels, bool, bool, ref AsyncRenderContext aRC)` — protected constructors binding document, plug-in, size, and channel set; the `AsyncRenderContext` overload wires an async engine (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render-realtime.md`).
@@ -98,7 +88,7 @@
 - `Rhino.Render.PostEffects.PostEffectPipeline.GetChannelForRead(Guid id) -> PostEffectChannel` / `GetChannelForWrite(Guid id) -> PostEffectChannel` / `Dimensions() -> Size` / `GPUAllowed -> bool` / `IsRendering -> bool` / `RenderingId -> Guid` / `ExecutionOrder() -> Guid[]` / `GetMaxLuminance() -> float` / `GetStartTimeInMilliseconds() -> ulong` / `GetEndTimeInMilliseconds() -> ulong` / `SetStartTimeInMilliseconds(ulong) -> void` / `ThreadEngine() -> PostEffectThreadEngine` / `Execute(Rectangle, bool, PostEffectExecuteContexts, PostEffectHistograms) -> bool` — the execute-body surface a `PostEffect.Execute` receives; `PostEffectPipeline : IDisposable, IProgress<int>, IPostEffects`, its constructor is internal, and the explicit `IProgress<int>.Report(int rowsCompleted)` is both the progress report and the cancellation signal a pixel loop polls.
 - `Rhino.Render.PostEffects.PostEffectChannel.CPU() -> RenderWindow.Channel` / `GPU() -> RenderWindow.ChannelGPU` / `Commit() -> void` / `Clone() -> PostEffectChannel` / `Id -> Guid` / `PixelSize -> int` — one pipeline channel projected to CPU pixels or a GPU texture; `PostEffectChannel : IDisposable` with an internal constructor, both projections return `null` when the channel has no such backing, and a channel obtained through `GetChannelForWrite` reaches the next effect in the chain only after `Commit`.
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [RENDER_TOPOLOGY]:
 - `RenderPipeline` is the single batch owner: one abstract session subclass binds document, plug-in, size, and channels at protected construction, implements the four worker hooks (`OnRenderBegin`/`OnRenderWindowBegin` start, `ContinueModal` polls, `OnRenderEnd` settles) and the scene-population virtuals, and `Render` runs it into a `RenderWindow`; the session is `IDisposable` releasing the native render session, while every `GetRenderWindow*` wrapper is caller-owned and disposes at its borrow.
@@ -120,9 +110,3 @@
 
 [LOCAL_ADMISSION]:
 - `Rhino.Render` batch types are host handles trapped and mapped at the boundary; a `RenderPipeline`, `RenderWindow`, `TextureEvaluator`, or `PostEffect` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape, and `RenderPipeline`/`RenderWindow`/`PostEffect` is the single batch/framebuffer/effect owner.
-
-[RAIL_LAW]:
-- Surface: `Rhino.Render` batch slice + `Rhino.Render.PostEffects`
-- Owns: the `RenderPipeline` batch session (construct, populate scene, render/pause/resume, save), the `RenderWindow` framebuffer (standard channels, `Channel` per-pixel access, image adjust, wireframe, post-effect registration), `RenderTexture` evaluation and simulation with `TextureEvaluator`, and the `PostEffect`/`PostEffectPipeline`/`PostEffectChannel`/`PostEffectState`/`PostEffectUI`/`CustomPostEffectAttribute`/`PostEffectUuids`/`PostEffectExecutionControl` family with its `ChannelGPU` texture-handle path.
-- Accept: a batch render session run into a `RenderWindow`; explicit `OpenChannel`/`Channel.SetValue`/`SetRGBAChannelColors` per-pixel access; live `CreateEvaluator` or gated `SimulateTexture` evaluation; a registered `PostEffect` gated by `PostEffectExecutionControl`; host crossings captured through `Op.Catch` onto `Fin` and channel/mode/effect enums mapped to bounded owners at the edge.
-- Reject: a raw framebuffer pointer beside an opened channel, a batch and realtime path merged into one owner, a private post-processing pass beside a registered `PostEffect`, a re-derived color blend where the kernel color rail is composed, a `ChannelGPU` sought from a `RenderWindow` where only `PostEffectChannel.GPU()` produces one, a freshly constructed `ImageAdjust` where the constructor is internal, a bare `Guid` literal where `PostEffectUuids` names the built-in, an execution gate registered from a scope narrower than the render that consults it or left unrooted against its weak registry entry, a consumer-composed `Detach` beside the one registration already calls, and a `RenderPipeline`/`RenderWindow`/`PostEffectPipeline`/`PostEffectChannel`/`TextureEvaluator`/`PostEffect` escaping into a domain signature.

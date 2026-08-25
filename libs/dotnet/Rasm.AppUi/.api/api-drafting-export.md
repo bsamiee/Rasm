@@ -2,18 +2,7 @@
 
 `DocumentFormat.OpenXml` supplies AppUi's document-export rail, authoring OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph. The CAD drafting-write leg beside it composes `ACadSharp` — AppUi holds CAD WRITE authority alone, one authored `CadDocument` folded to DWG, DXF, and SVG — and that package's member truth is the branch substrate catalogue (`libs/dotnet/.api/api-acadsharp.md`); this file registers the write leg and carries the OOXML surface.
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
-- package: `DocumentFormat.OpenXml` (MIT)
-- assembly: `DocumentFormat.OpenXml`
-- namespace: `DocumentFormat.OpenXml.Packaging`, `.Wordprocessing`, `.Spreadsheet`, `.Presentation`
-- asset: managed runtime library (depends `DocumentFormat.OpenXml.Framework`)
-- rail: document-export
-
-[REGISTRATION]: `ACadSharp` — branch substrate at `libs/dotnet/.api/api-acadsharp.md`; AppUi composes the WRITE partition alone (`DwgWriter`/`DxfWriter`/`SvgWriter`, `ACadVersion` policy, the registered-table linetype/layer discipline), and every reader spelling belongs to the Bim and Fabrication READ boundaries.
-
-## [02]-[PUBLIC_TYPES]
+## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml document packages
 
@@ -44,7 +33,7 @@
 |  [11]   | `Paragraph` / `Run` / `Text` | content element        | docx paragraph/run/text run            |
 |  [12]   | `SpaceProcessingModeValues`  | enum                   | run-text whitespace preservation       |
 
-## [03]-[ENTRYPOINTS]
+## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
 
@@ -68,7 +57,7 @@
 |  [06]   | `AppendChild(element)` / `Append(elements)`                                 | instance | child-element insert  |
 |  [07]   | `part.Workbook` / `part.Worksheet` / `part.Document`                        | property | root-element assign   |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - OOXML authoring flows root-first over one disposable package: `Create` mints it, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, `GetIdOfPart` supplies the relationship id a `Sheet` binds, content appends through `Append`/`AppendChild`, and `Save` under a `using` scope commits the byte stream.
@@ -80,8 +69,3 @@
 [LOCAL_ADMISSION]:
 - AppUi emits a CAD file, never opens one — READ belongs to the Bim and Fabrication boundaries.
 - OOXML packages are disposable: every create path pairs with `Save`/`Dispose` or a `using` scope, and part construction rides typed part/element APIs.
-
-[RAIL_LAW]:
-- Package: `DocumentFormat.OpenXml` — owns OOXML docx/xlsx/pptx package authoring
-- Accept: export flows through typed document roots, their part-add factories, and `Append`/`AppendChild` content builds committed under `Save`/`Dispose`
-- Reject: raw ZIP/XML manipulation of OOXML packages, an AppUi-side CAD reader, and any CAD-write member truth restated here instead of the branch `ACadSharp` catalogue
