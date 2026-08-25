@@ -1,2 +1,2 @@
-# Auto-applied to every CLI MSBuild/dotnet invocation from this tree down; Visual Studio ignores .rsp, nothing load-bearing lives here — IDE-and-CLI facts belong in Directory.Build.props.
+# Auto-applied to every CLI MSBuild/dotnet invocation from this tree down
 -check
