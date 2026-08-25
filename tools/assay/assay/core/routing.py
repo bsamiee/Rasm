@@ -11,17 +11,17 @@ from functools import reduce
 from pathlib import PurePosixPath
 from posixpath import normpath
 from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
-import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local .csproj XML from source.read, never network-sourced
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]
 
 import anyio
-from expression import Error, Ok, Result  # beartype resolves routing Result annotations at runtime (PEP 649)
+from expression import Error, Ok, Result
 import msgspec
 import structlog
 from upath import UPath
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # beartype resolves route/target_files settings annotations at runtime
-from assay.core.model import Base, Check, Claim, Fault, Input, Language, Mode, RailStatus, Tool  # msgspec needs Language/Tool annotations at runtime
+from assay.composition.settings import AssaySettings
+from assay.core.model import Base, Check, Claim, Fault, Input, Language, Mode, RailStatus, Tool
 
 
 if TYPE_CHECKING:
@@ -134,7 +134,6 @@ class _LocalSource:
     root: UPath
 
     def changed(self) -> Result[tuple[str, ...], Fault]:
-        # Deleted paths ride the git census but carry nothing to check; only on-disk survivors route to tools.
         seed: Result[tuple[str, ...], Fault] = Ok(())
         return (
             reduce(
@@ -156,7 +155,6 @@ class _LocalSource:
 
 
 def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    # A missing explicit target warns and contributes zero rows; one stale path does not fault the full request.
     absolute = root / target
     match (absolute.is_dir(), absolute.is_file()):
         case (True, _):
@@ -229,7 +227,6 @@ def _owner(rel: str, index: ProjectIndex) -> str | None:
 
 
 def _refs(rel: str, source: Source) -> frozenset[str]:
-    # Unreadable or malformed .csproj becomes an isolated graph node; fault does not propagate.
     base = PurePosixPath(rel).parent
     return (
         source
@@ -253,7 +250,7 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
         Extracted values in document order, empties dropped.
     """
     try:
-        tree = ET.fromstring(raw or b"<Project/>")  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local MSBuild XML, never network-sourced
+        tree = ET.fromstring(raw or b"<Project/>")  # ruff:ignore[suspicious-xml-element-tree-usage]
     except ET.ParseError:
         return ()
     nodes = tuple(el for el in tree.iter() if el.tag.rpartition("}")[2] == tag)
@@ -265,7 +262,6 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
 
 
 def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> frozenset[str]:
-    # Monotone fixed-point: len(graph) passes is sufficient because each pass adds at least one node or terminates.
     graph = {rel: _refs(rel, source) for rel in index.values()}
     return reduce(
         lambda current, _: current | frozenset(p for p, refs in graph.items() if p not in current and bool(current & refs)), range(len(graph)), seeds
@@ -277,8 +273,6 @@ def _escalate(files: tuple[str, ...], settings: AssaySettings) -> tuple[str, ...
 
 
 def _glob(language: Language, files: tuple[str, ...]) -> Result[Routed, Fault]:
-    # Glob-strategy languages have no project graph, so a changed source file scopes the route to itself. A changed
-    # lane GOVERNOR carries no suffix and moves every verdict, so it escalates to FULL and rides as the trigger row.
     governors = _norm(tuple(f for f in files if f in language.governors))
     sources = _norm(tuple(f for f in files if PurePosixPath(f).suffix in language.suffixes))
     return Ok(
@@ -303,12 +297,11 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
     seeds = frozenset(index[owner] for owner in owned.values())
     closure = _dependents(seeds, index, source)
     groups = tuple((owner_proj, tuple(sorted(f for f, owner in owned.items() if index[owner] == owner_proj))) for owner_proj in sorted(seeds))
-    # Only the explicit marker is authoritative; path shape and RhinoCommon-awareness are non-signals.
     host = tuple(
         sorted(
             p
             for p in closure
-            if source.read(p).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))).default_value(False)  # ruff:ignore[boolean-positional-value-in-call]  # expression sentinel default, not a behavior flag
+            if source.read(p).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))).default_value(False)  # ruff:ignore[boolean-positional-value-in-call]
         )
     )
     files = _norm(tuple(owned.keys()))
@@ -407,7 +400,7 @@ def target_files(
     )
 
 
-def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # one arm per Input member; the axis is closed
+def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:
     """Project routed inputs into command argument tail groups for one tool.
 
     Args:
@@ -424,9 +417,6 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
-            # Host-bound projects compile managed-safe but cannot execute outside the host runtime. The placement
-            # flag is row data (Tool.input_flag); a staged row anchors the project absolutely because its cwd is the
-            # copy-staged work root, not the repo tree.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             return tuple(
                 (*tool.input_flag, str(settings.root / project) if tool.input_flag and tool.stage.root else project)
@@ -439,7 +429,6 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.NONE:
             return ((*routed.files,),) if routed.files else ((),)
         case Input.OWNED:
-            # The command embeds its own input placement; one invocation with no extra tail.
             return ((),)
         case never:  # pragma: no cover
             assert_never(never)
@@ -463,7 +452,6 @@ def expand(checks: tuple[Check, ...], routed: Routed, *, settings: AssaySettings
         tails = place(routed, check.tool, settings=settings)
         match (tails, check.tool.input):
             case ((), Input.PROJECT) if routed.projects:
-                # Host routing dropped every project; an unpinned tail would run the tool against the whole tree.
                 return ()
             case _:
                 return (check,) if len(tails) <= 1 else tuple(msgspec.structs.replace(check, tail=tail) for tail in tails)

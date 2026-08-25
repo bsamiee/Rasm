@@ -11,7 +11,6 @@ namespace Rasm.Csp.Tests.Meta;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Empty catalogs are valid only when central CSP bands and rule docs are also empty.
 public sealed class CatalogInvariants {
     private static readonly string[] BannedEverywhere = [
         "CultureInfo.CurrentCulture",
@@ -31,7 +30,6 @@ public sealed class CatalogInvariants {
         .Single(predicate: static attribute => string.Equals(attribute.Key, "RepoRoot", StringComparison.Ordinal))
         .Value!;
 
-    // Static RuleRow fields and properties must register exactly once in Catalog.All.
     [Fact]
     public void RowsRegistered() {
         const BindingFlags Statics = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
@@ -49,7 +47,6 @@ public sealed class CatalogInvariants {
         Assert.Equal(expected: Catalog.All.Length, actual: distinct);
     }
 
-    // Every catalog row needs positive and negative facts, with no orphan [RuleSpec] IDs.
     [Fact]
     public void RowsTested() {
         Type[] specTypes = typeof(CatalogInvariants).Assembly.GetTypes();
@@ -78,7 +75,6 @@ public sealed class CatalogInvariants {
         Assert.Empty(failures);
     }
 
-    // Law-tier messages carry the fix route grammar agents need at the diagnostic site.
     [Fact]
     public void LawMessagesCarryFix() {
         List<string> failures = [];
@@ -88,7 +84,6 @@ public sealed class CatalogInvariants {
         Assert.Empty(failures);
     }
 
-    // Predicate code uses symbol identity; display formatting and ambient reads stay out of rules.
     [Fact]
     public void SourceHygiene() {
         string analyzerRoot = Path.Combine(RepoRoot, "tools", "cs-analyzer");
@@ -109,7 +104,6 @@ public sealed class CatalogInvariants {
         Assert.Empty(violations);
     }
 
-    // Token hygiene ignores literals and trivia because vocabulary docs can name banned symbols.
     private static string CodeTokensOnly(string text) {
         SyntaxNode root = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(text).GetRoot();
         System.Text.StringBuilder scrubbed = new(text);
@@ -132,7 +126,6 @@ public sealed class CatalogInvariants {
         return scrubbed.ToString();
     }
 
-    // Release tracking covers emitted rules while reserved IDs stay absent from every output.
     [Fact]
     public void ReleaseTracking() {
         string analyzerRoot = Path.Combine(RepoRoot, "tools", "cs-analyzer");
@@ -158,7 +151,6 @@ public sealed class CatalogInvariants {
         Assert.Empty(failures);
     }
 
-    // Scope gates must use real ScopeGate bits, never zero or foreign flags.
     [Fact]
     public void ScopeGatesDeclared() {
         List<string> failures = [];
@@ -169,7 +161,6 @@ public sealed class CatalogInvariants {
         Assert.Empty(failures);
     }
 
-    // The central CSP warning band and Pressure-tier catalog rows must match exactly.
     [Fact]
     public void PressureBandParity() {
         XDocument props = XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props"));
@@ -186,7 +177,6 @@ public sealed class CatalogInvariants {
         Assert.Equal(expected: band, actual: pressure);
     }
 
-    // Harness package mirrors fail when central pins move without analyzer-test coverage.
     [Fact]
     public void HarnessPinMirror() {
         XDocument packages = XDocument.Load(Path.Combine(RepoRoot, "Directory.Packages.props"));
@@ -199,7 +189,6 @@ public sealed class CatalogInvariants {
         }
     }
 
-    // Rule docs and catalog IDs stay one-to-one in both directions.
     [Fact]
     public void DocsSync() {
         string docsDir = Path.Combine(RepoRoot, "tools", "cs-analyzer", "docs", "rules");

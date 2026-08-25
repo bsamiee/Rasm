@@ -1,8 +1,6 @@
 namespace Rasm.TestKit;
 
 // --- [ERRORS] --------------------------------------------------------------------------
-// The typed fault vocabulary rail generators inject: one closed family over `Expected` so failure
-// lanes carry case identity (`IsType`, code) instead of anonymous message strings.
 [Union]
 public abstract partial record Fault : Expected {
     private Fault(string detail, int code) : base(detail, code, None) { }
@@ -15,8 +13,6 @@ public abstract partial record Fault : Expected {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Gens {
     // --- [SCALARS]
-    // Magnitude stratification makes every float hazard a weighted lane, never a rare accident:
-    // denormals, huge magnitudes, ulp-adjacent neighbours, and signed zero all sample every run.
     private static readonly Gen<double> MagnitudeBand = Gen.Frequency(
         (30, Gen.Double[start: 1.0e-3, finish: 1.0e3]),
         (18, Gen.Double[start: 1.0e3, finish: 1.0e15]),
@@ -32,10 +28,8 @@ public static class Gens {
     public static readonly Gen<double> UnitClosed = Gen.Frequency(
         (92, Gen.Double.Unit),
         (8, Gen.OneOfConst(0.0, 1.0, Math.BitIncrement(x: 0.0), Math.BitDecrement(x: 1.0))));
-    // Cancellation pairs: subtraction annihilates leading digits; oracles must survive the band.
     public static readonly Gen<(double X, double Y)> Cancellation = Finite.Select(Gen.Double[start: 1.0e-16, finish: 1.0e-8],
         static (double x, double eps) => (X: x, Y: x * (1.0 + eps)));
-    // Wrap hazards are lanes: the seam constants and their ulp neighbours sample every run.
     public static readonly Gen<double> Angle = Gen.Frequency(
         (70, Gen.Double[start: -Math.Tau, finish: Math.Tau]),
         (30, Gen.OneOfConst(0.0, -0.0, Math.PI, -Math.PI, Math.Tau, -Math.Tau, Math.PI / 2.0, -Math.PI / 2.0,
@@ -64,7 +58,6 @@ public static class Gens {
         NonEmptyArray(element: element, max: max).Select(static (T[] xs) => toSeq(xs));
     public static Gen<Seq<T>> SeqOf<T>(Gen<T> element, int max = 256) =>
         (element ?? throw new ArgumentNullException(nameof(element))).Array[0, max].Select(static (T[] xs) => toSeq(xs));
-    // Partition of unity: strictly positive weights normalized to sum 1; oracles get a real simplex.
     public static Gen<Seq<double>> Simplex(int count) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: count, other: 1);
         return Gen.Double[start: 1.0e-6, finish: 1.0e6].Array[count].Select(static values => {
@@ -74,8 +67,6 @@ public static class Gens {
     }
 
     // --- [GEOMETRY]
-    // Unit vectors by annulus-rejected normalization: Where preserves shrinking and the norm floor
-    // keeps the division stable in every dimension.
     public static Gen<double[]> Direction(int dim) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: dim, other: 1);
         return Gen.Double[start: -1.0, finish: 1.0].Array[dim]
@@ -85,8 +76,6 @@ public static class Gens {
                 return (double[])[.. raw.Select(x => x / norm)];
             });
     }
-    // Star-shaped simple rings: equally spaced angles under a random phase with magnitude-banded
-    // radii, so CCW orientation and strictly positive shoelace area hold BY CONSTRUCTION.
     public static Gen<double[][]> Ring(int vertices) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: vertices, other: 3);
         return Gen.Double[start: 1.0e-3, finish: 1.0e3].Array[vertices].Select(Gen.Double[start: -Math.Tau, finish: Math.Tau],
@@ -95,8 +84,6 @@ public static class Gens {
                 return (double[])[radius * Math.Cos(d: theta), radius * Math.Sin(a: theta)];
             })]);
     }
-    // The exact-arithmetic torture band: C sits on the AB line (steps == 0) or a few ulps off it,
-    // where double-precision orientation determinants misjudge and only exact predicates survive.
     public static Gen<(double[] A, double[] B, double[] C)> NearCollinear(int dim) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: dim, other: 2);
         return Tame.Array[dim].Select(Tame.Array[dim], Gen.Double[start: -2.0, finish: 2.0],
@@ -106,8 +93,6 @@ public static class Gens {
                 return (p.A, p.B, p.C);
             });
     }
-    // Householder products are orthogonal up to rounding but n reflections pin det = (-1)^n; the
-    // Bool-driven row flip covers BOTH O(n) components, so rotations and reflections sample every run.
     public static Gen<double[][]> Orthogonal(int n) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 1);
         return Direction(dim: n).Array[n].Select(Gen.Bool, static (double[][] reflectors, bool flip) => {
@@ -115,8 +100,6 @@ public static class Gens {
             return flip ? [.. q.Select(static (row, i) => i == 0 ? [.. row.Select(static x => -x)] : row)] : q;
         });
     }
-    // Q D Qᵀ with a log-spaced spectrum 1 … 1/kappa: the condition number is known BY CONSTRUCTION,
-    // so conditioning-aware tolerances (κ·base) come from the generator, never a guessed constant.
     public static Gen<double[][]> Conditioned(int n, double kappa) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 1);
         _ = double.IsFinite(d: kappa) && kappa >= 1.0
@@ -137,24 +120,18 @@ public static class Gens {
         Enumerable.Range(start: 0, count: Math.Abs(value: steps)).Aggregate(seed: value, func: (acc, _) => steps > 0 ? Math.BitIncrement(x: acc) : Math.BitDecrement(x: acc));
 
     // --- [WIRE]
-    // Wire-safe hazard strings: every JSON hazard a codec must survive — controls, quotes,
-    // escapes, BMP unicode, astral pairs — never a lone surrogate no UTF-8 wire can carry.
     public static readonly Gen<string> WireString = Gen.Frequency(
         (40, Gen.Char[start: ' ', finish: '~'].Array[0, 24].Select(selector: static chars => new string(value: chars))),
         (20, Gen.Char[start: '\u0080', finish: '\uD7FF'].Array[1, 12].Select(selector: static chars => new string(value: chars))),
         (14, Gen.Int[start: 0x10000, finish: 0x10FFFF].Array[1, 4].Select(selector: static codes => string.Concat(values: codes.Select(selector: char.ConvertFromUtf32)))),
         (14, Gen.OneOfConst("", "\"", "\\", "\r\n", "\t", "{", "}", "\u0000", "\u001B", "\uFFFD", "\U0001D518\U0001D52B\U0001D526")),
         (12, Gen.Char[start: '\u0000', finish: '\u001F'].Array[1, 4].Select(selector: static chars => new string(value: chars))));
-    // Content payload bands: empty, single, small, large, and constant-run blocks so identity,
-    // codec, and chunking hazards all sample every run instead of arriving as rare accidents.
     public static readonly Gen<byte[]> Payload = Gen.Frequency(
         (40, Gen.Byte.Array[1, 64]),
         (25, Gen.Byte.Array[65, 4096]),
         (13, Gen.Const<byte[]>(value: [])),
         (12, Gen.Byte.Array[1, 1]),
         (10, Gen.Byte.Select(Gen.Int[start: 16, finish: 256], static (byte value, int count) => (byte[])[.. Enumerable.Repeat(element: value, count: count)])));
-    // One-byte-flip near-duplicate pairs: the canonical separation witness for content-key laws —
-    // a mint that cannot split a mutant pair cannot address content.
     public static readonly Gen<(byte[] Original, byte[] Mutated)> Mutant =
         Gen.Byte.Array[1, 256].SelectMany(selector: bytes => Gen.Int[start: 0, finish: bytes.Length - 1].Select(Gen.Int[start: 1, finish: 255],
             (int index, int mask) => {
@@ -164,8 +141,6 @@ public static class Gens {
             }));
 
     // --- [STAMPS]
-    // HLC stamp band: physical half is a NodaTime-style Unix tick long, logical half a monotone
-    // ulong; saturation edges ride as lanes so overflow seams sample every run.
     public static readonly Gen<(long Physical, ulong Logical)> Hlc = Gen.Frequency(
             (70, Gen.Long[start: 0L, finish: 3_155_378_975_999_999_999L]),
             (30, Gen.OneOfConst(0L, 1L, 621_355_968_000_000_000L, long.MaxValue - 1L, long.MaxValue)))
@@ -173,9 +148,6 @@ public static class Gens {
             static (long physical, ulong logical) => (Physical: physical, Logical: logical));
 
     // --- [QUANTITIES]
-    // Seven SI base exponents ordered (mass, length, time, current, temperature, amount,
-    // luminosity); canonical rows include the energy/torque coincidence QuantityType must split.
-    // Every draw is a fresh array, so a mutating consumer never poisons the band.
     public static readonly Gen<int[]> SiExponents = Gen.Frequency(
             (70, Gen.Int[start: -4, finish: 4].Array[7]),
             (30, Gen.OneOfConst<int[]>(
@@ -187,16 +159,12 @@ public static class Gens {
                 [1, 2, -2, 0, 0, 0, 0],
                 [1, -1, -2, 0, 0, 0, 0])))
         .Select(selector: static row => (int[])[.. row]);
-    // SI-normalized measure: magnitude rides the full finite hazard band under a dimension vector.
     public static readonly Gen<(double Si, int[] Exponents)> Measure =
         Finite.Select(SiExponents, static (double si, int[] exponents) => (Si: si, Exponents: exponents));
 
     // --- [RAIL]
     public static readonly Gen<Error> Faults = Gen.OneOfConst<Error>(
         new Fault.Missing(), new Fault.Rejected(), new Fault.Cancelled(), new Fault.Conflict());
-    // Exceptional-lane errors carry live exceptions, so recovery rails prove they survive the
-    // Exceptional/Expected split. Error.New remaps Timeout/OperationCanceled/Aggregate to Expected
-    // rows, so only genuinely-exceptional types ride here; instances mint fresh per sample.
     public static readonly Gen<Error> Exceptional = Gen.Int[start: 0, finish: 3].Select(selector: static kind => kind switch {
         0 => Error.New(thisException: new InvalidOperationException(message: "<fault-exceptional-invalid>")),
         1 => Error.New(thisException: new ArithmeticException(message: "<fault-exceptional-arithmetic>")),
@@ -221,8 +189,6 @@ public static class Gens {
     public static readonly Gen<Guid> Id = Gen.Guid;
 
     // --- [ADMISSION]
-    // Filtering Option preserves shrinking; Optional folds a null-yielding TryCreate into the
-    // filtered lane and the post-filter arm stays total — no throw ever enters a Select.
     public static Gen<TVo> Admitted<TIn, TVo>(Gen<TIn> source, TryCreate<TIn, TVo> tryCreate) {
         ArgumentNullException.ThrowIfNull(argument: source);
         ArgumentNullException.ThrowIfNull(argument: tryCreate);

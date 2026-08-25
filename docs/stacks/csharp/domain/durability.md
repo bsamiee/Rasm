@@ -12,7 +12,7 @@ This table routes a durability concern to its owning surface; the most specific 
 |  [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
 |  [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
 |  [04]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
-|  [05]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
+|  [05]   | binary schema             | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
 |  [06]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
 |  [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
 |  [08]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
@@ -99,13 +99,13 @@ public static class StoreOpen {
 
 ## [03]-[CODEC_PROFILES]
 
-[CONTRACT_LAW]:
+[CODEC_LAW]:
 - Law: the integer `[Key]` sequence IS the wire schema — dense and append-only, a retired key never reassigned because reuse silently re-types history; `[MessagePack.Union]` tags obey the same retirement law, sparse keys buy nothing while costing a nil slot per record, and a written nil is byte-identical to a retired-key gap, so absence never rides key gaps — it is an explicit option-shaped member.
-- Law: `[GeneratedMessagePackResolver]` derives the module's formatter closure at compile time — AOT-true, reflection-free — and the analyzer gates unkeyed members, colliding formatters, and missing union declarations at build, so contract drift is a build diagnostic, never a first-restore discovery; generated domain owners cross the binary codec through `ThinktectureMessageFormatterResolver.Instance` as bare key values, `[SerializationConstructor]` pins admission among constructors, and `[IgnoreMember]` excludes derivable state — contract declarations, not conveniences.
+- Law: `[GeneratedMessagePackResolver]` derives the module's formatter closure at compile time — AOT-true, reflection-free — and the analyzer gates unkeyed members, colliding formatters, and missing union declarations at build, so schema drift is a build diagnostic, never a first-restore discovery; generated domain owners cross the binary codec through `ThinktectureMessageFormatterResolver.Instance` as bare key values, `[SerializationConstructor]` pins admission among constructors, and `[IgnoreMember]` excludes derivable state — schema declarations, not conveniences.
 - Reject: the typeless lane (payloads carrying type names are a deserialization gadget surface coupling stored bytes to assembly identity), the wrapper-object encoding of keyed owners (double payload, leaked owner internals), per-type formatter registration beside the resolver chain, and map mode as evolution insurance — the sealed header owns evolution, so self-describing payloads are redundant weight.
 
 [PROFILE_LAW]:
-- Law: `CompositeResolver.Create` resolves first-match-wins and caches per closed generic type — resolver order is a boot-time declaration and late registration is unrepresentable; specificity decreases monotonically down the chain: explicit formatters, generated-domain, generated-contract, standard fallback.
+- Law: `CompositeResolver.Create` resolves first-match-wins and caches per closed generic type — resolver order is a boot-time declaration and late registration is unrepresentable; specificity decreases monotonically down the chain: explicit formatters, generated-domain, generated-schema, standard fallback.
 - Law: options are immutable and each store profile freezes one value — a call-site `With*` forks codec policy invisibly; a profile is one row each from the codec, compression, and hash axes — the codec axis closing at three rows, text, binary, and raw pass-through, where the raw row is never re-framed because double-framing destroys the identity its content key hashed — so a new posture is row selection, never code.
 - Law: the restore lane always reads under `WithSecurity(MessagePackSecurity.UntrustedData)` plus two independent ceilings — a restored blob's provenance is unprovable even for bytes the same process wrote, because they crossed a rest boundary, and the write lane keeps the trusted default so hardening restore costs writes nothing; `WithMaximumObjectGraphDepth` catches the deep-narrow recursion a byte budget cannot see, while `WithMaximumDecompressedSize` is the decompression-bomb ceiling the depth cap is blind to — a kilobyte of `Lz4BlockArray` inflating to gigabytes — so the size ceiling is the class's own `MaxBytes` retention budget reused as the inflation bound, not a second constant, and `UntrustedData`'s 64 MB default is a ceiling to declare against the class, never a default to inherit silently.
 - Law: `Lz4BlockArray` is the binary default — independently compressed blocks, streaming-decompressible; `CompressionMinLength` makes observed encoding diverge from requested policy, so receipts read the payload and never the policy, and decompression is extension-header-driven — the compression row is write-side policy only and segment files mix compressed and plain documents freely.
@@ -130,14 +130,14 @@ public abstract partial record Artifact {
 }
 
 [GeneratedMessagePackResolver]
-public sealed partial class ContractResolver;
+public sealed partial class GeneratedResolver;
 
 [SmartEnum<string>]
 public sealed partial class CodecProfile {
     static readonly MessagePackSerializerOptions Binary = MessagePackSerializerOptions.Standard
         .WithResolver(CompositeResolver.Create(
             ThinktectureMessageFormatterResolver.Instance,
-            ContractResolver.Instance,
+            GeneratedResolver.Instance,
             StandardResolver.Instance))
         .WithCompression(MessagePackCompression.Lz4BlockArray);
 
@@ -180,7 +180,7 @@ public sealed partial class CodecProfile {
 ## [04]-[SEALED_ARTIFACTS]
 
 [SEAL_LAW]:
-- Law: the header is a fixed-width little-endian prologue outside any codec — magic, header version, codec row, observed compression, hash domain, contract stamp, plain and stored lengths, content hash, epoch, header checksum — read by offset under failure conditions; a variable-length header re-introduces a parser exactly where the design removes one, and the header's own checksum separates header corruption (terminal for the copy) from payload corruption (replica and salvage routes). Every multi-byte scalar in a persisted or wire-crossing frame — header and payload interior alike — writes through `BinaryPrimitives` explicit-endian members, because `MemoryMarshal.Write`/`Read` and raw struct reinterpretation follow machine byte order and a native-endian persisted hash or length desyncs content addressing across hosts.
+- Law: the header is a fixed-width little-endian prologue outside any codec — magic, header version, codec row, observed compression, hash domain, schema stamp, plain and stored lengths, content hash, epoch, header checksum — read by offset under failure conditions; a variable-length header re-introduces a parser exactly where the design removes one, and the header's own checksum separates header corruption (terminal for the copy) from payload corruption (replica and salvage routes). Every multi-byte scalar in a persisted or wire-crossing frame — header and payload interior alike — writes through `BinaryPrimitives` explicit-endian members, because `MemoryMarshal.Write`/`Read` and raw struct reinterpretation follow machine byte order and a native-endian persisted hash or length desyncs content addressing across hosts.
 - Law: the header records what WAS done, never what was requested — the incompressible `Encode` fallback and the minimum-length skip both split policy from outcome; the content hash covers stored bytes by default so verification strictly precedes any decoder, and the class seed partitions identity space so one flat content-addressed store serves every class with no class column — a seed change re-mints every artifact identity in the space, epoch-gated, never casual.
 - Law: the content hash is the persisted-artifact identity domain — the seeded `XxHash3.HashToUInt64` the integrity card owns reused verbatim as the one codec, the class seed its domain partition, never a second hashing path beside the in-memory cache key or the wire frame check; the header records the hash domain so a reader knows which codec verified it, and the seed is the only artifact-class discriminant the flat store carries.
 - Law: the single-pass seal — placeholder header, payload, seek to zero, final header, flush-to-disk, rename — leaves the artifact invalid (zeroed magic) at every instant before the final header lands, so partial writes self-reject with no tombstone or lock file; the temp is a same-directory sibling because cross-volume moves degrade to copy-plus-delete, and flush strength is a protocol row — flush-once-before-rename or write-through — with the same rename commit point either way.
@@ -193,7 +193,7 @@ public readonly record struct SealReceipt(string Path, long PlainLength, long St
 public static class Seal {
     public const int HeaderSize = 56;
     public const ulong Magic = 0x3153_4C41_4553_5253;
-    public const byte HeaderVersion = 1, CodecBinary = 1, CompressionNone = 0, CompressionLz4 = 1, HashStoredDomain = 0, Contract = 2;
+    public const byte HeaderVersion = 1, CodecBinary = 1, CompressionNone = 0, CompressionLz4 = 1, HashStoredDomain = 0, SchemaStamp = 2;
 
     public static Fin<SealReceipt> Commit(string path, ReadOnlyMemory<byte> plain, long epoch, LZ4Level level, long classSeed) {
         var staged = $"{path}.{epoch}.staged";
@@ -222,7 +222,7 @@ public static class Seal {
     static void Pack(Span<byte> header, long plain, long stored, bool compressed, ulong content, long epoch) {
         BinaryPrimitives.WriteUInt64LittleEndian(header, Magic);
         (header[8], header[9], header[10], header[11], header[12]) =
-            (HeaderVersion, CodecBinary, compressed ? CompressionLz4 : CompressionNone, HashStoredDomain, Contract);
+            (HeaderVersion, CodecBinary, compressed ? CompressionLz4 : CompressionNone, HashStoredDomain, SchemaStamp);
         BinaryPrimitives.WriteInt64LittleEndian(header[16..], plain);
         BinaryPrimitives.WriteInt64LittleEndian(header[24..], stored);
         BinaryPrimitives.WriteUInt64LittleEndian(header[32..], content);
@@ -233,7 +233,7 @@ public static class Seal {
 ```
 
 [LADDER_AND_RESTORE]:
-- Law: the rejection ladder is ordered so each tier verifies before the next runs and restore never best-efforts past any tier — magic and identity, header version, header checksum, stored-length truncation with byte counts, and content hash all run on raw bytes with zero decoding; codec and compression capability, the contract-stamp ratchet, and untrusted decode gate the codec machinery only after — the order is the threat model, because corrupted input rejects before any parser with attack surface runs, and every rejection is a typed receipt naming tier, artifact identity, and the evidence pair the tier compared; version and contract are one-way ratchets — readers admit at or below their compiled ceiling, writers emit exactly theirs — so tier-2 future layouts, tier-6 capability gaps, and tier-7 contract skew are deployment evidence, not data errors: rejected by one process and restored by a newer sibling, they localize a rollout fault without touching the artifact.
+- Law: the rejection ladder is ordered so each tier verifies before the next runs and restore never best-efforts past any tier — magic and identity, header version, header checksum, stored-length truncation with byte counts, and content hash all run on raw bytes with zero decoding; codec and compression capability, the schema-stamp ratchet, and untrusted decode gate the codec machinery only after — the order is the threat model, because corrupted input rejects before any parser with attack surface runs, and every rejection is a typed receipt naming tier, artifact identity, and the evidence pair the tier compared; version and schema stamp are one-way ratchets — readers admit at or below their compiled ceiling, writers emit exactly theirs — so tier-2 future layouts, tier-6 capability gaps, and tier-7 schema skew are deployment evidence, not data errors: rejected by one process and restored by a newer sibling, they localize a rollout fault without touching the artifact.
 - Law: the crash matrix is total — before flush an orphan temp (swept), after flush a complete-but-unclaimed orphan (a receipted salvage candidate, because the sealed header makes completeness provable), after rename the open ritual's epoch reconcile re-runs verification, after the bump committed; the orphan sweep keys on the deterministic epoch-bearing temp suffix, and ladder receipts from sweeps land on the boot fact stream with the same routing as any fault; the boot identity manifest of per-asset content keys is itself a sealed artifact verified first — the verifier of everything is the one thing the ladder alone proves.
 - Law: restore composes the write protocol in reverse — one protocol vocabulary, one receipt taxonomy, the only asymmetry who supplies the bytes; the writer's commit point is the rename, the restorer's is the epoch bump, and everything before either commit point is repeatable garbage by construction.
 - Law: the sidecar fence precedes the payload rename — a fresh payload paired with a stale `-wal` is a corruption mode, not a recoverable state — and every step is receipted with the ledger flushed on failure, so a half-restored store classifies unambiguously at the next open instead of being inspected ad hoc.
@@ -271,7 +271,7 @@ public static class Restore {
         : BinaryPrimitives.ReadInt64LittleEndian(artifact.AsSpan(24)) != artifact.Length - Seal.HeaderSize ? Refusal(4, $"<truncated:{artifact.Length - Seal.HeaderSize}>")
         : BinaryPrimitives.ReadUInt64LittleEndian(artifact.AsSpan(32)) != XxHash3.HashToUInt64(artifact.AsSpan(Seal.HeaderSize), classSeed) ? Refusal(5, "<payload-corrupt>")
         : artifact[9] != Seal.CodecBinary || artifact[10] > Seal.CompressionLz4 ? Refusal(6, $"<capability-gap:{artifact[9]}:{artifact[10]}>")
-        : artifact[12] > Seal.Contract ? Refusal(7, $"<contract-ahead:{artifact[12]}:{Seal.Contract}>")
+        : artifact[12] > Seal.SchemaStamp ? Refusal(7, $"<schema-ahead:{artifact[12]}:{Seal.SchemaStamp}>")
         : Fin.Succ($"<verified:{artifact.Length}>");
 
     static string Materialized(string staged, byte[] artifact) {

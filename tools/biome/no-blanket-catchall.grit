@@ -1,19 +1,5 @@
 language js(typescript, jsx)
 
-// EXPRESSION_SPINE promotion. Trigger: a catchAll/catchAllCause/catchAllDefect whose handler
-// discards the failure. Predicate: the handler is an arrow whose whole body is Effect.void or a
-// constant Effect.succeed — the typed channel (or the defect evidence) is buried undiscriminated;
-// the data-first arms sit before the pipeable arms so a two-argument call binds its real handler,
-// never its self argument. Exemption: a handler that maps, logs, refails, or discriminates has a
-// real body; a ruled discard is Effect.ignore/Effect.ignoreLogged at the call site, typed recovery
-// is catchTag/catchTags, and defect evidence routes to a logger or a report, never the void.
-// FIRES: const buried = program.pipe(Effect.catchAll(() => Effect.void));
-// FIRES: const flat = Effect.catchAll(program, () => Effect.succeed(fallback)); const cause = Effect.catchAllCause(program, () => Effect.void);
-// FIRES: const gone = Effect.catchAllDefect(program, () => Effect.void);
-// FIRES: const quiet = program.pipe(Effect.catchAllDefect(() => Effect.succeed(fallback)));
-// CLEAN: const typed = program.pipe(Effect.catchTag("JournalFault", (fault) => recover(fault)));
-// CLEAN: const logged = Effect.catchAll(program, (fault) => Effect.logError(fault));
-// CLEAN: const briefed = Effect.catchAllDefect(program, (defect) => Effect.logFatal(defect));
 or {
     `Effect.catchAll($self, $handler)` where { $self <: not arrow_function() },
     `Effect.catchAllCause($self, $handler)` where { $self <: not arrow_function() },

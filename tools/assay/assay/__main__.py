@@ -23,9 +23,6 @@ from assay.core.model import Step, wire_safe
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The agent-first offload surface: `--exec ssh://[user@]host[:port]` (or `--exec local`) is the primary, --help-visible
-# way to select the execution target; it is admitted through the same validated ASSAY_EXEC_TARGET env path, which stays
-# the fallback override. The flag is extracted at the entrypoint boundary so the rest of the token stream dispatches unchanged.
 _EXEC_FLAG: Final[str] = "--exec"
 _EXEC_ENV: Final[str] = "ASSAY_EXEC_TARGET"
 
@@ -54,16 +51,13 @@ def _extract_exec(tokens: tuple[str, ...]) -> tuple[tuple[str, ...], str | None]
 
 
 def _admit_exec(tokens: tuple[str, ...]) -> tuple[str, ...]:
-    # Extract --exec and admit it through the validated ASSAY_EXEC_TARGET env path so the flag is the primary surface and
-    # the env var stays a fallback override; `local` normalizes to the empty (Local) value the modal value object admits.
     stripped, target = _extract_exec(tokens)
     if target is not None:
-        os.environ[_EXEC_ENV] = "" if target == "local" else target  # ruff:ignore[banned-api]  # entrypoint admission: flag -> validated settings env path
+        os.environ[_EXEC_ENV] = "" if target == "local" else target  # ruff:ignore[banned-api]
     return stripped
 
 
 def _no_command(tokens: tuple[str, ...]) -> bool:
-    # Cyclopts maps incomplete commands to help/version callbacks; flags mark deliberate help/version intent.
     try:
         command, _bound, _ignored = app.parse_args(tokens, exit_on_error=False, print_error=False)
     except CycloptsError:
@@ -72,7 +66,6 @@ def _no_command(tokens: tuple[str, ...]) -> bool:
 
 
 def _returncode(result: object) -> int:
-    # Cyclopts returns values verbatim; exit hooks must be invoked here.
     match result:
         case int() as code:
             return code
@@ -89,13 +82,11 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
         case _:
             try:
                 return app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
-            # Cyclopts only formats when printing; stdout Envelope folding lives at this boundary.
             except CycloptsError as parse_error:
                 return parse_fault(tokens, str(parse_error))
             except ValidationError as config_error:
-                # Settings construction faults become config-step Envelopes.
                 return parse_fault(tokens, str(config_error), step=Step.CONFIG)
-            except Exception as exc:  # ruff:ignore[blind-except]  # CLI boundary: preserve single-Envelope stdout contract for unexpected dispatch faults
+            except Exception as exc:  # ruff:ignore[blind-except]
                 return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step=Step.DISPATCH)
 
 
@@ -124,8 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Process exit code derived from the dispatched Envelope.
     """
-    configure_logging()  # explicit call aligns subprocess and import-time logging state
-    # Scrub surrogateescape tokens so untrusted argv cannot crash the wire encoder, then admit the agent-first --exec flag.
+    configure_logging()
     tokens = _admit_exec(tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv)))
 
     def _install() -> None:
@@ -135,12 +125,11 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"assay: tracing disabled (config invalid): {exc}\n")
 
     def _drain(provider: object) -> None:
-        # Bound flush before releasing SDK workers so a slow OTLP endpoint cannot stall exit.
         match getattr(provider, "force_flush", None):
             case flush if callable(flush):
                 try:
                     flush(DRAIN_MS)
-                except Exception as exc:  # ruff:ignore[blind-except]  # lifecycle boundary: tracing errors go to stderr, not stdout
+                except Exception as exc:  # ruff:ignore[blind-except]
                     sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
             case _:
                 pass
@@ -148,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
             case shutdown if callable(shutdown):
                 try:
                     shutdown()
-                except Exception as exc:  # ruff:ignore[blind-except]  # lifecycle boundary: tracing errors go to stderr, not stdout
+                except Exception as exc:  # ruff:ignore[blind-except]
                     sys.stderr.write(f"assay: trace shutdown failed: {exc}\n")
             case _:
                 pass

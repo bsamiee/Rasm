@@ -48,7 +48,6 @@ const _survives = <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<boolean
     Effect.match(work, { onFailure: () => false, onSuccess: () => true });
 
 const Law = {
-    // A witness the predicate survives is a tautology no mutant can violate; auditing it is part of every registration.
     audit: <S, A extends Law.Arbs, E, R>(shape: Law.Shape<S, A, E, R>): Effect.Effect<void, LawTautology, R | TestServices.TestServices> =>
         Effect.flatMap(Effect.exit(shape.predicate(shape.witness.foil, shape.witness.args)), (exit) =>
             Exit.match(exit, {
@@ -56,7 +55,6 @@ const Law = {
                 onSuccess: (held) => (held ? Effect.fail(new LawTautology({ law: shape.name, witness: shape.witness.label })) : Effect.void),
             }),
         ),
-    // The witness is mandatory at construction: a law value cannot exist without its refuting foil.
     make: <S, const A extends Law.Arbs, E = never, R = never>(shape: Law.Shape<S, A, E, R>): Law.Law<S, R> => ({
         name: shape.name,
         register: (api, subject) => {
@@ -71,9 +69,6 @@ const Law = {
     },
 
     // --- [STOCK_ROWS]
-    // The merge-law quartet the CRDT algebra freezes (associativity, commutativity, idempotence, identity) plus the
-    // instance and operation rows every domain owner mints: lawful Order, lawful Equivalence, forward/inverse duals,
-    // and monotone advance. Each row stays witness-mandatory and rides the same audit; a new law is a row, never a mechanism.
     associative: <A>(
         options: Law.Stock<Law.Binary<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -111,7 +106,6 @@ const Law = {
             predicate: (combine, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(a, a), a)),
             witness: options.witness,
         }),
-    // The monoid closer of the merge quartet: the declared empty is a two-sided identity of combine.
     identity: <A>(
         options: Law.Stock<Law.Binary<A>, { readonly a: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -129,7 +123,6 @@ const Law = {
                 }),
             witness: options.witness,
         }),
-    // Lawful equivalence in one row: reflexive, symmetric, and transitive over the generated domain.
     equivalence: <A>(
         options: Law.Stock<Law.Equals<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -142,8 +135,6 @@ const Law = {
                 Effect.sync(() => alike(a, a) && alike(a, b) === alike(b, a) && (!(alike(a, b) && alike(b, c)) || alike(a, c))),
             witness: options.witness,
         }),
-    // Lawful total order in one row: reflexive, comparison-antisymmetric, and transitive — the proof every
-    // Order instance a domain mints (clock order, rank order, key order) registers as one line.
     order: <A>(
         options: Law.Stock<Order.Order<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -161,8 +152,6 @@ const Law = {
                 ),
             witness: options.witness,
         }),
-    // Forward and inverse ride one subject: from recovers every value to emits — the codec-pair proof
-    // for any bidirectional seam a Schema round-trip cannot express.
     inverse: <A, B>(
         options: Law.Stock<Law.Dual<A, B>, { readonly a: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -175,8 +164,6 @@ const Law = {
             predicate: (dual, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(dual.from(dual.to(a)), a)),
             witness: options.witness,
         }),
-    // Determinism: the subject yields the same value on every run over one input — the seeded-entropy
-    // and pure-projection law; a wall-clock or unseeded-random read is refuted by its own drift.
     deterministic: <I, A, E, R>(
         options: Law.Stock<(input: I) => Effect.Effect<A, E, R>, { readonly input: I }> & {
             readonly arb: FastCheck.Arbitrary<I>;
@@ -190,8 +177,6 @@ const Law = {
                 Effect.zipWith(subject(input), subject(input), (first, second) => (options.equals ?? Equal.equals)(first, second)),
             witness: options.witness,
         }),
-    // Homomorphism: the map commutes with combine — encode-then-merge equals merge-then-encode, the
-    // CRDT wire-seam law in one row.
     homomorphic: <A, B>(
         options: Law.Stock<(value: A) => B, { readonly a: A; readonly b: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -207,8 +192,6 @@ const Law = {
                 Effect.sync(() => (options.equals ?? Equal.equals)(to(options.combine(a, b)), options.combineImage(to(a), to(b)))),
             witness: options.witness,
         }),
-    // Monotone advance: a step never regresses its subject under the declared order — the clock, sequence,
-    // and frontier law in one row.
     monotone: <A>(
         options: Law.Stock<(state: A) => A, { readonly a: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -221,7 +204,6 @@ const Law = {
             predicate: (step, { a }) => Effect.sync(() => options.order(a, step(a)) <= 0),
             witness: options.witness,
         }),
-    // Decode totality: the subject decoder succeeds over the whole generated input space — the event-spine re-mint proof.
     total: <I, E, R>(
         options: Law.Stock<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }> & { readonly arb: FastCheck.Arbitrary<I> },
     ): Law.Law<(input: I) => Effect.Effect<unknown, E, R>, R> =>
@@ -231,7 +213,6 @@ const Law = {
             predicate: (subject, { input }) => _survives(subject(input)),
             witness: options.witness,
         }),
-    // Schema round-trip: encode then decode reproduces the value under the schema's own equivalence — the wire-boundary proof.
     roundtrip: <A, I>(
         options: Law.Stock<Schema.Schema<A, I, never>, { readonly value: A }> & { readonly schema: Schema.Schema<A, I, never> },
     ): Law.Law<Schema.Schema<A, I, never>> => {
@@ -247,7 +228,6 @@ const Law = {
             witness: options.witness,
         });
     },
-    // Model-based machine law: generated command runs hold the model/system correspondence; a thrown postcondition is the refutation.
     machine: <Model extends object, Real>(
         options: Law.Stock<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.Command<Model, Real>> }> & {
             readonly commands: ReadonlyArray<FastCheck.Arbitrary<FastCheck.Command<Model, Real>>>;
@@ -259,7 +239,6 @@ const Law = {
             predicate: (setup, { run }) => _survives(Effect.try(() => FastCheck.modelRun(setup, run))),
             witness: options.witness,
         }),
-    // The async twin: the correspondence holds across real await boundaries — the journal/queue model proof over live lanes.
     machineAsync: <Model extends object, Real>(
         options: Law.Stock<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.AsyncCommand<Model, Real>> }> & {
             readonly commands: ReadonlyArray<FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>>;
@@ -271,7 +250,6 @@ const Law = {
             predicate: (setup, { run }) => _survives(Effect.tryPromise(() => FastCheck.asyncModelRun(setup, run))),
             witness: options.witness,
         }),
-    // Interleaving law: the subject holds under every scheduler-driven task ordering; the witness pins one refuting ordering via schedulerFor.
     interleave: (
         options: Law.Stock<(schedule: FastCheck.Scheduler) => Promise<boolean>, { readonly schedule: FastCheck.Scheduler }>,
     ): Law.Law<(schedule: FastCheck.Scheduler) => Promise<boolean>> =>

@@ -293,7 +293,7 @@ def test_targets(
 
 def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
     """Tsx and typescript resolve to distinct tree-sitter languages."""
-    from tree_sitter import (  # ruff:ignore[import-outside-top-level]  # local import avoids aliasing `Language` from assay.core.model at module scope
+    from tree_sitter import (  # ruff:ignore[import-outside-top-level]
         Language as TSLanguage,
     )
 
@@ -322,7 +322,7 @@ def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
 def test_rg_status_exact_note_bytes(
     returncode: int,
     stderr: str,
-    has_rows: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
+    has_rows: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     expected: tuple[RailStatus, tuple[str, ...]],
 ) -> None:
     """_rg_status preserves exact status and warning-note tuples across the full rc x rows matrix."""
@@ -344,11 +344,11 @@ def test_rg_rows_skips_non_match_events() -> None:
 @pytest.mark.parametrize(
     "groups, stdout, rc, status_in, expected_status",
     [
-        ((ToolGroup.EMPTY_ON_EXIT1,), b"[]", 1, RailStatus.FAILED, RailStatus.EMPTY),  # rc=1 + match array → no-match
-        ((ToolGroup.EMPTY_ON_EXIT1,), b'{"error":1}', 1, RailStatus.FAILED, RailStatus.FAILED),  # rc=1 + valid-JSON non-array → fault
-        ((ToolGroup.EMPTY_ON_EXIT1,), b"not json", 1, RailStatus.FAILED, RailStatus.FAILED),  # rc=1 + garbage → genuine failure
+        ((ToolGroup.EMPTY_ON_EXIT1,), b"[]", 1, RailStatus.FAILED, RailStatus.EMPTY),
+        ((ToolGroup.EMPTY_ON_EXIT1,), b'{"error":1}', 1, RailStatus.FAILED, RailStatus.FAILED),
+        ((ToolGroup.EMPTY_ON_EXIT1,), b"not json", 1, RailStatus.FAILED, RailStatus.FAILED),
         ((ToolGroup.EMPTY_ON_EXIT1,), b"[]", 0, RailStatus.OK, RailStatus.OK),
-        ((), b"[]", 1, RailStatus.FAILED, RailStatus.FAILED),  # group absent → no normalization
+        ((), b"[]", 1, RailStatus.FAILED, RailStatus.FAILED),
     ],
     ids=["group_exit1_matcharray", "group_exit1_nonarray_json", "group_exit1_garbage", "group_exit0_unchanged", "no_group_unchanged"],
 )
@@ -371,7 +371,7 @@ def test_apply_row_status_empty_on_exit1(
 def test_ts_rows_produces_match_rows_and_listing(
     name: str,
     text: str,
-    parse_error: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
+    parse_error: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     rc: int,
     status_in: RailStatus,
     expected_id_fragment: str,
@@ -511,7 +511,6 @@ def test_content_search_monkeypatched(
 
 def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_content_search faults with FAULTED when no CONTENT-mode tool exists in the catalog."""
-    # White-box seam: catalog absence is unreachable through the shipped total catalog.
     monkeypatch.setattr(code_rail, "select", lambda *_a, **_kw: ())
     fault = assert_error(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="anything", paths=()), SeamExecutor()))
     assert fault.status is RailStatus.FAULTED

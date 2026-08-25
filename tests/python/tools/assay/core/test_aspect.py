@@ -7,35 +7,21 @@ status/event stamping, and recent-event ring projection.
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # runtime annotation
+from collections.abc import Callable
 from typing import Annotated
 
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
-from expression import Error, Ok, Result  # Hom rail annotation
+from expression import Error, Ok, Result
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 import pytest
 from structlog.contextvars import get_contextvars
 
-from assay.core.aspect import (
-    assemble,
-    checked,
-    checked_call,
-    compose,
-    Hom,  # runtime woven-Hom annotation
-    Inversion,
-    Layer,  # runtime layer-tuple annotation
-    logged,
-    RING,  # ring seam seeded directly for projection laws
-    ring_processor,
-    ring_recent,
-    Slot,
-    traced,
-)
-from assay.core.model import Claim, Fault, RailStatus, Report  # Hom rail annotation
+from assay.core.aspect import assemble, checked, checked_call, compose, Hom, Inversion, Layer, logged, RING, ring_processor, ring_recent, Slot, traced
+from assay.core.model import Claim, Fault, RailStatus, Report
 from assay.diagnostics import fold
 from tests.python._testkit.spec import assert_error, assert_ok, identity, support_matrix
 
@@ -44,7 +30,6 @@ from tests.python._testkit.spec import assert_error, assert_ok, identity, suppor
 
 _REPORT: Report = fold(Claim.STATIC, "probe", ())
 
-# Inversion is the weave's slot-regression error carrier, exercised by the assemble/compose laws below.
 COVERS: tuple[object, ...] = (assemble, checked, checked_call, compose, Inversion, logged, ring_processor, ring_recent, Slot, traced)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -97,10 +82,10 @@ def test_compose_double_checked_equals_single() -> None:
     The mypy-only suppression keeps the public ``compose(layer, layer)(fn)`` idempotency recipe intact;
     ty specializes ``checked()`` cleanly while mypy collapses its free ParamSpec to ``Never``.
     """
-    layer = checked()  # type: ignore[var-annotated]  # mypy Never-collapse; ty infers the generic layer
+    layer = checked()  # type: ignore[var-annotated]
     once: Hom[[object], Report] = compose(layer)(_rail)
     twice: Hom[[object], Report] = compose(layer, layer)(_rail)
-    raw: Hom[[object], Report] = compose()(_rail)  # type: ignore[assignment]  # mypy Never-collapse on empty compose(); ty clean
+    raw: Hom[[object], Report] = compose()(_rail)  # type: ignore[assignment]
 
     once_ids: frozenset[int] = getattr(once, "_assay_ids", frozenset())
     assert getattr(twice, "_assay_ids", frozenset()) == once_ids
@@ -159,7 +144,7 @@ def test_compose_raises_typeerror_carrying_inversion() -> None:
 
 def test_checked_is_checked_slot_layer() -> None:
     """``checked`` produces a ``Layer`` pinned to ``Slot.checked`` carrying the beartype-weaving decorator."""
-    slot, dec = checked()  # type: ignore[var-annotated]  # mypy collapses checked()'s free ParamSpec to Never; ty infers it
+    slot, dec = checked()  # type: ignore[var-annotated]
     assert slot is Slot.checked
     woven: Hom[[object], Report] = dec(_rail)
     assert assert_ok(woven("x")) == _REPORT
@@ -173,7 +158,7 @@ def test_checked_call_is_idempotent_under_repeat() -> None:
 
     identity(
         checked_call(typed_rail),
-        lambda f: checked_call(f),  # ruff:ignore[unnecessary-lambda]  # the lambda monomorphizes checked_call's ParamSpec so identity[T] unifies under ty
+        lambda f: checked_call(f),  # ruff:ignore[unnecessary-lambda]
         eq=lambda a, b: getattr(a, "_assay_ids", frozenset()) == getattr(b, "_assay_ids", frozenset()) and a(0) == b(0),
     )
 

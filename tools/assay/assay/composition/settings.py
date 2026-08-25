@@ -14,19 +14,14 @@ import sys
 from typing import Annotated, Final, Literal, override
 from urllib.parse import urlsplit
 
-import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
+import fsspec
 import msgspec
 from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
-from pydantic_settings import (  # Runtime annotations call the Pydantic source hook.
-    BaseSettings,
-    NoDecode,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-)
+from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict
 from upath import UPath
 
 from assay.composition.store import ArtifactStore, safe_segment
-from assay.core.model import ArtifactKind, DOTNET_CONFIG_ANCHORS, wire_safe  # Settings/model field hooks evaluate these annotations at runtime.
+from assay.core.model import ArtifactKind, DOTNET_CONFIG_ANCHORS, wire_safe
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -64,7 +59,7 @@ type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN), AfterValidator(wire_safe)]
 type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*$")]
-type WireSafeText = Annotated[str, AfterValidator(wire_safe)]  # surrogateescape arrives only via env input; default_factory values are always clean
+type WireSafeText = Annotated[str, AfterValidator(wire_safe)]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -72,10 +67,7 @@ _ARTIFACTS: Final[str] = ".artifacts"
 _ASSAY: Final[str] = "assay"
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
-# Workroot tilde is resolved to the absolute remote home once per connection (sftp.realpath) so the SFTP push and the exec `cd` agree.
 _REMOTE_WORKROOT_DEFAULT: Final[str] = "~/.assay-work"
-# Injected remote PATH: a Linux toolchain prefix the agent exports for both the toolchain probe and the exec, so a non-login
-# PATH still reaches uv (~/.local/bin) and dotnet (/usr/local/dotnet). The agent's own macOS PATH never crosses to a Linux host.
 _REMOTE_PATH_PREFIX: Final[tuple[str, ...]] = (
     "~/.local/bin",
     "/usr/local/dotnet",
@@ -86,9 +78,6 @@ _REMOTE_PATH_PREFIX: Final[tuple[str, ...]] = (
     "/sbin",
     "/bin",
 )
-# Backend admission is data, not a dispatch chain: one row per protocol carries reachability, admission, and the pull strategy the
-# Ssh case selects. sftp downloads bytes (TRANSFER); the cloud rows are admitted shared object stores (s3fs/gcsfs) the remote tool
-# writes and the agent reads at the same universal paths (SHARED, zero byte transfer), so the backend never re-derives provider shapes.
 _BACKEND_CAPABILITY: Final[dict[str, tuple[bool, bool, PullStrategy]]] = {
     "file": (False, True, PullStrategy.NONE),
     "sftp": (True, True, PullStrategy.TRANSFER),
@@ -98,8 +87,8 @@ _BACKEND_CAPABILITY: Final[dict[str, tuple[bool, bool, PullStrategy]]] = {
 }
 _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_AGENT_TASK_ID",
-    "ASSAY_ARTIFACT_BACKEND__PROTOCOL",  # remote executor writes scope artifacts to the same logical backend the agent reads
-    "ASSAY_ARTIFACT_BACKEND__ROOT",  # cloud credentials ride the executor's ambient env, never this allowlist
+    "ASSAY_ARTIFACT_BACKEND__PROTOCOL",
+    "ASSAY_ARTIFACT_BACKEND__ROOT",
     "ASSAY_ARTIFACT_RETENTION",
     "ASSAY_EXEC_TARGET",
     "ASSAY_RUN_ID",
@@ -110,7 +99,6 @@ _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "OTEL_SERVICE_NAME",
     "RHINO_WIP_APP_PATH",
 ))
-# W3C Trace Context keys are lowercase; propagate.inject emits them verbatim.
 _TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
 _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
@@ -125,32 +113,25 @@ _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
 
 
 def _anchor(value: str | UPath) -> UPath:
-    # Ingress anchoring gives consumers an absolute workspace root instead of a caller cwd.
     cursor = UPath(value).expanduser().resolve()
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
 
 
 def _default_root() -> UPath:
-    # The cwd walk wins inside a workspace; a marker miss falls back to the walk from this package's own home, so a
-    # foreign-cwd invocation still lands on the real workspace (tool manifest, props, node_modules) instead of
-    # littering artifact roots under an arbitrary directory. Explicit roots bypass this factory entirely.
     cwd = _anchor(UPath.cwd())
     home = UPath(__file__).resolve()
     return cwd if (cwd / _MARKER).is_file() else next((p for p in home.parents if (p / _MARKER).is_file()), cwd)
 
 
 def _default_cpu_count() -> int:
-    # os.process_cpu_count honors cgroup/affinity limits; the governed-concurrency fold reads this via AssaySettings.cpu_count.
     return min(256, max(1, os.process_cpu_count() or 8))
 
 
 def _host_token() -> str:
-    # Stable per-host token: the blake2b(hostname) digest embedded in every run id keeps run dirs disjoint per host on a shared root.
     return hashlib.blake2b(socket.gethostname().encode(), digest_size=4).hexdigest()
 
 
 def _host_unique_run_id() -> str:
-    # timestamp-token-pid: the embedded host token (above) carves a per-host run-id namespace a remote prune can sweep without cross-deleting.
     return f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{_host_token()}-{os.getpid()}"
 
 
@@ -171,7 +152,6 @@ def run_id_host_token(run_id: str) -> str:
 
 
 def _parse_exec_target(value: object) -> Local | Ssh:
-    # One admission point folds the raw ssh:// URL or a round-tripped dump into the modal value object so the discriminant is the case, never a flag.
     match value:
         case Local() | Ssh():
             return value
@@ -182,7 +162,6 @@ def _parse_exec_target(value: object) -> Local | Ssh:
         case {"host": str() as host} as fields if host:
             return Ssh.model_validate(fields)
         case {}:
-            # A hostless or empty round-tripped dump is the local case; bare `{}` matches every mapping, so this arm stays below the host arm.
             return Local()
         case _:
             raise ValueError(f"exec_target must be '' (local), an 'ssh://[user@]host[:port]' URL, or an ExecTarget value: {value!r}")
@@ -252,8 +231,7 @@ class ArtifactBackend(BaseModel):
     storage_options: dict[str, str | int | bool] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _bounded_non_file_root(self) -> ArtifactBackend:  # ruff:ignore[invalid-first-argument-name-for-class-method]  # Pydantic v2 mode="after" passes the model instance, not cls.
-        # Non-file backend singletons need a non-empty root to avoid cross-store collisions; file backends ignore storage_options.
+    def _bounded_non_file_root(self) -> ArtifactBackend:  # ruff:ignore[invalid-first-argument-name-for-class-method]
         match (self.protocol, self.root.strip(), ".." in _root_parts(self.root)):
             case ("file", _, _):
                 return self
@@ -270,7 +248,6 @@ class ArtifactBackend(BaseModel):
         Returns:
             Backend root path used by ArtifactStore.
         """
-        # _bounded_non_file_root guarantees non-file roots; protocol-first matching keeps the partition total.
         match self.protocol:
             case "file" if not self.root:
                 return str(settings.store_root)
@@ -421,7 +398,7 @@ class Offload(BaseModel):
         return self.backend.capability[2]
 
 
-class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # AssaySettings is the central runtime-settings owner; its projections compose one concern.
+class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]
     """Validated Assay runtime settings."""
 
     model_config = SettingsConfigDict(
@@ -442,35 +419,26 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
     mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2
     max_checks: Annotated[int, Field(ge=1, le=64)] = 8
     cpu_count: Annotated[int, Field(ge=1, le=256)] = Field(default_factory=_default_cpu_count)
-    # Bounded stderr diagnostic-preview window retained on the receipt; the full stdout payload spills to the PROCESS artifact instead.
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
-    # In-memory stdout-capture ceiling: at or below it the full payload rides the receipt inline; above it capture spills to the PROCESS artifact.
     capture_spill_bytes: Annotated[int, Field(ge=65536)] = 1_048_576
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
-    # Machine-wide dotnet admission-slot lock root: per-user, machine-stable, local-fs (flock-hostable), aligned with the bridge ~/.rasm home.
     machine_lock_root: Path = Field(default_factory=lambda: Path.home() / ".rasm" / "locks")
     artifact_retention: Annotated[int, Field(ge=1, le=10000)] = 50
     build_scope_retention: Annotated[int, Field(ge=1, le=1000)] = 24
-    # Remote push/pull budget: the floor covers the pull leg and small manifests; the per-file term scales the push ceiling so a
-    # large git-tracked tree (1000+ files, latency-bound at one round-trip each) does not degrade mid-push on a real WAN link.
     transfer_budget_s: Annotated[float, Field(gt=0)] = 120.0
     transfer_per_file_s: Annotated[float, Field(gt=0)] = 2.5
-    # SFTP push throttle: a throttled or low-MaxSessions server caps how many directory put coroutines run concurrently
-    # over the one channel and how many open/write/close requests each put pipelines. Tunable down for restrictive hosts.
     sftp_push_concurrency: Annotated[int, Field(ge=1, le=256)] = 16
     sftp_max_requests: Annotated[int, Field(ge=1, le=1024)] = 64
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
-    trigger_files: frozenset[str] = DOTNET_CONFIG_ANCHORS  # one shared anchor roster; the remote lane manifest reads the same rows
+    trigger_files: frozenset[str] = DOTNET_CONFIG_ANCHORS
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
     mutation_python: str = "3.15"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
     run_id: RunId = Field(default_factory=_host_unique_run_id)
     agent_task_id: WireSafeText = ""
-    # NoDecode keeps the raw env string (e.g. `ssh://host`) unparsed: the union type would otherwise drive pydantic-settings to
-    # `json.loads` the env value before the BeforeValidator, raising SettingsError on a bare `ssh://` URL.
     exec_target: Annotated[ExecTargetValue, NoDecode] = Field(
         default_factory=Local, description="execution target; '' = local, ssh://[user@]host[:port] = remote"
     )
@@ -485,13 +453,11 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
     otel_endpoint: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
-    # Shares the rhino-bridge host contract: one Rhino .app bundle override, un-prefixed like the bridge consumes it.
     rhino_wip_app_path: str = Field(default="", validation_alias=AliasChoices("ASSAY_RHINO_WIP_APP_PATH", "RHINO_WIP_APP_PATH"))
 
     @model_validator(mode="before")
     @classmethod
     def _fold_remote_connect_inputs(cls, data: object) -> object:
-        # known_hosts/workroot arrive as separate env vars; fold them into the Ssh case at admission so the value object owns all connect facts.
         match data:
             case dict() as raw:
                 match _parse_exec_target(raw.get("exec_target", "")):
@@ -636,9 +602,6 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
         Returns:
             Environment variables allowed to cross the SSH execution boundary, with an injected Linux ``PATH``.
         """
-        # RUN_ID, the injected toolchain PATH, and the offload-derived backend live in validated settings, so inject them before
-        # allowlist projection. The agent's macOS PATH never crosses; the remote PATH is a host-side Linux toolchain prefix.
-        # The remote executor writes scope artifacts to the backend the agent pulls from: the per-run sftp root, never the local file root.
         safe_names = frozenset(("PATH", *self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
         store = self.offload.backend if self.offload is not None else self.artifact_backend
         backend = {"ASSAY_ARTIFACT_BACKEND__PROTOCOL": store.protocol, "ASSAY_ARTIFACT_BACKEND__ROOT": store.root}

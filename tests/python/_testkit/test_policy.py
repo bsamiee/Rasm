@@ -9,7 +9,7 @@ import fnmatch
 import functools
 from importlib.util import find_spec, module_from_spec, spec_from_file_location
 import os
-from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
+from pathlib import Path
 import shutil
 import sys
 import tomllib
@@ -93,7 +93,7 @@ def _pytest_ini_marker_names() -> frozenset[str]:
 def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]:
     """Return collected ``Function`` items from the current session."""
     session: object = pytestconfig.pluginmanager.get_plugin("session")
-    raw: object = getattr(session, "items", None)  # B009: session has no public stub; attribute is a fixed string, not computed
+    raw: object = getattr(session, "items", None)
     return [item for item in (raw if isinstance(raw, list) else []) if isinstance(item, pytest.Function)]
 
 
@@ -187,10 +187,8 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     (source / "alpha" / "__init__.py").write_text("", encoding="utf-8")
     (source / "planning_only").mkdir()
     (source / "stray.py").write_text("", encoding="utf-8")
-    # A child whose every source file lies under a template out root is the generator's emission, never a stratum the census owes a suite.
     (source / "emitted" / "gen" / "pkg").mkdir(parents=True)
     (source / "emitted" / "gen" / "pkg" / "gen.py").write_text("", encoding="utf-8")
-    # A src layout installs the package beneath src, so registration names that package, never the folder path.
     (source / "packaged" / "src" / "ns" / "pkg").mkdir(parents=True)
     (source / "packaged" / "src" / "ns" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     (tmp_path / "buf.gen.yaml").write_text("version: v2\nplugins:\n  - local: gen\n    out: src/emitted/gen\n", encoding="utf-8")
@@ -211,7 +209,6 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     monkeypatch.setattr(laws_mod, "_OUT_BASE", REPO_ROOT)
     live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
     assert all(find_spec(name) is not None for name in live), f"a registration named no importable package: {live}"
-    # The contracts estate is emission alone: its Python out root lies under its own gen tree, and no branch folder authors it.
     emitted = generated_roots(REPO_ROOT / "libs" / "contracts")
     assert emitted and all(root.is_relative_to(REPO_ROOT / "libs" / "contracts" / "gen") for root in emitted), "template lost its Python out root"
     assert "rasm.contracts" not in live, f"the emitted estate must never register as a SUT: {live}"
@@ -273,7 +270,7 @@ def test_spec_follows_active_profile_pins_named_and_scales_timeout(monkeypatch: 
     prior = hyp_settings.get_current_profile_name()
     hyp_settings.load_profile("kit-probe")
     try:
-        # Collection order mirror: the CLI profile loads before law modules import, so decoration binds it.
+
         @spec(int, law="probe-follows", events=(_tag,))
         def probe(n: int) -> None:
             runs.append(n)
@@ -282,7 +279,6 @@ def test_spec_follows_active_profile_pins_named_and_scales_timeout(monkeypatch: 
         def pinned(n: int) -> None:
             pinned_runs.append(n)
 
-        # @given injects the drawn argument; the bare call is the runtime contract the checker cannot see.
         probe()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
         pinned()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
     finally:
@@ -300,7 +296,6 @@ def test_spec_follows_active_profile_pins_named_and_scales_timeout(monkeypatch: 
     with pytest.raises(TypeError, match="double-decoration"):
         spec(int, law="probe-duplicate")(probe)
 
-    # The subject algebra matches the resolver's: a PEP 695 alias injects, a bare callable refuses.
     type Pair = tuple[int, int]
     alias_runs: list[tuple[int, int]] = []
 
@@ -528,7 +523,7 @@ def test_observability_gate_routes_hypothesis_observations_to_artifacts() -> Non
     artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
 
     def child(*, observed: bool) -> int:
-        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # ruff:ignore[banned-api]  # subprocess env clone
+        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # ruff:ignore[banned-api]
         env = {**base, **({"TESTS_OBSERVABILITY": "1"} if observed else {})}
         spawn = functools.partial(anyio.run_process, env=env, cwd=str(REPO_ROOT), check=False)
         result = anyio.run(spawn, [sys.executable, "-m", "pytest", law, "-q"])
@@ -598,7 +593,6 @@ class _LitterRule(Protocol):
 
 
 _LITTER_HOOK: Path = REPO_ROOT / ".claude" / "hooks" / "litter-guard.py"
-# [ARTIFACT_ROUTING] tool name -> hook command word; the ruled classification joining the README roster to POLICY keys.
 _LITTER_ROUTED_TOOLS: dict[str, str] = {"import-linter": "lint-imports"}
 
 

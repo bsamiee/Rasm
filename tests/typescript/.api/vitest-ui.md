@@ -23,9 +23,7 @@
 |  [05]   | `browser.ui: true`                      | browser mode   | embed the dashboard in browser mode with the live browser iframe |
 
 ```ts signature
-// index.d.ts — the default export is a Vite plugin factory; vitest mounts it, you never call it. Enable by config.
 declare const _default: (ctx: Vitest) => Vite.Plugin; export { _default as default }
-// defineConfig({ test: { ui: true, api: { port: 51204 }, uiBase: '/__vitest__/', open: false } })  — reads the runner's WebSocketRPC
 ```
 
 ## [02]-[HTML_REPORTER]
@@ -40,10 +38,8 @@ declare const _default: (ctx: Vitest) => Vite.Plugin; export { _default as defau
 |  [04]   | coverage `htmlDir`                           | embed      | the istanbul coverage HTML the report links (see `vitest-coverage-v8.md`) |
 
 ```ts signature
-// reporter.d.ts — the html reporter is a Reporter (vitest/node); config names it, never imports it.
 declare const reporter: Reporter; export { reporter as default }
 interface HTMLOptions { outputFile?: string }
-// defineConfig({ test: { reporters: ['default', ['html', { outputFile: 'html/index.html' }]] } })
 ```
 
 ## [03]-[INTEGRATION]

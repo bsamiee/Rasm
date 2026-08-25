@@ -1,7 +1,5 @@
 import { test } from '../fixtures.ts';
 
-// BLOCKED scenario classes: each row names the producer gap that activates it. A class activates by
-// deleting its row here and landing its suite — never by faking the flow against a simulacrum.
 test.describe('blocked scenario classes', () => {
     test.skip('pwa/service-worker/offline — activation: browser/shell workbox build-out', () => {});
     test.skip('form-heavy react-aria flows — activation: ui build-out', () => {});

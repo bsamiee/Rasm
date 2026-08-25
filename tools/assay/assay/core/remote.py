@@ -14,24 +14,15 @@ import shlex
 from typing import TYPE_CHECKING
 
 import anyio
-from anyio import to_thread  # ty mis-resolves anyio.to_thread without an explicit submodule import
+from anyio import to_thread
 import msgspec
 import structlog
-lazy import asyncssh  # ~83ms cold start; materializes at the first SSH touch, off every local-only path
+lazy import asyncssh
 
 from assay.composition.settings import PullStrategy, resolve_tilde, run_id_host_token, Ssh
 from assay.composition.store import ArtifactScope, size_from_info
 from assay.core.govern import Captured, captured_outputs, drain_pair, line_count, recv_ssh, stream_artifacts
-from assay.core.model import (  # beartype resolves receipt annotations at runtime under PEP 649
-    Artifact,
-    ArtifactKind,
-    Completed,
-    DOTNET_CONFIG_ANCHORS,
-    ExecReceipt,
-    RailStatus,
-    receipt,
-    Runner,
-)
+from assay.core.model import Artifact, ArtifactKind, Completed, DOTNET_CONFIG_ANCHORS, ExecReceipt, RailStatus, receipt, Runner
 from assay.core.routing import discover_async, parse_csproj
 
 
@@ -51,35 +42,22 @@ _LOG = structlog.get_logger("assay.remote")
 
 _SSH_CONNECT_TIMEOUT: float = 15.0
 
-# Keepalive failure tears down wedged SSH transports so the retry rail can re-establish before the check deadline.
 _SSH_KEEPALIVE_INTERVAL_S: float = 15.0
 
 _SSH_KEEPALIVE_COUNT_MAX: int = 3
 
 _SSH_SIGNAL_STATUS: int = 255
 
-# Explicit opt-out POLICY_VALUE: an exec_known_hosts of this token maps to asyncssh known_hosts=None (host-key verification
-# off). The empty/unset path keeps the ~/.ssh/known_hosts default (settings env_ignore_empty), so this is the only disable route.
 _KNOWN_HOSTS_INSECURE: str = "insecure"
 
-# Repo push + artifact pull bracket the remote exec; a shielded ceiling stops a large transfer from reclassifying a completed run as TIMEOUT.
-# The budget floor and per-file scale are operator-owned settings (transfer_budget_s / transfer_per_file_s); this constant is the
-# manifest-discovery limit only, where no settings instance is in scope yet. _transfer_budget folds (floor, file_count * per-file).
 _TRANSFER_BUDGET_S: float = 120.0
 
-# git ls-files is the set-algebraic source universe the lane manifest scopes: .git/.cache/.artifacts/bin/obj/node_modules/.venv are
-# gitignored, so they never cross; the build-closure derivation then narrows the universe to the lane's transitive closure.
 _PUSH_MANIFEST_ARGV: tuple[str, ...] = ("git", "ls-files", "-z")
 
-# Push throttle (per-directory put concurrency over the one channel, and per-put request pipelining) is operator-owned on
-# AssaySettings.sftp_push_concurrency / sftp_max_requests so a throttled or low-MaxSessions server can tune it down.
-# A Python lane pushes the package source, the test corpus, and the dependency/config anchors; nothing else in the tree is on
-# the import or test path. The prefixes are repo-relative dir roots; the files are repo-root anchors that resolve the env.
 _PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "libs/contracts/", "src/")
 
 _PYTHON_CONFIG_FILES: frozenset[str] = frozenset((".python-version", "pyproject.toml", "uv.lock"))
 
-# SFTP v3 directory file-type discriminant (FILEXFER_TYPE_DIRECTORY); the remote prune sweeps only run dirs, never stray files.
 _SFTP_DIR_TYPE: int = 2
 
 
@@ -96,7 +74,7 @@ _SSH_CACHE: ContextVar[_SshCache | None] = ContextVar("assay_ssh_cache", default
 class _Outcome:
     streams: dict[str, Captured]
     exit_status: int | None
-    signal: object | None  # raw asyncssh exit_signal: the (name, *) tuple or None; decoded once by ssh_outcome/_signal_name
+    signal: object | None
     notes: tuple[str, ...] = ()
 
 
@@ -129,7 +107,6 @@ class _Transfer:
         scope: ArtifactScope = self.plan.scope
         budget = _transfer_budget(self.plan.settings)
         try:
-            # Shield the post-exit read so a completed run lands its artifacts even under deadline cancellation; the budget still bounds it.
             with anyio.CancelScope(shield=True), anyio.fail_after(budget):
                 landed = await self._reach_scope(scope)
         except TimeoutError:
@@ -139,7 +116,6 @@ class _Transfer:
         return _Pulled((*captured, *landed), len(landed), ())
 
     async def _reach_scope(self, scope: ArtifactScope) -> tuple[Artifact, ...] | None:
-        # One dispatch owns every reach modality: sftp byte-download, shared zero-transfer read, or no admitted backend.
         match self.plan.settings.offload.pull_strategy if self.plan.settings.offload is not None else PullStrategy.NONE:
             case PullStrategy.TRANSFER:
                 return await _sftp_pull_scope(self.conn, self.plan, scope)
@@ -150,10 +126,6 @@ class _Transfer:
 
 
 def _remap_scope_path(token: str, *, local_root: str, remote_root: str) -> str:
-    # One derived rule remaps every build-scope path the local store seeded into argv (CspSarifDir, --artifacts-path,
-    # any future scope flag) from its macOS-absolute form to the remote workroot, so a remote Linux build never sees a
-    # host-absolute path (CS0016). The flag/value frame is preserved: a `prop=<abs>` token rebinds only the value tail,
-    # a bare `<abs>` token rebinds whole, and a token carrying no local-root path passes through untouched.
     prefix, sep, value = token.rpartition("=")
     target = value if sep else token
     rebased = f"{remote_root}/{target[len(local_root) + 1 :]}" if target.startswith(f"{local_root}/") else target
@@ -170,8 +142,6 @@ def _remote_scope_argv(argv: tuple[str, ...], *, local_root: str, remote_root: s
 
 
 async def _resolve_remote_plan(plan: ExecPlan, target: Ssh, conn: asyncssh.SSHClientConnection) -> ExecPlan:
-    # Resolve the remote ``~`` once (sftp.realpath('.') canonicalizes the SFTP login dir to the absolute home; a chroot returns '/')
-    # so the SFTP push, the offload backend root, the exec ``cd``, and the injected toolchain PATH all share one absolute workroot.
     async with await conn.start_sftp_client() as sftp:
         home = str(await sftp.realpath("."))
     settings = plan.settings.model_copy(update={"exec_target": target.resolve_home(home)})
@@ -192,14 +162,12 @@ async def run_remote(plan: ExecPlan, target: Ssh) -> Completed:
     async with _ssh_connection(target) as conn:
         plan = await _resolve_remote_plan(plan, target, conn)
         resolved = plan.settings.exec_target if isinstance(plan.settings.exec_target, Ssh) else target
-        # Pre-flight probe under the SAME injected PATH the exec uses, so a tool on the injected PATH never falsely reads as UNSUPPORTED.
         match await _probe_toolchain(conn, plan.argv, path=plan.env.get("PATH", "")):
             case (str() as missing, str() as detail):
                 miss = receipt(plan.argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, stderr=detail.encode()[:1024])
                 return _fold_receipt(miss, resolved, exit_status=None, signal="", notes=(f"remote.toolchain.missing tool={missing}",))
             case _:
                 pass
-        # One shielded bracket owns push (before exec) and pull (after exec) on the same pooled connection.
         async with _remote_transfer(conn, plan) as transfer:
             outcome = await _remote_exec(conn, plan, remote_command(plan.argv, cwd=plan.cwd, env=plan.env))
             pulled = await transfer.pull(outcome.streams)
@@ -214,7 +182,6 @@ def _remote_done(plan: ExecPlan, target: Ssh, transfer: _Transfer, outcome: _Out
     """
     code, signal_notes = ssh_outcome(outcome.exit_status, outcome.signal)
     notes = (*transfer.notes, *pulled.notes)
-    # The spilled stdout artifact is written agent-side to the LOCAL store during drain, distinct from the pulled SCOPE tree.
     done = receipt(
         plan.argv,
         code,
@@ -229,10 +196,8 @@ def _remote_done(plan: ExecPlan, target: Ssh, transfer: _Transfer, outcome: _Out
 
 
 async def _remote_exec(conn: asyncssh.SSHClientConnection, plan: ExecPlan, command: str) -> _Outcome:
-    # The raw asyncssh exit_signal ((name, *) tuple or None) rides _Outcome verbatim; ssh_outcome/_signal_name own the decode.
     match plan.streaming:
         case True:
-            # No stall telemetry on this branch: psutil cannot inspect remote pids across the SSH boundary.
             proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
             try:
                 drain_notes = list[str]()
@@ -262,8 +227,6 @@ async def _remote_transfer(conn: asyncssh.SSHClientConnection, plan: ExecPlan) -
     """
     manifest = await _push_manifest(plan)
     budget = _transfer_budget(plan.settings, len(manifest))
-    # Retention prune is hoisted to the fan-level pooled-ssh teardown (once per fan), so the push leg no longer pays the
-    # per-check scandir: the current run dir always survives the sweep because it is the newest under the workroot.
     try:
         with anyio.CancelScope(shield=True), anyio.fail_after(budget):
             pushed, push_notes = await _push_repo(conn, plan, manifest)
@@ -273,7 +236,6 @@ async def _remote_transfer(conn: asyncssh.SSHClientConnection, plan: ExecPlan) -
 
 
 def _transfer_budget(settings: AssaySettings, file_count: int = 0) -> float:
-    # Floor covers the pull leg and small manifests; the per-file term scales the push so a 1000+ file tree does not degrade mid-push.
     return max(settings.transfer_budget_s, file_count * settings.transfer_per_file_s)
 
 
@@ -297,8 +259,6 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
     remote_root = plan.cwd.rstrip("/")
     limiter = anyio.CapacityLimiter(plan.settings.sftp_push_concurrency)
     max_requests = plan.settings.sftp_max_requests
-    # One failure stream owns both fault kinds as (note, dropped) facts: the dropped weight stays a typed int the pushed
-    # count folds directly, so the count is never re-parsed out of its own formatted note string.
     failures: list[tuple[str, int]] = []
 
     def _dir_failed(parent: str, dropped: int, exc: BaseException) -> tuple[str, int]:
@@ -307,10 +267,6 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
     async def _push_dir(sftp: asyncssh.SFTPClient, parent: str, names: tuple[str, ...]) -> None:
         async with limiter:
             remote_dir = "/".join((remote_root, *parent.split("/"))) if parent else remote_root
-            # makedirs and the put both fault per-directory: a raise from either (channel-level error, or a source-stat
-            # FileNotFoundError that asyncssh raises before the transfer rather than routing through error_handler) drops
-            # only this subtree, leaving sibling directories to push. error_handler still folds remote-side transfer errors
-            # per file (weight 1); a put raise aborts before any transfer, so it carries the whole undelivered group weight.
             locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
 
             def handler(exc: BaseException) -> None:
@@ -324,7 +280,6 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
 
     async def _drive() -> None:
         async with await conn.start_sftp_client() as sftp:
-            # The run root is created unconditionally so the remote `cd <workroot>/<run_id>` is valid even for an empty manifest.
             await sftp.makedirs(remote_root, exist_ok=True)
             async with anyio.create_task_group() as tg:
                 for parent, names in _grouped_by_parent(manifest).items():
@@ -334,7 +289,6 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
     try:
         await _drive()
     except* (OSError, asyncssh.Error) as group:
-        # Channel-open or run-root makedirs failed (no subtree pushed): bind one whole-manifest degrade fact, return after the except* block.
         aborted = tuple(_dir_failed("", len(manifest), exc) for exc in group.exceptions)
     final = aborted or tuple(failures)
     pushed = max(0, len(manifest) - sum(dropped for _, dropped in final))
@@ -342,18 +296,12 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
 
 
 async def _push_manifest(plan: ExecPlan) -> tuple[str, ...]:
-    # git ls-files -z is NUL-delimited so paths with spaces/newlines survive; the agent-local root is the manifest source.
-    # The full git universe is then lane-scoped to the build closure so a remote run pushes the closure, never the whole tree.
     listed = await discover_async(_PUSH_MANIFEST_ARGV, root=plan.settings.local_root, limit_s=_TRANSFER_BUDGET_S)
     universe = listed.map(lambda out: tuple(p for p in out.decode(errors="replace").split("\x00") if p)).default_value(())
     return _lane_manifest(plan, universe)
 
 
 def _lane_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]:
-    # One dispatch on the lane's runner scopes the universe to the build closure: a C# closure is the transitive
-    # ProjectReference set plus root build config; a Python lane is package + tests + config; every other lane keeps the
-    # full universe (it carries no project graph to scope against). Naive subtree-scope is rejected: cross-project refs
-    # would be dropped, so the C# arm walks ProjectReference transitively rather than trusting directory containment alone.
     match plan.check.tool.runner:
         case Runner.DOTNET:
             return _dotnet_manifest(plan, universe)
@@ -377,11 +325,6 @@ def _dotnet_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ..
 
 
 def _dotnet_seeds(plan: ExecPlan) -> frozenset[str]:
-    # Seeds are the closure roots: the .csproj project tokens the composed build argv carries. The project tail is bound by
-    # `place(routed, ...)` at argv composition for a `--project`/closure route, so it lands in `plan.argv`, never in
-    # `tool.command` or `check.paths` (those stay empty for a project route). Reading the composed argv keeps the seed in one
-    # source regardless of whether the project arrived as `check.tail`, an unpinned `place()` tail, or a routed file token.
-    # Absolute argv tokens are rebased to repo-relative against the agent-local root so they key into the git universe.
     local_root = str(plan.settings.local_root)
     return frozenset(
         rel
@@ -393,10 +336,6 @@ def _dotnet_seeds(plan: ExecPlan) -> frozenset[str]:
 
 
 def _project_closure(seeds: frozenset[str], projects: frozenset[str], local_root: Path) -> frozenset[str]:
-    # Forward-dependency fixed-point over the ProjectReference graph: the build of a seed needs every project the seed
-    # transitively references, so each pass folds in the references of the current members. A cross-directory reference
-    # (libs/A -> libs/B) survives because the walk follows the edge, not directory containment; subtree-scope would drop it.
-    # Complete in at most len(projects) passes since each pass adds at least one node or terminates.
     graph = {rel: _csproj_refs(rel, local_root) & projects for rel in projects}
     seeded = seeds & projects
     return reduce(
@@ -405,7 +344,6 @@ def _project_closure(seeds: frozenset[str], projects: frozenset[str], local_root
 
 
 def _csproj_refs(rel: str, local_root: Path) -> frozenset[str]:
-    # An unreadable or malformed project becomes an isolated graph node; the closure derivation never faults on one bad file.
     parent = PurePosixPath(rel).parent
     try:
         raw = (local_root / rel).read_bytes()
@@ -420,7 +358,6 @@ def _python_manifest(universe: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _grouped_by_parent(manifest: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
-    # Group by repo-relative parent so one put call per directory preserves tree structure: basenames within a dir are unique.
     groups: dict[str, list[str]] = {}
     for rel in manifest:
         parent, _, name = rel.rpartition("/")
@@ -438,7 +375,6 @@ def _stale_remote_runs(rows: tuple[tuple[str, float], ...], *, token: str, keep:
     Returns:
         Run-dir basenames to remove, oldest-first, scoped to this host's run-id namespace.
     """
-    # Rank oldest-first on (mtime, run_id): the mtime-keyed tuple reorder sorts without a lambda; run_id breaks an mtime tie.
     own = sorted((mtime, run_id) for run_id, mtime in rows if run_id_host_token(run_id) == token)
     return tuple(run_id for _, run_id in own[: max(0, len(own) - keep)])
 
@@ -456,7 +392,7 @@ async def _remote_prune(conn: asyncssh.SSHClientConnection, settings: AssaySetti
         Pruned-run notes, or empty when nothing on this host's namespace exceeds the retention bound.
     """
     target = settings.exec_target
-    if not isinstance(target, Ssh):  # pragma: no cover  # the pooled-ssh teardown only prunes under an Ssh target
+    if not isinstance(target, Ssh):  # pragma: no cover
         return ()
     token, keep = settings.host_run_token, settings.artifact_retention
     try:
@@ -503,7 +439,6 @@ async def _probe_toolchain(conn: asyncssh.SSHClientConnection, argv: tuple[str, 
             probe = await conn.run(f"{export}command -v {shlex.quote(tool)}", encoding="utf-8", check=False)
             return None if probe.exit_status == 0 else (tool, f"remote toolchain missing: {tool!r} not on PATH")
         case _:
-            # An absolute-path or empty leading token is self-locating; the exec surfaces its own ENOENT.
             return None
 
 
@@ -521,16 +456,13 @@ def _fold_receipt(
 
 
 def _scope_relative(scope: ArtifactScope) -> tuple[str, ...]:
-    # Scope parts are root-down by construction: stripping the store root yields parts that agree across local and remote.
     tail = scope.path[len(scope.store.root) + 1 :] if scope.path.startswith(f"{scope.store.root}/") else scope.path
     return tuple(part for part in tail.split("/") if part)
 
 
 async def _sftp_pull_scope(conn: asyncssh.SSHClientConnection, plan: ExecPlan, scope: ArtifactScope) -> tuple[Artifact, ...]:
-    # The agent landing store is always local-file: an SFTP execution backend cannot be read in-process, so artifacts come down to disk.
-    # Offload pins the sftp backend under the run dir, so the backend root is the type's projection, never an inline re-derivation.
     offload = plan.settings.offload
-    if offload is None:  # pragma: no cover  # the remote arm only reaches here under an Ssh target, which always derives an Offload
+    if offload is None:  # pragma: no cover
         return ()
     rel = _scope_relative(scope)
     landing = plan.settings.store(protocol="file", root="")
@@ -539,13 +471,11 @@ async def _sftp_pull_scope(conn: asyncssh.SSHClientConnection, plan: ExecPlan, s
     async with await conn.start_sftp_client() as sftp:
         if not await sftp.exists(remote_dir):
             return ()
-        # localpath is the parent so asyncssh recreates the run-id dir from the remote basename, agreeing with `rel`.
         await sftp.get(remote_dir, str(local_dir.parent), recurse=True, preserve=False)
     return await to_thread.run_sync(_landed_scope_artifacts, landing, local_dir, rel, plan.check.tool.name)
 
 
 def _landed_scope_artifacts(landing: ArtifactStore, local_dir: Path, rel: tuple[str, ...], tool: str) -> tuple[Artifact, ...]:
-    # Sync file-tree read of the freshly-landed scope: byte/line counts are real, paths are agent-local and scope-relative.
     return tuple(
         Artifact(
             id=f"{tool}-scope-{file.name}",
@@ -570,14 +500,12 @@ def _shared_read_scope(plan: ExecPlan, scope: ArtifactScope) -> tuple[Artifact, 
         Folded shared scope artifacts, or ``None`` when the remote tree is absent so the caller degrades to a note.
     """
     offload = plan.settings.offload
-    if offload is None:  # pragma: no cover  # the remote arm only reaches here under an Ssh target, which always derives an Offload
+    if offload is None:  # pragma: no cover
         return None
     rel = _scope_relative(scope)
     store = plan.settings.store(protocol=offload.backend.protocol, root=offload.backend.root)
     tool = plan.check.tool.name
-    # detail=True yields (path, info) rows; the isinstance guard narrows walk's union and skips directory markers.
     rows = tuple(row for row in store.walk(*rel, recursive=True, detail=True) if isinstance(row, tuple) and isinstance(row[1], dict))
-    # An object store has no empty directories: a prefix with no keys is the absent-tree signal, folded to a note by the caller.
     artifacts = tuple(
         Artifact(id=f"{tool}-scope-{path.rsplit('/', 1)[-1]}", kind=ArtifactKind.SCOPE, path=path, bytes=size_from_info(info))
         for path, info in rows
@@ -612,8 +540,6 @@ async def _connect(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
 
 
 async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
-    # The Ssh value object owns host/port/username/known_hosts; the engine owns the timeout/keepalive policy and the explicit
-    # insecure opt-out: an `insecure` known_hosts token rebinds to asyncssh known_hosts=None and warns once before connecting.
     return await asyncssh.connect(
         **{**target.connect_kwargs, **_insecure_host_key(target.connect_kwargs.get("known_hosts"))},
         connect_timeout=_SSH_CONNECT_TIMEOUT,
@@ -624,7 +550,6 @@ async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
 
 
 def _insecure_host_key(known_hosts: object) -> Mapping[str, None]:
-    # Only the explicit `insecure` token disables host-key verification (-> known_hosts=None); every other value passes through.
     match known_hosts:
         case str() as token if token == _KNOWN_HOSTS_INSECURE:
             _LOG.warning("ssh.host_key_verification_disabled")
@@ -645,7 +570,6 @@ def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -
 
 
 def _signal_name(exit_signal: object | None) -> str:
-    # One owner decodes asyncssh's signalled-kill fact: a (name, *) tuple yields the receipt-bearing name, else the empty string.
     match exit_signal:
         case (str() as name, *_):
             return name
@@ -684,7 +608,6 @@ async def pooled_ssh(settings: AssaySettings) -> AsyncIterator[None]:
         yield None
     finally:
         _SSH_CACHE.reset(token)
-        # Once-per-fan remote retention sweep, before the connections close, bounding the remote workroot's run-dir pile.
         await _fan_prune(cache, settings)
         for conn in cache.conns.values():
             conn.close()
@@ -696,8 +619,6 @@ async def pooled_ssh(settings: AssaySettings) -> AsyncIterator[None]:
 
 
 async def _fan_prune(cache: _SshCache, settings: AssaySettings) -> None:
-    # Every cached connection ran offloaded checks under this fan's exec target, so one shielded prune per pooled
-    # connection sweeps this host's stale run dirs exactly once for the whole fan rather than once per check.
     if not isinstance(settings.exec_target, Ssh):
         return
     for conn in cache.conns.values():

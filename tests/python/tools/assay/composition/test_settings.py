@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 from typing import Final, override, Self, TYPE_CHECKING
-import uuid  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
+import uuid
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec
@@ -50,11 +50,7 @@ from assay.composition.store import (
 )
 from assay.core.model import Artifact, ArtifactKind, Claim
 from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
-from tests.python.tools.assay.kit import (  # runtime use: instantiated in fixture bodies, not annotation-only
-    AssayHarness,
-    make_history_envelope,
-    WIRE_ENCODER,
-)
+from tests.python.tools.assay.kit import AssayHarness, make_history_envelope, WIRE_ENCODER
 
 
 if TYPE_CHECKING:
@@ -120,10 +116,10 @@ class _StubWriter(contextlib.AbstractContextManager["_StubWriter"]):
             case None:
                 self._data[self._path] = bytes(self._buffer)
             case _:
-                pass  # Failed writes must leave the target path untouched.
+                pass
 
 
-class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # full structural protocol requires all 10 override surfaces
+class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]
     """Parametrizable fsspec stub: keyed-dict find detail, configurable info, optional rm race."""
 
     def __init__(self, *, info_payload: dict[str, object] | None = None, rm_raises: bool = False, write_fails: bool = False) -> None:
@@ -147,7 +143,6 @@ class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # fu
 
     @override
     def ls(self, path: str, *, detail: bool = False) -> list[str] | list[dict[str, object]]:
-        # Omitted mtime forces sorted-history tests onto the lexicographic run-id tiebreaker.
         prefix = f"{path.rstrip('/')}/"
         children = sorted({f"{prefix}{p[len(prefix) :].split('/', 1)[0]}" for p in self._data if p.startswith(prefix)})
         match detail:
@@ -188,7 +183,6 @@ class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # fu
             case (True, _):
                 raise FileNotFoundError(path)
             case (_, True):
-                # Recursive pruning must remove both the dir key and its seeded children.
                 prefix = f"{path.rstrip('/')}/"
                 for key in [p for p in self._data if p == path or p.startswith(prefix)]:
                     del self._data[key]
@@ -199,7 +193,6 @@ class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # fu
 
     @override
     def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[_StubWriter]:
-        # _write_at must route through the autocommit-aware handle, not mutate storage directly.
         return _StubWriter(self._data, path, fail=self._write_fails)
 
     transaction: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
@@ -233,8 +226,8 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
     """mtime_from_info returns float(v) for finite non-negative float/int mtime — exact within float()'s own promotion."""
     result = mtime_from_info({"mtime": v})
     assert isinstance(result, float)
-    assert result == float(v)  # ruff:ignore[float-equality-comparison]  # float() int→float promotion is deterministic; precision loss past 2^53 is the contract
-    target(float(v), label="mtime_magnitude")  # biases Hypothesis toward 2^53+1, where int→float first loses precision
+    assert result == float(v)  # ruff:ignore[float-equality-comparison]
+    target(float(v), label="mtime_magnitude")
 
 
 @pytest.mark.parametrize(
@@ -257,9 +250,9 @@ def test_artifact_backend_validation_matrix() -> None:
             ("file_empty", ("file", ""), True),
             ("file_path", ("file", "some/path"), True),
             ("memory_ok", ("memory", "my-prefix"), True),
-            ("memory_no_root", ("memory", ""), False),  # non-file backend requires non-empty root
-            ("memory_traversal", ("memory", "../escape"), False),  # traversal rejected
-            ("s3_no_root", ("s3", ""), False),  # non-file + empty root
+            ("memory_no_root", ("memory", ""), False),
+            ("memory_traversal", ("memory", "../escape"), False),
+            ("s3_no_root", ("s3", ""), False),
         ),
         lambda pr: _backend_ok(*pr),
     )
@@ -276,11 +269,11 @@ def _backend_ok(protocol: str, root: str) -> bool:
 @pytest.mark.parametrize(
     "protocol, root, expect_part",
     [
-        ("file", "", ".artifacts/assay"),  # file+empty -> store_root
-        ("memory", "my-prefix", "my-prefix"),  # non-file -> root stripped
-        ("memory", "my-prefix/", "my-prefix"),  # rstrip: trailing slash only
-        ("memory", "my-prefix//", "my-prefix"),  # rstrip: repeated slashes only
-        ("memory", "prefixX", "prefixX"),  # rstrip must not eat the trailing X sentinel
+        ("file", "", ".artifacts/assay"),
+        ("memory", "my-prefix", "my-prefix"),
+        ("memory", "my-prefix/", "my-prefix"),
+        ("memory", "my-prefix//", "my-prefix"),
+        ("memory", "prefixX", "prefixX"),
     ],
     ids=["file_empty", "non_file_root", "trailing_slash", "double_trailing_slash", "trailing_capital_x"],
 )
@@ -456,16 +449,16 @@ def test_settings_offload_derivation_matrix(
 @pytest.mark.parametrize(
     "protocol, reachable, admitted, strategy",
     [
-        ("file", False, True, PullStrategy.NONE),  # local landing store: reachable=False, no pull
-        ("sftp", True, True, PullStrategy.TRANSFER),  # byte-download remote-exec backend
-        ("s3", True, True, PullStrategy.SHARED),  # admitted shared object store: agent reads the tool-written tree, zero byte transfer
+        ("file", False, True, PullStrategy.NONE),
+        ("sftp", True, True, PullStrategy.TRANSFER),
+        ("s3", True, True, PullStrategy.SHARED),
         ("gs", True, True, PullStrategy.SHARED),
         ("gcs", True, True, PullStrategy.SHARED),
-        ("http", False, False, PullStrategy.NONE),  # unknown protocol: unreachable, not admitted, pulls nothing
+        ("http", False, False, PullStrategy.NONE),
     ],
     ids=["file", "sftp", "s3", "gs", "gcs", "unknown"],
 )
-def test_backend_capability_table_owns_admission(protocol: str, reachable: bool, admitted: bool, strategy: PullStrategy) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize columns: pytest injects the expectation flags positionally by name
+def test_backend_capability_table_owns_admission(protocol: str, reachable: bool, admitted: bool, strategy: PullStrategy) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """One capability table owns reachability, admission, and pull strategy per backend protocol.
 
     Re-admitting a cloud shared store is one row's admitted=True flip; the table never widens into a dispatch chain.
@@ -509,7 +502,7 @@ def test_ssh_resolve_home_rebinds_tilde_to_absolute_workroot() -> None:
     The agent resolves the remote ``~`` once (``sftp.realpath('.')``) so the SFTP push and the login-shell ``cd`` share one
     absolute run dir — no literal ``~`` reaches SFTP. ``connect_kwargs`` defaults the port to 22 (asyncssh binds ``None`` as 0).
     """
-    tilde = Ssh.parse("ssh://root@host")  # default workroot ~/.assay-work, no explicit port
+    tilde = Ssh.parse("ssh://root@host")
     resolved = tilde.resolve_home("/root")
     assert resolved.remote_workroot("run-9") == "/root/.assay-work/run-9", "leading ~ must rebind to the absolute home"
     absolute = tilde.model_copy(update={"workroot": "/srv/work"})
@@ -566,13 +559,11 @@ def test_assay_settings_remote_env_filters_and_injects_run_id(assay_root: AssayH
     The ``forward`` set carries deliberately-declared row-Tool env keys across the SSH boundary while the
     ambient allowlist keeps gating undeclared host env — an asymmetry fix for the local-vs-remote env merge.
     """
-    # The agent PATH in the source is the macOS PATH; remote_env must replace it with the injected Linux toolchain PATH, not forward it.
     source = {"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x", "ROW_DECLARED": "row", "ROW_UNDECLARED": "drop", "PATH": "/mac/path"}
     env = assay_root.settings.remote_env(source, home="/root", forward=frozenset({"ROW_DECLARED"}))
     assert env == IsPartialDict({"ASSAY_RUN_ID": IsStr, "traceparent": "00-a-b-01", "baggage": "k=v", "ROW_DECLARED": "row"})
     assert "UNSAFE" not in env, "ambient non-allowlisted key leaked across SSH"
     assert "ROW_UNDECLARED" not in env, "an undeclared row key must not cross the boundary on the allowlist alone"
-    # The injected Linux toolchain PATH replaces the agent's local PATH and resolves ~ against the connection home for uv/dotnet reach.
     assert env["PATH"] == "/root/.local/bin:/usr/local/dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     assert "/mac/path" not in env["PATH"], "the agent's local macOS PATH must never cross to a Linux host"
     bare = assay_root.settings.remote_env(source, home="/root")
@@ -609,13 +600,13 @@ def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: Assa
 
     The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option forwarding onto the constructed backend.
     """
-    from fsspec.implementations.local import LocalFileSystem  # ruff:ignore[import-outside-top-level]  # backend-class identity probe
-    from fsspec.implementations.memory import MemoryFileSystem  # ruff:ignore[import-outside-top-level]  # paired backend identity probe
+    from fsspec.implementations.local import LocalFileSystem  # ruff:ignore[import-outside-top-level]
+    from fsspec.implementations.memory import MemoryFileSystem  # ruff:ignore[import-outside-top-level]
 
     mem = assay_root.settings.store(protocol="memory", root=f"store-proto/{assay_root.settings.run_id}")
     assert isinstance(mem.fs, MemoryFileSystem)
     mem.write_bytes(b"x", "probe.bin")
-    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # leak probe: a None-protocol mutant writes the real FS
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
 
     assert not _Path(str(assay_root.settings.store_root / "probe.bin")).exists(), "memory store must not write to the local file backend"
 
@@ -633,14 +624,14 @@ def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_
 
     Segment checks catch claim swaps; the no-empty-dir assertion catches eager store.ensure.
     """
-    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # filesystem-existence probe, the only on-disk check here
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
 
     scope = ArtifactScope.open(assay_root.settings, claim)
     assert isinstance(scope, ArtifactScope)
     assert claim.value in scope.path
     assert assay_root.settings.run_id in scope.path
     assert {"--artifacts-path", scope.path} <= set(scope.dotnet_flags)
-    assert "--disable-build-servers" not in scope.dotnet_flags  # VBCSCompiler stays on; --artifacts-path is the isolation boundary
+    assert "--disable-build-servers" not in scope.dotnet_flags
     assert not _Path(scope.path).exists(), "open() must not materialize the scope directory (no empty scope dirs)"
 
 
@@ -649,7 +640,7 @@ def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: A
 
     The returned path is scope.path, repeated calls are idempotent, and escaped backend paths are rejected before raw fsspec access.
     """
-    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # local: filesystem-existence probe
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
 
     scope = ArtifactScope.open(assay_root.settings, Claim.DOCS)
     assert not _Path(scope.path).exists(), "open() leaves the scope dir absent"
@@ -691,7 +682,6 @@ def test_artifact_file_system_protocol_contract(mem_store: ArtifactStore) -> Non
     assert isinstance(mem_store.fs, ArtifactFileSystem)
 
     class _DefaultTxFs(_FsStub):
-        # Re-bind the Protocol default so the property path is exercised, not _FsStub's class-level attribute.
         transaction = ArtifactFileSystem.transaction
 
     ctx = _DefaultTxFs().transaction
@@ -851,7 +841,6 @@ def test_artifact_store_retain_scopes_prunes_oldest_per_claim(keep: int, expecte
     store = ArtifactStore(fs=stub, root="scopes-root")
     for run in ("scope-0", "scope-1", "scope-2"):
         stub.seed(f"scopes-root/{Claim.STATIC.value}/{run}/artifact.bin", b"x")
-    # A second claim root must be untouched: retain_scopes prunes one claim only.
     stub.seed(f"scopes-root/{Claim.CODE.value}/scope-0/artifact.bin", b"y")
 
     store.retain_scopes(Claim.STATIC, keep)
@@ -888,7 +877,7 @@ def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monke
     monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: 1.0 if "run-a" in str(info.get("name", "")) else 2.0)
     ids = mem_store.sorted_history_ids()
     seeded = tuple(rid for rid in ids if rid in {"run-a", "run-b"})
-    assert seeded == IsTuple("run-a", "run-b")  # mtime rank (1.0 < 2.0) orders run-a before run-b; both present, in order
+    assert seeded == IsTuple("run-a", "run-b")
 
 
 def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> None:
@@ -930,7 +919,7 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
         """Initialise process-local oracle state; @initialize owns the replay-stable store root."""
         super().__init__()
         self._store: ArtifactStore
-        self._counter = 0  # monotonic write order == lexicographic run_id order == recency rank
+        self._counter = 0
         self._written: set[str] = set()
 
     @initialize(root_id=st.uuids())
@@ -952,7 +941,6 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
         sorted_written = sorted(self._written)
         pruned = set(sorted_written[: max(0, len(sorted_written) - keep)])
         self._written -= pruned
-        # retain bounds only the current rule boundary; later writes may grow history again.
         assert len(self._store.sorted_history_ids()) <= keep, f"retain(keep={keep}) left {len(self._store.sorted_history_ids())} survivors"
 
     @invariant()
@@ -999,7 +987,6 @@ def test_artifact_store_resolve_artifacts_matrix(mem_store: ArtifactStore, monke
 
     mem_store.write_bytes(b"first", "scope", "a.txt")
     mem_store.write_bytes(b"newer", "history", "run-x", "b.txt")
-    # history's b.txt is globally newest; a.txt is merely scope's newest — ranked[0]=a.txt proves root priority beats recency.
     ranks = {"b.txt": 3.0, "a.txt": 2.0}
     monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: ranks.get(str(info.get("name", "")).rsplit("/", 1)[-1], 1.0))
     ranked = mem_store.resolve_artifacts("latest", "scope", "history", latest=True)
@@ -1013,7 +1000,7 @@ def test_artifact_store_resolve_artifacts_matrix(mem_store: ArtifactStore, monke
 
 def test_artifact_store_load_history_option_projection(mem_store: ArtifactStore) -> None:
     """load_history projects to Some(Envelope) for a stored run and None for an absent run (oracle laws)."""
-    from expression import Option  # ruff:ignore[import-outside-top-level]  # oracle-only; module-top would surface expression as a dependency
+    from expression import Option  # ruff:ignore[import-outside-top-level]
 
     mem_store.write_history("run-opt", WIRE_ENCODER.encode(make_history_envelope("run-opt")))
     assert_some(Option.of_optional(mem_store.load_history("run-opt")))
@@ -1048,7 +1035,7 @@ def test_prune_python_artifacts_bounds_benchmark_autosaves(assay_root: AssayHarn
     for i in range(5):
         target_file = bench / f"{i:04d}_run.json"
         target_file.write_text("{}", encoding="utf-8")
-        os.utime(target_file, (i, i))  # ascending mtime: 0000 oldest, 0004 newest
+        os.utime(target_file, (i, i))
     coverage = root / PY_ARTIFACT_ROOTS["coverage"]
     coverage.mkdir(parents=True)
     (coverage / "coverage.json").write_text("{}", encoding="utf-8")

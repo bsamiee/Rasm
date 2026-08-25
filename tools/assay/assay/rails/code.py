@@ -8,8 +8,8 @@ import re
 from typing import Annotated, ClassVar, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
-from cyclopts.types import NonNegativeInt  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
+from cyclopts.types import NonNegativeInt
+from expression import Error, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -18,9 +18,9 @@ import tree_sitter_python
 import tree_sitter_typescript
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # unconditional: @checked beartype forward-ref (PEP 649)
-from assay.composition.store import ArtifactScope  # unconditional: @checked beartype forward-ref (PEP 649)
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -29,7 +29,7 @@ from assay.core.model import (
     Claim,
     Completed,
     Counts,
-    Fault,  # unconditional: @checked resolves the `-> Result[Report, Fault]` forward-ref under PEP 649
+    Fault,
     Language,
     language_choice,
     Match,
@@ -69,7 +69,6 @@ class CodeParams(BaseParams):
 
     SLOTS: ClassVar[dict[str, str]] = {"": "PATTERN [PATHS]..."}
 
-    # language selectors are optional; hide default so help does not advertise an unset flag
     dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
@@ -130,7 +129,6 @@ _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
-    # Code search defaults to the whole worktree, unlike changed-files quality gates.
     return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET, settings=settings) for language in languages))
 
 
@@ -156,7 +154,6 @@ def _dispatch(
 def _fan(
     settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor
 ) -> Result[tuple[Completed, ...], Fault]:
-    # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
     return resolve_languages(params.language, params.paths, claim=Claim.CODE).bind(
         lambda languages: _routed(languages, params.paths, settings).bind(
             lambda routed: sequence(
@@ -167,7 +164,6 @@ def _fan(
 
 
 def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
-    # ast-grep aborts on a missing explicit target; ripgrep walks cwd on an empty tail — both require an explicit fallback.
     match paths:
         case ():
             return _DEFAULT_TARGET
@@ -176,7 +172,6 @@ def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
 
 
 def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Check]:
-    # Targets ride the command body to avoid ARG_MAX; tracked dot-dirs stay visible, gitignored dirs stay excluded.
     targets = _targets(params.paths, root)
     return lambda tool, routed: Check(
         tool=tool, paths=routed.files, args=ToolArgs(pattern=params.pattern, language=routed.language.value, targets=targets)
@@ -313,7 +308,6 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
 
 
 def _artifact(scope: ArtifactScope, verb: str, content: str, settings: AssaySettings) -> Artifact:
-    # run_id prevents concurrent listing clobber; content hash gives delta a body-free identity.
     raw = content.encode()
     digest = sha256(raw).hexdigest()[:12]
     path = scope.store.write_bytes(raw, ArtifactKind.CODE.value, verb, settings.run_id, "matches.txt")
@@ -321,7 +315,6 @@ def _artifact(scope: ArtifactScope, verb: str, content: str, settings: AssaySett
 
 
 def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -> T | E:
-    # Non-JSON stdout degrades to the sentinel so fan-out callers keep the rail shape.
     try:
         return decoder.decode(raw)
     except msgspec.MsgspecError:
@@ -338,8 +331,6 @@ def _report(
     listing: str,
     notes: tuple[str, ...],
 ) -> Report:
-    # Rows promote an EMPTY base status to OK; malformed query captures keep their defect
-    # rows; full match cardinality rides Artifact.lines, with a cap note when rows were cut.
     base = fold(Claim.CODE, verb, completeds)
     status = RailStatus.OK if rows and base.status is RailStatus.EMPTY else base.status
     done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
@@ -353,7 +344,6 @@ def _relevance(pattern: str, text: str) -> int:
     return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
 
 
-# One row spec owns decode, listing text, Match projection, and saturation per match family.
 _AG_SPEC: Final[_RowSpec[AstMatch]] = _RowSpec(
     extract=lambda completeds: tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ())),
     entry=lambda m: f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else ""),
@@ -379,7 +369,6 @@ _TS_SPEC: Final[_RowSpec[Capture]] = _RowSpec(
     ),
     saturated=lambda captures: any(c.truncated for c in captures),
 )
-# Only ripgrep "match" events carry hit data; begin/end/summary events are intentionally dropped.
 _RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
     extract=lambda completeds: tuple(
         e
@@ -404,21 +393,17 @@ _RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
 def _project_rows[M](
     completeds: tuple[Completed, ...], cap: int, pattern: str, *, spec: _RowSpec[M]
 ) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
-    # Rows are capped for the report; artifact listing stays complete across match families.
     matches = spec.extract(completeds)
     rows = tuple(spec.row(m, pattern) for m in matches[:cap])
     return rows, "\n".join(spec.entry(m) for m in matches), cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
 
 
 def _content_args(params: CodeParams, root: Path) -> ToolArgs:
-    # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
     globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
     return ToolArgs(globs=globs, pattern=params.pattern, targets=_targets(params.paths, root))
 
 
 def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailStatus, tuple[str, ...]]:
-    # ripgrep exit 2 is overloaded (partial match + error); hit presence distinguishes
-    # partial success with a warning from a real tool failure.
     match (returncode, has_rows):
         case (_, True):
             warn = f"; ripgrep warning: {stderr[:200]}" if returncode not in {0, 1} and stderr else ""
@@ -448,12 +433,11 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, ex
                     settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)
                 )
             )
-        case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
+        case False:  # pragma: no cover
             return _content_search(settings, scope, params, executor)
 
 
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, executor: Executor) -> Result[Report, Fault]:
-    # Synthetic routing satisfies the executor port; ripgrep remains grammar-blind until glob splicing.
     match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
@@ -464,7 +448,6 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
-    # Direct report construction preserves ripgrep diagnostics that synthetic fold rows would discard.
     rows, listing, cap_notes = _project_rows((done,), params.max_results, params.pattern, spec=_RG_SPEC)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
     return Report(

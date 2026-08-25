@@ -9,8 +9,6 @@ namespace Rasm.Bridge.Stub;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: shell-private resolution scope. Host assemblies fall through to the default context;
-// shell dependencies stay isolated from co-resident plugin closures.
 file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadContext(name: "Rasm.Bridge.Shell", isCollectible: false) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: shellAssemblyPath);
 
@@ -23,11 +21,7 @@ file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadConte
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Ownership: the zero-dependency reflective activation hop into the shell ALC. Failed starts write
-// poisoned endpoint evidence because no shell code exists yet to own that path.
 file static class ShellSeam {
-    // BOUNDARY EXEMPTION: the EndpointRecord home shape (directory name + file name) is mirrored here to keep the stub
-    // dependency-zero; referencing Contract.RasmHome would pin bridge dependencies into the host default ALC before shell load.
     private const string EndpointHomeName = ".rasm";
     private const string EndpointFileName = "rhino-bridge-rbx.json";
     private const string ShellAssemblyFile = "Rasm.Bridge.Shell.dll";
@@ -35,7 +29,6 @@ file static class ShellSeam {
     private const string ShellEntryType = "Rasm.Bridge.Shell.ShellHost";
 
     internal static object? Activate() {
-        // BOUNDARY ADAPTER: load, reflection, and endpoint failures become poisoned endpoint records.
         string deployDir = Path.GetDirectoryName(path: typeof(ShellLoadContext).Assembly.Location) ?? string.Empty;
         string shellPath = Path.Combine(path1: deployDir, path2: ShellAssemblyFile);
         try {
@@ -59,7 +52,6 @@ file static class ShellSeam {
     }
 
     private static object? Poison(string fault) {
-        // BOUNDARY ADAPTER: console output is only the fallback when endpoint evidence cannot write.
         try {
             string directory = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: EndpointHomeName);
             _ = Directory.CreateDirectory(path: directory);
@@ -86,8 +78,6 @@ file static class ShellSeam {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-// Ownership: the only type Rhino's shared plugin context sees. OnLoad defers shell activation to
-// idle so plugin load stays dependency-light and non-blocking.
 public sealed class RasmBridgePlugin : PlugIn {
     private object? shell;
 

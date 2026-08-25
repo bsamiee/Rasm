@@ -190,9 +190,6 @@ def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
 
 # --- [SELECTION_LAWS]
 
-# White-box seams below (_phase_checks/_planned/_build_fan/_dispatch) prove selection and phase-gating
-# decisions the public verb cannot isolate per-language without spawning real toolchains.
-
 
 def test_typescript_scope_escalates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarness) -> None:
     """The root config carries no `include`, so a scoped TS route escalates to FULL and still owes tsc its whole-estate run."""
@@ -202,7 +199,6 @@ def test_typescript_scope_escalates_tsc_and_keeps_scoped_fixer(assay_root: Assay
     phases, skipped = static_rail._phase_checks(escalated, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     assert any(check.tool.name == "tsc" for _, checks in phases for check in checks)
     assert not any(row[1] == "tsc" for row in skipped)
-    # Escalation re-scopes the whole-estate compiler alone; the Biome fixer keeps the route's own file list.
     assert any(check.tool.name == "biome" and check.tool.mode is Mode.WRITE for _, checks in phases for check in checks)
 
 
@@ -244,8 +240,6 @@ _EMPTY_ROUTE_ROWS: tuple[tuple[str, Routed, bool], ...] = (
 @pytest.mark.parametrize("routed, empty", [row[1:] for row in _EMPTY_ROUTE_ROWS], ids=[row[0] for row in _EMPTY_ROUTE_ROWS])
 def test_glob_route_survives_on_its_trigger_not_its_scope(*, routed: Routed, empty: bool) -> None:
     """A sourceless glob route earns its whole-lane checks from a governor alone; escalation itself proves nothing."""
-    # White-box: `_build_route` escalates off the catalog before any verb runs, so only the pair reveals whether a
-    # scope test would admit every sourceless route — the public verb reports one folded status for both arms.
     assert static_rail._empty_route(static_rail._build_route(routed)) is empty
 
 
@@ -391,7 +385,6 @@ def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> No
         ("Skip", "absent:no-build"),
         ("Bad", "absent:build-failed"),
     )
-    # A non-build receipt contributes no row; a .slnx workspace build keys against the whole directory.
     assert sarif_status((receipt(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
     assert sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
 

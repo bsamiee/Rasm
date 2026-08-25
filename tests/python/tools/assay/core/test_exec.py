@@ -15,7 +15,7 @@ import anyio
 from expression import Error, Ok
 from hypothesis import given, strategies as st
 import msgspec
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 import pytest
 
 import assay.core.exec as exec_mod
@@ -26,7 +26,6 @@ from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailSta
 from assay.core.routing import discover, discover_async, Routed, Scope
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 
-# Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -43,7 +42,6 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# fan_schedule/reset_foreign_census/remaining are the govern scheduling seams the fan and deadline laws drive.
 COVERS: tuple[object, ...] = (
     argv_for, discover, discover_async, EngineExecutor, Executor, fan_out, fan_schedule, remaining,
     reset_foreign_census, retry_predicate, run_check, run_check_async, splice_command,
@@ -271,7 +269,7 @@ def test_splice_command_separator_identity_and_project_isolation(assay_root: Ass
     assert artifact_path.endswith("/dotnet/tests__dotnet__libs__Shape__Shape.Tests")
 
 
-def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exact-argv law: every runner/mode row shares the settings/scope fixture
+def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:
     """``argv_for`` composes runner prefix, spliced body, and routed tails exactly per runner/mode row.
 
     Rows pin UV group/project segments, DIRECT passthrough, QUERY splice bypass, routed file
@@ -332,16 +330,13 @@ def test_dotnet_root_probe_precedence(source: str, tmp_path: Path, monkeypatch: 
     real = _runtime_tree(tmp_path / f"{source}-root")
     match source:
         case "env":
-            # A valid DOTNET_ROOT short-circuits before the listing probe can spawn.
             monkeypatch.setenv("DOTNET_ROOT", str(real))
             monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
         case "listing":
-            # Invalid DOTNET_ROOT falls through to the bracketed runtime listing path.
             monkeypatch.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
             listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise\n"
             monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
         case _:
-            # With no env root and a failed listing, the muxer parent is the final candidate.
             (real / "dotnet").write_bytes(b"")
             monkeypatch.delenv("DOTNET_ROOT", raising=False)
             monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
@@ -364,7 +359,6 @@ def test_apphost_overlay_laws(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 # --- [GUARDED_FAULT_RAILS]
 
-# Rows: (label, command, row_timeout, check_timeout, status); message/argv evidence asserted per status arm.
 _GUARDED_ROWS: tuple[tuple[str, tuple[str, ...], float | None, float | None, RailStatus], ...] = (
     ("missing-binary", ("/nonexistent/assay-guarded-binary",), None, None, RailStatus.UNSUPPORTED),
     ("row-deadline", (sys.executable, "-c", "import time; time.sleep(10)"), 0.2, None, RailStatus.TIMEOUT),
@@ -517,8 +511,8 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
     """``_run_process_backend`` dispatches to ``_run_remote`` exactly when ``exec_target`` is set, forwarding declared row env."""
     recorded: list[tuple[str, dict[str, str]]] = []
 
-    async def _record(plan: object, target: object) -> object:  # ruff:ignore[unused-async]  # async to match _run_remote's awaited signature
-        recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]  # target is the Ssh value object
+    async def _record(plan: object, target: object) -> object:  # ruff:ignore[unused-async]
+        recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]
         return receipt(("remote",), 0, stdout=b"recorded")
 
     monkeypatch.setattr(exec_mod, "run_remote", _record)

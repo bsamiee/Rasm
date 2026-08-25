@@ -173,7 +173,7 @@ public static class AxisAlgebra {
 [INGRESS_AND_EGRESS]:
 - Law: conversion direction follows the trust gradient; owner-to-key conversion is implicit evidence erasure, key-to-owner conversion is explicit admission, and aggregate reconstruction climbs through explicit admissions.
 - Boundary: key-to-owner casts are hidden throwing admission; keep them at boundaries, remove them with `ConversionFromKeyMemberType` or `SkipFactoryMethods`, and account for class reference-key null propagation before factory admission.
-- Law: class-owner null contracts are operator-family local; equality tolerates null, comparison and arithmetic throw, unsafe egress faults, and no family lends null-safety to another.
+- Law: class-owner null semantics are operator-family local; equality tolerates null, comparison and arithmetic throw, unsafe egress faults, and no family lends null-safety to another.
 - Law: one accessibility token gates constructors, conversions, and factories, with domain factory verbs on the owner; `SkipFactoryMethods` removes constructing surfaces and leaves only equality, comparison, and egress over already-admitted values.
 
 ## [04]-[SMART_ENUMS]
@@ -395,8 +395,8 @@ public abstract partial record LaneFault : Fault {
 ```
 
 [RAIL_BRIDGE]:
-- Law: the admission seam is one generic extension over the generated factory contract — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
-- Law: the shape is null-yield-aware — a non-null-yield contract takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the rail page's.
+- Law: the admission seam is one generic extension over the generated factory interface — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
+- Law: the shape is null-yield-aware — a non-null-yield factory takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the rail page's.
 - Boundary: the constraint `IObjectFactory<TOwner,TRaw,ValidationError>` with `TRaw : notnull, allows ref struct` carries the DEFAULT factory evidence — the seam lifts it once into `KernelFault.InvalidValue`, so ephemeral admission evidence never crosses an owner boundary as public identity.
 - Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries; a hand-rolled `Validation` tower re-deriving what the generated bridge already discharges — the generated `Validate` is the one admission authority.
 

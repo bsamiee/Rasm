@@ -1,5 +1,3 @@
-// k6 input artifact: executed by the k6 binary's own runtime, never imported by node — the Effect
-// rail begins at the spawning Command and the decoded summary receipt.
 import { check } from 'k6';
 import { Trend } from 'k6/metrics';
 import type { Options } from 'k6/options';

@@ -5,17 +5,14 @@ using System.Xml.Linq;
 namespace Rasm.TestKit;
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Parsed csproj projection: manifest facts only — reference topology and central-version discipline. Package rosters are never asserted from here.
 public sealed record ProjectFacts(string RelativePath, FrozenSet<string> ProjectReferences, FrozenSet<string> VersionedPackages);
 
-// One content-addressed fixture: the key is the estate's seed-zero XxHash128 content spine over the fixture bytes, so corpus identity, dedup, and production cache-parity laws read one key space.
 public sealed record CorpusEntry(FileInfo Source, string RelativePath, UInt128 Key) {
     public byte[] Bytes() => File.ReadAllBytes(path: Source.FullName);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Manifests {
-    // The workspace root resolves once per process by walking up from test output to the slnx.
     private static readonly Lazy<DirectoryInfo> Workspace = new(valueFactory: static () => {
         DirectoryInfo? directory = new(path: AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(path: Path.Combine(path1: directory.FullName, path2: "Workspace.slnx"))) {
@@ -49,7 +46,6 @@ public static class Manifests {
             .Where(predicate: static path => path.EndsWith(value: ".csproj", comparisonType: StringComparison.Ordinal))
             .ToFrozenSet(StringComparer.Ordinal);
 
-    // Zero roots means the WHOLE workspace: enumeration derives from disk through a pruned walk, so a project landing at a brand-new top-level root can never silently skip a parity law.
     public static FrozenSet<string> DiskProjects(params string[] roots) {
         ArgumentNullException.ThrowIfNull(argument: roots);
         IEnumerable<string> files = roots.Length == 0
@@ -62,8 +58,6 @@ public static class Manifests {
             .ToFrozenSet(StringComparer.Ordinal);
     }
 
-    // Dot-prefixed trees, package stores, and build output never carry workspace csprojs; pruning
-    // them keeps the whole-tree walk cheap without a root roster that could go stale.
     private static readonly FrozenSet<string> PrunedDirectories =
         new[] { "bin", "node_modules", "obj" }.ToFrozenSet(StringComparer.Ordinal);
 
@@ -77,7 +71,6 @@ public static class Manifests {
                     && !name.StartsWith(value: '.') && !PrunedDirectories.Contains(name))
                 .SelectMany(child => WalkPruned(directory: child, searchPattern: searchPattern)));
 
-    // The pruned twin of Files: dot-trees, package stores, and build output stay out of the walk, which the whole-workspace laws need where Files' raw enumeration would chase pnpm symlink cycles.
     public static FrozenSet<string> PrunedFiles(string relativeRoot, string pattern) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: relativeRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: pattern);
@@ -89,8 +82,6 @@ public static class Manifests {
             : Enumerable.Empty<string>().ToFrozenSet(StringComparer.Ordinal);
     }
 
-    // Golden-corpus discovery, one walk for both ingress shapes: a workspace-relative root joins committed fixtures to the parity laws, a DirectoryInfo roots a scratch corpus. Entries sort
-    // by path so discovery order is deterministic; an absent root is an empty corpus the gate refuses.
     public static Seq<CorpusEntry> Corpus(string relativeRoot, string pattern) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: relativeRoot);
         return Corpus(root: new DirectoryInfo(path: PathOf(relativePath: relativeRoot)), pattern: pattern);
@@ -120,7 +111,6 @@ public static class Manifests {
             : Enumerable.Empty<string>().ToFrozenSet(StringComparer.Ordinal);
     }
 
-    // Central-version facts: every disk csproj carrying a Version-attributed PackageReference is a CPM breach row, and the central manifest must keep version overrides disabled.
     public static Seq<(string Project, string Package)> VersionedPackageRows(params string[] roots) =>
         toSeq(DiskProjects(roots: roots).Order(comparer: StringComparer.Ordinal))
             .Bind(project => toSeq(Project(relativePath: project).VersionedPackages.Order(comparer: StringComparer.Ordinal))
@@ -130,7 +120,6 @@ public static class Manifests {
         Elements(document: XDocument.Load(uri: PathOf(relativePath: "Directory.Packages.props")), localName: "CentralPackageVersionOverrideEnabled")
             .Any(predicate: static row => string.Equals(a: row.Value, b: "false", comparisonType: StringComparison.Ordinal));
 
-    // One expectation-row verifier: exact reference sets per project, one folded verdict naming every drifting project instead of stopping at the first.
     public static void ProjectGraph(params (string Project, string[] References)[] rows) {
         ArgumentNullException.ThrowIfNull(argument: rows);
         Spec.Holds(condition: rows.Length > 0, label: "ProjectGraph: empty expectation table proves nothing");

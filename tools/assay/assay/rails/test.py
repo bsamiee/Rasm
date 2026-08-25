@@ -1,33 +1,26 @@
 """Run test, discovery, coverage, and mutation rails."""
 
 from collections import Counter
-from collections.abc import Callable, Iterable  # _MUTATION_SCOPE binds the projection type at import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Annotated, override, TYPE_CHECKING
-import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local Workspace.slnx XML from the repo root
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]
 
 from cyclopts import Parameter
-from cyclopts.types import NonNegativeInt  # cyclopts resolves Param-annotated dataclass fields at runtime
-from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
+from cyclopts.types import NonNegativeInt
+from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 import structlog
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # beartype resolves rail annotations at runtime
-from assay.composition.store import (  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
-    ArtifactScope,
-    ArtifactStore,
-    DOTNET_ARTIFACT_ROOTS,
-    DOTNET_BUILD_CLOSURE,
-    PY_ARTIFACT_ROOTS,
-    PY_COVERAGE_FILES,
-)
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope, ArtifactStore, DOTNET_ARTIFACT_ROOTS, DOTNET_BUILD_CLOSURE, PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
+from assay.core.exec import Executor
 from assay.core.govern import leased
 from assay.core.model import (
     Artifact,
@@ -35,8 +28,8 @@ from assay.core.model import (
     BaseParams,
     Check,
     Claim,
-    Completed,  # _roster_matches uses Completed as a runtime type in the tuple annotation
-    Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
+    Completed,
+    Fault,
     Input,
     Language,
     language_choice,
@@ -45,7 +38,7 @@ from assay.core.model import (
     MutationLane,
     RailStatus,
     receipt,
-    Report,  # beartype @checked resolves the rail's forward-ref (PEP 649)
+    Report,
     Runner,
     TestRun,
     Tool,
@@ -86,7 +79,6 @@ class _DiscoveryLane(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _GAP_NOTE: str = "mutation requested but no eligible lane carries a mutation runner"
-# Only these lanes reach dotnet dispatch; SHELL/SUPPORT/BENCHMARK/NON_TEST rows are report evidence, never test targets.
 _RUNNABLE_LANES: frozenset[_TestProjectLane] = frozenset((_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND))
 _COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -99,14 +91,11 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
-# csproj marker -> lane rows in dispatch priority: the shell marker wins because shell content ships via the bridge closure.
 _MARKER_LANES: tuple[tuple[str, str, _TestProjectLane], ...] = (
     ("AssayTestShell", "true", _TestProjectLane.SHELL),
     ("IsTestProject", "false", _TestProjectLane.NON_TEST),
     ("AssayHostBound", "true", _TestProjectLane.HOST_BOUND),
 )
-# Runner-specific CHANGED mutation scopes: Stryker accepts file globs; mutmut requires module-dotted mutant names.
-# Runners absent here surface UNSUPPORTED on the CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
     "stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
@@ -114,7 +103,6 @@ _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
         f"{f.removeprefix('tools/assay/').removesuffix('.py').replace('/', '.')}.*" for f in files if f.startswith("tools/assay/")
     ),
 }
-# mutmut self-parallelizes below the rail governor; --max-children caps that second tier.
 _MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -124,7 +112,6 @@ _MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
 class TestParams(BaseParams):
     """Parameters shared by test verbs."""
 
-    # language selectors are optional; hide default so help does not advertise an unset flag
     dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
@@ -175,7 +162,6 @@ class _CoverageReport(msgspec.Struct, frozen=True, gc=False):
     totals: _CoverageTotals
 
 
-# Decoder follows the structs it decodes; required fields make totals-less JSON degrade to None.
 _COVERAGE_DECODER: msgspec.json.Decoder[_CoverageReport] = msgspec.json.Decoder(_CoverageReport)
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -186,14 +172,12 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 
 
 def _eligible(tool: Tool, params: TestParams) -> bool:
-    # Mutation eligibility is independent of target/all; those narrow projects only.
     match (tool.mode, params.mutation):
         case (Mode.MUTATION, MutationLane.OFF):
             return False
         case (Mode.MUTATION, MutationLane.CHANGED | MutationLane.FULL):
             return True
         case _:
-            # coverage/benchmark each re-run their own pytest, so a run-default row yields to them when either is set.
             special = params.benchmark or params.coverage
             return (
                 (ToolGroup.REQUIRES_BENCHMARK not in tool.groups or params.benchmark)
@@ -214,7 +198,6 @@ def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
 
 
 def _filter(expr: str) -> tuple[str, ...]:
-    # MTP filter discriminant: leading `/` = query, `k=v` = trait, Tests/Laws/Spec suffix or `+` = class, else method.
     match expr.strip():
         case "":
             return ()
@@ -241,8 +224,6 @@ def _mutation_args(tool: Tool, params: TestParams, settings: AssaySettings, file
             scope = scoped(files)
         case _:
             scope = ()
-    # The dotnet mutation row (Stryker) runs at the repo root; absolute --config-file/--solution/--output keep the
-    # anchors cwd-independent, and Stryker.NET requires the report --output dir to pre-exist, so the rail creates it here.
     staged_dotnet = tool.runner is Runner.DOTNET and tool.mode is Mode.MUTATION
     root = Path(str(settings.root)).resolve()
     output = str(root / DOTNET_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
@@ -264,9 +245,8 @@ def _relative_project(project: str | Path, settings: AssaySettings) -> str:
 
 
 def _solution_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]:
-    # A corrupt or missing Workspace.slnx must fault loudly: folding to () would green-exit --all with zero checks.
     try:
-        tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local solution XML
+        tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # ruff:ignore[suspicious-xml-element-tree-usage]
     except (OSError, ET.ParseError) as exc:
         return Error(Fault(("test", "solution", str(settings.solution)), RailStatus.FAULTED, str(exc)[:1024]))
     rows = (path for node in tree.iter() for path in (node.get("Path") or "",) if path.endswith(".csproj"))
@@ -274,7 +254,6 @@ def _solution_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault
 
 
 def _marker_lane(project: str, settings: AssaySettings) -> _TestProjectLane:
-    # One csproj read owns marker classification; an unreadable project is fault-shaped NON_TEST, never silently MANAGED.
     try:
         raw = (settings.root / project).read_bytes()
     except OSError:
@@ -303,7 +282,6 @@ def _lane_counts(rows: Iterable[tuple[str, StrEnum]]) -> tuple[tuple[str, int], 
 
 
 def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Check, ...]:
-    # MTP consumes the filter through the dotnet rows' {filter*} hole; CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
 
     def _args(tool: Tool) -> ToolArgs | None:
@@ -315,19 +293,13 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
             case _:
                 return ToolArgs()
 
-    # Explicit [paths...] scope the pytest family; the changed-file default and --all keep the full configured suite.
     suite_wide = not params.paths or params.all
 
     def _check(tool: Tool, args: ToolArgs) -> Check:
-        # A suite-wide run pins an empty tail so the runner reads its own configured scope; passing the changed-file
-        # roster instead turns every path into a name filter, and a generated non-test file then selects nothing.
         pinned = suite_wide and tool.input in {Input.FILES, Input.NONE}
         return Check(tool=tool, paths=routed.files, tail=() if pinned else None, args=args)
 
     def _cs_shape(check: Check) -> Check:
-        # `dotnet run` demands every MTP option behind `--` and tails append after the body, so the whole per-project
-        # invocation pins here: project, MSBuild coverage property (pre-`--`, gating the Directory.Build.targets
-        # coverlet splice), the separator, the run floor or list verb, the filter, and the opt-in TRX evidence dir.
         tool = check.tool
         if tool.runner is not Runner.DOTNET or tool.mode not in {Mode.RUN, Mode.LIST}:
             return check
@@ -337,9 +309,6 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
             return check
         stem = PurePosixPath(project.replace("\\", "/")).stem
         trx_dir = Path(str(settings.root)).resolve() / DOTNET_ARTIFACT_ROOTS["trx"] / stem
-        # Every run pins the results directory under the .NET artifact root, so MTP output (and any env-enabled diagnostic
-        # session, which defaults its log beside the results) never lands TestResults litter at the repo root. A bare
-        # --diagnostic-output-directory is refused by MTP without --diagnostic, so diagnostics route via testconfig.
         routes = ("--results-directory", str(trx_dir)) if tool.mode is Mode.RUN else ()
         trx = ("--report-trx",) if params.trx and tool.mode is Mode.RUN else ()
         coverage = ("-p:RasmCoverage=true",) if params.coverage and tool.mode is Mode.RUN else ()
@@ -448,8 +417,6 @@ def _dispatch(
         case ():
             return unsupported
         case _ if routed.language is Language.DOTNET and mode in {Mode.RUN, Mode.LIST}:
-            # dotnet test builds land in the one shared closure tree; a per-run tree would persist a full
-            # solution build per invocation under scope retention. The exclusive lease serializes writers.
             build_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)
             resource = f"build-{DOTNET_BUILD_CLOSURE}-{settings.configuration.value}"
             project = ",".join(routed.projects or (routed.language.value,))
@@ -471,7 +438,6 @@ def _dispatch(
 
 
 def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
-    # Accepts dotnet list-test and pytest collect output; skips MTP headers and count summary lines.
     def _skip(name: str) -> bool:
         return name.startswith("The ") or (name[:1].isdigit() and name.endswith("found"))
 
@@ -499,8 +465,6 @@ def _status_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, ...], roster: tuple[Match, ...]) -> tuple[tuple[str, int], ...]:
-    # The roster count is typed evidence here, never the report census: `counts` seats governed leaves, and a
-    # discovery row is a test name, so folding the roster length onto it would spell two populations in one field.
     empty_or_failed = sum(
         1
         for c in outcomes
@@ -535,9 +499,7 @@ def _test_detail(done: Completed) -> TestRun:
 
 
 def _detail(done: tuple[Completed, ...], params: TestParams, root: Path) -> AnyDetail | None:
-    # Mutation evidence is stdout-derived; use the first decoded receipt carrying a real mutation lane.
     mutation = next((d for c in done if (d := _test_detail(c)).mutation is not MutationLane.OFF), TestRun())
-    # coverage_percent reads/decodes the artifact; only pay that cost on the coverage-requested arm.
     match (params.mutation, params.coverage):
         case (MutationLane.OFF, False):
             return None
@@ -563,7 +525,6 @@ def coverage_percent(root: Path) -> float | None:
 
 
 def _results_artifact(scope: ArtifactScope) -> Artifact:
-    # dotnet --results-directory writes into the per-run scope path; expose it as the test results artifact.
     return Artifact(id="results", kind=ArtifactKind.TEST, path=str(scope.path))
 
 
@@ -603,14 +564,11 @@ def _gate(
     scope: ArtifactScope,
     executor: Executor,
 ) -> tuple[Result[Completed, Fault], ...]:
-    # Kill-rate gate rides the held mutation lease: one sequential check against the staged mutmut cache.
-    # The gate is the catalog VERIFY row tagged MUTATION; VERIFY keeps it off every dispatch fan.
     staged = next((t for t in _rows(routed.language, params, Mode.MUTATION) if t.stage.root), None)
     gate_row = next((t for t in select(Claim.TEST, routed.language) if t.mode is Mode.VERIFY and ToolGroup.MUTATION in t.groups), None)
     succeeded = any(c.returncode == 0 and "mutmut" in c.argv for r in done if r.is_ok() for c in (r.ok,))
     match (staged, gate_row, succeeded):
         case (Tool() as row, Tool() as gate_tool, True):
-            # The gate reads mutmut's cache through mutmut's own config discovery, so it runs exactly where mutmut ran.
             work = Path(str(settings.root)) / row.stage.root / row.stage.chdir
             return executor.fan((Check(tool=gate_tool, cwd=work),), settings=settings, scope=scope, routed=routed)
         case _:
@@ -627,7 +585,6 @@ def _dispatch_all(
         else ()
     )
     gate = _gate(mutation, routed, params, settings=settings, scope=scope, executor=executor) if mutation else ()
-    # The STAGE combine fan completes before the CLIENT report fan starts, so every report row reads combined data.
     reporting = params.coverage and mode is Mode.RUN
     combine = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.STAGE, executor=executor) if reporting else ()
     coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT, executor=executor) if reporting else ()
@@ -678,7 +635,6 @@ def _thin_rail(
                 )
             )
 
-        # Sorted per-language mutation leases keep cross-agent contention deterministic and deadlock-free.
         def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
             match resources:
                 case (head, *rest):

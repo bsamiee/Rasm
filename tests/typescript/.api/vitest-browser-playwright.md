@@ -23,18 +23,16 @@
 |  [05]   | `defineBrowserCommand(fn)`   | command factory           | the `@vitest/browser` server-command factory a spec calls via `commands`   |
 
 ```ts signature
-// Provider is a function call, NOT a string (v4). One call owns launch/connect/context/trace for every instance.
 declare function playwright(options?: PlaywrightProviderOptions): BrowserProviderOption<PlaywrightProviderOptions>
 interface PlaywrightProviderOptions {
-  launchOptions?: Omit<LaunchOptions, "tracesDir">                          // playwright.launch — headless, args, channel
-  connectOptions?: ConnectOptions & { wsEndpoint: string }                 // remote browser over WebSocket
-  contextOptions?: Omit<BrowserContextOptions, "ignoreHTTPSErrors" | "serviceWorkers">   // newContext — viewport, locale, permissions
-  actionTimeout?: number                                                   // per-userEvent ceiling (0 = none)
-  persistentContext?: boolean | string                                     // reuse cookies/localStorage across runs (path or default cache)
+  launchOptions?: Omit<LaunchOptions, "tracesDir">
+  connectOptions?: ConnectOptions & { wsEndpoint: string }
+  contextOptions?: Omit<BrowserContextOptions, "ignoreHTTPSErrors" | "serviceWorkers">
+  actionTimeout?: number
+  persistentContext?: boolean | string
 }
-// Browser vocabulary is REGISTERED by module augmentation, never exported — a spec reaches it through browser.instances[].browser:
 declare module "vitest/node" { interface _BrowserNames { playwright: "firefox" | "webkit" | "chromium" } }
-export { playwright, PlaywrightBrowserProvider, defineBrowserCommand }      // value exports; + type { PlaywrightProviderOptions, CDPSession }
+export { playwright, PlaywrightBrowserProvider, defineBrowserCommand }
 ```
 
 ## [02]-[CONFIG]
@@ -56,12 +54,11 @@ export { playwright, PlaywrightBrowserProvider, defineBrowserCommand }      // v
 
 ```ts signature
 type BrowserBuiltinProvider = "webdriverio" | "playwright" | "preview"
-interface BrowserInstanceOption {   // Omit<ProjectConfig, unsupported> + per-instance browser-config overrides
-  browser: "firefox" | "webkit" | "chromium"   // keyof _BrowserNames — the provider augments this union
+interface BrowserInstanceOption {
+  browser: "firefox" | "webkit" | "chromium"
   name?: string; provider?: BrowserProviderOption
   headless?: boolean; viewport?: { width: number; height: number }; screenshotFailures?: boolean
 }
-// defineConfig({ test: { browser: { enabled: true, provider: playwright(), instances: [{ browser: 'chromium' }, { browser: 'firefox' }] } } })
 ```
 
 ## [03]-[TEST_CONTEXT]
@@ -85,17 +82,14 @@ interface BrowserInstanceOption {   // Omit<ProjectConfig, unsupported> + per-in
 
 ```ts signature
 import { page, userEvent, commands, cdp, server } from 'vitest/browser'
-// ARIA-first locator + real user interaction; every method routes to Playwright via the provider.
-declare const page: BrowserPage      // getByRole/getByTestId/…, screenshot(opts), viewport(w,h), elementLocator(el)
+declare const page: BrowserPage
 interface UserEvent {
   click(el: Element | Locator, o?: UserEventClickOptions): Promise<void>
   fill(el: Element | Locator, text: string, o?: UserEventFillOptions): Promise<void>
-  wheel(el: Element | Locator, o: UserEventWheelOptions): Promise<void>              // since 4.1
+  wheel(el: Element | Locator, o: UserEventWheelOptions): Promise<void>
   selectOptions(el: Element | Locator, values: string | string[] | Locator[]): Promise<void>
   setup(): UserEvent; cleanup(): Promise<void>
 }
-// expect(page.getByTestId('save')).toBeVisible(); await userEvent.click(page.getByRole('button', { name: 'Save' }))
-// await expect(page.getByTestId('canvas')).toMatchScreenshot({ comparators: { … } })   // visual regression
 ```
 
 ## [04]-[INTEGRATION]

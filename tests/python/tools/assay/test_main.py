@@ -119,8 +119,7 @@ def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
     """Lone surrogate bytes in argv are replaced with U+FFFD before reaching the wire encoder."""
-    # POSIX fsdecode can produce this lone surrogate; direct literal avoids platform branching.
-    surrogate_token = "\udcff"  # ruff:ignore[hardcoded-password-string]  # not a credential; lone surrogate probes wire_safe sanitization path
+    surrogate_token = "\udcff"  # ruff:ignore[hardcoded-password-string]
     res = cli(surrogate_token)
     assert len(res.stdout.splitlines()) == 1
     decoded = read_one_envelope_from_bytes(res.stdout)
@@ -159,7 +158,7 @@ def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monke
     class _BoomApp:
         @staticmethod
         def parse_args(_tokens: tuple[str, ...], **_kwargs: object) -> tuple[object, None, None]:
-            return object(), None, None  # non-None first item forces Cyclopts into dispatch, not help rendering
+            return object(), None, None
 
         def __call__(self, *_args: object, **_kwargs: object) -> object:
             raise RuntimeError("boom")
@@ -267,7 +266,7 @@ def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
 
 def test_install_tracing_empty_endpoint_is_noop() -> None:
     """An empty tracing endpoint leaves the current tracer provider untouched."""
-    from opentelemetry.trace import get_tracer_provider as _gtp  # ruff:ignore[import-outside-top-level]  # defers OTel global-provider install
+    from opentelemetry.trace import get_tracer_provider as _gtp  # ruff:ignore[import-outside-top-level]
 
     before = _gtp()
     install_tracing("")
@@ -286,10 +285,10 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     binding: its `lazy from` resolves eagerly once `opentelemetry.trace` is already imported (the runtime
     plugin imports it first), so a patch on the source module never reaches a reified name.
     """
-    from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]  # module-top installs OTel before monkeypatch
-    import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]  # deferred: same session-provider contamination reason as TracerProvider
+    from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]
+    import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]
 
-    import assay as assay_pkg  # ruff:ignore[import-outside-top-level]  # the binding under patch lives on the package, resolved at call time
+    import assay as assay_pkg  # ruff:ignore[import-outside-top-level]
 
     captured: list[object] = []
     monkeypatch.setattr(assay_pkg, "set_tracer_provider", captured.append)
@@ -351,11 +350,11 @@ def test_main_returncode_non_envelope_arms(result: object, expected: int) -> Non
 @pytest.mark.parametrize(
     "argv, stripped, target",
     [
-        (("static", "--all"), ("static", "--all"), None),  # no flag: tokens unchanged, env untouched
-        (("--exec", "ssh://h", "static"), ("static",), "ssh://h"),  # spaced form
-        (("--exec=ssh://u@h:2222", "static"), ("static",), "ssh://u@h:2222"),  # inline form
-        (("static", "--exec", "local", "--all"), ("static", "--all"), "local"),  # mid-stream spaced form survives
-        (("--exec", "local"), (), "local"),  # local target, no subcommand
+        (("static", "--all"), ("static", "--all"), None),
+        (("--exec", "ssh://h", "static"), ("static",), "ssh://h"),
+        (("--exec=ssh://u@h:2222", "static"), ("static",), "ssh://u@h:2222"),
+        (("static", "--exec", "local", "--all"), ("static", "--all"), "local"),
+        (("--exec", "local"), (), "local"),
     ],
     ids=["absent", "spaced", "inline", "mid-stream", "local-only"],
 )
@@ -371,14 +370,12 @@ def test_extract_exec_splits_global_flag(argv: tuple[str, ...], stripped: tuple[
 )
 def test_admit_exec_routes_flag_through_validated_env_path(flag_value: str, expected_env: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_admit_exec`` admits the flag value through ASSAY_EXEC_TARGET so settings validate it; ``local`` normalizes to empty."""
-    # _admit_exec writes os.environ directly; anchor the var via setenv so teardown
-    # reverts it when the variable was initially absent.
     monkeypatch.setenv("ASSAY_EXEC_TARGET", "")
     stripped = _main_mod._admit_exec(("--exec", flag_value, "static"))
     assert stripped == ("static",)
     assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == expected_env
 
-    from assay.composition.settings import (  # ruff:ignore[import-outside-top-level]  # admission round-trip through the validated env path
+    from assay.composition.settings import (  # ruff:ignore[import-outside-top-level]
         AssaySettings,
         Local,
         Ssh,

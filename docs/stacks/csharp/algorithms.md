@@ -101,7 +101,7 @@ public static class Admission
 [SYMMETRY_FORCING]:
 - Law: force symmetry with `(A + A.Transpose()) * 0.5` before the call (`ConjugateTranspose` for Hermitian); `IsSymmetric()` compares entries with exact `!=`, so accumulation-built matrices fail it and route `Symmetricity.Unknown` to the asymmetric solve that throws.
 - Reject: `MapIndexedInplace` self-averaging; it mutates the backing array sequentially, so a mirror entry is already modified when read.
-- Boundary: a one-ULP mirror difference silently acquires the full nonsymmetric contract — block-diagonal `D`, non-orthonormal columns, spurious complex pairs.
+- Boundary: a one-ULP mirror difference silently acquires the full nonsymmetric semantics — block-diagonal `D`, non-orthonormal columns, spurious complex pairs.
 - Law: symmetrize before the definite kernel, which reads only the upper triangle, never substitute a separate eigenvalue probe.
 
 [SINGULAR_AND_ZERO_NORM]:
@@ -321,7 +321,7 @@ public static class Witness
 
 ## [06]-[SPECTRAL_LAW]
 
-[SYMMETRY_CONTRACT]:
+[SYMMETRY_LAW]:
 - Law: carry a result `[Union]` with distinct dense-symmetric and dense-general cases; the `Symmetricity` flag selects five output axes together — eigenvector norm, real versus block-diagonal `D`, single-column versus column-pair encoding, ascending versus Schur-deflation order, and a working versus norm-gated solve.
 - Law: decode a real conjugate pair from two adjacent columns dispatched on `Math.Sign(values[j].Imaginary)`; reading `Column(j)` whole discards the imaginary half.
 - Law: carry `EigenValues` to interpret `EigenVectors`, since no parallel pairing array exists.
@@ -498,7 +498,7 @@ public static class SpectralOperator
 ```
 
 [INTERPOLANT_AND_SCATTER]:
-- Law: lift interpolant capability to a phantom type parameter or marker case so the unsupported call is unrepresentable; the contract advertises differentiation and integration through runtime booleans and throws on unsupported calls.
+- Law: lift interpolant capability to a phantom type parameter or marker case so the unsupported call is unrepresentable; runtime booleans advertise differentiation and integration too late and throw on unsupported calls.
 - Law: reconstruct scattered multi-dimensional fields as a radial-basis or polynomial design matrix into the rank-revealing regression route — no library surface exists, and a matrix-valued response reconstructs gradient and flux fields in one solve.
 - Boundary: wrap interpolant evaluation in an absence carrier; the step interpolant returns `NaN` at sample points and the rational interpolant returns `NaN` below ULP, poisoning a gradient accumulator silently.
 - Use: the serial kernel-density route for reproducibility; it parallelizes uncapped and is non-reproducible across schedules even when seeded.

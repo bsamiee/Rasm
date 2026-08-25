@@ -30,7 +30,6 @@ from assay.core.routing import Routed, Scope
 from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.spec import assert_ok
 
-# Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -50,12 +49,10 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# recv_ssh is govern's ssh drain arm; the remote streaming round-trip is its only real driver.
 COVERS: tuple[object, ...] = (pooled_ssh, recv_ssh, remote_command, run_remote, ssh_outcome)
 
 _ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 
-# Scope-tree seed shared by the remote-write seeding and the landed-artifact assertions; coverage.xml lives under sarif/.
 _SEED_FILES: tuple[tuple[str, bytes], ...] = (("results.sarif", b'{"runs":[]}\n'), ("coverage.xml", b"<coverage/>\nline2\n"))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -101,12 +98,11 @@ def _plan(settings: AssaySettings, *, cwd: str = "", scope: ArtifactScope | None
 
 
 async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
-    # A minimal real git repo makes `git ls-files` the manifest source: the push test pushes exactly the tracked set.
     for rel, payload in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_bytes(payload)
     ident = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-    env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", **ident}  # ruff:ignore[banned-api]  # subprocess env clone for the test-local git seed
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", **ident}  # ruff:ignore[banned-api]
     for argv in (("git", "init", "-q"), ("git", "add", "-A"), ("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seed", "--no-verify")):
         await anyio.run_process([*argv], cwd=str(root), env=env, check=True)
 
@@ -124,7 +120,6 @@ def test_ssh_outcome_projects_status_and_signal() -> None:
     )
     for label, exit_status, sig, expected in rows:
         assert ssh_outcome(exit_status, sig) == expected, f"{label}: outcome drifted"
-    # _as_bytes is the sibling reply projection: bytes pass through, None empties, str encodes.
     assert (remote_mod._as_bytes(b"x"), remote_mod._as_bytes(None), remote_mod._as_bytes("s")) == (b"x", b"", b"s")
 
 
@@ -159,7 +154,6 @@ async def test_run_check_remote_round_trips_through_ssh_double(assay_root: Assay
     """The non-streaming remote arm shell-quotes argv and returns the ssh double reply."""
     remote = assay_root.remote(ssh_env.url)
     check = Check(tool=Tool("remote-echo", Runner.DIRECT, ("/bin/echo", "hello"), Input.NONE, Language.DOTNET, Claim.STATIC), cwd=assay_root.root)
-    # Bridge run_check's owned event loop through a thread under anyio tests.
     outcome = await anyio.to_thread.run_sync(  # ty: ignore[unresolved-attribute]
         lambda: run_check(check, settings=remote, scope=None, routed=_ROUTED_CHANGED)
     )
@@ -213,7 +207,7 @@ async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh
 @pytest.mark.parametrize("exc_factory", ["asyncssh", "oserror"])
 async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     """``_pooled_ssh`` logs close failures from ``asyncssh.Error`` and ``OSError``; a broken close never aborts sibling cleanup."""
-    import asyncssh  # ruff:ignore[import-outside-top-level]  # deferred: double raises asyncssh.Error directly
+    import asyncssh  # ruff:ignore[import-outside-top-level]
 
     boom: BaseException = asyncssh.Error(code=1, reason="close failed") if exc_factory == "asyncssh" else OSError("socket reset on close")
     closed = [False]
@@ -221,16 +215,15 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     def _mark_closed() -> None:
         closed[0] = True
 
-    async def _wait_closed() -> None:  # ruff:ignore[unused-async]  # asyncssh-compatible wait_closed double
+    async def _wait_closed() -> None:  # ruff:ignore[unused-async]
         raise boom
 
     conn = SimpleNamespace(close=_mark_closed, wait_closed=_wait_closed)
-    # Local-target settings: the teardown's once-per-fan prune is Ssh-gated, so it skips the structural conn double here.
     settings = AssaySettings(exec_known_hosts=None)
     async with pooled_ssh(settings):
         cache = remote_mod._SSH_CACHE.get()
         assert cache is not None, "_pooled_ssh did not seed the connection cache"
-        cache.conns["ssh://x@host:22"] = conn  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # structural conn double
+        cache.conns["ssh://x@host:22"] = conn  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     assert closed[0] is True, "pooled connection close was not attempted before wait_closed faulted"
 
 
@@ -239,7 +232,6 @@ async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> No
     """``_probe_toolchain`` returns ``(tool, detail)`` when ``command -v`` exits non-zero, else ``None`` for a present tool."""
 
     def _handler(command: str) -> tuple[str, int]:
-        # The probe runs `command -v <tool>`; the double reports the missing tool as exit 1, a present tool as exit 0.
         return ("", 1) if "missing-tool" in command else ("/usr/bin/git\n", 0)
 
     conn = await provision(SshHost(handler=_handler)).client_factory()
@@ -275,7 +267,6 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root:
     await _git_seed(Path(str(remote.local_root)), manifest)
     remote_cwd = offload.target.remote_workroot(run_id)
 
-    # The agent landing store is local-file; the scope roots there so `_scope_relative` yields the parts the remote tool used.
     landing: ArtifactStore = remote.store(protocol="file", root="")
     scope = ArtifactScope(store=landing, path=landing.path(claim, run_id), dotnet_flags=())
     remote_scope = tmp_path / backend_root.lstrip("/") / claim / run_id
@@ -286,7 +277,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root:
     conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
     try:
         async with remote_mod._remote_transfer(conn, _plan(remote, cwd=remote_cwd, scope=scope)) as transfer:
-            pass  # exec is a no-op here: the push runs on bracket entry, the pull on transfer.pull
+            pass
         pulled = await transfer.pull({})
         run_dir = tmp_path / "work" / run_id
         landed_manifest = {
@@ -311,7 +302,6 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root:
         row = by_name[name]
         assert (row.kind, row.bytes) == (ArtifactKind.SCOPE, len(expected)), f"wrong kind/size for {name}: {row!r}"
         assert f"/{claim}/{run_id}/" in f"/{row.path}/", f"scope-relative path lost for {name}: {row.path!r}"
-        # The agent-local landing path is recorded, never the remote backend root that hosted the source tree.
         assert not row.path.startswith(backend_root.lstrip("/")), f"remote backend path leaked into {name}: {row.path!r}"
         assert f"{backend_root}/" not in f"/{row.path}", f"remote backend path leaked into {name}: {row.path!r}"
         assert landing.read_path(row.path) == expected, f"landed bytes diverged for {name}"
@@ -377,10 +367,10 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(
 
     @contextlib.asynccontextmanager
     async def _fixed_conn(_target: object) -> AsyncIterator[object]:
-        yield conn  # inject the chrooted double so the bracket pushes/pulls without a real SSH host
+        yield conn
 
     async def _wedged_exec(*_args: object, **_kw: object) -> object:
-        await anyio.sleep(5.0)  # a hung remote tool: longer than the deadline, must be cancelled not awaited
+        await anyio.sleep(5.0)
         raise AssertionError("wedged remote exec was awaited to completion — the deadline failed to cancel it")
 
     monkeypatch.setattr(remote_mod, "_ssh_connection", _fixed_conn)
@@ -401,7 +391,7 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(
     assert {"Workspace.slnx", "src/a.cs"} <= landed, f"push leg did not complete before the exec stalled: {landed!r}"
 
 
-async def _async_none() -> None:  # ruff:ignore[unused-async]  # no-op coroutine: the _probe_toolchain mock must return an awaitable
+async def _async_none() -> None:  # ruff:ignore[unused-async]
     return None
 
 
@@ -410,9 +400,7 @@ async def _async_none() -> None:  # ruff:ignore[unused-async]  # no-op coroutine
 
 @contextlib.contextmanager
 def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
-    # A moto-backed S3FileSystem double: ambient AWS env (creds + endpoint) is production parity — the SHARED-pull store
-    # reads them off the executor env, never a settings knob.
-    from moto.server import ThreadedMotoServer  # ruff:ignore[import-outside-top-level]  # loopback object-store double for the real s3fs read
+    from moto.server import ThreadedMotoServer  # ruff:ignore[import-outside-top-level]
 
     for key, value in (("AWS_ACCESS_KEY_ID", "test"), ("AWS_SECRET_ACCESS_KEY", "test"), ("AWS_DEFAULT_REGION", "us-east-1")):
         monkeypatch.setenv(key, value)
@@ -422,7 +410,7 @@ def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
         host, port = server.get_host_and_port()
         monkeypatch.setenv("AWS_ENDPOINT_URL", f"http://{host}:{port}")
         fs = fsspec.filesystem("s3", skip_instance_cache=True)
-        fs.mkdirs("bkt", exist_ok=True)  # the bucket pre-exists in production; create it once so the tool-written seed lands
+        fs.mkdirs("bkt", exist_ok=True)
         yield fs
     finally:
         server.stop()
@@ -437,7 +425,7 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(
     The agent opens the SAME universal paths the remote tool wrote, folding ``Artifact`` rows scope-relative with
     byte counts from backend metadata — no SFTP, no payload crossing the wire. An empty prefix degrades to a note.
     """
-    _ = socket_enabled  # lifts the INET socket ban for the moto loopback server; the hook auto-applies the network marker
+    _ = socket_enabled
     with _moto_s3(monkeypatch) as fs:
         remote = _remote_settings(assay_root.root, artifact_backend={"protocol": "s3", "root": "bkt/runs"})
         offload = remote.offload
@@ -449,7 +437,6 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(
         conn = await provision(SshHost()).client_factory()
         transfer = remote_mod._Transfer(conn=conn, plan=_plan(remote, cwd=offload.target.remote_workroot(run_id), scope=scope), pushed=0, notes=())
         try:
-            # Absent tree first: no keys under the scope prefix degrade to a note, no artifacts, parity with the sftp degrade path.
             missing = await transfer.pull({})
             assert (missing.count, missing.artifacts) == (0, ()), f"absent shared tree must fold no artifacts: {missing!r}"
             assert missing.notes == ("remote.artifacts.degraded missing_tree",), f"absent shared tree must degrade to a note: {missing.notes!r}"
@@ -469,7 +456,6 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(
     for name, expected in (("results.sarif", 12), ("coverage.xml", 18)):
         row = by_name[name]
         assert (row.kind, row.bytes) == (ArtifactKind.SCOPE, expected), f"wrong kind/size for {name}: {row!r}"
-        # The shared scope-relative path carries <claim>/<run_id> and is a bucket-rooted key, never an absolute s3:// URL.
         assert f"/{claim}/{run_id}/" in f"/{row.path}/", f"scope-relative path lost for {name}: {row.path!r}"
         assert not row.path.startswith("s3://"), f"absolute cloud URL leaked into {name}: {row.path!r}"
         assert row.path.startswith(f"{backend_root}/"), f"shared path not rooted at the backend store: {row.path!r}"
@@ -490,8 +476,8 @@ def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
         (f"2026-01-01T00-00-00.0-{mine}-100", 100.0),
         (f"2026-01-02T00-00-00.0-{mine}-101", 200.0),
         (f"2026-01-03T00-00-00.0-{mine}-102", 300.0),
-        (f"2026-01-01T00-00-00.0-{theirs}-999", 50.0),  # foreign host: never selected
-        ("custom-no-token", 10.0),  # tokenless id: filtered out by every host token
+        (f"2026-01-01T00-00-00.0-{theirs}-999", 50.0),
+        ("custom-no-token", 10.0),
     )
     assert run_id_host_token(rows[0][0]) == mine, "host token must round-trip out of the canonical run id"
     keep1 = remote_mod._stale_remote_runs(rows, token=mine, keep=1)
@@ -508,10 +494,9 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
     token = remote.host_run_token
     assert token, "the default run id must embed a host token for the namespace filter"
     workdir = tmp_path / "work"
-    # Three of this host's runs (only the newest survives at retention=1), plus one foreign-token run that must persist.
     mine_old = f"2026-01-01T00-00-00.0-{token}-1"
     mine_mid = f"2026-01-02T00-00-00.0-{token}-2"
-    mine_new = remote.run_id  # the current run: newest, always retained
+    mine_new = remote.run_id
     theirs = "2026-06-01T00-00-00.0-deadbeef-9"
     for run_id, payload in ((mine_old, b"old"), (mine_mid, b"mid"), (mine_new, b"new"), (theirs, b"foreign")):
         (workdir / run_id / "src").mkdir(parents=True)
@@ -533,7 +518,6 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
 
 
 def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = ()) -> ExecPlan:
-    # Minimal ExecPlan carrying just the lane discriminant (runner) and the seed tokens the manifest scoper reads.
     return ExecPlan(
         argv=tool.command,
         check=Check(tool=tool, paths=paths),
@@ -565,12 +549,12 @@ def test_lane_manifest_dotnet_scopes_to_transitive_project_closure(assay_root: A
     universe = (
         "Directory.Build.props",
         "Directory.Packages.props",
-        "README.md",  # repo-root non-config file: excluded (not on the closure, not a build-config anchor)
+        "README.md",
         "libs/A/A.csproj",
         "libs/A/Owner.cs",
         "libs/B/B.csproj",
         "libs/B/Dep.cs",
-        "libs/C/C.csproj",  # unrelated project: excluded
+        "libs/C/C.csproj",
         "libs/C/Other.cs",
     )
     tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)

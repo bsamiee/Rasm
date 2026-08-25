@@ -35,7 +35,7 @@ class ByteSink(Protocol):
         """Write bytes to the open handle."""
 
 
-@runtime_checkable  # Backends satisfy the consumed fsspec subset structurally; no adapter layer is needed.
+@runtime_checkable
 class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
 
@@ -80,43 +80,23 @@ class ArtifactFileSystem(Protocol):
 _ARTIFACTS: Final[str] = ".artifacts"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _BUILD: Final[str] = "build"
-# One .NET artifact root: dotnet build closures land under `.artifacts/dotnet/` beside the stryker and trx roots,
-# so raw-dotnet and assay-driven builds share one tree and the SDK pivot layout beneath it.
 _DOTNET_ROOT: Final[str] = f"{_ARTIFACTS}/dotnet"
-# Run history accretes one encoded Envelope (+ optional full Report) per run; the JSON-shaped payloads compress an order of
-# magnitude under zstd. The store frames history-kind writes and every byte read sniffs the frame magic and inflates lazily,
-# so the codec is one store-owned boundary no caller re-derives. Content size rides the frame header; plain decompress inflates.
 _HISTORY_COMPRESSOR: Final[zstandard.ZstdCompressor] = zstandard.ZstdCompressor(level=10)
 _HISTORY_DECOMPRESSOR: Final[zstandard.ZstdDecompressor] = zstandard.ZstdDecompressor()
-# History decode binds its type once per process; inlining these back to `msgspec.json.decode(type=…)` re-resolves the
-# struct schema on every read, and `delta` alone folds four decodes per invocation across its two endpoints.
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 _REPORT_DECODER: Final[msgspec.json.Decoder[Report]] = msgspec.json.Decoder(Report)
-# A cold build-closure scope points DOTNET_CLI_HOME at an empty tree, so the first dotnet invocation pays the full
-# first-run experience (NuGet warm-up, ASP.NET dev-cert primer, tool-path init) and writes three sentinels under
-# `<home>/.dotnet/<sdk>.<suffix>`. The SDK is pinned in `global.json` (rollForward disabled), so the sentinel names are
-# deterministic and the scope pre-seeds all three, draining the first build's first-run cost to a no-op.
 _DOTNET_FIRST_RUN_SENTINELS: Final[tuple[str, ...]] = ("dotnetFirstUseSentinel", "aspNetCertificateSentinel", "toolpath.sentinel")
-# Single owner of every Python heavy-lane artifact-output root; catalog rows, the test rail, and runtime envs route here
-# instead of re-spelling the literal. Of the three, only benchmark autosaves accumulate; coverage files and the mutmut
-# work tree self-overwrite per run.
 PY_ARTIFACT_ROOTS: Final[dict[str, str]] = {
     "coverage": f"{_ARTIFACTS}/python/coverage",
     "benchmarks": f"{_ARTIFACTS}/python/benchmarks",
     "mutmut": f"{_ARTIFACTS}/python/mutmut/work",
 }
 PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt in ("json", "xml", "lcov")}
-# Stryker writes a sandbox (`.stryker-tmp`, cwd-relative) plus reports; the staged work root keeps the sandbox under
-# `.artifacts` while `--output` routes reports to the sibling report root, which assay pre-creates before the run.
-# TRX evidence lands beside them; the test rail nests per-project result dirs under the trx root.
 DOTNET_ARTIFACT_ROOTS: Final[dict[str, str]] = {
     "stryker": f"{_ARTIFACTS}/dotnet/stryker/work",
     "stryker-output": f"{_ARTIFACTS}/dotnet/stryker",
     "trx": f"{_ARTIFACTS}/dotnet/trx",
 }
-# One shared dotnet build closure for the static and test rails: per-claim or per-sha trees each hold a full
-# solution build (~16GB), so any second key doubles the disk for zero isolation — the exclusive build lease
-# already serializes writers, and the artifacts layout separates projects and pivots inside one tree.
 DOTNET_BUILD_CLOSURE: Final[str] = "dotnet"
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -131,7 +111,7 @@ def mtime_from_info(info: dict[str, object]) -> float:
     match info.get("mtime", info.get("created", 0.0)):
         case int() | float() as value:
             return float(value)
-        case datetime() as value:  # fsspec memory/GCS backends return `created` as a tz-aware datetime instead of a float
+        case datetime() as value:
             return value.timestamp()
         case _:
             return 0.0
@@ -161,7 +141,6 @@ def safe_segment(part: str | UPath) -> str:
     """
     text = str(part).replace("\\", "/")
     pieces = tuple(p for p in text.split("/") if p)
-    # Single-piece identity rejects absolute, trailing-slash, empty, dot, parent, and NUL segments together.
     match (any(p in {".", ".."} for p in pieces), len(pieces) == 1 and text == pieces[0], "\x00" in text):
         case (False, True, False):
             return text
@@ -188,7 +167,7 @@ def _root_parts(root: str) -> tuple[str, ...]:
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)  # ruff:ignore[too-many-public-methods]  # ArtifactStore is the storage boundary.
+@dataclass(frozen=True, slots=True)  # ruff:ignore[too-many-public-methods]
 class ArtifactStore:
     """Validated artifact filesystem boundary."""
 
@@ -345,7 +324,6 @@ class ArtifactStore:
             self.fs.makedirs(parent, exist_ok=True)
             if create and self.fs.exists(path):
                 raise FileExistsError(path)
-            # autocommit=False only materializes under a backend transaction; standalone writes commit directly.
             with self.fs.open(path, "wb", autocommit=not transaction) as fh:
                 fh.write(payload)
         return path
@@ -448,9 +426,7 @@ class ArtifactStore:
         return self.write_bytes(_HISTORY_COMPRESSOR.compress(payload), ArtifactKind.HISTORY.value, run_id, name), len(payload)
 
     def _sorted_run_ids(self, root: str) -> tuple[str, ...]:
-        # Omitted mtimes fold to 0.0, leaving run_id as the chronological tiebreaker.
         detailed = self.walk(root, detail=True)
-        # isinstance narrows walk's union to detail rows.
         detail_rows = tuple(
             (row[0].rstrip("/").rsplit("/", 1)[-1], row[1]) for row in detailed if isinstance(row, tuple) and isinstance(row[1], dict)
         )
@@ -548,7 +524,6 @@ class ArtifactStore:
         return self._ranked_files(*roots, accept=lambda path: token in {path, stem} or token in path)
 
     def _ranked_files(self, *roots: str, accept: Callable[[str], bool] = lambda _path: True) -> tuple[str, ...]:
-        # fs.find walks files only (withdirs defaults False), replacing the former walk-union + directory filter.
         def rows(root: str) -> tuple[tuple[str, dict[str, object]], ...]:
             try:
                 found = self.fs.find(self.path(*_root_parts(root)), detail=True)
@@ -576,7 +551,6 @@ class ArtifactScope:
             Artifact scope rooted under the claim and run id.
         """
         store = settings.store()
-        # Lazy open avoids empty run directories when neither rails nor dotnet write into the scope.
         path = store.path(claim.value, settings.run_id)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
 
@@ -589,8 +563,6 @@ class ArtifactScope:
         Returns:
             Artifact scope rooted under the build closure id.
         """
-        # Build closures are local dotnet writes, so the store pins the file protocol under the one .NET artifact root
-        # even when run artifacts ride a shared cloud backend; the remote executor rebases the path like any scope path.
         store = settings.store(protocol="file", root=str(settings.local_root / _DOTNET_ROOT))
         path = store.ensure(_BUILD, closure, str(configuration) if configuration else settings.configuration.value)
         scope = cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
@@ -598,8 +570,6 @@ class ArtifactScope:
         return scope
 
     def _preseed_dotnet_first_run(self, sdk_version: str) -> None:
-        # A first invocation against a fresh DOTNET_CLI_HOME runs the first-run experience and writes these sentinels;
-        # writing them up-front (idempotently, only when the SDK band is known) drains that cost from the first build.
         marker = f"{self.path}/dotnet-cli/.dotnet/{sdk_version}.{_DOTNET_FIRST_RUN_SENTINELS[0]}"
         if not sdk_version or self.store.exists_path(marker):
             return
@@ -654,7 +624,7 @@ def prune_python_artifacts(root: Path, keep: int) -> None:
         try:
             stale.unlink()
         except OSError:
-            _ = stale.exists()  # best-effort prune; a vanished autosave is already gone
+            _ = stale.exists()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

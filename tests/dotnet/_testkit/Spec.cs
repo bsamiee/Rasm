@@ -9,23 +9,12 @@ namespace Rasm.TestKit;
 public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One metamorphic relation row: a follow-up-input transform and the (source, base, follow)
-// relation it must satisfy. A table of rows shares one base evaluation per sample; the source
-// argument lets one row family also carry oracle relations — never parallel relation methods.
 public sealed record MetamorphicRelation<T, TResult>(string Name, Func<T, T> Transform, Func<T, TResult, TResult, bool> Relate);
 
-// One content-key axis row: a transform and whether the key must survive it. Preserving rows are
-// representation changes (copy, re-encode, transcode); separating rows are content changes. The
-// gauge demands at least one separating row — without it a constant mint is irrefutable.
 public sealed record KeyAxis<T>(string Name, Func<T, T> Transform, bool PreservesKey);
 
-// A law is admissible only with a refuting witness: an input the property MUST fail on. Hold runs
-// the refutation before sampling — a witness the property survives exposes the law as a tautology
-// no mutant can ever violate, and that registration is itself the failure.
 public sealed record Law<T>(string Name, Gen<T> Gen, Action<T> Property, T RefutingWitness);
 
-// Law-row constructors: the algebra vocabulary. Each row closes over its equality policy so the
-// witness refutes the same comparison the sampled property runs — a sloppy eq is unregistrable.
 public static class Law {
     public static Law<T> Of<T>(string name, Gen<T> gen, Action<T> property, T refutingWitness) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: name);
@@ -41,7 +30,6 @@ public static class Law {
         Of(name: name, gen: gen, property: x => Eq(name: name, left: x, right: g(f(x)), eq: eq), refutingWitness: witness);
     public static Law<TIn> Roundtrip<TIn, TOut>(string name, Gen<TIn> gen, Func<TIn, TOut> forward, Func<TOut, TIn> back, TIn witness, Func<TIn, TIn, bool>? eq = null) =>
         Of(name: name, gen: gen, property: x => Eq(name: name, left: x, right: back(forward(x)), eq: eq), refutingWitness: witness);
-    // Commutative is result-typed: closed ops and symmetric projections (distance, dot) share one row.
     public static Law<(T A, T B)> Commutative<T, TResult>(string name, Gen<T> gen, Func<T, T, TResult> op, (T A, T B) witness, Func<TResult, TResult, bool>? eq = null) =>
         Of(name: name, gen: gen.Select(gen, static (T a, T b) => (A: a, B: b)),
            property: p => Eq(name: name, left: op(p.A, p.B), right: op(p.B, p.A), eq: eq), refutingWitness: witness);
@@ -55,7 +43,6 @@ public static class Law {
         Of(name: name, gen: pairs, property: p => Spec.Holds(
             condition: (comparer ?? Comparer<TKey>.Default).Compare(x: projection(p.Lo), y: projection(p.Hi)) <= 0,
             label: $"{name}: f({p.Lo}) = {projection(p.Lo)} > {projection(p.Hi)} = f({p.Hi})"), refutingWitness: witness);
-    // A permutation-invariance witness is a non-permutation pair the projection genuinely splits.
     public static Law<(T[] Source, T[] Shuffled)> Permutation<T, TResult>(string name, Gen<T[]> gen, Func<T[], TResult> f, (T[] Source, T[] Shuffled) witness, Func<TResult, TResult, bool>? eq = null) =>
         Of(name: name, gen: gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Source: arr, Shuffled: perm))),
            property: p => Eq(name: name, left: f(p.Source), right: f(p.Shuffled), eq: eq), refutingWitness: witness);
@@ -65,8 +52,6 @@ public static class Law {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Spec {
-    // Null/-1 sentinels defer to CsCheck's Check.* defaults, which already give the CsCheck_Seed/
-    // CsCheck_Iter/CsCheck_Time/CsCheck_Threads env knobs first refusal at static init.
     public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
         ArgumentNullException.ThrowIfNull(argument: property);
@@ -74,9 +59,6 @@ public static partial class Spec {
     }
     public static void Holds(bool condition, string label) =>
         _ = condition ? unit : throw new XunitException(userMessage: label);
-    // The tautology guard: a known-broken witness MUST make `law` throw, or the law proves nothing
-    // and every mutant survives it. The sampler counts ANY throw as property failure, so any throw
-    // refutes; Try owns the exception-to-Fin conversion, keeping this page catch-free.
     public static void Refutes<T>(T witness, Action<T> law, string? name = null) {
         ArgumentNullException.ThrowIfNull(argument: law);
         _ = Try.lift(f: () => { law(witness); return unit; }).Run().Match(
@@ -93,7 +75,6 @@ public static partial class Spec {
         Holds(condition: laws.Length > 0, label: "Hold: empty law table proves nothing");
         _ = laws.AsIterable().Iter(law => { Cancel(); Hold(law: law); });
     }
-    // Seed-replay regression: a shrunk counterexample is pinned by its seed and re-runs first.
     public static void Replay<T>(Gen<T> gen, Action<T> property, string seed) =>
         ForAll(gen: gen, property: property, seed: seed, iter: 1);
     public static void Replay<T>(Law<T> law, string seed) {
@@ -102,8 +83,6 @@ public static partial class Spec {
     }
 
     // --- [METAMORPHIC]
-    // One entry family: f(x) is computed once and every relation row checks it against
-    // f(transform(x)); an oracle relation rides the same table through the source argument.
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> f, params MetamorphicRelation<T, TResult>[] relations) {
         ArgumentNullException.ThrowIfNull(argument: f);
         ArgumentNullException.ThrowIfNull(argument: relations);
@@ -118,8 +97,6 @@ public static partial class Spec {
     }
 
     // --- [STATEFUL]
-    // The actual-vs-model pairing IS the stateful law; every stateful sampler shares the seed/iter/
-    // time replay knobs so a shrunk interleaving or operation sequence pins by seed like ForAll.
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: operations);
@@ -127,15 +104,11 @@ public static partial class Spec {
         Cancel();
         init.SampleModelBased(operations: operations, equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
-    // Two mutation paths over one subject must land in equal states; CsCheck shrinks the parameter.
     public static void DualPath<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2,
         Func<T, T, bool>? equal = null, string? seed = null, long? iter = null, int? time = null) {
         Cancel();
         initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
-    // The pure differential arm of the same family: a subject answer against an independent
-    // reference over one generated input — golden folds, dual algorithms, and external oracles
-    // ride this shape; the mutation arm above shares the name because the law is identical.
     public static void DualPath<T, TResult>(Gen<T> gen, Func<T, TResult> subject, Func<T, TResult> reference, Func<TResult, TResult, bool>? eq = null,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: subject);
@@ -145,8 +118,6 @@ public static partial class Spec {
             Holds(condition: (eq ?? EqualityComparer<TResult>.Default.Equals)(actual, expected), label: $"DualPath diverged: subject={actual}, reference={expected}");
         }, seed: seed, iter: iter, time: time);
     }
-    // Tolerance-carrying differential: numeric divergence classifies through the Metric row —
-    // sign ambiguity and periodic wrap are admitted classes, magnitude drift is the rejection.
     public static void DualPath<T>(Gen<T> gen, Func<T, double> subject, Func<T, double> reference, Tolerance tolerance, Metric? metric = null,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: subject);
@@ -181,7 +152,6 @@ public static partial class Spec {
         ArgumentNullException.ThrowIfNull(argument: result);
         _ = result.Match(Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => Tap(action: then, value: error));
     }
-    // The failure's closed-family case name, not its message, is the stable failure contract.
     public static void FailCategory<T>(Fin<T> result, string category) =>
         Fail(result: result, then: error => Assert.Equal(expected: category, actual: CategoryOf(error: error)));
     public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) {
@@ -196,7 +166,6 @@ public static partial class Spec {
         _ = result.Match(Some: value => Tap(action: then, value: value), None: () => throw new XunitException(userMessage: "Expected Some; got None"));
     public static void None<T>(Option<T> result) =>
         _ = result.Match(Some: value => throw new XunitException(userMessage: $"Expected None; got Some: {value}"), None: static () => unit);
-    // Flattening ManyErrors plus ordinal sort proves Applicative error-order independence.
     public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {
         ArgumentNullException.ThrowIfNull(argument: v);
         string[] expected = [.. expectedCategories.Order(comparer: StringComparer.Ordinal)];
@@ -226,14 +195,12 @@ public static partial class Spec {
         });
 
     // --- [DISTRIBUTION]
-    // Classify-table print: buckets and timing per class over one sample sweep.
     public static void Classified<T>(Gen<T> gen, Func<T, string> classify, Action<string> writeLine, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
         ArgumentNullException.ThrowIfNull(argument: classify);
         ArgumentNullException.ThrowIfNull(argument: writeLine);
         gen.Sample(classify: classify, writeLine: writeLine, seed: seed, iter: iter ?? -1L, time: time ?? -1, threads: threads ?? -1);
     }
-    // Chi-squared distribution law: expected counts define both the sample size and the buckets.
     public static void Distributed<T>(Gen<T> gen, Func<T, int> bucket, params int[] expected) {
         ArgumentNullException.ThrowIfNull(argument: bucket);
         ArgumentNullException.ThrowIfNull(argument: expected);
@@ -244,8 +211,6 @@ public static partial class Spec {
     }
 
     // --- [BYTE_IDENTITY]
-    // Deterministic encode -> decode -> re-encode byte identity through the contract's
-    // JsonTypeInfo<T>; the re-encode step catches non-deterministic codecs Roundtrip cannot see.
     public static void RoundtripBytes<T>(Gen<T> gen, JsonTypeInfo<T> contract, string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: contract);
         ForAll(gen: gen, property: value => {
@@ -256,9 +221,6 @@ public static partial class Spec {
         }, seed: seed, iter: iter, time: time);
     }
 
-    // The fixture-corpus arm: every discovered golden fixture must decode and re-encode to its
-    // exact producer bytes, and byte-identical twin fixtures are a corpus defect. The fold names
-    // EVERY drifting fixture, never the first.
     public static void RoundtripBytes<T>(JsonTypeInfo<T> contract, IReadOnlyCollection<CorpusEntry> corpus) {
         ArgumentNullException.ThrowIfNull(argument: contract);
         ArgumentNullException.ThrowIfNull(argument: corpus);
@@ -278,9 +240,6 @@ public static partial class Spec {
     }
 
     // --- [IDENTITY]
-    // The universal content-key gauge: one mint over one input space proves stability (same input,
-    // same key), representation independence (preserving axes keep the key), and separation
-    // (content changes move the key) in one table-driven pass over any key type.
     public static void ContentKey<T, TKey>(Gen<T> gen, Func<T, TKey> mint, params KeyAxis<T>[] axes) {
         ArgumentNullException.ThrowIfNull(argument: mint);
         ArgumentNullException.ThrowIfNull(argument: axes);
@@ -300,9 +259,6 @@ public static partial class Spec {
     }
 
     // --- [RECEIPT_ALGEBRA]
-    // The hybrid-logical-clock advance law: physical advance resets the logical half to zero,
-    // a held physical strictly increments it, and regression is never admissible. The refuting
-    // witness is a PAIR the order relation itself must reject — refutation before sampling.
     public static void Causal<T>(Gen<T> gen, Func<T, T> advance, Func<T, long> physical, Func<T, ulong> logical, (T Before, T After) refutingWitness,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: advance);
@@ -318,8 +274,6 @@ public static partial class Spec {
                 $"Causal: advance broke the stamp order (physical {physical(value)} -> {physical(next)}, logical {logical(value)} -> {logical(next)})"));
         }, seed: seed, iter: iter, time: time);
     }
-    // One fault-band registry law: every code inside its owner's band, no duplicate codes or
-    // owners, and bands pairwise disjoint — one folded verdict naming every violation.
     public static void FaultBands(params (string Owner, int Start, int End, int[] Codes)[] rows) {
         ArgumentNullException.ThrowIfNull(argument: rows);
         Holds(condition: rows.Length > 0, label: "FaultBands: empty band registry proves nothing");
@@ -340,9 +294,6 @@ public static partial class Spec {
         ];
         Holds(condition: defects.Length == 0, label: $"fault-band registry defects: {string.Join(separator: "; ", values: defects)}");
     }
-    // The verdict-fold law: a Worst-style status fold over a closed vocabulary is a bounded
-    // semilattice — closed, commutative, associative, idempotent, identity-absorbed — proven
-    // EXHAUSTIVELY over the vocabulary, so no witness ceremony and no sampling gap exists.
     public static void Semilattice<T>(IReadOnlyList<T> vocabulary, Func<T, T, T> combine, T identity, Func<T, T, bool>? eq = null) {
         ArgumentNullException.ThrowIfNull(argument: vocabulary);
         ArgumentNullException.ThrowIfNull(argument: combine);
@@ -371,7 +322,6 @@ public static partial class Spec {
     }
 
     // --- [CASE_TABLES]
-    // One catalog law: key uniqueness, exact expected membership, and the per-item law in one pass.
     public static void Catalog<T, TKey>(IReadOnlyList<T> items, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key, Action<T>? law = null) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(argument: items);
         ArgumentNullException.ThrowIfNull(argument: expectedKeys);
@@ -380,7 +330,6 @@ public static partial class Spec {
         Assert.Equal(expected: [.. expectedKeys.Order()], actual: (TKey[])[.. items.Select(selector: key).Order()]);
         _ = items.AsIterable().Iter(item => { Cancel(); law?.Invoke(item); });
     }
-    // Per-row thunks preserve call-site generics and diagnostics without anonymous assertion walls.
     public static void Matrix(params (string Label, Func<bool> Probe, bool Expected)[] rows) {
         ArgumentNullException.ThrowIfNull(argument: rows);
         Holds(condition: rows.Length > 0, label: "Matrix: empty row table proves nothing");
@@ -396,7 +345,6 @@ public static partial class Spec {
     }
 
     // --- [VALUE_OBJECTS]
-    // A value-object law is admission-and-rejection or nothing: the shape carries both generators.
     public sealed record ValueObjectShape<TIn, TStruct>(Gen<TIn> Valid, Gen<TIn> Invalid, TryCreate<TIn, TStruct> TryCreate, Func<TStruct, TIn> Read, Func<TIn, TIn, bool>? Eq = null);
     public static void Family<TIn, TStruct>(params ValueObjectShape<TIn, TStruct>[] shapes) {
         ArgumentNullException.ThrowIfNull(argument: shapes);
@@ -412,7 +360,6 @@ public static partial class Spec {
     }
 
     // --- [BOUNDARY_ADAPTERS]
-    // Runner cancellation must enter long CsCheck sample loops.
     private static void Cancel() => TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
     private static Unit Tap<T>(Action<T>? action, T value) { action?.Invoke(value); return unit; }
     private static string CategoryOf(Error error) => error.GetType().Name;

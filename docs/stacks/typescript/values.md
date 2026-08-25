@@ -145,7 +145,7 @@ export { Flow, Lane };
 Identity is declared where a value is built, never computed where it is compared. The `Data` constructors implant `Equal` and `Hash` at construction, every keyed and deduplicating container consumes both, and one concept constructs through one channel — so equality, dedup, keying, and memo identity are structure-decided facts of the value itself.
 
 [CONSTRUCTED_IDENTITY]:
-- Law: `Data.struct`, `Data.tuple`, and `Data.array` implant `Equal` and `Hash` to full depth when members are themselves `Data`-constructed or primitive; `Equal.equals` is the one domain equality and `Hash.hash` its container-facing shadow, and `Equal.equals` implies hash agreement — the container contract — so equality arriving anywhere but the constructors desynchronizes from `Hash` and breaks retrieval silently.
+- Law: `Data.struct`, `Data.tuple`, and `Data.array` implant `Equal` and `Hash` to full depth when members are themselves `Data`-constructed or primitive; `Equal.equals` is the one domain equality and `Hash.hash` its container-facing shadow, and `Equal.equals` implies hash agreement — the container invariant — so equality arriving anywhere but the constructors desynchronizes from `Hash` and breaks retrieval silently.
 - Law: one concept constructs through one channel — mixing `Data`-constructed and plain-built values of one concept splits identity down the middle, and half the concept misses every set, map, and dedup it enters.
 - Law: the channel itself holds one identity across module instances — an identity-bearing interior anchor (a memo table, an interned-value registry) mints through `GlobalValue.globalValue("<scope>/anchor", make)` so a bundler-duplicated or hot-reloaded module evaluates `make` once and every copy shares the instance, the value-plane sibling of the `Symbol.for` nominal key; a capability smuggled through it instead of the Layer graph is the module-level live instance the wiring law already rejects.
 - Law: projection equality is not identity — "same key fields" is an `Equivalence` question answered by a composed instance, and widening `Equal` to answer it poisons every container keyed on the concept; `Equal.equivalence()` bridges the other direction, lifting structural equality into an instance parameter where an operation wants one.
@@ -166,7 +166,7 @@ const Mark = {
     compact: (rows: ReadonlyArray<Mark>): ReadonlyArray<Mark> => Array.dedupeWith(rows, Equal.equivalence()), // Equal lifted to an instance parameter: order-preserving dedup without a set
 } as const;
 
-const _seen: HashSet.HashSet<Mark> = HashSet.fromIterable([Mark.make("<value-a>", [{ axis: "<axis-a>", grade: 3 }])]); // the set consumes the contract Equal implies — equal values hash equal, so duplicates collapse with no comparator
+const _seen: HashSet.HashSet<Mark> = HashSet.fromIterable([Mark.make("<value-a>", [{ axis: "<axis-a>", grade: 3 }])]); // equal values hash equal, so duplicates collapse with no comparator
 const _replay: boolean = Equal.equals(
     Mark.make("<value-a>", [{ axis: "<axis-a>", grade: 3 }]),
     Mark.make("<value-a>", [{ axis: "<axis-a>", grade: 3 }]),

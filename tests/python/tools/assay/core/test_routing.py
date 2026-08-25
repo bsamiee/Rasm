@@ -13,7 +13,7 @@ from upath import UPath
 
 from assay.composition.catalog import select
 from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
-from assay.core.routing import (  # private probes for read/parse degradation arms
+from assay.core.routing import (
     _LocalSource,
     _owner,
     _refs,
@@ -29,7 +29,7 @@ from assay.core.routing import (  # private probes for read/parse degradation ar
     TargetFiles,
 )
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
-from tests.python.tools.assay.kit import AssayHarness  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
+from tests.python.tools.assay.kit import AssayHarness
 
 
 if TYPE_CHECKING:

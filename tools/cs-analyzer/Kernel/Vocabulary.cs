@@ -4,7 +4,6 @@ namespace Rasm.Csp.Kernel;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// DocumentationCommentId rows resolve per compilation; unresolvable rows stay inert.
 internal static class Vocabulary {
     public static readonly ImmutableArray<string> Prefixes = ["Get", "TryGet", "GetOr"];
 

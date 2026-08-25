@@ -27,7 +27,6 @@ internal static class WireGens {
         JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault), jsonTypeInfo: BridgeJsonContext.Default.BridgeFault)!;
 }
 
-// Protocol stub projects selection cases into receipts so union traversal stays observable.
 internal sealed class ShellStub : IBridgeShell {
     public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
         Task.FromResult(result: supervisor with { SenderVersion = "shell", Fingerprint = WireGens.Host, Endpoint = WireGens.Endpoint });
@@ -47,7 +46,6 @@ internal sealed class ShellStub : IBridgeShell {
         Task.FromResult(result: new QuitPrepareReceipt(Documents: 0, MarkedClean: 0, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []));
 }
 
-// Future contract pins JSON-RPC method-not-found behavior instead of fallback.
 [JsonRpcContract]
 [GenerateShape(IncludeMethods = MethodShapeFlags.PublicInstance)]
 internal partial interface IFutureShell {
@@ -178,7 +176,6 @@ public sealed class UnionWireLaws {
     [InlineData("artifact")]
     [InlineData("certificate")]
     public void RetiredEventDiscriminatorsStayRetired(string discriminator) =>
-        // The never-constructed union cases were purged; their discriminators must not silently decode.
         _ = Assert.ThrowsAny<JsonException>(testCode: () =>
             JsonSerializer.Deserialize(
                 json: """{"$type":"RETIRED","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}"""
@@ -252,7 +249,6 @@ public sealed class ConverterCompositionLaws {
         Assert.Equal(expected: "rbx-", actual: EndpointRecord.PipePrefix);
         Spec.ForAll(gen: WireGens.PipeSuffix, property: static suffix =>
             Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
-        // Empty pipe is the poison-record shape admitted for typed startup-failure evidence.
         Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
         Assert.All(collection: (string[])["rb-old-prefix", "RBX-upper", $"rbx-{new string(c: 'x', count: 61)}"], action: static name =>
             Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
@@ -295,7 +291,6 @@ public sealed class ToleranceLaws {
         }).ConfigureAwait(continueOnCapturedContext: true);
 }
 
-// The report-dir layout and fact-key vocabularies are frozen wire law the assay workstation decodes.
 public sealed class WireVocabularyLaws {
     [Fact]
     public void ReportLayoutStringsAreFrozen() {
@@ -348,8 +343,6 @@ public sealed class WireVocabularyLaws {
     }
 }
 
-// Selection matching is one Contract-owned semantics: ordinal exact, fnmatch-style wildcards, and
-// bare-method-name hits; zero-match returns empty so the shell raises its typed fault.
 public sealed class SelectionFilterLaws {
     private static readonly ScenarioEntry[] Corpus = [
         new ScenarioEntry(Theme: "blocks", Name: "blocks.Baseline", Requires: [], BudgetMs: 0),
@@ -383,8 +376,6 @@ public sealed class SelectionFilterLaws {
     }
 }
 
-// The exact camelCase field names the assay workstation decoder binds; removal or rename is a
-// schema_version event, never a silent drift.
 public sealed class EnvelopeWireLaws {
     [Fact]
     public void EnvelopeFieldNamesAreFrozen() {

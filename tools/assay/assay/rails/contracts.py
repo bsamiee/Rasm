@@ -25,9 +25,9 @@ import re
 from struct import pack
 from types import MappingProxyType
 from typing import Annotated, ClassVar, Final, Literal, override, Protocol, runtime_checkable, Self
-lazy import shutil  # PATH resolution on the plugin probe alone
+lazy import shutil
 
-from expression import Error, Ok, Result  # beartype resolves rail annotations at import time
+from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -35,14 +35,14 @@ import xxhash
 lazy from google.protobuf.descriptor_pb2 import FileDescriptorSet as GoogleFileDescriptorSet
 lazy from google.protobuf.descriptor_pool import DescriptorPool as GoogleDescriptorPool
 lazy from google.protobuf.json_format import Parse, ParseError
-lazy from google.protobuf.message import DecodeError, Message  # dynamic semantic decode on the corpus gate alone
+lazy from google.protobuf.message import DecodeError, Message
 lazy from google.protobuf.message_factory import GetMessageClass
 lazy from google.protobuf.unknown_fields import UnknownFieldSet
-lazy import jsonschema  # cold; the corpus gate alone validates verified .json assets against their seam schema
+lazy import jsonschema
 lazy from obspec_utils.registry import ObjectStoreRegistry
 lazy from obstore.exceptions import BaseError as ObjectStoreError
 lazy from obstore.store import from_url
-lazy from protobuf.wkt import DescriptorProto, FieldDescriptorProto, FileDescriptorSet  # descriptor decode on the corpus gate alone
+lazy from protobuf.wkt import DescriptorProto, FieldDescriptorProto, FileDescriptorSet
 lazy from referencing import Registry, Resource
 lazy from referencing.exceptions import Unresolvable
 lazy from referencing.jsonschema import DRAFT202012
@@ -52,9 +52,9 @@ lazy from virtualizarr.manifests import ManifestArray
 lazy from virtualizarr.parsers import HDFParser
 
 from assay.composition.catalog import JSONSCHEMA_PLUGIN, select
-from assay.composition.settings import AssaySettings  # beartype resolves rail annotations at import time
-from assay.composition.store import ArtifactScope  # beartype resolves rail annotations at import time
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.govern import leased
 from assay.core.model import (
     Artifact,
@@ -63,16 +63,16 @@ from assay.core.model import (
     BaseParams,
     Check,
     Claim,
-    Completed,  # thunks and folds annotate the receipt at runtime
+    Completed,
     ContractsRun,
-    Fault,  # beartype resolves Result[Report, Fault] under PEP 649 at import time
-    InprocThunk,  # beartype resolves the thunk-factory return annotation at import time
+    Fault,
+    InprocThunk,
     Language,
     Match,
     Mode,
     RailStatus,
     receipt,
-    Report,  # beartype resolves Report in return annotations at import time
+    Report,
     Step,
     Tool,
     ToolArgs,
@@ -102,7 +102,6 @@ type _DistributionRow = tuple[str, EntryClass, SpecimenAsset, Distribution]
 type _Projections = Mapping[str, Result[bytes, str]]
 type _RosterFiles = Mapping[str, tuple[_File, ...]]
 type _Rule = Callable[[_Corpus], Iterable[_Finding]]
-# One audit clause: (broken predicate, rule id, detail, repair); the predicate closes over the entry or the blocker sentence.
 type _Clause[T] = tuple[Callable[[T], bool], str, str, str]
 type _Lanes = tuple[tuple[str, Completed], ...]
 
@@ -111,7 +110,6 @@ type _Lanes = tuple[tuple[str, Completed], ...]
 CORPUS: Final = "libs/contracts"
 MANIFEST: Final = "manifest.json"
 SCHEMA: Final = "manifest.schema.json"
-# The buf workspace seats at the estate root; every buf lane runs from the repo root against the `libs/contracts` input.
 TEMPLATE: Final = f"{CORPUS}/buf.gen.yaml"
 ROSTER_BEGIN: Final = "<!-- roster:begin -->"
 ROSTER_END: Final = "<!-- roster:end -->"
@@ -123,8 +121,7 @@ _JSON_WIDTH: Final = 150
 _LEASE: Final = "contracts"
 _VENDOR: Final = "vendor"
 _CONFORMANCE: Final = "conformance"
-_ESTATE: Final = "proto"  # buf.yaml-relative, like every module path
-# The one generated tree: every plugin `out` lands strictly inside it, and the first segment beneath it names the emission target.
+_ESTATE: Final = "proto"
 _EMISSION: Final = PurePosixPath(CORPUS) / "gen"
 _IMAGE: Final = "image.binpb"
 _GEN: Final = "gen"
@@ -136,7 +133,6 @@ _BUNDLE: Final = ".jsonschema.strict.bundle.json"
 _JSON_FRAMINGS: Final[frozenset[SchemaFraming]] = frozenset(("proto-json", "canonical-json"))
 _NO_PROJECTIONS: Final[_Projections] = MappingProxyType({})
 _NO_ROSTER_FILES: Final[_RosterFiles] = MappingProxyType({})
-# The five roots and the manifests beside them; the audit admits nothing else at the estate root except git-ignored build output.
 _ROOTS: Final[frozenset[str]] = frozenset((".api", _ESTATE, _VENDOR, _CONFORMANCE, _EMISSION.name))
 _ROOT_FILES: Final[frozenset[str]] = frozenset((
     "README.md",
@@ -172,35 +168,26 @@ _COORDINATE: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 _DIFF_HEADER: Final = re.compile(r"^\+\+\+ (\S+)")
 _BSR_MODULE: Final = re.compile(r"^buf\.build/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$")
 _BSR_COMMIT: Final = re.compile(r"^[0-9a-f]{32}$")
-_EVENT_TYPE: Final = re.compile(r"^rasm(?:\.[a-z][a-z0-9]*){3}$")  # rasm.<domain>.<subject>.<fact>; the [14]-[EVENT_FABRIC] grammar
+_EVENT_TYPE: Final = re.compile(r"^rasm(?:\.[a-z][a-z0-9]*){3}$")
 _DEFAULT_LABEL: Final = "main"
-# Bare-path anchors name a proof file or an estate index page; every other anchor rides the branch or tier grammar.
 _BARE_ANCHOR_ROOTS: Final = ("tests/", f"{CORPUS}/")
 _TS_PACKAGE: Final = f"{CORPUS}/package.json"
 _TS_BUILD: Final = "tsc --build"
 _TS_DIRECTORY: Final = CORPUS
 _TS_EXPORT: Final = "./*"
-# The wildcard carries two states of one map: the workspace manifest resolves committed TypeScript, and `pnpm pack` overlays
-# `publishConfig` so the tarball resolves compiled output. Reading the workspace half alone certifies the wrong document.
 _TS_SOURCE: Final = "./gen/typescript/*.ts"
 _TS_TARGET: Final[Mapping[str, str]] = MappingProxyType({"types": "./dist/*.d.ts", "import": "./dist/*.js", "default": "./dist/*.js"})
 _PY_PACKAGE: Final = "rasm.contracts"
 _PY_PACKAGE_ROOT: Final = PurePosixPath(f"{CORPUS}/gen/python/rasm/contracts")
-# The typing marker is projected after the sweep like every other distribution; nothing hand-authored lives under the generated tree.
 _PY_MARKER: Final = (_PY_PACKAGE_ROOT / "py.typed").as_posix()
 _ROUTED: Final[Routed] = Routed(language=Language.PROTO, scope=Scope.CHANGED)
-# A missing plugin names its installer by where the template seats it: venv and node binaries are repo-installed, the rest ride the machine estate.
 _HINTS: Final[tuple[tuple[str, str], ...]] = ((".venv/", "uv sync"), ("node_modules/", "pnpm install"))
 _MACHINE_HINT: Final = f"the machine estate supplies protoc, the grpc plugins, and {JSONSCHEMA_PLUGIN}"
-# Only publication spends a credential: build, lint, format, and remote-plugin generation all resolve unauthenticated.
-# A non-empty BUF_TOKEN outranks ~/.netrc outright, so a stale export beats a valid login.
 _CREDENTIAL_HINT: Final = "a non-empty BUF_TOKEN outranks ~/.netrc; clear the stale export, or seat the live one"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [MANIFEST]
-# Wire casing law: single-word fields ride as spelled, multi-word fields camelCase (`derivedFrom`), and the
-# one keyword collision renames explicitly (`class`); every record forbids unknown fields so a stray key is a decode defect.
 
 
 class _Record(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True, rename="camel"):
@@ -287,7 +274,7 @@ class _HdfFile(_HdfGroup, Protocol):
 class _HdfModule(Protocol):
     """One dynamically loaded h5py constructor; no package-wide shadow stub."""
 
-    def File(self, name: str, mode: Literal["r"]) -> _HdfFile: ...  # ruff: ignore[invalid-function-name] - external spelling
+    def File(self, name: str, mode: Literal["r"]) -> _HdfFile: ...  # ruff:ignore[invalid-function-name]
 
 
 @runtime_checkable
@@ -807,8 +794,6 @@ class _Identity(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields
 
 
 # --- [GATES]
-# One JSON document per INPROC gate receipt: the thunk encodes it onto stdout, the rail decodes it through the one
-# tagged decoder to project Match rows and the ContractsRun detail — no second channel beside the receipt.
 
 
 class _Finding(msgspec.Struct, frozen=True, gc=False):
@@ -991,7 +976,6 @@ class ContractsParams(BaseParams):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _ROWS: Final[dict[tuple[str, Mode], Tool]] = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
-# The buf read fan in report order: build bares the image the corpus gate resolves against, generate regenerates into scratch.
 _LANES: Final[tuple[_Lane, ...]] = (
     _Lane("buf-build", Mode.QUERY, output=_IMAGE),
     _Lane("buf-lint", Mode.CHECK),
@@ -1031,7 +1015,6 @@ def _parity_provenance_broken(case: Case) -> bool:
     )
 
 
-# Entry law owns grouping identity alone; tagged authority/readiness, definition, actors, and evidence live on each case.
 _ENTRY_LAW: Final[tuple[_Clause[Entry], ...]] = (
     (lambda e: not e.cases, "cases-empty", "entry owns no atomic case", "land at least one exact decoder case, or delete the entry"),
     (lambda e: not e.law.strip(), "law-empty", "law sentence is empty", "state the one-sentence law"),
@@ -1352,7 +1335,6 @@ def _python_member(name: str) -> str:
 
 
 def _resolve(root: Path, spelling: str) -> str:
-    # A repo-relative path resolves under root; a bare name resolves on PATH — the same two seams buf itself reads.
     if "/" in spelling:
         candidate = root / spelling
         return str(candidate) if candidate.is_file() and os.access(candidate, os.X_OK) else ""
@@ -1367,7 +1349,6 @@ def _hint(spelling: str) -> str:
 
 
 def _dotted(prefix: str, rows: Iterable[DescriptorProto]) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    # Walks the nesting: (message names, enum names) in the proto dotted form under ``prefix``, skipping synthetic map entries.
     messages: list[str] = []
     enums: list[str] = []
     for row in rows:
@@ -1510,7 +1491,6 @@ def _emitted(file: _File, kinds: frozenset[_Kind]) -> _File:
 
 
 def _plugin_roots(corpus: _Corpus, plugin: _Plugin) -> tuple[str, ...]:
-    # One out root per emission target carries estate and publisher roots alike; publisher curation is a `types` row, never a second root.
     return tuple(dict.fromkeys(_actor_roots(corpus.manifest, plugin.language, plugin.kinds)))
 
 
@@ -1537,9 +1517,6 @@ def _actor_needs(manifest: Manifest) -> tuple[tuple[str, _Kind, str], ...]:
 
 
 # --- [ROSTERS]
-# The roster is EMITTED: `generate` writes one table per generated package between the catalog's markers from the built
-# descriptor set under the template's type filters, and `check` byte-compares that block; hand rows outside the markers
-# are not censused.
 
 
 def _ts_name(kind: _Kind, dotted: str) -> str:
@@ -1572,8 +1549,6 @@ _KINDS: Final[tuple[tuple[_Kind, Callable[[_File], tuple[str, ...]]], ...]] = (
 
 
 def _table(header: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
-    # One padded markdown table in the estate's `[INDEX]`-first grammar; widths derive from the content, the index column
-    # centres (`|  [01]   |`) and every other column left-aligns.
     cells = tuple((f"[{index:02d}]", *row) for index, row in enumerate(rows, start=1))
     widths = tuple(max(len(column[i]) for column in (header, *cells)) for i in range(len(header)))
 
@@ -1619,7 +1594,6 @@ def _asset_table(distributions: tuple[Distribution, ...]) -> str:
 
 
 def _roster_block(roster: _Roster, files: tuple[_File, ...], roots: tuple[str, ...], distributions: tuple[Distribution, ...] = ()) -> str:
-    # Buf's own type-filtered descriptor image is the closure authority; the actor roots only classify its exact public symbols.
     public = frozenset(roots)
     packages = tuple(
         dict.fromkeys(
@@ -1646,12 +1620,10 @@ def _roster_block(roster: _Roster, files: tuple[_File, ...], roots: tuple[str, .
         for package in packages
     )
     sections = (*tables, *((_asset_table(distributions),) if distributions else ()))
-    # The trailing blank line is the markdown lane's canonical table close; it keeps `prose_gate fix --write` a no-op over the span.
     return "\n\n".join(sections) + "\n\n" if sections else ""
 
 
 def _roster_span(text: str) -> tuple[int, int] | None:
-    # (start, end) of the body between the two marker lines, or None when either marker is absent or misordered.
     begin, end = text.find(ROSTER_BEGIN), text.find(ROSTER_END)
     return (begin + len(ROSTER_BEGIN) + 1, end) if 0 <= begin < end else None
 
@@ -1681,7 +1653,6 @@ def _document(path: Path) -> Result[_Document, str]:
 
 
 def _check_schema(schema: _Document) -> str:
-    # jsonschema ships no py.typed: the SchemaError re-spells as text so nothing untyped crosses further in.
     try:
         jsonschema.Draft202012Validator.check_schema(schema)
     except jsonschema.exceptions.SchemaError as exc:
@@ -1690,8 +1661,6 @@ def _check_schema(schema: _Document) -> str:
 
 
 def _schema_errors(schema: _Document, instance: object) -> tuple[str, ...]:
-    # The validator trusts its schema, so an invalid one refuses before any instance walks it; `format` asserts under the
-    # draft's checker because 2020-12 makes it annotation-only by default; a dangling `$ref` surfaces as its own row.
     if invalid := _check_schema(schema):
         return (f"schema: {invalid}",)
     try:
@@ -1712,8 +1681,6 @@ def _refs(node: object) -> tuple[str, ...]:
 
 
 def _ref_errors(schema: _Document) -> tuple[str, ...]:
-    # A derived document is self-contained (a bundle inlines its dependencies under `$defs`), so every `$ref` resolves inside
-    # it; a pointer to nowhere or a foreign document surfaces at the definition, not at the first asset that walks it.
     base = "urn:assay:definition"
     resolver = Registry().with_resource(base, Resource.from_contents(schema, default_specification=DRAFT202012)).resolver(base_uri=base)
     errors: list[str] = []
@@ -1726,7 +1693,6 @@ def _ref_errors(schema: _Document) -> tuple[str, ...]:
 
 
 def _struct(repo: Path, dotted: str) -> Result[type[msgspec.Struct], str]:
-    # `msgspec:<module.path.Struct>`: the importable module first, else the module file under the repo root; the owner must be a Struct.
     module_name, _, attribute = dotted.rpartition(".")
     if not module_name:
         return Error(f"{dotted!r} names no module")
@@ -1770,8 +1736,6 @@ def _derived(corpus: _Corpus, subject: str, definition: SchemaDefinition, path: 
 
 
 def _derived_rows(corpus: _Corpus, subject: str, definition: SchemaDefinition, path: str) -> tuple[_Finding, ...]:
-    # A seam schema DERIVES: a hand-written file is the deleted form, a derived file byte-equals its derivation, and an arm that
-    # cannot derive yet names itself.
     match _derived(corpus, subject, definition, path):
         case Result(tag="ok", ok=derived):
             stale = (corpus.schema_root / definition.path).read_bytes() != derived
@@ -1795,7 +1759,6 @@ def _derived_rows(corpus: _Corpus, subject: str, definition: SchemaDefinition, p
 
 
 def _schema_findings(corpus: _Corpus, subject: str, definition: SchemaDefinition) -> tuple[_Finding, ...]:
-    # A definition is a DERIVED, valid 2020-12 schema whose `$id` spells its file name and whose every `$ref` resolves within it.
     rel = definition.path
     path, expected = f"{CORPUS}/{rel}", PurePosixPath(rel).name
     match _document(corpus.schema_root / rel):
@@ -1903,7 +1866,6 @@ def _inside(value: str, root: PurePosixPath) -> bool:
 
 
 def _unresolved(corpus: _Corpus, subject: str, messages: tuple[str, ...]) -> tuple[_Finding, ...]:
-    # Resolution waits on the built descriptor set; without one the audit names that gap once instead of refusing every message.
     return tuple(
         _finding("message-unresolved", subject, f"{name} is not in the built descriptor set", "name a message the corpus declares, or land the proto")
         for name in messages
@@ -1912,7 +1874,6 @@ def _unresolved(corpus: _Corpus, subject: str, messages: tuple[str, ...]) -> tup
 
 
 def _anchor(repo: Path, text: str, *, paths: bool) -> str:
-    # Returns "" when the anchor resolves, else the reason; a consumer cell may also name a repo-relative path.
     match (_ANCHOR.match(text), _TIER0.match(text)):
         case (re.Match() as found, _):
             language, package, page, cluster = found.groups()
@@ -2285,7 +2246,6 @@ def _rule_actor_methods(corpus: _Corpus) -> Iterable[_Finding]:
 
 
 def _validated(schema: Result[_Document, str], path: Path) -> tuple[str, ...]:
-    # A verified `.json` asset validates against its seam schema; a seam without a schema definition validates nothing.
     match (schema, _json(path)):
         case (Result(tag="ok", ok=document), Result(tag="ok", ok=instance)):
             return _schema_errors(document, instance)
@@ -2394,7 +2354,6 @@ def _distribution_findings(corpus: _Corpus) -> Iterable[_Finding]:
                     and private_ok
                     and all(isinstance(item, str) for item in files)
                     and frozenset(("dist", "README.md")).issubset(files)
-                    # Pack ships what the disk holds, so every `files` row except the build-produced `dist` proves on disk here.
                     and all(item == "dist" or (corpus.repo / _TS_PACKAGE).parent.joinpath(item).exists() for item in files)
                     and exports.get(_TS_EXPORT) == _TS_SOURCE
                     and published.get(_TS_EXPORT) == _TS_TARGET
@@ -3379,8 +3338,6 @@ def _seam_materialization(corpus: _Corpus, entry: Entry) -> _Finding | None:
 
 
 def _ignored(repo: Path) -> frozenset[str]:
-    # Build output beside the estate manifests (a link farm, a compiled tree, a compiler cache) is whatever git ignores there —
-    # read from the ignore roster, never a hand list that drifts; a repo with no git answers nothing and admits nothing extra.
     listed = discover(_IGNORED, root=repo, timeout=_IGNORE_TIMEOUT_S).default_value(b"")
     return frozenset(
         PurePosixPath(row).relative_to(CORPUS).parts[0] for row in listed.decode(errors="replace").split("\0") if row.startswith(f"{CORPUS}/")
@@ -3388,8 +3345,6 @@ def _ignored(repo: Path) -> frozenset[str]:
 
 
 def _stray_findings(corpus: _Corpus, estate: frozenset[str], publishers: frozenset[str]) -> Iterable[_Finding]:
-    # One census over three roots: the estate root admits its roots, manifests, and whatever git ignores there; each seam root admits
-    # exactly the directories its authority class registers, so a publisher id under conformance/ strays as loudly as a rogue name.
     ignored = _ignored(corpus.repo)
     admitted: tuple[tuple[str, Callable[[Path], bool], str], ...] = (
         ("", lambda child: child.name in ignored or (child.name in _ROOTS if child.is_dir() else child.name in _ROOT_FILES), "at the estate root"),
@@ -3427,7 +3382,6 @@ def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
         if finding := _seam_materialization(corpus, entry):
             yield finding
     yield from _stray_findings(corpus, estate, publishers)
-    # Every file under a seam has one atomic owner. Definition directories delimit publisher custody but do not duplicate file ownership.
     owners: dict[str, list[str]] = {}
     owned: dict[Path, set[str]] = {}
     for entry in entries:
@@ -3531,7 +3485,6 @@ def _rule_selectors(corpus: _Corpus) -> Iterable[_Finding]:
 
 
 def _rule_roster(corpus: _Corpus) -> Iterable[_Finding]:
-    # The emitted block between the markers byte-equals the derivation; absent markers or a missing catalog name the repair.
     for language in dict.fromkeys(row.language for row in corpus.template.plugins if row.language):
         roster = _ROSTERS.get(language)
         if roster is None:
@@ -3573,7 +3526,6 @@ def _rule_roster(corpus: _Corpus) -> Iterable[_Finding]:
 
 
 def _rule_lock(corpus: _Corpus) -> Iterable[_Finding]:
-    # A buf.yaml naming deps resolves them through a committed buf.lock; a missing lock floats every generation.
     try:
         config = msgspec.convert(YAML(typ="safe").load((corpus.repo / _CONFIG).read_text(encoding="utf-8")), _BufConfig)
     except OSError, msgspec.ValidationError:
@@ -3610,8 +3562,6 @@ def _corpus_of(
     roster_files: _RosterFiles = _NO_ROSTER_FILES,
     material: Path | None = None,
 ) -> Result[tuple[_Corpus, tuple[_Finding, ...]], Fault]:
-    # The corpus both gates read: descriptor files and the decoded registry (an absent or undecodable one reads as empty beside
-    # its own head finding); an unreadable manifest is the one faulting path.
     files = _files(image) if image.is_file() else ()
     head = (
         []
@@ -3676,7 +3626,6 @@ def _audit(
     roster_files: _RosterFiles = _NO_ROSTER_FILES,
     material: Path | None = None,
 ) -> Result[_Audit, Fault]:
-    # The gate's one fold: the corpus, every audit rule, and the census facts the detail projects.
     match _corpus_of(repo, image, template, projections, roster_files, material):
         case Result(tag="ok", ok=(corpus, head)):
             pass
@@ -3844,8 +3793,6 @@ def _owned_files(template: _Templates, manifest: Manifest) -> tuple[str, ...]:
 
 
 def _generation_transaction(repo: Path, template: _Templates, manifest: Manifest) -> SwapTransaction:
-    # The transaction scope is the derivation's own output: the generated out roots and the files it rewrites beside them. A
-    # containing package directory would drag its node_modules, build output, and caches into an image none of them can survive.
     targets = tuple(repo / rel for rel in (*out_dirs(template), *_owned_files(template, manifest)))
     return SwapTransaction(marker=repo / _COMMIT_MARKER, argv=("contracts", "generate"), targets=targets)
 
@@ -3914,7 +3861,6 @@ def _emit(repo: Path, image: Path, template: _Templates, projections: _Projectio
             return receipt(
                 argv, RailStatus.FAULTED.exit_code, stderr=b"no descriptor set was built; the roster cannot be emitted", status=RailStatus.FAULTED
             )
-        # One registry read drives the stage, the transaction sources, and the journal targets, so no third derivation can drift.
         registry = load_manifest(repo / CORPUS).default_value(Manifest(entries=()))
         owned = _owned_files(template, registry)
         match compose_image(repo, image.parent / _GEN, image.parent / _COMMIT_IMAGE, out_dirs(template), owned):
@@ -3975,8 +3921,6 @@ def _gate(done: Completed) -> _Gate | None:
 
 
 def _verdict(done: Completed) -> RailStatus:
-    # A lane that ran and reached a clean verdict passed, whether it said so or exited silently; the band column owns
-    # which statuses those are, so the lane row never re-partitions the vocabulary on its own.
     return RailStatus.OK if done.status.band is Band.PROVED else done.status
 
 
@@ -4065,7 +4009,7 @@ def _published(done: Completed, module: str) -> Result[str, str]:
 def _detail(lanes: _Lanes, gates: tuple[_Gate, ...], rows: tuple[Match, ...], scratch: str, module: str) -> ContractsRun:
     probe = next((gate for gate in gates if isinstance(gate, _Probe)), _Probe())
     audit = next((gate for gate in gates if isinstance(gate, _Audit)), _Audit())
-    findings = sum(len(gate.findings) for gate in gates if isinstance(gate, _Audit))  # generate's emission leg reports as a second audit
+    findings = sum(len(gate.findings) for gate in gates if isinstance(gate, _Audit))
     fresh = next((gate for gate in gates if isinstance(gate, _Freshness)), _Freshness())
     format_out = next((done.stdout for name, done in lanes if name == "buf-format"), b"")
     counts = (
@@ -4103,7 +4047,6 @@ def _report(verb: str, lanes: _Lanes, scratch: str, module: str) -> Report:
     decoded = tuple((done, _gate(done)) for _, done in lanes)
     gates = tuple(gate for _, gate in decoded if gate is not None)
     base = fold(Claim.CONTRACTS, verb, tuple(done for _, done in lanes), promote_empty=True)
-    # A decoded gate's findings ride as typed rows, so its raw stdout tail never doubles as a process defect row.
     consumed = frozenset(" ".join(done.argv) for done, gate in decoded if gate is not None)
     kept = tuple(row for row in base.results if row.id not in consumed)
     stale_total = sum(len(gate.stale) for gate in gates if isinstance(gate, _Freshness))
@@ -4115,7 +4058,6 @@ def _report(verb: str, lanes: _Lanes, scratch: str, module: str) -> Report:
 
 
 def _scratch(settings: AssaySettings, scope: ArtifactScope) -> Result[Path, Fault]:
-    # buf regenerates into a real directory and filecmp walks it, so the scratch root must be a local path the file backend owns.
     protocol = settings.artifact_backend.protocol
     if protocol not in {"", "file"}:
         return Error(Fault(("buf", "generate"), RailStatus.UNSUPPORTED, f"scratch regeneration requires the file artifact backend; got {protocol!r}"))
@@ -4134,7 +4076,6 @@ def _seat(chk: Check, status: RailStatus, reason: str) -> Completed:
 def _phase(
     executor: Executor, checks: tuple[Check, ...], seat: Callable[[Check], Completed | None], *, settings: AssaySettings, scope: ArtifactScope
 ) -> Result[_Lanes, Fault]:
-    # Fans every check `seat` leaves live and keeps the pre-seated receipts in the declared lane order.
     seated = tuple(seat(chk) for chk in checks)
     live = tuple(chk for chk, done in zip(checks, seated, strict=True) if done is None)
 
@@ -4216,8 +4157,6 @@ def _auth_phase(module: str, executor: Executor, *, settings: AssaySettings, sco
     Returns:
         The credential probe, carrying the resolved account in its notes, or faulted with the repair the operator owes.
     """
-    # Absence reads the same authenticated and unauthenticated, so the bootstrap probe can never prove the credential.
-    # Electing `--create` on a blind lookup is the one refusal that must precede the gate, not trail it at the push.
     remote = module.partition("/")[0]
     base = _ROWS["buf-module", Mode.QUERY]
     tool = msgspec.structs.replace(base, name="buf-auth", command=("buf", "registry", "whoami", "{input}", "--format", "json"))
@@ -4458,7 +4397,6 @@ def _generate_run(
         )
 
     def emit_phase(derived: tuple[_Lanes, _Projections, _RosterFiles]) -> Result[_Lanes, Fault]:
-        # The emission rides the regeneration: a failed write leaves the catalogs and the seams untouched.
         done, projections, roster_files = derived
         written = dict(done)["buf-generate"]
         reason = "" if written.status in {RailStatus.OK, RailStatus.EMPTY} else "regeneration did not complete"
@@ -4534,7 +4472,6 @@ def _publish_run(
         return _prepush_phase(config.module, lanes, executor, settings=settings, scope=scope).bind(revalidated)
 
     def custody(auth: Completed) -> Result[_Lanes, Fault]:
-        # The pre-gate reading the pre-push resolve compares against: absence here is the one admitted bootstrap.
         return _module_phase(config.module, executor, settings=settings, scope=scope).bind(
             lambda module: _baseline_phase(config.module, executor, present=module[1], settings=settings, scope=scope).map(
                 lambda baseline: (("buf-auth", auth), ("buf-module", module[0]), ("buf-baseline", baseline))

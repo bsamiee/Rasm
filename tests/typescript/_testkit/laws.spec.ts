@@ -16,7 +16,6 @@ const _ARGS = { x: FastCheck.integer(), y: FastCheck.integer(), z: FastCheck.int
 const _INTS = FastCheck.integer({ min: -1000, max: 1000 });
 const _SAME = (left: number, right: number): boolean => left === right;
 
-// Associativity over a foil that subtracts: (1-2)-3 diverges from 1-(2-3), so the witness refutes.
 const _associativity = Law.make<Combine, typeof _ARGS>({
     name: 'combine is associative',
     arbitraries: _ARGS,
@@ -28,13 +27,11 @@ const _associativity = Law.make<Combine, typeof _ARGS>({
 
 const _Frame = Schema.Struct({ label: Schema.String, rank: Schema.Int });
 
-// A lossy sibling codec over the same channel: decode truncates the label, so round-trips lose evidence.
 const _Clipped = Schema.Struct({
     label: Schema.transform(Schema.String, Schema.String, { strict: true, decode: (raw) => raw.slice(0, 1), encode: (held) => held }),
     rank: Schema.Int,
 });
 
-// Model-based command over a monotone counter: the model predicts every observed value.
 class Bump implements FastCheck.Command<Tally, Bumper> {
     check(): boolean {
         return true;
@@ -50,7 +47,6 @@ class Bump implements FastCheck.Command<Tally, Bumper> {
     }
 }
 
-// The async twin: the correspondence must survive a real await boundary between prediction and observation.
 class BumpAsync implements FastCheck.AsyncCommand<Tally, AsyncBumper> {
     check(): boolean {
         return true;
@@ -94,7 +90,6 @@ const _asyncCounter = (step: number) => (): { model: Tally; real: AsyncBumper } 
     };
 };
 
-// Interleaving subject: schedule two merges into a cell; a max-merge lands order-free, a last-write register does not.
 const _merged =
     (combine: Combine) =>
     async (schedule: FastCheck.Scheduler): Promise<boolean> => {
@@ -115,7 +110,6 @@ describe('law registration', () => {
         Law.commutative({ arb: _INTS, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1, b: 2 } } }),
         Law.associative({ arb: _INTS, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1, b: 2, c: 3 } } }),
         Law.idempotent({ arb: _INTS, equals: _SAME, witness: { label: 'addition foil', foil: (a, b) => a + b, args: { a: 1 } } }),
-        // Math.min's identity over the bounded domain is its ceiling; subtraction against the same empty refutes.
         Law.identity({ arb: _INTS, empty: 1000, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1 } } }),
     ]);
 });
@@ -264,7 +258,6 @@ describe('tautology audit', () => {
                 Law.audit({
                     name: 'tautological registration',
                     arbitraries: _ARGS,
-                    // The foil IS the subject: nothing can refute the predicate, so the registration must fail.
                     predicate: (combine: Combine, { x, y, z }) => Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
                     witness: { label: 'inert witness', foil: Math.min, args: { x: 1, y: 2, z: 3 } },
                 }),

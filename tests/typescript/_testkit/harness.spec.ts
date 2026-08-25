@@ -15,8 +15,6 @@ class Held extends Context.Tag('rasm-testkit-spec/Held')<Held, StartedTestContai
 const _DDL = 'CREATE TABLE marks (key TEXT PRIMARY KEY, rank INTEGER NOT NULL);';
 const _BYTES = Uint8Array.from([1, 2, 3, 4]);
 
-// Images pin in tests/containers.json — the polyglot owner every language's container row resolves through Containers.pin;
-// RASM_TESTKIT_CONTAINERS activates the live lanes.
 const _LIVE = process.env['RASM_TESTKIT_CONTAINERS'] !== undefined;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -151,7 +149,6 @@ layer(ObjectStores.memory)('object store double', (it) => {
     it.effect('listing orders by UTF-8 bytes past the BMP, where UTF-16 code units would swap the pair', () =>
         Effect.gen(function* () {
             const store = yield* ObjectStore;
-            // U+FF01 encodes EF BC 81, U+10000 encodes F0 90 80 80: UTF-8 puts U+FF01 first, JS string order puts it last.
             yield* store.put('astral/\u{10000}', _BYTES);
             yield* store.put('astral/！', _BYTES);
             expect(yield* store.list('astral/')).toEqual(['astral/！', 'astral/\u{10000}']);
@@ -333,7 +330,6 @@ describe.skipIf(!_LIVE)('container substrate [RASM_TESTKIT_CONTAINERS]', () => {
         it.effect('the resources row lands as a real cgroup memory ceiling', () =>
             Effect.gen(function* () {
                 const held = yield* Held;
-                // cgroup v2 first, v1 fallback: 0.5 GB rides testcontainers' GB unit into 536870912 bytes.
                 const receipt = yield* Containers.exec(held, [
                     'sh',
                     '-c',
@@ -354,7 +350,6 @@ describe.skipIf(!_LIVE)('object store container lane [RASM_TESTKIT_CONTAINERS]',
                 const row = Containers.objectStore({ image, rootUser: 'testing', rootPassword: 'testing-secret' });
                 const started = yield* Containers.start(row);
                 return ObjectStores.s3({
-                    // The service port is the row's own fact: the mapped-port read can never drift from the builder.
                     endpoint: `http://${started.getHost()}:${started.getMappedPort(Array.headNonEmpty(row.ports))}`,
                     bucket: 'kit',
                     accessKeyId: 'testing',

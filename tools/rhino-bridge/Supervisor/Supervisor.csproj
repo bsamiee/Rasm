@@ -4,8 +4,6 @@
         <OutputType>Exe</OutputType>
         <AssemblyName>Rasm.Bridge.Supervisor</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor</RootNamespace>
-        <!-- Supervisor is the workstation process boundary and never loads host assemblies. -->
-        <!-- LibraryImport marshalling for kqueue NOTE_EXIT emits unsafe blocks. -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <ItemGroup Label="Assembly Visibility">

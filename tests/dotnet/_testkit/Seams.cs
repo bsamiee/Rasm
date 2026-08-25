@@ -8,9 +8,6 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// One call-shape family: each case is a DISTINCT substitution behavior — Canned repeats one value,
-// FanOut walks its sequence across successive calls, Factory records its inner label payload-free.
-// The generated Switch is the sole dispatch; async seams can a completed task via TValue itself.
 [Union]
 public abstract partial record Shape<TValue> {
     private Shape() { }
@@ -19,8 +16,6 @@ public abstract partial record Shape<TValue> {
     public sealed record Factory(TValue Value, string InnerLabel = "<factory>.run") : Shape<TValue>;
 }
 
-// VariantPayload is the closed raw-or-encoded carrier: raw bytes forward verbatim, an object encodes
-// through the writer's JsonTypeInfo — the two ingress modes of one wire payload, never two writers.
 [Union]
 public abstract partial record VariantPayload {
     private VariantPayload() { }
@@ -29,10 +24,6 @@ public abstract partial record VariantPayload {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One typed captured invocation: the resolution-site member and the caller-typed payload; a
-// Factory substitution records its inner label with no payload, so absence is `None`, never null.
-// Equality is reflection-free by design: LanguageExt trait resolution enumerates referenced
-// assemblies, which faults in host-aware test processes whose RhinoCommon closure is unstaged.
 public readonly record struct SeamCall<TArgs>(string Member, Option<TArgs> Payload) {
     public bool Equals(SeamCall<TArgs> other) =>
         string.Equals(a: Member, b: other.Member, comparisonType: StringComparison.Ordinal)
@@ -48,15 +39,11 @@ public readonly record struct SeamCall<TArgs>(string Member, Option<TArgs> Paylo
             value2: Payload.Case is TArgs value ? EqualityComparer<TArgs>.Default.GetHashCode(obj: value) : 0);
 }
 
-// A delegate-substitution restore scope: Dispose reinstates the prior delegate exactly once, so a
-// stack of installs unwinds last-in-first-out.
 public readonly record struct SeamRestore(Action Restore) : IDisposable {
     public void Dispose() => Restore();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// SeamProbe is the recording substitution host: an Atom call log threads every invocation, and
-// Install hands back a LIFO restore so nested seam swaps unwind in reverse bind order.
 public sealed class SeamProbe<TArgs> {
     private readonly Atom<Seq<SeamCall<TArgs>>> calls = Atom(Seq<SeamCall<TArgs>>());
 
@@ -64,10 +51,6 @@ public sealed class SeamProbe<TArgs> {
 
     public Seq<TArgs> Payloads => calls.Value.Bind(static call => call.Payload.ToSeq());
 
-    // Install binds `member` to the shape at the production resolution site through `bind`,
-    // recording each call before yielding the case payload; the returned scope restores the prior
-    // delegate, so a stack of installs unwinds last-in-first-out on disposal. FanOut walks its
-    // values per call through an install-scoped cursor; exhaustion fails loudly, never recycles.
     public SeamRestore Install<TResult>(string member, Shape<TResult> shape, Func<Func<TArgs, TResult>, Action> bind) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: member);
         ArgumentNullException.ThrowIfNull(argument: shape);
@@ -92,10 +75,6 @@ public sealed class SeamProbe<TArgs> {
 }
 
 // --- [FIXTURE_WRITERS]
-// VariantWriter is the table-driven payload-variant writer: a name row and a payload row per
-// variant, raw bytes written verbatim and objects encoded once, with absent variants never emitted.
-// WriteAll refuses payload/absence rows outside the name table — a row that can never emit is a
-// table defect, never silent dead data.
 public sealed record VariantWriter<TVariant>(
     DirectoryInfo Directory,
     FrozenDictionary<TVariant, string> Names,
@@ -136,10 +115,6 @@ public sealed record VariantWriter<TVariant>(
     }
 }
 
-// TmpRoot is the isolated tmp tree plus its injected settings projection: write materializes one
-// root-contained relative path, optionally applying a Unix mode, and settings derives once at
-// build. A rooted or upward-traversing relative would break isolation silently; the guard is
-// separator-anchored so a sibling directory sharing the root's name prefix never slips through.
 public sealed record TmpRoot<TSettings>(DirectoryInfo Root, TSettings Settings) {
     public FileInfo Write(string relative, string text = "", Option<UnixFileMode> mode = default) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: relative);
@@ -157,8 +132,6 @@ public sealed record TmpRoot<TSettings>(DirectoryInfo Root, TSettings Settings) 
     }
 }
 
-// TmpRoot.Of is the settings-deriving admission factory, kept off the generic owner so settings
-// derivation infers from the root without spelling the settings type twice.
 public static class TmpRoot {
     public static TmpRoot<TSettings> Of<TSettings>(DirectoryInfo root, Func<DirectoryInfo, TSettings> makeSettings) {
         ArgumentNullException.ThrowIfNull(argument: root);
@@ -168,12 +141,6 @@ public static class TmpRoot {
 }
 
 // --- [DECODE_ORACLES]
-// NdjsonOracle gates the line count before decoding through the contract's JsonTypeInfo<T>:
-// shape is asserted before content. One reads the first row; All decodes every gated row into an
-// array — assertion material stays reflection-free where LanguageExt trait equality would fault.
-// Gate and decode share ONE segmentation walk, so the two derivations can never disagree: a
-// doubled trailing newline stays a counted empty segment whose decode fails loudly, never a
-// silently dropped row. ExpectLines 0 with All asserts an empty stream.
 public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 1) {
     public T One(ReadOnlySpan<byte> raw) {
         GateLines(raw: raw);
@@ -213,8 +180,6 @@ public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 
     private T Decode(ReadOnlySpan<byte> line) =>
         JsonSerializer.Deserialize(utf8Json: line, jsonTypeInfo: Decoder) ?? throw new XunitException("NDJSON row decoded to null");
 
-    // One segmentation step: the bytes before the next '\n' with one trailing '\r' trimmed; a
-    // single final newline terminates the stream instead of opening an empty segment.
     private static ReadOnlySpan<byte> NextLine(ref ReadOnlySpan<byte> rest) {
         int newline = rest.IndexOf((byte)'\n');
         ReadOnlySpan<byte> line = newline < 0 ? rest : rest[..newline];
@@ -224,14 +189,8 @@ public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 
 }
 
 // --- [CLOCK]
-// One deterministic mark: the probe label and the exact schedule instant it fired at, measured
-// from the timeline's start — schedule truth, never post-advance residue.
 public sealed record ClockMark(string Label, TimeSpan Elapsed);
 
-// Timeline is the kit's one time substrate: a FakeTimeProvider under a typed mark log. The clock
-// injects wherever a SUT takes TimeProvider, probes register as timers, and Advance is the only
-// motion — schedule, retry, debounce, and expiry proofs become pure functions of the advance
-// script. A spec that sleeps or reads the wall clock is the named defect.
 public sealed class Timeline(DateTimeOffset? start = null) {
     private readonly Atom<Seq<ClockMark>> marks = Atom(Seq<ClockMark>());
 
@@ -239,17 +198,12 @@ public sealed class Timeline(DateTimeOffset? start = null) {
 
     public Seq<ClockMark> Marks => marks.Value;
 
-    // Advance fires every due crossing synchronously in schedule order and returns exactly the
-    // marks this advance produced, so a step's evidence never entangles with earlier steps.
     public Seq<ClockMark> Advance(TimeSpan delta) {
         int before = marks.Value.Count;
         Clock.Advance(delta: delta);
         return marks.Value.Skip(amount: before);
     }
 
-    // A probe records one mark per firing at its schedule instant, DERIVED from the probe's own
-    // due/period arithmetic — a FakeTimeProvider callback observes the post-advance clock, so the
-    // schedule, never the clock read, is the instant of record. Disposal retires the probe.
     public ITimer Probe(string label, TimeSpan due, TimeSpan? period = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: label);
         TimeSpan origin = Clock.GetUtcNow() - Clock.Start;

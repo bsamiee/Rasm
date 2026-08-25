@@ -93,7 +93,7 @@ class CorpusProof(msgspec.Struct, frozen=True, gc=False, kw_only=True):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
-_ROOTS: Final = (emitted,)  # one emission root; estate, support, and publisher trees share the package + proto-path grammar
+_ROOTS: Final = (emitted,)
 _FACTS: Final[msgspec.json.Decoder[ExpectedFacts]] = msgspec.json.Decoder(ExpectedFacts)
 
 

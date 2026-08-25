@@ -25,12 +25,10 @@
 import { Stryker, StrykerCli } from "@stryker-mutator/core"
 import type { PartialStrykerOptions, MutantResult } from "@stryker-mutator/api/core"
 import type { createInjector } from "typed-inject"
-// Gauge runs Stryker and folds MutantResult[] against the thresholds itself — no CLI, no parsing stdout.
 declare class Stryker {
-  constructor(cliOptions: PartialStrykerOptions, injectorFactory?: typeof createInjector)  // injectorFactory: tests only
+  constructor(cliOptions: PartialStrykerOptions, injectorFactory?: typeof createInjector)
   runMutationTest(): Promise<MutantResult[]>
 }
-// CLI takes argv at construction; .run() parses + dispatches; the gauge never constructs this.
 declare class StrykerCli {
   constructor(argv: string[], program?: unknown, runMutationTest?: unknown, runMutationTestingServer?: unknown)
   run(createInjectorImpl?: typeof createInjector): void
@@ -43,30 +41,29 @@ export default Stryker
 [PUBLIC_TYPE_SCOPE]: `@stryker-mutator/api/core`'s `StrykerOptions` is the JSON-schema-generated config; `PartialStrykerOptions` is a DEEP-partial (nested keys like `dashboard.project` are optional too) — the exact `Stryker` constructor input; the gauge encodes the whole config as ONE data object, every field below a canonical row the plugin catalogs reference rather than redefine; the one field the gauge exists to own is `thresholds: MutationScoreThresholds` — three data points, not a matrix of flags.
 
 ```ts signature
-// from @stryker-mutator/api/core (src-generated/stryker-core, JSON-schema generated). The gauge encodes these as data.
 interface StrykerOptions {
-  mutate: string[]                                   // production files to mutate (glob; `file:startLine-endLine` for a range)
-  testRunner: string                                 // "vitest" — selects the TestRunner plugin (vitest-runner.md [02])
-  testRunnerNodeArgs: string[]                       // node args passed to the test-runner child process
-  checkers: string[]                                 // selects Checker plugins that gate mutants pre-run — empty here, no checker plugin is admitted
-  checkerNodeArgs: string[]                          // node args passed to the checker child process (heap for large graphs)
-  coverageAnalysis: CoverageAnalysis                 // "perTest" only runs a mutant against tests that cover its line — the speed rail
-  concurrency?: number | string                      // worker-process fan; assay serializes runs under a mutation-<lang> lease
-  reporters: string[]                                // ["html","json","clear-text","progress"] — Reporter plugins ([05])
+  mutate: string[]
+  testRunner: string
+  testRunnerNodeArgs: string[]
+  checkers: string[]
+  checkerNodeArgs: string[]
+  coverageAnalysis: CoverageAnalysis
+  concurrency?: number | string
+  reporters: string[]
   thresholds: MutationScoreThresholds
-  ignoreStatic: boolean                              // drop mutants only hit during static (module-load) execution
-  disableTypeChecks: boolean | string                // glob of files whose `// @ts-nocheck` is injected so instrumented code still type-checks
-  incremental: boolean; incrementalFile: string; force: boolean   // reuse prior results to only re-run changed mutants; force = rebuild cache
-  ignorePatterns: string[]; tempDirName: string      // sandbox copy filters + temp dir name
-  timeoutMS: number; timeoutFactor: number           // runaway-mutant absolute + relative-to-baseline timeout
-  tsconfigFile: string                               // the tsconfig the checker's in-memory compiler loads
-  plugins: string[]                                  // extra node modules to require; @stryker-mutator/* auto-loaded
-  dashboard: DashboardOptions                        // { project?; version?; module?; baseUrl; reportType } — dashboard reporter target
+  ignoreStatic: boolean
+  disableTypeChecks: boolean | string
+  incremental: boolean; incrementalFile: string; force: boolean
+  ignorePatterns: string[]; tempDirName: string
+  timeoutMS: number; timeoutFactor: number
+  tsconfigFile: string
+  plugins: string[]
+  dashboard: DashboardOptions
 }
 type CoverageAnalysis = "off" | "all" | "perTest"
 type Percentage = number
-interface MutationScoreThresholds { high: Percentage; low: Percentage; break: Percentage | null }  // break = the CI-fail floor
-type PartialStrykerOptions = DeepPartial<StrykerOptions>   // deep-optional; the Stryker constructor input
+interface MutationScoreThresholds { high: Percentage; low: Percentage; break: Percentage | null }
+type PartialStrykerOptions = DeepPartial<StrykerOptions>
 ```
 
 `thresholds.break` is the hard gate: a score below it fails the run (`null` = never fail); `high`/`low` only color the report. `coverageAnalysis: "perTest"` is why the kill ratio is fast — it maps each mutant to its covering tests via the runner's dry-run coverage rather than running the whole suite per mutant.
@@ -77,14 +74,12 @@ type PartialStrykerOptions = DeepPartial<StrykerOptions>   // deep-optional; the
 
 ```ts signature
 import type { MutantResult, MutantStatus } from "@stryker-mutator/api/core"
-// Canonical receipt vocabulary — a PascalCase string union, NOT a message field. Match on the token.
 type MutantStatus = "Killed" | "Survived" | "NoCoverage" | "CompileError" | "RuntimeError" | "Timeout" | "Ignored" | "Pending"
-// MutantResult = Mutant & schema.MutantResult — the gauge folds an array of these.
 interface MutantResult {
-  id: string; mutatorName: string; location: Location; replacement: string; fileName: string   // required
+  id: string; mutatorName: string; location: Location; replacement: string; fileName: string
   status: MutantStatus
-  coveredBy?: string[]; killedBy?: string[]; static?: boolean; statusReason?: string           // detected-by / static-mutant / failure text
-  testsCompleted?: number; description?: string; duration?: number                             // bail count / mutation desc / net ms
+  coveredBy?: string[]; killedBy?: string[]; static?: boolean; statusReason?: string
+  testsCompleted?: number; description?: string; duration?: number
 }
 ```
 
@@ -111,14 +106,13 @@ Uncheckered, a doomed mutant masquerades as `Survived` (UNDETECTED) instead of l
 |  [07]   | `commonTokens` / `tokens`     | const / fn    | the DI token constants + the string-literal-tuple helper typing `["$injector"]`   |
 
 ```ts signature
-// from @stryker-mutator/api/plugin — PluginKind selects the phase; the descriptor carries the DI factory.
 enum PluginKind { Checker = "Checker", TestRunner = "TestRunner", Reporter = "Reporter", Ignore = "Ignore" }
 interface PluginInterfaces { [PluginKind.Reporter]: Reporter; [PluginKind.TestRunner]: TestRunner; [PluginKind.Checker]: Checker; [PluginKind.Ignore]: Ignorer }
-type Plugins = { [K in keyof PluginInterfaces]: Plugin<K> }                    // kind → descriptor (NOT the interface)
+type Plugins = { [K in keyof PluginInterfaces]: Plugin<K> }
 type Plugin<K extends PluginKind> = ClassPlugin<K, Tokens> | FactoryPlugin<K, Tokens> | ValuePlugin<K>
 interface FactoryPlugin<K extends PluginKind, Tokens extends InjectionToken<PluginContext>[]> {
   readonly kind: K; readonly name: string
-  readonly factory: InjectableFunction<PluginContext, PluginInterfaces[K], Tokens>   // typed-inject DI factory
+  readonly factory: InjectableFunction<PluginContext, PluginInterfaces[K], Tokens>
 }
 interface ValuePlugin<K extends PluginKind> { readonly kind: K; readonly name: string; readonly value: PluginInterfaces[K] }
 interface ClassPlugin<K extends PluginKind, Tokens> { readonly kind: K; readonly name: string; readonly injectableClass: InjectableClass<PluginContext, PluginInterfaces[K], Tokens> }
@@ -126,7 +120,7 @@ declare function declareFactoryPlugin<K extends PluginKind, Tokens>(kind: K, nam
 declare function declareValuePlugin<K extends PluginKind>(kind: K, name: string, value: PluginInterfaces[K]): ValuePlugin<K>
 declare function declareClassPlugin<K extends PluginKind, Tokens>(kind: K, name: string, injectableClass: InjectableClass<PluginContext, PluginInterfaces[K], Tokens>): ClassPlugin<K, Tokens>
 declare const commonTokens: Readonly<{ getLogger: "getLogger"; injector: "$injector"; logger: "logger"; options: "options"; fileDescriptions: "fileDescriptions"; target: "$target" }>
-declare function tokens<TS extends string[]>(...tokensList: TS): TS       // string-literal tuple, e.g. tokens(commonTokens.injector)
+declare function tokens<TS extends string[]>(...tokensList: TS): TS
 ```
 
 Four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mutantRun`; owned by `stryker-mutator-vitest-runner.md` [02]), `Checker` (`check`/`group?`; no admitted package implements it), `Reporter` ([05] below), and `Ignorer` (`shouldIgnore(path): string | undefined` — the Ignore SPI that suppresses mutants in matched code patterns); the mutation gauge registers a `FactoryPlugin<TestRunner>` alone; a custom gauge reporter registers a `ValuePlugin<Reporter>` or `FactoryPlugin<Reporter>`.
@@ -136,23 +130,21 @@ Four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mu
 [PUBLIC_TYPE_SCOPE]: `Reporter` (`@stryker-mutator/api/report`) is the streaming/terminal result channel a custom gauge reporter implements — every method optional, all fired by the host; the instrument surface (`@stryker-mutator/api/core`) is the canonical mutant-activation channel the vitest-runner's `declare module 'vitest'` augmentation (vitest-runner.md [02]) composes onto: `INSTRUMENTER_CONSTANTS` names the injected identifiers, `InstrumenterContext` is the per-worker mutation state, and `MutantCoverage` is the `perTest` coverage payload that drives `coverageAnalysis`.
 
 ```ts signature
-// @stryker-mutator/api/report — the machine result the gauge folds; onMutantTested streams, onMutationTestReportReady is terminal.
 interface Reporter {
-  onDryRunCompleted?(event: DryRunCompletedEvent): void              // { result; timing:{net,overhead}; capabilities }
-  onMutationTestingPlanReady?(event: MutationTestingPlanReadyEvent): void   // { mutantPlans: readonly MutantTestPlan[] }
-  onMutantTested?(result: Readonly<MutantResult>): void              // one receipt per mutant as it completes
+  onDryRunCompleted?(event: DryRunCompletedEvent): void
+  onMutationTestingPlanReady?(event: MutationTestingPlanReadyEvent): void
+  onMutantTested?(result: Readonly<MutantResult>): void
   onMutationTestReportReady?(report: Readonly<schema.MutationTestResult>, metrics: Readonly<MutationTestMetricsResult>): void
-  wrapUp?(): Promise<void> | void                                    // flush async work before Stryker exits
+  wrapUp?(): Promise<void> | void
 }
-// @stryker-mutator/api/core — the instrument channel; the runner augmentation carries these INTO the worker and coverage back OUT.
 declare const INSTRUMENTER_CONSTANTS: Readonly<{
   NAMESPACE: "__stryker__"; MUTATION_COVERAGE_OBJECT: "mutantCoverage"; ACTIVE_MUTANT: "activeMutant"
   CURRENT_TEST_ID: "currentTestId"; HIT_COUNT: "hitCount"; HIT_LIMIT: "hitLimit"; ACTIVE_MUTANT_ENV_VARIABLE: "__STRYKER_ACTIVE_MUTANT__"
 }>
 interface InstrumenterContext { activeMutant?: string; currentTestId?: string; mutantCoverage?: MutantCoverage; hitCount?: number; hitLimit?: number }
-interface MutantCoverage { static: CoverageData; perTest: CoveragePerTestId }   // perTest[testId][mutantId] = hit count
-type CoverageData = Record<string, number>                                      // mutantId → times hit
-type CoveragePerTestId = Record<string, CoverageData>                           // testId → CoverageData
+interface MutantCoverage { static: CoverageData; perTest: CoveragePerTestId }
+type CoverageData = Record<string, number>
+type CoveragePerTestId = Record<string, CoverageData>
 ```
 
 ## [06]-[INTEGRATION]

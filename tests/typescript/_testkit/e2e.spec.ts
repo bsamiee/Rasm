@@ -6,7 +6,6 @@ import { Hermetic, K6, K6Fault } from './e2e.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Golden summary sample carrying BOTH gate spellings the export has shipped; the ungated metric stays out of `gated`.
 const _SUMMARY = JSON.stringify({
     metrics: {
         iteration_duration: { avg: 4.2 },
@@ -19,8 +18,6 @@ const _SUMMARY = JSON.stringify({
 
 const _decoded = Schema.decode(Schema.parseJson(K6.Summary), { errors: 'all' });
 
-// A k6 stand-in binary: receives the exact argv the runner composes, honors --summary-export, exits with the scripted code —
-// so the whole subprocess verdict fold is falsifiable with no k6 on PATH.
 const _standIn = (body: string) =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;

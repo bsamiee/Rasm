@@ -8,7 +8,6 @@ namespace Rasm.Csp.Kernel;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Walkers {
-    // Extension invocations carry receivers in Arguments[0]; instance calls use Instance.
     internal static IOperation? ExtractReceiver(IInvocationOperation invocation) =>
         invocation.Instance switch {
             IOperation receiver => receiver,
@@ -59,7 +58,6 @@ internal static class Walkers {
             _ => null,
         };
 
-    // Boundary-legal Match sites are terminal return, Unit expression, discard, or arrow body.
     internal static bool IsBoundaryMatchUsage(IInvocationOperation invocation, INamedTypeSymbol? unitType) =>
         CollapseTransparentParents(invocation) is IReturnOperation
         || (unitType is not null

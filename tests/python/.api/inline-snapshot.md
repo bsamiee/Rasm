@@ -22,12 +22,12 @@
 |  [07]   | `UsageError`  | exception     | raised on a malformed snapshot call or an unmanaged-value misuse                           |
 
 ```python signature
-def snapshot(obj: T = ...) -> T: ...                                    # empty snapshot() records on the create flag
-def external(name: str | None = None) -> Snapshot[object]: ...          # value stored in an external file, not inline
-def external_file(path: Path | str, *, format: str | None = None) -> Snapshot[object]: ...  # bind an explicit external asset path
-def outsource(data: object, suffix: str | None = None, storage: str | None = None) -> object: ...  # large value → hash-keyed store
-def register_format(format: type[Format] | Format | None = None, *, replace_handler: bool = False): ...  # serializer per suffix
-def get_snapshot_value(snapshot: Snapshot[T]) -> T: ...                 # read the recorded value out of a placeholder
+def snapshot(obj: T = ...) -> T: ...
+def external(name: str | None = None) -> Snapshot[object]: ...
+def external_file(path: Path | str, *, format: str | None = None) -> Snapshot[object]: ...
+def outsource(data: object, suffix: str | None = None, storage: str | None = None) -> object: ...
+def register_format(format: type[Format] | Format | None = None, *, replace_handler: bool = False): ...
+def get_snapshot_value(snapshot: Snapshot[T]) -> T: ...
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -46,7 +46,7 @@ def get_snapshot_value(snapshot: Snapshot[T]) -> T: ...                 # read t
 from inline_snapshot import snapshot, external, outsource, Is
 from inline_snapshot.extra import raises, prints, warns
 def test_wire_golden(produce: Callable[[], bytes]) -> None:
-    assert produce() == snapshot()                                      # records under --inline-snapshot=create, compares thereafter
+    assert produce() == snapshot()
     assert decode(produce()) == snapshot({"id": Is(runtime_id), "kind": "shape"})
 ```
 

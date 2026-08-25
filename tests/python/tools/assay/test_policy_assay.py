@@ -2,7 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
+from pathlib import Path
 import tomllib
 
 from assay.composition.catalog import BENCHMARK_STORAGE_URI

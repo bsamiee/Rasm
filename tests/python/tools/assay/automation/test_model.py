@@ -11,7 +11,7 @@ import msgspec
 import pytest
 
 from assay.automation.model import (
-    Action,  # @given resolves parameter annotations at decoration time
+    Action,
     ACTION_DECODER,
     Debounce,
     decode,
@@ -22,7 +22,7 @@ from assay.automation.model import (
     Rail,
     Schedule,
     Sequence,
-    Trigger,  # @given resolves parameter annotations at decoration time
+    Trigger,
     TRIGGER_DECODER,
     Watch,
 )
@@ -35,7 +35,6 @@ from tests.python._testkit.strategies import resolve
 
 COVERS: tuple[object, ...] = (decode, describe, encode)
 
-# ``Rail.params`` is raw wire data; recursive actions anchor on Rail/Program leaves.
 _claim_st: st.SearchStrategy[Claim] = st.sampled_from(list(Claim))
 _verb_st: st.SearchStrategy[str] = st.text(min_size=1, max_size=32)
 
@@ -111,7 +110,6 @@ def test_describe_rail_claim_verb_projection(claim: Claim) -> None:
 def test_describe_schedule_timezone_suffix() -> None:
     """Schedule descriptions include timezone only when the wire value is truthy."""
     assert "@ UTC" in describe(Schedule(cron="0 * * * *"))
-    # msgspec is the only route to the empty-timezone branch; the constructor defaults to UTC.
     no_tz = msgspec.json.decode(b'{"kind":"schedule","cron":"* * * * *","timezone":""}', type=Schedule)
     out = describe(no_tz)
     assert "@" not in out

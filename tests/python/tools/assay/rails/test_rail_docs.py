@@ -4,7 +4,7 @@
 
 from typing import TYPE_CHECKING
 
-from expression import Error, Ok, Result  # canned executor lanes return Result instances at runtime
+from expression import Error, Ok, Result
 import pytest
 
 from assay.core.model import Claim, Completed, Fault, RailStatus, receipt, Runner
@@ -28,7 +28,6 @@ _SKIP = Ok(Completed(("engine",), 0, status=RailStatus.SKIP))
 _FAULT_A = Fault(("engine",), RailStatus.FAULTED, "first fault")
 _FAULT_B = Fault(("engine",), RailStatus.UNSUPPORTED, "second fault")
 
-# One NDJSON row per finding: ``check`` names the emitting check; a checkless row folds under the ``engine`` kind.
 _NDJSON = (
     b'{"file":"docs/diagram.md","line":7,"status":"fail","detail":"broken edge","check":"graph-logic"}\n'
     b'{"file":"docs/diagram.md","line":2,"status":"warn","detail":"weak label"}\n'
@@ -54,10 +53,10 @@ def _check(
     "receipts, strict, expect",
     [
         ((_OK,), True, RailStatus.OK),
-        ((_FAILED,), True, RailStatus.FAILED),  # strict never rewrites a real defect
+        ((_FAILED,), True, RailStatus.FAILED),
         ((), False, RailStatus.EMPTY),
         ((), True, "raises"),
-        ((_SKIP,), True, RailStatus.OK),  # SKIP ranks below the EMPTY fold seed, so a live fan promotes clean to OK
+        ((_SKIP,), True, RailStatus.OK),
         ((Error(_FAULT_B),), False, "fault"),
         ((Error(_FAULT_A), Error(_FAULT_B)), False, "first-fault"),
     ],
@@ -66,13 +65,13 @@ def _check(
 def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
     receipts: tuple[Result[Completed, Fault], ...],
-    strict: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
+    strict: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     expect: RailStatus | str,
 ) -> None:
     """Check folds receipts onto one rail: strict promotes only a checkless EMPTY, faults short-circuit first-wins."""
     match expect:
         case "raises":
-            assert issubclass(FaultedPromotion, Exception)  # registry-catchable, never BaseException
+            assert issubclass(FaultedPromotion, Exception)
             with pytest.raises(FaultedPromotion, match="no docs changed"):
                 _check(assay_root, receipts, strict=strict)
         case "fault":

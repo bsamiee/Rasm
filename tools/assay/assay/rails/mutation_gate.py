@@ -19,8 +19,6 @@ from typing import Final, Literal, TYPE_CHECKING
 from expression import Error, Ok
 import msgspec
 
-# mutmut evaluates its config from the cwd at import time, and the [tool.mutmut] owner is the member manifest the
-# staged run chdirs into — an eager import from any other cwd would abort on config discovery, so the gate defers.
 lazy from mutmut.__main__ import get_diff_for_mutant, orig_function_and_class_names_from_key, status_by_exit_code, walk_mutatable_files
 lazy from mutmut.mutation.data import SourceFileMutationData
 
@@ -35,8 +33,6 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# mutmut SourceFileMutationData.load() can fail three ways on a stale cache: corrupt JSON, version-skewed schema
-# (a missing required key or unexpected extra keys), or an I/O fault; the cause selects the regenerate guidance.
 type _LoadCause = Literal["corrupt", "skewed", "io"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -44,7 +40,6 @@ type _LoadCause = Literal["corrupt", "skewed", "io"]
 _FLOOR: float = 0.80
 _TOP_SURVIVORS: int = 10
 
-# mutation-testing-report-schema mutant statuses keyed by mutmut's persisted status taxonomy.
 _SCHEMA_STATUS: Final[dict[str, str]] = {
     "killed": "Killed",
     "survived": "Survived",
@@ -91,7 +86,6 @@ class SurvivorReport(msgspec.Struct, frozen=True):
 
 
 # --- [SCHEMA_REPORT]
-# mutation-testing-report-schema wire models: files[].mutants[]{id, mutatorName, status, location}.
 
 
 class SchemaPosition(msgspec.Struct, frozen=True):
@@ -144,8 +138,6 @@ class SchemaReport(msgspec.Struct, frozen=True, rename="camel"):
 
 
 def _loaded(path: Path) -> Result[SourceFileMutationData, _LoadFault]:
-    # Boundary over mutmut's load(): corrupt JSON, a version-skewed schema (missing key / unexpected keys), or an I/O
-    # fault converts to a typed rail so one stale meta file is excluded from scoring instead of crashing the gate.
     data = SourceFileMutationData(path=path)
     try:
         data.load()
@@ -194,11 +186,10 @@ def _diff(name: str) -> str:
     Returns:
         Unified diff text, or an empty string when mutmut cannot re-read the mutant.
     """
-    # Redirected stdout preserves the one-line TestRun wire contract.
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             return get_diff_for_mutant(name)
-    except Exception:  # ruff:ignore[blind-except]  # mutmut boundary: any re-read fault degrades to an empty diff and never contaminates stdout
+    except Exception:  # ruff:ignore[blind-except]
         return ""
 
 
@@ -242,7 +233,6 @@ def _owner_of(key: str) -> tuple[str | None, str]:
         function_name, class_name = orig_function_and_class_names_from_key(key)
     except AssertionError, ValueError:
         return None, ""
-    # Method keys keep the trampoline mangle prefix; module-level keys come back demangled.
     return class_name, function_name.removeprefix("x_")
 
 
@@ -340,7 +330,6 @@ def gate(floor: float = _FLOOR) -> int:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-# The python -m entrypoint plus the pure schema converter; stderr projections stay leaf-internal.
 __all__ = ["gate", "schema_report"]
 
 # --- [ENTRY] ----------------------------------------------------------------------------

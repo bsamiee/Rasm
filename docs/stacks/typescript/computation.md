@@ -103,7 +103,7 @@ export { Sketch };
 A multi-stage transform selects eager or lazy by materialization cost, and its windows never spell an index. Eager `Array` combinators own the bounded collection in hand; the `Iterable` module owns the pipeline whose source is large, generated, or consumed once — each stage an iterator over the previous, exactly one materialization at the tail. Window, chunk, co-iteration, grouping, and the verdict sieve are named operators, so the moment slice arithmetic, a nested loop, a bucket accumulator, or a filter-then-map double pass appears, an operator already owns the shape.
 
 [LAZY_PIPELINE]:
-- Law: laziness is a memory contract — `Iterable.map`/`filter`/`filterMap`/`take`/`takeWhile`/`drop`/`flatMap`/`flatten`/`dedupeAdjacent` compose without materializing and hold bounded memory over an unbounded source, `Iterable.scan` keeps the running trace lazy, and `Iterable.filterMapWhile` fuses filter, transform, and stop into one operator; the tail materializes once — `Array.fromIterable` for a collection, `Iterable.reduce` for a value — and a fully built array mid-chain re-buys the allocation laziness deleted.
+- Law: laziness guarantees bounded memory — `Iterable.map`/`filter`/`filterMap`/`take`/`takeWhile`/`drop`/`flatMap`/`flatten`/`dedupeAdjacent` compose without materializing and hold bounded memory over an unbounded source, `Iterable.scan` keeps the running trace lazy, and `Iterable.filterMapWhile` fuses filter, transform, and stop into one operator; the tail materializes once — `Array.fromIterable` for a collection, `Iterable.reduce` for a value — and a fully built array mid-chain re-buys the allocation laziness deleted.
 - Law: production is an anamorphism — `Iterable.unfold(seed, step)` generates from a seed with `Option` termination, and `Iterable.range`/`Iterable.makeBy` name the arithmetic sources — so a `function*` generator in domain flow is a statement seam smuggled in as production.
 - Reject: a `[...feed]` spread or intermediate array between stages; a hand `while` loop growing an array where `unfold` states the production; laziness over a small bounded collection already in hand — the eager combinators read shorter and allocate once.
 
@@ -334,7 +334,7 @@ import { Array, Effect, Either, List, Number, Option } from "effect";
 type Limb = { readonly _tag: "tip"; readonly load: number } | { readonly _tag: "fork"; readonly limbs: ReadonlyArray<Limb> };
 
 declare namespace Limb {
-    type Algebra<R> = { readonly tip: (load: number) => R; readonly fork: (parts: ReadonlyArray<R>) => R }; // the companion rides the owner's one name: a consumer imports Limb and reaches the algebra contract
+    type Algebra<R> = { readonly tip: (load: number) => R; readonly fork: (parts: ReadonlyArray<R>) => R }; // a consumer imports Limb and reaches the companion algebra
 }
 
 type _Frame = { readonly _tag: "expand"; readonly limb: Limb } | { readonly _tag: "combine"; readonly arity: number };
@@ -439,7 +439,7 @@ No pure memoization combinator ships, and that absence is the law: a pure recurr
 - Reject: a hand memo `Map` beside the function; a captured mutable operand the key omits; a module-level cache object outliving every flow that reads it; a TTL spelled as a stored timestamp compared in the body.
 
 [KERNEL_EARN]:
-- Law: the earn test is sequential — fold first, measure, then mark: a kernel exists only where a measured hot path indicts the fold's allocation or dispatch cost, or where a platform contract forces statements; a kernel kept after its measurement pressure disappears reverts to the fold.
+- Law: the earn test is sequential — fold first, measure, then mark: a kernel exists only where a measured hot path indicts the fold's allocation or dispatch cost, or where a platform API forces statements; a kernel kept after its measurement pressure disappears reverts to the fold.
 - Law: the draft is scoped and the return detaches — `MutableHashMap` batches structural-keyed writes, `MutableList` the append lane, a `TypedArray` the numeric lane — and the kernel returns an immutable projection with no live reference escaping; the mark's legality and the cast algebra inside it are `language.md`'s.
 - Reject: a `Map` or object cache in domain flow; a `TypedArray` view escaping its kernel; mutation justified by style where no measurement exists.
 

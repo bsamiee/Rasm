@@ -11,21 +11,16 @@ namespace Rasm.Bridge.Supervisor;
 
 internal sealed record CrashSummary(string Thread, string ExceptionType, string ReportPath);
 
-// Evidence mode rides argv (the single source of truth); the closure carries only reference roots.
 internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies) {
     public ReferenceRoot[] ReferenceRoots { get; init; } = [];
 }
 
-// Ownership: the staging result — the wire manifest plus the supervisor-side reference roots that
-// never cross into the host.
 internal sealed record StagedCargo(CargoManifest Manifest, ReferenceRoot[] ReferenceRoots);
 
 internal readonly record struct ReferenceActual(string Scenario, EvidenceName Name, JsonElement Actual, ReferenceTolerance Tolerance);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Ownership: workstation-side evidence outside the live host session fold. Report paths resolve
-// through the Contract ReportLayout owner.
 internal static class Evidence {
     internal static Option<string> GcDump(int pid, string reportDir, TimeSpan deadline) {
         string artifact = Path.Combine(path1: reportDir, path2: string.Create(provider: CultureInfo.InvariantCulture, $"{pid}.gcdump"));
@@ -150,10 +145,6 @@ internal static class Evidence {
         }
     }
 
-    // The honest reference lifecycle: author-mode runs write candidate files beside the scenario
-    // owner (reference root when configured), a human review promotes candidate -> reviewed under
-    // <root>/<theme>/<method>.reference.json, and a verify run over a root with no reviewed corpus
-    // reports Unpromoted rather than a structural failure.
     internal static ReferenceEvidenceResult[] ReferenceResults(
         EvidenceMode mode, ReferenceRoot[] roots, Seq<ScenarioReceipt> receipts, Seq<BridgeEvent> evidence, string reportDir) {
         ArgumentNullException.ThrowIfNull(argument: mode);
@@ -288,9 +279,6 @@ internal static class Evidence {
         }
     }
 
-    // Root resolution prefers an exact theme row, then the theme-less catch-all row assay ships;
-    // the theme-keyed miss over a catch-all root was the structural fault that made verify-mode
-    // unsatisfiable regardless of promoted references.
     private static string RootPath(ReferenceRoot[] roots, string theme) {
         string themed = roots.FirstOrDefault(predicate: row =>
             string.Equals(a: row.Theme, b: theme, comparisonType: StringComparison.Ordinal)).Path;
@@ -300,7 +288,6 @@ internal static class Evidence {
     }
 
     private static bool Promoted(ReferenceRoot[] roots) {
-        // BOUNDARY ADAPTER: unreadable roots read as unpromoted.
         try {
             return roots.Select(selector: static row => row.Path).Where(predicate: static path => path is { Length: > 0 })
                 .Distinct(comparer: StringComparer.Ordinal)

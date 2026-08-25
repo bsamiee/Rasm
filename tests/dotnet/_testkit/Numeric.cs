@@ -3,8 +3,6 @@ using System.Numerics;
 namespace Rasm.TestKit;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// The matrix-norm vocabulary: each row carries its own projector; call sites never re-dispatch
-// on a string kind, and a new norm is one row beside these.
 [SmartEnum]
 public sealed partial class Norm {
     public static readonly Norm MaxAbs = new(static (rows, cols, at) =>
@@ -21,8 +19,6 @@ public sealed partial class Norm {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// Independent double/array oracles: every member RETURNS a value — a residual, a moment, a
-// closed form — and the caller's Spec gate decides pass or fail. No oracle asserts mid-flight.
 public static class Numeric {
     // --- [SCALAR_FOLDS]
     public static double Sum(Seq<double> values) =>
@@ -35,8 +31,6 @@ public static class Numeric {
         coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(d: coarseError / fineError) / Math.Log(d: stepRatio);
 
     // --- [POINT_MOMENTS]
-    // Points are d-dimensional rows; mismatched weights, ragged rows, or a vanishing mass return
-    // NaN vectors so the calling gate fails loudly instead of the oracle asserting.
     public static double[] Centroid(double[][] points, double[]? weights = null) {
         ArgumentNullException.ThrowIfNull(argument: points);
         ArgumentOutOfRangeException.ThrowIfZero(value: points.Length, paramName: nameof(points));
@@ -48,8 +42,6 @@ public static class Numeric {
             : [.. Enumerable.Range(start: 0, count: dim).Select(axis =>
                 Enumerable.Range(start: 0, count: points.Length).Sum(i => points[i][axis] * mass[i]) / total)];
     }
-    // Packed upper triangle, row-major: length d(d+1)/2 over the weighted central second moments.
-    // A degraded centroid (mismatch, ragged, vanishing mass) propagates as a NaN triangle.
     public static double[] CovarianceUpper(double[][] points, double[]? weights = null) {
         ArgumentNullException.ThrowIfNull(argument: points);
         double[] mean = Centroid(points: points, weights: weights);
@@ -70,7 +62,6 @@ public static class Numeric {
             Enumerable.Range(start: i + 1, count: points.Length - i - 1).Select(j => Distance(left: points[i], right: points[j])))];
         return distances.Length == 0 ? (Min: 0.0, Mean: 0.0, Max: 0.0) : (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
     }
-    // A dimension mismatch is NaN, never a silent shorter-prefix distance.
     public static double Distance(double[] left, double[] right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
@@ -80,8 +71,6 @@ public static class Numeric {
     }
 
     // --- [GEOMETRY_ORACLES]
-    // Shoelace signed area over a closed 2D ring; orientation rides the sign and malformed rows
-    // return NaN so the calling gate fails loudly.
     public static double ShoelaceArea(double[][] ring) {
         ArgumentNullException.ThrowIfNull(argument: ring);
         return ring.Any(predicate: static point => point.Length < 2)
@@ -91,8 +80,6 @@ public static class Numeric {
                 return (a[0] * b[1]) - (b[0] * a[1]);
             });
     }
-    // Divergence-theorem signed volume: origin-anchored tetrahedra over the fan triangulation of
-    // each face. Watertight outward-oriented meshes conserve the enclosed volume exactly.
     public static double SignedVolume(double[][] vertices, int[][] faces) {
         ArgumentNullException.ThrowIfNull(argument: vertices);
         ArgumentNullException.ThrowIfNull(argument: faces);
@@ -110,8 +97,6 @@ public static class Numeric {
             ? double.NaN
             : ((a[0] * ((b[1] * c[2]) - (b[2] * c[1]))) - (a[1] * ((b[0] * c[2]) - (b[2] * c[0]))) + (a[2] * ((b[0] * c[1]) - (b[1] * c[0])))) / 6.0;
     }
-    // Exact orientation over binary64-exact scaled integers: 3 points read as a 2D left-turn, 4 as
-    // a 3D above-plane test. No rounding can flip the sign, so adaptive predicates gate against it.
     public static int OrientSign(double[][] simplex) {
         ArgumentNullException.ThrowIfNull(argument: simplex);
         int dim = simplex.Length - 1;
@@ -128,7 +113,6 @@ public static class Numeric {
                 + (edges[0][2] * ((edges[1][0] * edges[2][1]) - (edges[1][1] * edges[2][0])));
         return determinant.Sign;
     }
-    // Every finite double is mantissa·2^exponent exactly; subnormals share the 2^-1074 scale.
     private static (BigInteger Mantissa, int Exponent) Decompose(double value) {
         long bits = BitConverter.DoubleToInt64Bits(value: value);
         int exponentBits = (int)((bits >> 52) & 0x7FF);
@@ -138,7 +122,6 @@ public static class Numeric {
     }
 
     // --- [MATRIX_ORACLES]
-    // Row-major cell order is shared by every entrywise residual and projection.
     public static IEnumerable<(int Row, int Col)> Cells(int rows, int cols) =>
         Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static double ProductAt(int width, Func<int, int, double> left, Func<int, int, double> right, int row, int col) =>
@@ -159,7 +142,6 @@ public static class Numeric {
         EntrywiseResidual(rows: dimension, cols: dimension, expected: (row, col) => at(col, row), actual: at);
     public static double ProductResidual(int rows, int width, int cols, Func<int, int, double> left, Func<int, int, double> right, Func<int, int, double> actual) =>
         EntrywiseResidual(rows: rows, cols: cols, expected: (row, col) => ProductAt(width: width, left: left, right: right, row: row, col: col), actual: actual);
-    // max_i |(A x - b)_i|; a shape mismatch is NaN so the calling gate fails loudly.
     public static double SolveResidual(int rows, int cols, Func<int, int, double> at, double[] x, double[] b) {
         ArgumentNullException.ThrowIfNull(argument: x);
         ArgumentNullException.ThrowIfNull(argument: b);
@@ -183,8 +165,6 @@ public static class Numeric {
             rows: cols, cols: cols);
 
     // --- [SPECTRAL_ORACLES]
-    // Path-graph Laplacian; closed-form eigenpairs lambda_k = 2 - 2cos(k*pi/n) with
-    // phi_k(j) = cos(k*pi*(j + 1/2)/n). A single node has no path structure to gate.
     public static double[][] PathGraphLaplacian(int n) {
         ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 2);
         return [.. Enumerable.Range(start: 0, count: n).Select(row => (double[])[.. Enumerable.Range(start: 0, count: n).Select(col => (row, col) switch {
@@ -198,13 +178,11 @@ public static class Numeric {
         ArgumentNullException.ThrowIfNull(argument: laplacian);
         return laplacian[row].Sum();
     }
-    // Heat-kernel closed form k(x,y,t) = sum_i exp(-lambda_i t) phi_i(x) phi_i(y).
     public static double HeatKernel(double[] eigenvalues, Func<int, int, double> eigenvectors, double t, int x, int y) {
         ArgumentNullException.ThrowIfNull(argument: eigenvalues);
         return Enumerable.Range(start: 0, count: eigenvalues.Length).Sum(i => Math.Exp(d: -eigenvalues[i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
     }
 
     // --- [TOPOLOGY_ORACLES]
-    // V - E + F; full Euler is 2 - 2g - b - h.
     public static int EulerCharacteristic(int vertices, int edges, int faces) => vertices - edges + faces;
 }

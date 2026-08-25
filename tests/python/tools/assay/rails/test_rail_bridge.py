@@ -291,7 +291,6 @@ def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness) -> 
 
 
 def test_client_run_faults_without_built_supervisor(assay_root: AssayHarness) -> None:
-    # Lane-less executor: the absent-binary fault must land before any spawn.
     fault = assert_error_status(client_run(assay_root.settings, "status", executor=SeamExecutor()), RailStatus.FAULTED)
     assert "bridge build" in fault.message
 
@@ -334,9 +333,7 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
     detail = report.detail
     assert isinstance(detail, BridgeLifecycle)
     assert (detail.verb, detail.report_dir) == ("status", "report/status")
-    # Empty grasshopper2 version is elided; surviving rows keep fingerprint order.
     assert detail.host == (("bundle", "9.0"), ("rhinoCommon", "9.0"), ("runtime", "10.0"))
-    # Capability admission rows keep their key/outcome/receipt triple.
     assert detail.capabilities == (("rail.core", "ok", "warm"), ("rail.vectors", "skipped", ""))
     assert validate_detail(detail) == detail, "BridgeLifecycle did not survive the tagged-union wire codec"
 
@@ -357,7 +354,6 @@ def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
     """Verify drives build, closure aggregation, and the supervisor session end-to-end over the executor port."""
     assay_root.write("tests/dotnet/scenarios/Blocks/CoreRail.cs", "// scenario source")
     scope = assay_root.scope(Claim.BRIDGE)
-    # The verify prelude reads the closure from the bridge BUILD scope, not the claim scope.
     build_root = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path))
     _closure(build_root / "scenarios" / "bridge-closure.json", "Rasm.Scenarios.dll")
     cargo = build_root / "bin" / "Cargo" / assay_root.settings.configuration.value.lower()

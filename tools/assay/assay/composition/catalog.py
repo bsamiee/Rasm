@@ -15,7 +15,6 @@ from assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Stage
 
 BENCHMARK_STORAGE_URI = f"file://{PY_ARTIFACT_ROOTS['benchmarks']}"
 PROBE_TIMEOUT_S: float = 8.0
-# buf's rule-violation exit; every other non-zero buf exit is a tool failure the lane reads as FAULTED.
 BUF_DEFECT_EXIT: int = 100
 JSONSCHEMA_PLUGIN: str = "protoc-gen-jsonschema"
 JSONSCHEMA_TEMPLATE: str = (
@@ -50,7 +49,6 @@ PY, TS, CS, BASH, SQL, DOCS, PROTO = (
 TOOLS: tuple[Tool, ...] = (
     # --- [PYTHON]
     Tool("validate-pyproject", UV, ("validate-pyproject", "pyproject.toml"), OWNED, PY, Claim.STATIC),
-    # Explicit file paths bypass the manifest's `extend-exclude` unless `--force-exclude` rides the row, so the lane honors the project's carve.
     Tool("ruff", UV, ("ruff", "check", "--force-exclude"), FILES, PY, Claim.STATIC, parser=Parser.RUFF),
     Tool("ruff", UV, ("ruff", "check", "--fix", "--force-exclude"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF),
     Tool("ruff-format", UV, ("ruff", "format", "--check", "--force-exclude"), FILES, PY, Claim.STATIC, parser=Parser.RUFF_FORMAT),
@@ -110,7 +108,6 @@ TOOLS: tuple[Tool, ...] = (
         groups=(ToolGroup.REQUIRES_COVERAGE,),
         empty_signature=(5, b""),
     ),
-    # patch=["subprocess"] forces parallel suffixed data files; the STAGE combine merges them before any report row reads.
     Tool(
         "coverage-combine",
         UV,
@@ -162,18 +159,14 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.MUTATION,
         groups=(ToolGroup.MUTATION,),
         timeout=_MUTATION_TIMEOUT_S,
-        # chdir seats mutmut inside the staged package so it reads the member manifest's [tool.mutmut] and its
-        # mutants/src insert makes the mutated `assay` shadow the venv editable — the src-layout injection contract.
         stage=Stage(
             root=PY_ARTIFACT_ROOTS["mutmut"],
             inputs=("pyproject.toml", ".gitignore", ".config/coverage-mutmut.ini", "tools/assay", "tests/python"),
             project=True,
             chdir="tools/assay",
         ),
-        # The staged rcfile supplies relative_files=false; otherwise mutmut's covered-lines pass aborts before mutation.
         env=(("COVERAGE_RCFILE", "../../.config/coverage-mutmut.ini"),),
     ),
-    # Lease-riding kill-rate gate over the staged mutmut cache; VERIFY keeps it off the MUTATION dispatch fan.
     Tool(
         "mutmut-gate",
         UV,
@@ -186,8 +179,6 @@ TOOLS: tuple[Tool, ...] = (
         stage=Stage(project=True),
     ),
     # --- [TYPESCRIPT]
-    # The root tsconfig.json is the solution file (files: [] + references), so the lane drives the project graph
-    # with --build; a `-p tsconfig.json --noEmit` form would typecheck the empty solution shell and green falsely.
     Tool("tsc", PNPM, ("tsc", "--build", "tsconfig.json", "--pretty", "false"), OWNED, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
     Tool(
         "biome",
@@ -210,7 +201,6 @@ TOOLS: tuple[Tool, ...] = (
         groups=(ToolGroup.RUN_DEFAULT,),
         empty_signature=(1, b"No test files found"),
     ),
-    # Coverage and bench each re-run vitest under their own config lane, so the default row yields when either is asked.
     Tool(
         "vitest",
         PNPM,
@@ -234,22 +224,11 @@ TOOLS: tuple[Tool, ...] = (
         empty_signature=(1, b"No test files found"),
     ),
     Tool("vitest", PNPM, ("vitest", "list"), NONE, TS, Claim.TEST, mode=Mode.LIST, empty_signature=(1, b"No test files found")),
-    # Root residency keeps `stryker.config.json` on auto-discovery; `{scope*}` carries the CHANGED lane's --mutate globs.
     Tool("stryker", PNPM, ("stryker", "run", "{scope*}"), OWNED, TS, Claim.TEST, mode=Mode.MUTATION, timeout=_MUTATION_TIMEOUT_S),
     # --- [DOTNET]
-    # Nx owns the .NET graph alone: `@nx/dotnet` infers the node and edge set (its roster equals Workspace.slnx),
-    # and nx.json refuses every inferred target whose job a claim below already owns. No row delegates through
-    # `nx run-many`, because an inferred `nx:run-commands` target pins `--no-restore --no-dependencies`, a
-    # project-directory cwd, and fixed `.artifacts/dotnet/{bin,obj}` outputs: it carries neither the leased
-    # `--artifacts-path` closure (argv forwarding lands the build outside the declared outputs, so a cache hit
-    # would restore a tree the scoped build never wrote) nor the locked restore, the per-check SARIF drop dir, or
-    # the repo-root cwd the diagnostic fold keys anchor on. Nx keeps `build`/`watch`/`run` for the dev loop.
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC, parser=Parser.CS_CONSOLE),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE, parser=Parser.CS_CONSOLE),
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE, parser=Parser.CS_CONSOLE),
-    # ArtifactScope supplies --artifacts-path; the static rail fills {max_cpu} and the per-project {sarif_dir} hole,
-    # whose value is also stamped onto the receipt as the typed SARIF-fold key. fold() consumes SARIF as report
-    # detail, never as an exit-code substitute.
     Tool(
         "dotnet-build",
         DOTNET,
@@ -260,19 +239,9 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.BUILD,
         parser=Parser.CS_CONSOLE,
     ),
-    # Analyzer-free, SARIF-free compile probe gating the C# FIX phase; VERIFY keeps it off the BUILD phase fan.
     Tool("dotnet-probe", DOTNET, ("build", "-p:RunAnalyzers=false", "-tl:off", "-v:quiet"), PROJECT, CS, Claim.STATIC, mode=Mode.VERIFY),
-    # MTP contract: the SDK<->MTP handshake under `dotnet test` loses the run floor — `-- --minimum-expected-tests 1`
-    # reports zero tests and exits 5 where the same argv under `dotnet run` passes the whole suite, proven live on a
-    # built project — so the rows drive `dotnet run --project <csproj> -- <mtp args>`.
-    # The test rail pins the full per-project tail — project, `--`, the minimum-tests floor, filter, and the opt-in
-    # TRX/coverage flags — because tails append after the body and every MTP option must ride behind `--`.
     Tool("dotnet-test", DOTNET, ("run",), PROJECT, CS, Claim.TEST, mode=Mode.RUN, input_flag=("--project",)),
     Tool("dotnet-test", DOTNET, ("run",), PROJECT, CS, Claim.TEST, mode=Mode.LIST, input_flag=("--project",)),
-    # Stryker.NET discovers the project under test from the cwd, so the row runs at the repo root — a staged empty
-    # work root refuses with "No .csproj found" before any mutant exists (proven live). Policy rides the root
-    # stryker-config.json; --output routes reports to the pre-created .artifacts root; the .stryker-tmp sandbox is
-    # cwd-relative with no relocation option upstream, so .gitignore carries that one row.
     Tool(
         "dotnet-stryker",
         DOTNET,
@@ -300,7 +269,6 @@ TOOLS: tuple[Tool, ...] = (
         timeout=_MUTATION_TIMEOUT_S,
         input_flag=("--test-project",),
     ),
-    # Live bridge supervisor: the rail fills {binary} with the built apphost and {verb}/{argv*} with the wire call.
     Tool("rasm-bridge", DIRECT, ("{binary}", "{verb}", "{argv*}"), NONE, CS, Claim.BRIDGE, mode=Mode.VERIFY, timeout=_SCENARIO_TIMEOUT_S),
     Tool(
         "rasm-bridge-build",
@@ -311,9 +279,6 @@ TOOLS: tuple[Tool, ...] = (
         Claim.BRIDGE,
         mode=Mode.BUILD,
     ),
-    # ilspy port: version probe (CHECK), type-roster listing (QUERY), and member decompile (LIST) are three total rows.
-    # --disable-updatecheck keeps the automated loop off the network and the "not using the latest" nag out of stderr;
-    # {refs*} splices -r reference-path pairs so base types outside the decompiled assembly resolve with full fidelity.
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "--disable-updatecheck", "--version"), NONE, CS, Claim.API, mode=Mode.CHECK),
     Tool(
         "ilspycmd",
@@ -336,7 +301,6 @@ TOOLS: tuple[Tool, ...] = (
         Claim.API,
         mode=Mode.LIST,
     ),
-    # INPROC API thunks emit Capture rows, matching tree-sitter query output.
     Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY),
     Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST),
     Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY),
@@ -388,7 +352,6 @@ TOOLS: tuple[Tool, ...] = (
         DOCS,
         Claim.DOCS,
     ),
-    # INPROC planning-marker gate: card leaders/statuses/bullets and terminal RESEARCH sections over libs/ planning durables.
     Tool("planning-gate", INPROC, ("planning-gate", "check"), OWNED, DOCS, Claim.DOCS),
     # --- [CODE]
     Tool(
@@ -411,7 +374,6 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
-    # ripgrep self-walks the tree; the PY tag is census-only because rail globs narrow files at invocation.
     Tool(
         "ripgrep",
         DIRECT,
@@ -422,7 +384,6 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.CONTENT,
     ),
     # --- [CONTRACTS]
-    # buf is the one driver, run from the repo root against the libs/contracts workspace input: lint/format are executable gate lanes
     Tool(
         "buf-lint",
         PNPM,
@@ -435,8 +396,6 @@ TOOLS: tuple[Tool, ...] = (
         defect_exit=BUF_DEFECT_EXIT,
         env=_BUF_ENV,
     ),
-    # The estate module path alone: vendored publisher bytes are never graded, and buf format has shipped
-    # non-idempotent releases, so the lane diffs and never writes.
     Tool(
         "buf-format",
         PNPM,
@@ -459,7 +418,6 @@ TOOLS: tuple[Tool, ...] = (
         timeout=_CONTRACTS_TIMEOUT_S,
         env=_BUF_ENV,
     ),
-    # Publish custody: the module's default label resolves to one immutable commit before the push and again after it.
     Tool(
         "buf-baseline",
         PNPM,
@@ -515,12 +473,9 @@ TOOLS: tuple[Tool, ...] = (
         timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
         env=_BUF_ENV,
     ),
-    # INPROC gates: plugin resolution over the template's binaries, the corpus audit over manifest, schemas, disk,
-    # anchors, rosters, and descriptors, and the scratch-vs-committed freshness diff.
     Tool("plugin-probe", INPROC, ("plugin-probe", "resolve"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.VERIFY),
     Tool("corpus-gate", INPROC, ("corpus-gate", "check"), OWNED, PROTO, Claim.CONTRACTS),
     Tool("freshness-gate", INPROC, ("freshness-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.QUERY),
-    # The writer leg validates and transactionally commits the complete staged package/schema image.
     Tool("corpus-emit", INPROC, ("corpus-emit", "write"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.WRITE),
     # --- [PROVISION]
     Tool(
@@ -569,9 +524,7 @@ TOOLS: tuple[Tool, ...] = (
     # --- [PROBES_AND_PROGRAMS]
     Tool("git-head", DIRECT, ("git", "rev-parse", "--short", "HEAD"), NONE, PY, Claim.STATIC, mode=Mode.QUERY, timeout=PROBE_TIMEOUT_S),
     Tool("git-dirty", DIRECT, ("git", "status", "--porcelain"), NONE, PY, Claim.STATIC, mode=Mode.QUERY, timeout=PROBE_TIMEOUT_S),
-    # Health-probe template: the health rail derives each launcher probe argv from `launch()` and fills {argv*}.
     Tool("tool-probe", DIRECT, ("{argv*}",), NONE, PY, Claim.STATIC, mode=Mode.QUERY, timeout=PROBE_TIMEOUT_S),
-    # Automation Program actions: arbitrary argv runs through this one total row, never an ad-hoc Tool.
     Tool("program", DIRECT, ("{argv*}",), NONE, PY, Claim.STATIC, mode=Mode.RUN),
 )
 

@@ -333,8 +333,6 @@ public sealed class FoldLaws {
     }
 }
 
-// The reference lifecycle: author emits candidates under the theme root, review + rename promotes,
-// an unpromoted root degrades instead of failing, and only reviewed+matched rows certify.
 public sealed class ReferenceLifecycleLaws {
     private const string Scenario = "blocks.Baseline";
 

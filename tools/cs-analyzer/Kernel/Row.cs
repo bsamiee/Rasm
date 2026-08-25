@@ -6,7 +6,6 @@ namespace Rasm.Csp.Kernel;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Named delegate is required because netstandard2.0 forbids ref structs as generic arguments.
 internal delegate void RuleCheck(in RuleContext context);
 
 internal enum TriggerKind : byte { Syntax, Operation, Symbol, SymbolStart, CompilationEnd }
@@ -20,7 +19,6 @@ internal sealed record RuleRow(
     ImmutableArray<RuleBinding> Bindings);
 
 internal sealed record RuleBinding(TriggerKind Trigger, RuleCheck Check, ImmutableArray<int> Kinds) {
-    // TriggerKind recovers the erased enum family.
     public static RuleBinding Syntax(RuleCheck check, params SyntaxKind[] kinds) => new(TriggerKind.Syntax, check, Erase(kinds));
     public static RuleBinding Operation(RuleCheck check, params OperationKind[] kinds) => new(TriggerKind.Operation, check, Erase(kinds));
     public static RuleBinding Symbol(RuleCheck check, params SymbolKind[] kinds) => new(TriggerKind.Symbol, check, Erase(kinds));
@@ -63,15 +61,12 @@ internal readonly ref struct RuleContext {
     public IOperation? Operation { get; }
     public ISymbol? Symbol { get; }
 
-    // RS1030 requires the context-handed model, never Compilation.GetSemanticModel.
     public SemanticModel? Model { get; }
     public CompilationFacts Facts { get; }
 
-    // Scope is resolved and gated before the check runs.
     public CspScope Scope { get; }
     public CancellationToken Cancel { get; }
 
-    // Display formatting lives here; SARIF properties stay limited to tier, doctrine, and scope.
     public void Report(Location location, params object?[] args) =>
         _report(Diagnostic.Create(
             _descriptor,

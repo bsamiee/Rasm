@@ -1,7 +1,5 @@
 import { expect, test } from '../fixtures.ts';
 
-// The worker seam probe: the viewer, chart, and browser planes all cross module workers with
-// transferred buffers, so the platform contract — spawn, transfer detachment, reply — proves here.
 test.describe('worker lane', () => {
     test('a blob worker computes over a transferred buffer and the source detaches', async ({ page, target }) => {
         await target.open('/pool');

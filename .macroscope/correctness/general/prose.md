@@ -44,7 +44,7 @@ Standing false-positive classes on durable prose — flagging one is the defect,
 - Deterministic classes the docgen gate's Check and Repair vocabularies own — article openers, puffery and copula lexemes, heading and index numbering, table padding and alignment — belong to the gate's own fixer, never a review finding; a semantic or tier defect outside those vocabularies stays review work.
 - A finding grounded in a superseded ruling is void, the prose twin of the stale-quoted-shape rule: a claim citing a deleted, retired, or re-ruled standard refutes itself, while the cited law re-verified on current disk keeps the finding live.
 - macOS TCC attributes automation to the responsible process and devolves to the shared parent for CLI children, so a preflight probe reporting an identity other than the acting binary is the documented attribution, never a broken permission binding.
-- Producer-written receipts under ruled custody stand: the producing lane writes its own report as its final act, the harness states the exact model identity in that lane's own prompt, and no rail verb mutates a lane report — a demand relocating custody to the keeper, dispatcher, or orchestrator re-litigates the ruling.
+- Producer-written reports under ruled custody stand: the producing lane writes its own report as its final act, the harness states the exact model identity in that lane's own prompt, and no rail verb mutates a lane report — a demand relocating custody to the keeper, dispatcher, or orchestrator re-litigates the ruling.
 
 ## [04]-[DIAGRAMS]
 

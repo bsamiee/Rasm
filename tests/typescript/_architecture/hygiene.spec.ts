@@ -8,23 +8,15 @@ import { Array, Effect, Option, pipe } from 'effect';
 
 const _ROOT = new URL('../../..', import.meta.url).pathname;
 
-// The standing estate-wide hygiene sweep; the engine's red-capability is proven by the kit's own
-// falsification spec, this suite is its one standing consumer over the live tree. An absent tree
-// (apps before the first app lands) contributes zero entries, so the sweep stands armed.
 const _ESTATE = ['tests/typescript', 'libs/typescript', 'apps'] as const;
 
-// The per-spec density cap binds the colocated unit specs of the runtime branch. The kit
-// falsification suites and this gauge home live under tests/typescript by the topology law and are
-// the declared carve-out: falsification breadth is proof surface, not spec sprawl.
 const _SPEC_CAP = 175;
 const _SPEC_FILE = /\.(spec|test)\.(ts|tsx|mts|cts)$/;
 
-// Authoring corpora and tool trees never join the density sweep.
 const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|\.planning|\.api)(\/|$)/;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// LOC is the non-blank line count; a spec over cap is a collapse demand, never a split invitation.
 const _capped = (entry: string, text: string): Option.Option<string> =>
     pipe(
         Array.filter(text.split('\n'), (line) => line.trim().length > 0),

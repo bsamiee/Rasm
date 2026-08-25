@@ -10,8 +10,6 @@ namespace Rasm.Bridge.Supervisor.Gate;
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-// Ownership: fault-injection matrix rows produce named discriminated outcomes. Stand-in rows own
-// their spawned processes; live rows acquire the bridge flock before touching RhinoWIP.
 internal static partial class Program {
     private static readonly List<JsonObject> Rows = [];
 
@@ -51,7 +49,6 @@ internal static partial class Program {
 
     // --- [PROCESS_STAND_INS]
 
-    // Detached stand-ins avoid .NET child tracking because SIGSTOP can wedge the SIGCHLD reaper.
     private static int Spawn() {
         Fin<ExecResult> spawned = Exec.Run("/bin/sh", ["-c", "/bin/sleep 300 >/dev/null 2>&1 & echo $!"], TimeSpan.FromSeconds(5));
         return spawned is Fin<ExecResult>.Succ(ExecResult forked) && int.TryParse(forked.StdOut.Trim(), CultureInfo.InvariantCulture, out int pid) ? pid : -1;
@@ -69,7 +66,6 @@ internal static partial class Program {
 
     // --- [MATRIX_ROWS]
 
-    // Bogus bundles must fail through LaunchFailed.
     private static void RowBogusBundle() {
         BundleInfo bogus = new(AppPath: "/tmp/rbx-gate-bogus.app", CFBundleName: "Bogus", CFBundleExecutable: "Bogus", CFBundleVersion: "0.0");
         Fin<Unit> launched = bogus.Launch(toolDeadline: TimeSpan.FromSeconds(10));
@@ -79,7 +75,6 @@ internal static partial class Program {
         });
     }
 
-    // SIGSTOP keeps the host alive but silent, discriminating dialog-suspected from ui-wedged.
     private static void RowSigstopDiscrimination(SessionPolicy policy) {
         int child = Spawn();
         try {
@@ -110,7 +105,6 @@ internal static partial class Program {
         }
     }
 
-    // Mid-connect host exit and connect deadline remain separate launch/connect failures.
     private static void RowKillMidConnect(SessionPolicy policy) {
         int child = Spawn();
         LiveHost host = StandIn(child);
@@ -139,7 +133,6 @@ internal static partial class Program {
         });
     }
 
-    // Dead endpoints distinguish dead pids from recycled start-time drift.
     private static void RowDeadPidEndpoint() {
         int deadPid = Spawn();
         _ = Posix.Kill(deadPid);
@@ -162,7 +155,6 @@ internal static partial class Program {
         });
     }
 
-    // Dead lease holders must be reclaimed with evidence.
     private static void RowDeadLeaseReclaim(string scratch) {
         string path = Path.Combine(scratch, "dead.lease");
         File.WriteAllText(path, """{"holderPid":4999999,"holderStartedAtUnixMs":1,"acquiredAtUnixMs":1}""");
@@ -177,7 +169,6 @@ internal static partial class Program {
             _ = Lease.Release(held);
     }
 
-    // Concurrent supervisors fail with BusyHeld holder evidence.
     private static void RowSecondSupervisorBusy(string scratch) {
         string path = Path.Combine(scratch, "busy.lease");
         Fin<LeaseToken> first = Lease.Acquire(path, Guid.NewGuid(), TimeProvider.System, _ => { });
@@ -194,7 +185,6 @@ internal static partial class Program {
             _ = Lease.Release(winner);
     }
 
-    // Non-AppKit quit proves rung escalation and journal write without SIGTERM.
     private static void RowQuitLadderEscalation(SessionPolicy policy, string scratch) {
         int child = Spawn();
         LiveHost host = StandIn(child);
@@ -218,14 +208,9 @@ internal static partial class Program {
         });
     }
 
-    // The scrub-before-terminate gate must reach a clean fixpoint before the AE rung: a first-attempt
-    // stall is re-asserted, a residual-dirty scrub is retried, and a persistently un-scrubbed host is
-    // typed evidence (quit.prepare.incomplete) instead of a silent dirty slide into `terminate`. No quit
-    // ladder runs here, so the headless gate proves the precondition without a save sheet, hang, or .3dm.
     private static async Task RowQuitPrepareReassertAsync(SessionPolicy policy, string scratch) {
         TimeSpan bound = policy.QuitRungDeadline;
         static QuitPrepareReceipt Clean(int marked) => new(Documents: marked, MarkedClean: marked, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []);
-        // First attempt overruns the bound (cancellation), second attempt returns the clean fixpoint.
         async Task<QuitPrepareReceipt> StallThenCleanAsync(int[] calls, CancellationToken ct) {
             calls[0]++;
             if (calls[0] == 1) {
@@ -234,7 +219,6 @@ internal static partial class Program {
             }
             return Clean(1);
         }
-        // Every attempt leaves one doc modified, so the gate must publish quit.prepare.incomplete.
         static Task<QuitPrepareReceipt> AlwaysDirtyAsync(CancellationToken ct) =>
             Task.FromResult(new QuitPrepareReceipt(Documents: 1, MarkedClean: 1, ResidualDirty: 1, Gh2: "documents=0;unmodified=0", SavedPaths: []));
         List<BridgeEvent> retried = [];
@@ -258,7 +242,6 @@ internal static partial class Program {
         });
     }
 
-    // Reconcile clears only markers inside supervised instance windows.
     private static void RowReconcileInstanceScoped(SessionPolicy policy, string scratch) {
         string autosave = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Autosave Information");
         _ = Directory.CreateDirectory(autosave);
@@ -336,7 +319,6 @@ internal static partial class Program {
         });
     }
 
-    // Read-only .ips parsing keeps raw crash reports as host evidence.
     private static void RowIpsParser() {
         string reports = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "DiagnosticReports");
         string? sample = Directory.Exists(reports) ? Directory.GetFiles(reports, "*.ips").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
@@ -354,7 +336,6 @@ internal static partial class Program {
         });
     }
 
-    // MCP listener suppression rides the launch environment and is reported as a capability fact.
     private static void RowMcpSuppression() {
         string packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library", "Application Support", "McNeel", "Rhinoceros", "packages",
@@ -368,7 +349,6 @@ internal static partial class Program {
         });
     }
 
-    // Marker names derive from bundle metadata, not hard-coded host names.
     private static void RowMarkerDerivation(SessionPolicy policy) {
         Fin<BundleInfo> discovered = BundleInfo.Discover(policy.ToolDeadline);
         Option<BundleInfo> ga = BundleInfo.Discover(policy.ToolDeadline) is Fin<BundleInfo>.Succ ? ReadGa(policy) : Option<BundleInfo>.None;
@@ -454,11 +434,6 @@ internal static partial class Program {
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 
-    // Dirty-doc clean quit: a doc dirtied through the host must be scrubbed clean by the supervisor
-    // prepare seam BEFORE the AE rung so `terminate` discards without the AppKit save sheet, hang, or
-    // crash, and no .3dm is ever written. Connect -> Hello -> dirty the ActiveDoc through the host ->
-    // PrepareQuitAsync (asserting the receipt scrubbed it) -> ONLY THEN QuitLadder.Run, then assert the
-    // quit.prepared fact rode the channel, clean AE close, kqueue exit, and zero .3dm litter anywhere.
     private static async Task LiveCycleCleanQuitAsync(BundleInfo bundle) {
         SessionPolicy policy = SessionPolicy.Default;
         string[] litterRoots = [Environment.CurrentDirectory, Path.GetTempPath(), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Autosave Information")];
@@ -499,10 +474,6 @@ internal static partial class Program {
         });
     }
 
-    // Drive the supervisor->shell scrub seam against a live host: Hello, dirty the host ActiveDoc by
-    // adding geometry through run_csharp on the in-host MCP/idle pump is unavailable to the Gate, so the
-    // ActiveDoc is dirtied by the shell-owned scenario surface; PrepareQuitAsync then marks it clean and
-    // returns the receipt the supervisor checks before terminate. Events carry the quit.prepared fact.
     private static async Task<(Option<QuitPrepareReceipt> Receipt, BridgeEvent[] Events)> DirtyThenPrepareAsync(LiveHost host, SessionPolicy policy) {
         try {
             SupervisorConnection connection = await SupervisorConnection
@@ -528,7 +499,6 @@ internal static partial class Program {
             }
         });
 
-    // Live mid-connect kill exercises silent-host discrimination, host exit, .ips diff, and reconcile.
     private static void LiveCycleKillMidConnect(BundleInfo bundle) {
         SessionPolicy policy = SessionPolicy.Default;
         Seq<string> ipsBaseline = Evidence.IpsBaseline(bundle);

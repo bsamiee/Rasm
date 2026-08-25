@@ -6,7 +6,7 @@ tree-sitter, and ripgrep payloads.
 """
 
 from collections import Counter
-from collections.abc import Callable  # converter-table rows bind Callable at module runtime
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -21,11 +21,11 @@ import structlog
 from tree_sitter import Language as TSLanguage, Query as TSQuery, QueryError
 
 from assay.core.model import (
-    AnyDetail,  # beartype resolves the fold detail annotation at runtime
+    AnyDetail,
     ArtifactKind,
     Band,
     Claim,
-    Completed,  # beartype resolves receipt annotations at runtime
+    Completed,
     Counts,
     ExecReceipt,
     field_cap,
@@ -45,17 +45,13 @@ if TYPE_CHECKING:
 
 _DEFECT_TAIL: int = 4096
 _MATCH_TEXT_CAP: int = field_cap(Match, "text", default=400)
-# SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
 _PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION, Claim.CONTRACTS)
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
-# Ruff full-output grammar leads with the kebab rule name, not a severity token; violations are errors by exit-code contract.
 _RULE_HEADER = re.compile(r"^(?P<rule>[a-z][a-z0-9]*(?:-[a-z0-9]+)*):\s*(?P<message>.+)$")
 _ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
-# Header grammars arming the two-line header->arrow fold: severity-first is universal; rule-name-first is scoped to the
-# ruff family with the policy severity, because a bare kebab token carries no severity of its own.
 _HEADER_POLICIES: tuple[tuple[frozenset[str], re.Pattern[str], str], ...] = (
     (frozenset(), _HEADER_DIAGNOSTIC, ""),
     (frozenset(("ruff", "ruff-format")), _RULE_HEADER, "error"),
@@ -65,8 +61,6 @@ _MYPY_DIAGNOSTIC = re.compile(
     r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
     re.IGNORECASE,
 )
-# Config diagnostics (TS5042, TS18003, TS6053) carry no file coordinate, so the leading path group is optional and a
-# bare `error TSnnnn:` still mints a row; without the alternation the whole class parses to nothing and reads clean.
 _TSC_DIAGNOSTIC = re.compile(
     r"^(?:(?P<path>.+?)(?:\((?P<line1>\d+),(?P<column1>\d+)\):?|:(?P<line2>\d+):(?P<column2>\d+)\s+-)\s*)?"
     r"(?P<severity>error|warning)\s+(?P<rule>TS\d+):\s*(?P<message>.+)$",
@@ -81,19 +75,12 @@ _CS_DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
     re.IGNORECASE,
 )
-# Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only: build
-# intermediates, staged build closures, and the three committed `assay contracts generate` out roots the freshness gate owns.
-# The one generated tree holds generated files alone, so every manifest above it keeps its real diagnostics
-# (docs/laws/scars.md [GENERATED_TREE_AS_LAW]); the marker is lowercase because the census lowercases every path.
 _GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/", "/.artifacts/dotnet/", "libs/contracts/gen/")
 _GENERATED_SUFFIX: Final[str] = ".g.cs"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [SARIF]
-# SARIF carries tool/schema fields outside the assay wire contract; unknown fields must pass.
-# Eight structs model distinct SARIF 2.1 schema levels (log -> run -> result -> location -> region); they are not parallel
-# shapes for one concept, so they stay separate owners under one navigation label.
 
 
 class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
@@ -127,7 +114,7 @@ class _SarifResult(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     level: str = ""
     message: _SarifMessage = msgspec.field(default_factory=_SarifMessage)
     locations: tuple[_SarifLocation, ...] = ()
-    suppressions: tuple[_SarifSuppression, ...] = ()  # non-empty => suppressed in-source; the build honors it, so the rail must too
+    suppressions: tuple[_SarifSuppression, ...] = ()
 
 
 class _SarifRun(msgspec.Struct, frozen=True, gc=False):
@@ -319,7 +306,6 @@ def cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail:
     Returns:
         One note naming shown/total/cap and the full-payload route, or empty when nothing was clipped.
     """
-    # Saturation means total is a floor; the note must name the full-payload route.
     detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
     return (f"results: {shown} of {total} ({detail}); {tail}",) if total > shown or saturated else ()
 
@@ -329,8 +315,7 @@ def cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail:
 
 @cache
 def _sarif_decode(path: Path, stat_key: tuple[int, int]) -> _SarifLog:
-    # SARIF rows are evidence only: unreadable or malformed documents fold to the empty log, never a fault.
-    _ = stat_key  # content fingerprint participates in the cache key, not the read
+    _ = stat_key
     try:
         return _SARIF_LOG.decode(path.read_bytes())
     except OSError, msgspec.MsgspecError:
@@ -338,9 +323,6 @@ def _sarif_decode(path: Path, stat_key: tuple[int, int]) -> _SarifLog:
 
 
 def _sarif_log(path: Path) -> _SarifLog:
-    # Decode once per (path, mtime, size): rows/status/results read the same build-written document inside one fold, so
-    # the fingerprint collapses those redundant decodes; a rebuild that rewrites the document in a long-lived process
-    # (the automation daemon re-fires one stable build closure) shifts the fingerprint, so the stale log never sticks.
     try:
         info = path.stat()
     except OSError:
@@ -349,8 +331,6 @@ def _sarif_log(path: Path) -> _SarifLog:
 
 
 def _code_match(rule_id: str, severity: str, path: str, line: int, column: int, message: str, *, text: str, project: str = "") -> Match:
-    # One source-diagnostic projection: SARIF, C# console, and text/JSON tool rows differ only in id/text/severity/project
-    # derivation; the Match skeleton (CODE kind, score=column, capped text) is one owner.
     return Match(
         id=rule_id,
         kind=ArtifactKind.CODE,
@@ -378,7 +358,6 @@ def _sarif_match(result: _SarifResult) -> Match:
 
 
 def _sarif_files(base: Path, stamped: str, stem: str, *, slnx: bool) -> tuple[Path, ...]:
-    # The typed Completed.sarif_dir stamp is authoritative; the fold never re-parses argv for the drop directory.
     active = Path(stamped) if stamped else base
     match (slnx, bool(stem)):
         case (True, _):
@@ -410,8 +389,6 @@ def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple
 
 
 def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
-    # The analyzer drops one ``$(MSBuildProjectName).sarif`` per built project; a .csproj argv names one stem keyed to
-    # its own file, a .slnx argv names the whole solution and keys against every SARIF the directory holds.
     return tuple((Path(token).stem, token.endswith(".slnx")) for token in argv if token.endswith((".csproj", ".slnx")))
 
 
@@ -481,7 +458,6 @@ def _dotnet_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _rows_of(done: Completed) -> tuple[Match, ...]:
-    # CS_CONSOLE folds across the outcome batch in _dotnet_rows; every other family converts per receipt.
     match _CONVERTERS.get(done.parser):
         case None:
             return ()
@@ -536,9 +512,6 @@ def _json_object[T](payload: str, decoder: msgspec.json.Decoder[T]) -> str:
 def _json_rows[T](
     payload: str, *, decoder: msgspec.json.Decoder[T], project: str, rows: Callable[[T], tuple[Match, ...]], embedded: bool = False
 ) -> tuple[Match, ...]:
-    # One JSON-diagnostic projection: a tool whose stdout is a bare diagnostic document decodes the whole payload; a tool
-    # that frames its JSON inside log chatter (``embedded``) carves the object span first, then folds to text rows when the
-    # decode yields nothing. The decoder, project label, and per-schema row map are the only axes that vary.
     span = _json_object(payload, decoder) if embedded else payload
     if not span:
         return _text_rows(tool=project, payload=payload)
@@ -559,8 +532,6 @@ def _buf_row(line: str) -> Match | None:
 
 
 def _buf_rows(payload: str) -> tuple[Match, ...]:
-    # buf prints one annotation object per stdout line under its defect exit; stderr carries WARN lines and the
-    # ``Failure:`` line of a tool failure, neither of which decodes, so a non-defect exit yields zero rows here.
     return tuple(row for raw in payload.splitlines() if (line := raw.strip()).startswith("{") and (row := _buf_row(line)) is not None)
 
 
@@ -588,8 +559,6 @@ def _generated(row: Match) -> bool:
 
 
 def _norm_path(path: str) -> str:
-    # Cross-channel dedup canonical form: the console emits a cwd-relative path while the SARIF uri is absolute, so the
-    # same diagnostic keys differently unless both anchor on the assay cwd (the repo root every dotnet build runs from).
     return Path(path.replace("\\", "/")).absolute().as_posix().lower() if path else ""
 
 
@@ -637,8 +606,6 @@ def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[M
     converted = tuple(row for done in outcomes for row in _rows_of(done))
     diagnostics = (*converted, *_dotnet_rows(outcomes), *sarif)
     if claim is not Claim.STATIC:
-        # A non-static claim keeps every row its stamped parser converted (a buf lane's annotations), ranked and deduped,
-        # ahead of the process defect tails; a Parser.NONE receipt converts to nothing, so those folds read as before.
         return (*_rank(_dedupe(converted)), *defects, *sarif)
     source = _rank(_dedupe(tuple(row for row in diagnostics if not _generated(row))))
     generated = _group_generated(tuple(row for row in diagnostics if _generated(row)))
@@ -718,13 +685,11 @@ def fold(
             *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ()),
         ),
         detail=detail,
-        # Remote-execution facts ride the dedicated carrier: a multi-check fan-out over one host folds every leg's transfer counts.
         exec=ExecReceipt.merge(tuple(o.exec for o in outcomes if o.exec is not None)),
     )
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# Converter rows reference the projection functions above; module-level decode tables resolve real objects.
 
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
 _BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
@@ -748,7 +713,6 @@ _TEXT_POLICIES: tuple[_TextPolicy, ...] = (
     ),
 )
 
-# One converter per per-receipt family; CS_CONSOLE folds batch-wide in _dotnet_rows for the discovered-count log.
 _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.RUFF: lambda payload: _text_rows("ruff", payload),
     Parser.RUFF_FORMAT: lambda payload: _text_rows("ruff-format", payload),

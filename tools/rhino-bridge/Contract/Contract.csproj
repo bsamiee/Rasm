@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Bridge wire contract shared by the supervisor, shell, cargo, and tests.</Description>
-        <!-- Wire assembly avoids LanguageExt in the shell ALC; Thinktecture owns generated wire vocabulary. -->
         <AssemblyName>Rasm.Bridge.Contract</AssemblyName>
         <RootNamespace>Rasm.Bridge.Contract</RootNamespace>
     </PropertyGroup>

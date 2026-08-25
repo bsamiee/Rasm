@@ -34,7 +34,6 @@ It is the lane for query logic that needs no SERVER extension (pgvector, postgis
 |  [13]   | `Mutex`                      | class               | the single-connection serialization primitive `runExclusive` uses       |
 
 ```ts signature
-// dataDir absent ⇒ in-memory (the unit-lane default); prefer PGlite.create over `new` so extension namespaces type through.
 declare class PGlite extends BasePGlite implements PGliteInterface, AsyncDisposable {
   constructor(dataDir?: string, options?: PGliteOptions)
   constructor(options?: PGliteOptions)
@@ -45,22 +44,22 @@ type Results<T = { [k: string]: any }> = {
   rows: Row<T>[]
   affectedRows?: number
   fields: { name: string; dataTypeID: number }[]
-  blob?: Blob                       // COPY … TO output
+  blob?: Blob
 }
 type PGliteInterface<T extends Extensions = Extensions> = InitializedExtensions<T> & {
   readonly waitReady: Promise<void>; readonly ready: boolean; readonly closed: boolean; readonly debug: DebugLevel
   close(): Promise<void>
   query<T>(query: string, params?: any[], options?: QueryOptions): Promise<Results<T>>
-  sql<T>(sqlStrings: TemplateStringsArray, ...params: any[]): Promise<Results<T>>   // tagged-template, auto-parametrized
-  exec(query: string, options?: QueryOptions): Promise<Array<Results>>             // multi-statement DDL — the seeding rail
+  sql<T>(sqlStrings: TemplateStringsArray, ...params: any[]): Promise<Results<T>>
+  exec(query: string, options?: QueryOptions): Promise<Array<Results>>
   describeQuery(query: string): Promise<DescribeQueryResult>
-  transaction<T>(callback: (tx: Transaction) => Promise<T>): Promise<T>            // auto rollback on throw
-  runExclusive<T>(fn: () => Promise<T>): Promise<T>                                // serialize against the one connection
+  transaction<T>(callback: (tx: Transaction) => Promise<T>): Promise<T>
+  runExclusive<T>(fn: () => Promise<T>): Promise<T>
   listen(channel: string, cb: (payload: string) => void, tx?: Transaction): Promise<(tx?: Transaction) => Promise<void>>
   unlisten(channel: string, cb?: (payload: string) => void, tx?: Transaction): Promise<void>
   onNotification(cb: (channel: string, payload: string) => void): () => void
-  execProtocol(message: Uint8Array, options?: ExecProtocolOptions): Promise<ExecProtocolResult>  // raw wire frames
-  dumpDataDir(compression?: DumpTarCompressionOptions): Promise<File | Blob>       // snapshot; reload via loadDataDir
+  execProtocol(message: Uint8Array, options?: ExecProtocolOptions): Promise<ExecProtocolResult>
+  dumpDataDir(compression?: DumpTarCompressionOptions): Promise<File | Blob>
   refreshArrayTypes(): Promise<void>
 }
 ```
@@ -69,13 +68,13 @@ type PGliteInterface<T extends Extensions = Extensions> = InitializedExtensions<
 
 ```ts signature
 interface PGliteOptions<TExtensions extends Extensions = Extensions> {
-  dataDir?: string                  // absent ⇒ in-memory; "idb://name" ⇒ IdbFs; "memory://" explicit
-  extensions?: TExtensions          // client-side wasm extensions keyed by namespace (see [03])
-  relaxedDurability?: boolean       // skip fsync flush-to-fs — the unit-lane speed switch
+  dataDir?: string
+  extensions?: TExtensions
+  relaxedDurability?: boolean
   debug?: DebugLevel
   username?: string; database?: string
-  loadDataDir?: Blob | File         // restore a dumpDataDir tarball — the frozen-fixture reload path
-  parsers?: ParserOptions; serializers?: SerializerOptions   // pgType(number) → decode/encode overrides
+  loadDataDir?: Blob | File
+  parsers?: ParserOptions; serializers?: SerializerOptions
   initialMemory?: number; fsBundle?: Blob | File
   pgliteWasmModule?: WebAssembly.Module; initdbWasmModule?: WebAssembly.Module
   startParams?: string[]; postgresqlconf?: string[] | string
@@ -94,7 +93,6 @@ interface PGliteOptions<TExtensions extends Extensions = Extensions> {
 |  [04]   | `raw` (tagged template)        | `TemplatePart`      | verbatim string, no escaping/parametrization            |
 
 ```ts signature
-// query`SELECT * FROM ${identifier`t`} ${withFilter ? sql`WHERE a = ${x}` : sql``}`  → { query: 'SELECT * FROM "t" WHERE a = $1', params: [x] }
 declare function sql(strings: TemplateStringsArray, ...values: any[]): TemplateContainer
 declare function identifier(strings: TemplateStringsArray, ...values: any[]): TemplatePart
 declare function raw(strings: TemplateStringsArray, ...values: any[]): TemplatePart

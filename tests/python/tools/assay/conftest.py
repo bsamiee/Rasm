@@ -25,7 +25,7 @@ from tests.python.tools.assay.kit import (
     install_cpu_double,
     RailProbe,
     read_one_envelope_from_bytes,
-    SeamExecutor,  # fixture-signature annotation evaluated by pytest at runtime
+    SeamExecutor,
     YakShape,
 )
 
@@ -49,15 +49,12 @@ if TYPE_CHECKING:
 
 _UV = shutil.which("uv")
 
-# Law coverage walks this package's public surface.
 SUT_PACKAGE: Final = "assay"
 
-# pytest-benchmark's repo-root storage fallback; the configure hook rebinds it to the canonical artifact URI.
 _BENCHMARK_ROOT_DEFAULT: Final = "file://./.benchmarks"
 
 _SUT_SEAMS: dict[str, ExitStack] = {}
 
-# Type aliases, ContextVar seams, codecs, and caps auto-exempt by predicate; classes and callables need laws or COVERS credit.
 register_sut(SUT_PACKAGE)
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -74,7 +71,7 @@ def pytest_configure(config: pytest.Config) -> None:
     write lands before it reads ``benchmark_storage``.
     """
     if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and config.getoption("benchmark_storage") == _BENCHMARK_ROOT_DEFAULT:
-        from assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]  # ad-hoc escape path only
+        from assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]
 
         config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
@@ -148,14 +145,12 @@ def cli(
         list(starmap(monkeypatch.setenv, (extra_env or {}).items()))
         match isolate:
             case False:
-                from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]  # in-proc; keeps subprocess path import-clean
+                from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
                 if executor is not None:
-                    # The public injection channel: rebuild the app with the canned port; main() dispatches through the module global.
                     from assay.composition.registry import build_app, REGISTRY  # ruff:ignore[import-outside-top-level]
 
                     monkeypatch.setattr(main_mod, "app", build_app(REGISTRY, executor=executor))
-                # Keep the session tracer provider alive while exercising main's drain path.
                 neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
                 monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
                 code = main_mod.main([*argv])
@@ -167,7 +162,7 @@ def cli(
                     pytest.skip("uv not on PATH")
                 if request.node.get_closest_marker("subprocess") is None:
                     pytest.fail("cli(isolate=True) requires @pytest.mark.subprocess; mutation lanes deselect via -m 'not subprocess'")
-                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # ruff:ignore[banned-api]  # subprocess env clone
+                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # ruff:ignore[banned-api]
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "assay", *argv])
                 return CliResult(
@@ -184,7 +179,7 @@ def log_processors() -> tuple[Processor, ...]:
     Returns:
         Processor chain extension carrying the assay ring processor.
     """
-    from assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]  # fixture-time import keeps collection import-clean
+    from assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]
 
     return (ring_processor,)
 
@@ -220,7 +215,7 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
     Returns:
         Live list accumulating every captured emit Envelope.
     """
-    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]
 
     probe: SeamProbe[Envelope] = SeamProbe(project=operator.itemgetter(slice(1)))
     probe.install(monkeypatch, automation_engine, "_emit", Sync(None))
@@ -234,9 +229,8 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
     Returns:
         Provisioned remote target whose factory runs the asyncssh handshake inside the awaiting loop.
     """
-    from assay.core import remote as remote_mod  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.core import remote as remote_mod  # ruff:ignore[import-outside-top-level]
 
-    # The Offload always derives an sftp backend for a remote run; the chrooted SFTP subsystem lets the scope pull resolve.
     provisioned = provision(SshHost(sftp_root=tmp_path))
 
     def _connect(target: Ssh) -> Awaitable[asyncssh.SSHClientConnection]:

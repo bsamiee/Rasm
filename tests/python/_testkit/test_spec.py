@@ -69,7 +69,6 @@ if TYPE_CHECKING:
 
 type _Thunk = Callable[[], None]
 
-# Row law: every algebraic oracle carries one lawful subject and one witness it must reject.
 _ORACLES: tuple[tuple[str, _Thunk, _Thunk], ...] = (
     ("roundtrip", lambda: roundtrip(7, str, int), lambda: roundtrip(7, str, lambda s: int(s) + 1)),
     ("identity", lambda: identity(3, abs), lambda: identity(-3, abs)),
@@ -91,7 +90,6 @@ _ORACLES: tuple[tuple[str, _Thunk, _Thunk], ...] = (
     ("custom-eq", lambda: identity(-1, abs, eq=lambda a, b: abs(a) == abs(b)), lambda: identity(-1, abs, eq=operator.is_)),
 )
 
-# Fast deterministic driver budget for the machine laws.
 _MACHINE = hyp_settings(max_examples=15, stateful_step_count=15, deadline=None, database=None, derandomize=True)
 
 
@@ -184,7 +182,6 @@ class _Pool(RuleBasedStateMachine):
     @precondition(lambda self: bool(self.live))
     @rule(slot=consumes(slots))
     def retired_slot(self, slot: str) -> None:
-        # A multiple() batch lands as individual bundle entries; a tuple drawn here is the seeded defect.
         assert isinstance(slot, str), f"bundle entry is not an individual slot: {slot!r}"
         self.live.discard(slot)
         self.retired.add(slot)
@@ -274,7 +271,6 @@ def test_matrix_folds_scope_rows_through_a_carrier_and_stop_without_one(subtests
         validity_matrix([("broken", -1, True), ("after", 2, True)], valid=lambda n: (calls.append(n), n > 0)[-1])
     assert calls == [-1], f"carrier-free fold ran past the breach: {calls}"
 
-    # The live pytest-native subtests fixture satisfies the protocol; green rows leave the test green.
     validity_matrix([("live", 3, True)], valid=lambda n: n > 0, subtests=subtests)
 
 
@@ -363,7 +359,7 @@ def test_close_recurses_rails_and_blocks_and_names_the_diverging_arm() -> None:
 
 def test_close_policy_rides_the_algebraic_oracles_and_refutes() -> None:
     """``close`` slots into every ``eq=`` axis: a tolerant law passes where exact equality breaks, and the witness still refutes."""
-    drift = lambda x: x + 1e-12  # ruff:ignore[lambda-assignment]  # one-expression law subject
+    drift = lambda x: x + 1e-12  # ruff:ignore[lambda-assignment]
     with pytest.raises(AssertionError, match="law violated"):
         identity(1.0, drift)
     identity(1.0, drift, eq=close())

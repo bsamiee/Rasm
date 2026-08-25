@@ -116,7 +116,6 @@ _ROWS: tuple[BenchCase, ...] = (
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# Eager resolver warm-up keeps the first benchmark size from timing strategy registration.
 _completed_st: st.SearchStrategy[Completed] = resolve(Completed)
 
 bench_assay = run_registry(_ROWS)

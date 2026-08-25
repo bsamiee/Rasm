@@ -94,26 +94,21 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `P` is a verb-params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P, Executor], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object, Executor], Report]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ARTIFACT_CAP: Final = 100
-# Severities that name a real defect: the truthful fault count and the defect-preserving display cap both key on them.
 _DEFECT_SEVERITIES: Final[frozenset[str]] = frozenset(("error", "failed"))
-# Mirrors the msgspec-enforced cap on Fault.message so history round-trips without silent truncation.
 _MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
 _DISPATCH_NONE: Final = f"{Step.DISPATCH}=none"
-# Per-invocation counter; long-lived automation processes must not trip the one-Envelope guard on reuse.
 _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
-_PYPROJECT: Final[Path] = Path(__file__).resolve().parents[2] / "pyproject.toml"  # the assay member manifest owns the version
+_PYPROJECT: Final[Path] = Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: Final = structlog.get_logger("assay.registry")
-# The one production wiring site: rails receive this bound port unless a caller injects its own through rail()/build_app().
 _EXECUTOR: Final[Executor] = EngineExecutor()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -137,7 +132,6 @@ def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
-    # BaseParams.bound owns arity; surplus tokens feed the parse ring for hint distillation.
     match params:
         case BaseParams() as p:
             match p.bound(verb):
@@ -151,7 +145,6 @@ def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
 
 
 def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fault]:
-    # EMPTY and SKIP promote to FAULTED under --strict; defect and infrastructure statuses already dominate.
     match outcome:
         case Result(tag="ok", ok=report) if getattr(params, "strict", False) and report.status in {RailStatus.EMPTY, RailStatus.SKIP}:
             return Error(Fault((), RailStatus.FAULTED, f"{Step.STRICT}: empty/skipped fold"))
@@ -160,7 +153,6 @@ def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fa
 
 
 def _failing_step(fault: Fault) -> Step:
-    # Derives the failing step from status, argv, and the prefix-scan roster owned by _guard.
     match (fault.status, fault.argv):
         case (RailStatus.TIMEOUT, _):
             return Step.TIMEOUT
@@ -175,17 +167,13 @@ def _failing_step(fault: Fault) -> Step:
 def _distill(
     fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: Step | None = None
 ) -> tuple[Diagnostic, bool]:
-    # Resource snapshots are lazy; clipping any byte sets Envelope.truncated.
     ring = events if events is not None else tuple(RING.get() or ())
     step = step if step is not None else _failing_step(fault)
     reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
     framing = f"{step}: after {duration_ms:.1f}ms"
-    # Reserve the separator byte so the final hint cannot exceed HINT_CAP.
     budgeted = reason[: max(HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    # One-hop into private engine.measure is intentional: engine owns the Measurements/to_resources shape — a co-owned
-    # seam beside the RESOURCE reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
     snap = resource or RESOURCE.get() or measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
@@ -212,9 +200,6 @@ def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -
 
 
 def _defect_preserving_cap(rows: tuple[Match, ...]) -> tuple[Match, ...]:
-    # The blind slice clips real error/failed rows when generated diagnostics are numerous; reserving every defect row
-    # first, then filling the remaining budget with non-defects in original order, keeps the cap from hiding a fault while
-    # preserving the source-first/defects-last contract _result_rows pins.
     defects = sum(1 for row in rows if row.severity in _DEFECT_SEVERITIES)
     budget = max(RESULT_CAP - defects, 0)
     kept: list[Match] = []
@@ -229,9 +214,6 @@ def _defect_preserving_cap(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 
 
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
-    # FAILED reports carry a Diagnostic built from defect result rows, matching the fault-rail shape.
-    # _cap_note owns the N-of-M grammar; the first cap tripped owns the (shown, total) pair.
-    # defect_rows reads the full pre-cap results so the fault count stays truthful even when the display slice drops rows.
     defect_rows = tuple(m for m in report.results if m.severity in _DEFECT_SEVERITIES)
     truncated = len(report.results) > RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
@@ -272,7 +254,6 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
 
 
 def _narrow(handler: object) -> Handler[object]:
-    # FunctionType preserves beartype's annotation contract without a cast.
     match handler:
         case FunctionType() as fn:
             return fn
@@ -290,7 +271,6 @@ def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
 
 
 def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
-    # The registry owns strict:/validation:/config: prefixes; rails must not emit them.
     try:
         return thunk()
     except FaultedPromotion as promoted:
@@ -302,14 +282,12 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 
 
 def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[Report, Fault]) -> Envelope:
-    # Enforces the one-write guard; parse faults skip history persistence.
     ms = (time.perf_counter() - started) * 1000.0
     persist = True
     match outcome:
         case Result(tag="ok", ok=report):
             envelope = _ok_envelope(bind, settings, ms, report)
         case Result(error=fault):
-            # Faults carry no Report, hence no ExecReceipt: a remote timeout/spawn-fault is interrupted before the receipt is stamped.
             diagnostic, truncated = _distill(fault, ms)
             persist = diagnostic.failing_step != Step.PARSE
             envelope = Envelope(
@@ -362,7 +340,6 @@ def rail(bind: Bind, settings: AssaySettings | None = None, executor: Executor |
         started = time.perf_counter()
         ring_token, writes_token, resource_token = RING.set(deque(maxlen=16)), _WRITES.set(count()), RESOURCE.set(())
         try:
-            # ArtifactScope.open raises OSError when the .artifacts root is unwritable; fold it here outside _guard.
             scope = ArtifactScope.open(active, bind.claim)
             outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(active, scope, p, port), p))))
             return _emit(bind, active, started, outcome)
@@ -378,7 +355,6 @@ def rail(bind: Bind, settings: AssaySettings | None = None, executor: Executor |
 
 
 def _encode(envelope: Envelope) -> bytes:
-    # Scrub lone surrogates from untrusted argv/paths so the one-envelope contract survives encoding failure.
     try:
         return wire_encode(envelope)
     except UnicodeEncodeError:
@@ -393,7 +369,6 @@ def _encode(envelope: Envelope) -> bytes:
 
 
 def _persist(settings: AssaySettings, envelope: Envelope) -> None:
-    # Best-effort; `delta` decodes raw encoded bytes directly from the history store.
     try:
         store = settings.store()
         store.write_history(settings.run_id, _encode(envelope))
@@ -402,13 +377,10 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
         store.retain_builds(settings.build_scope_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
-    # Heavy-lane benchmark autosaves live outside the assay store boundary; bound them by the same retention setting.
     prune_python_artifacts(Path(str(settings.root)), settings.artifact_retention)
 
 
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool) -> Envelope:
-    # Per-envelope flush preserves newline framing under long-lived automation, where each fire reuses this writer
-    # and the default block-buffered stdout would otherwise coalesce or stall rows across fires.
     sys.stdout.buffer.write(_encode(envelope) + b"\n")
     sys.stdout.buffer.flush()
     if persist:
@@ -425,7 +397,6 @@ _DRIFT_KEYS: Final[tuple[str, ...]] = ("rhinoVersion", "mcp.platform.version", "
 
 
 def _host_facts(report: Report | None) -> dict[str, str]:
-    # Cross-session host fingerprint: bridge lifecycle host/capability rows or verify facts; absent for non-bridge runs.
     match report.detail if report is not None else None:
         case BridgeLifecycle(host=host, capabilities=caps):
             return {**dict(host), **{key: f"{outcome}: {receipt}" for key, outcome, receipt in caps}}
@@ -436,7 +407,6 @@ def _host_facts(report: Report | None) -> dict[str, str]:
 
 
 def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
-    # Delta + host-drift projection over both endpoints: compares status, counts, and `(id, line)` result keys; a missing side folds to EMPTY.
     def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]], dict[str, str]]:
         report = env.report
         counts = report.counts if report is not None else Counts()
@@ -450,7 +420,6 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
             detail = RunDelta(
                 before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys), drift=drift
             )
-            # No note: RunDelta already owns status, counts, added, removed, and cross-session host-fact drift.
             return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK),), detail=detail)
         case _:
             missing = after_id if after is None else before_id
@@ -548,7 +517,6 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
     bound_claims = frozenset(b.claim for b in REGISTRY)
     health_probes, health_notes = health_rail.probes(settings, executor if executor is not None else _EXECUTOR)
     yak = health_rail.yak_ready()
-    # Claim enum coverage makes the check fail when a declared claim loses its last verb.
     healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and health_rail.census()
     status = RailStatus.FAILED if (not healthy or (rhino and not yak)) else RailStatus.OK
     summary = (
@@ -573,8 +541,6 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
-# The lambda monomorphizes checked_call's ParamSpec at the rail signature; the polymorphic checked() layer's free vars refuse direct unification.
 _CHECKED: ReportLayer = (Slot.checked, lambda fn: checked_call(fn))  # ruff:ignore[unnecessary-lambda]
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (_CHECKED, logged(event="rail", keys=_correlate), traced(span="assay.rail", attrs=_correlate))
 
@@ -625,7 +591,6 @@ REGISTRY: Final[tuple[Bind, ...]] = (
 
 
 def _composes() -> bool:
-    # Identity handler catches Slot-order inversions in _RAIL_LAYERS without spawning a process.
     try:
         compose(*_RAIL_LAYERS)(_identity_hom)
     except TypeError:
@@ -645,7 +610,6 @@ _VERSION: Final[str] = _read_version()
 
 
 def _leaf(bind: Bind, executor: Executor) -> Callable[[object], Envelope]:
-    # The params default must stay visible to Cyclopts; __wrapped__ would expose the defaultless runner.
     runner = rail(bind, executor=executor)
 
     def command(params: object = bind.params()) -> Envelope:
@@ -659,7 +623,6 @@ def _leaf(bind: Bind, executor: Executor) -> Callable[[object], Envelope]:
 
 
 def _usage(bind: Bind, *, root_leaf: bool = False) -> str:
-    # Slot grammar is params-owned data: the verb row wins, the "" row is the claim default. Root leaves omit the verb token.
     slots_map: dict[str, str] = getattr(bind.params, "SLOTS", {})
     slots = slots_map.get(bind.verb, slots_map.get("", ""))
     verb = "" if root_leaf else bind.verb
@@ -671,10 +634,9 @@ def _register[**P](
     obj: App | Callable[P, object],
     *,
     name: str | None = None,
-    help: str = "",  # ruff:ignore[builtin-argument-shadowing]  # cyclopts names this kwarg "help"; intentional shadow
+    help: str = "",  # ruff:ignore[builtin-argument-shadowing]
     usage: str | None = None,
 ) -> App:
-    # App.command returns the registered object (the leaf command or sub-app), never the parent; returning app keeps reduce folds linear.
     extras: dict[str, str] = {key: value for key, value in (("help", help), ("usage", usage)) if value}
     match name:
         case None:
@@ -704,7 +666,6 @@ def build_app(registry: tuple[Bind, ...], *, executor: Executor | None = None) -
         name="assay",
         help="Rasm polyglot quality operator. Global: --exec <local|ssh://[user@]host[:port]> offloads execution (default local).",
         version=_VERSION,
-        # Disable global --version so verb params can own the token and stdout remains envelope-only.
         version_flags=(),
         default_parameter=Parameter(show_default=True),
         result_action="return_value",
@@ -722,8 +683,6 @@ def build_app(registry: tuple[Bind, ...], *, executor: Executor | None = None) -
 
 
 def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]], executor: Executor) -> App:
-    # A claim collapses to a root leaf only when its lone verb duplicates the claim token; every other claim
-    # takes the explicit verb token, so the surface, help roster, and Envelope verb agree across the registry.
     claim, rows = group
     match rows:
         case (single,) if single.verb == claim.value:

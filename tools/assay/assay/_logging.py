@@ -20,7 +20,7 @@ from structlog.contextvars import merge_contextvars
 from structlog.dev import ConsoleRenderer
 from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
 from structlog.stdlib import ProcessorFormatter
-from structlog.typing import Processor  # beartype claw resolves the _chain return annotation at runtime
+from structlog.typing import Processor
 
 from assay.composition.settings import AssaySettings, LogFormat
 from assay.core.aspect import ring_processor
@@ -32,7 +32,7 @@ _LEVELS: Final[dict[str, int]] = logging.getLevelNamesMapping()
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_LOG_ENCODER: Final = msgspec.json.Encoder(enc_hook=str)  # telemetry coerces unencodable fields; Envelope encoding stays strict
+_LOG_ENCODER: Final = msgspec.json.Encoder(enc_hook=str)
 
 
 class _StderrLogger:
@@ -46,7 +46,7 @@ class _StderrLogger:
             stream.write(message + "\n")
             stream.flush()
 
-    debug = info = warning = error = critical = msg  # FilteringBoundLogger resolves levels by attribute
+    debug = info = warning = error = critical = msg
     log = warn = fatal = failure = err = exception = msg
 
 
@@ -64,15 +64,15 @@ class _StderrBridgeHandler(logging.Handler):
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _LOCK = threading.Lock()
-_LATCH: dict[str, bool] = {"configured": False}  # dict cell avoids a module-level `global` rebind
+_LATCH: dict[str, bool] = {"configured": False}
 
 
 def _chain() -> tuple[Processor, ...]:
     return (
-        merge_contextvars,  # contextvars must bind before processors inspect event data
+        merge_contextvars,
         ring_processor,
         add_log_level,
-        CallsiteParameterAdder(  # MODULE is the portable foreign-record fallback for callsite metadata
+        CallsiteParameterAdder(
             parameters=(CallsiteParameter.QUAL_MODULE, CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)
         ),
         dict_tracebacks,
@@ -103,7 +103,7 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
         try:
             settings = AssaySettings()
         except ValidationError:
-            settings = AssaySettings.model_construct()  # invalid env surfaces at dispatch; logging uses defaults
+            settings = AssaySettings.model_construct()
         fmt = log_format if log_format is not None else settings.log_format
         chain = _chain()
         renderer = _renderer(fmt)
@@ -111,13 +111,13 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
         structlog.configure(
             processors=[*chain, renderer],
             wrapper_class=make_filtering_bound_logger(level),
-            logger_factory=lambda *_a: _STDERR,  # stdout belongs to the Envelope wire
-            cache_logger_on_first_use=False,  # capture_logs() and import-time loggers must see the final chain
+            logger_factory=lambda *_a: _STDERR,
+            cache_logger_on_first_use=False,
         )
         bridge = _StderrBridgeHandler(level=level)
         bridge.setFormatter(ProcessorFormatter(foreign_pre_chain=chain, processors=[ProcessorFormatter.remove_processors_meta, renderer]))
-        root = logging.getLogger()  # ruff:ignore[banned-api]  # the bridge owner is the one sanctioned root-logger touchpoint
-        root.handlers[:] = [bridge]  # replace rather than stack bridges on reconfiguration
+        root = logging.getLogger()  # ruff:ignore[banned-api]
+        root.handlers[:] = [bridge]
         root.setLevel(level)
         _LATCH["configured"] = True
 

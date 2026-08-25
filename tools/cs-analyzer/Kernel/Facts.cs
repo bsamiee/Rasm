@@ -7,7 +7,6 @@ namespace Rasm.Csp.Kernel;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// RS1008/RS1009 state lives at CompilationStart; rule checks stay total and stateless.
 internal sealed class CompilationFacts {
     private const string ScopeAttributeMetadataName = "Rasm.Csp.CspScopeAttribute";
     private const string ScopeBuildProperty = "build_property.CspScope";
@@ -30,11 +29,9 @@ internal sealed class CompilationFacts {
 
     public ImmutableArray<string> PrefixVocabulary { get; }
 
-    // Cache metadata probes; callers compare with SymbolEqualityComparer.
     public INamedTypeSymbol? WellKnown(string metadataName) =>
         _wellKnown.GetOrAdd(metadataName, _compilation.GetTypeByMetadataName);
 
-    // Scope priority: type marker, tree option, then build or assembly marker; undeclared is Domain.
     public CspScope ScopeOf(SyntaxTree tree, ISymbol? symbol) {
         _ = tree ?? throw new ArgumentNullException(paramName: nameof(tree));
         return TypeScope(symbol, WellKnown(ScopeAttributeMetadataName)) switch {

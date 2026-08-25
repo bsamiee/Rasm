@@ -14,14 +14,10 @@ type Pkg = typeof _Pkg.Type;
 
 const _ROOT = new URL('../../..', import.meta.url).pathname;
 
-// Authoring corpora and tool trees never join a source verdict.
 const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|\.planning|\.api)(\/|$)/;
 
-// The branch-wide migrator ban: DDL is idempotent declarative ensure, and PgMigrator has no legal importer.
 const _BANNED = [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/] as const;
 
-// One external-family vocabulary: each family's specifier grammar is stated once; every admission
-// tier below is [zone, family] rows over this table, so a pattern can never drift between tiers.
 const _FAMILIES = {
     'ext:jose': /^jose($|\/)/,
     'ext:oidc': /^openid-client($|\/)/,
@@ -57,8 +53,6 @@ const _FAMILIES = {
     'ext:pulumi': /^@pulumi(verse)?\//,
 } as const satisfies Record<`ext:${string}`, RegExp>;
 
-// Folder-scoped external admissions: the permitted [folder, family] crossings; an unlisted external
-// package is substrate and stays unaudited. A package two folders own by charter carries two rows.
 const _ADMISSIONS: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMILIES]> = [
     ['core', 'ext:codec'],
     ['security', 'ext:jose'],
@@ -94,7 +88,6 @@ const _ADMISSIONS: ReadonlyArray<readonly [zone: string, family: keyof typeof _F
     ['iac', 'ext:pulumi'],
 ];
 
-// The security sub-folder admissions ride the same engine and the same vocabulary at depth-2 zones.
 const _CRYPTO: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMILIES]> = [
     ['security/crypt', 'ext:jose'],
     ['security/crypt', 'ext:oslo'],
@@ -105,25 +98,14 @@ const _CRYPTO: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMIL
     ['security/authn', 'ext:otp'],
 ];
 
-// The runtime-direction law: an importing runtime may only reach the runtimes on its row. The keys
-// are the one canonical runtime vocabulary — the tag axis the import audit enforces.
 const _RUNTIME_MAY = {
     browser: ['browser', 'neutral'],
     neutral: ['neutral'],
     node: ['node', 'neutral'],
 } as const;
 
-// The boundary gate's other half: entrypoint purity over each package's exports map. Every package
-// is exactly one unconditioned "." entry (index.ts, the public API surface) plus "./package.json";
-// export conditions and subpath exports are earned by a real divergent implementation or a real
-// submodule the day it lands, never pre-minted as stubs.
-
-// Depth projects are declared rows, never discovered: an undeclared interior package is a boundary
-// breach. `owner` is the depth-1 zone its files and imports audit under.
 const _DEPTH_PROJECTS = [{ owner: 'ui', folder: 'ui/viewer', runtime: 'browser' }] as const;
 
-// Packages outside the zone system: generated substrate and the spec kit; their imports and
-// manifest rows stay unaudited by the edge law (families still bind).
 const _SUBSTRATE = ['@rasm/contracts', '@rasm/ts-testkit'] as const;
 
 const _PLANES = ['runtime', 'deploy', 'dev'] as const;
@@ -154,23 +136,15 @@ const _resolved = (from: string, specifier: string): ReadonlyArray<string> =>
         part === '..' ? Array.dropRight(stack, 1) : Array.append(stack, part),
     );
 
-// The strata letter is the fence's one cluster vocabulary — a cluster id and its title both open with
-// it — so the live-parse grammar here and the falsification fixture at the tail derive from this
-// anchor alone, and a re-lettered strata fence moves both ends in one edit.
 const _STRATUM = 'S';
 
 const _clusterId = (stratum: number): string => `${_STRATUM}${stratum}`;
 
 const _clusterLine = (stratum: number, title: string): string => `    subgraph ${_clusterId(stratum)}["${_clusterId(stratum)} ${title}"]`;
 
-// The permitted-edge ledger parses live from the owning page's strata flowchart — the page is the
-// law's single source, never a transcribed copy. A cluster carries its stratum mark, a single-word
-// cluster title names the cluster's own folder, and bracket nodes name the rest.
 const _CLUSTER = new RegExp(String.raw`^\s*subgraph (${_STRATUM}(\d))\["${_STRATUM}\d ([A-Z][A-Z +]*)"\]\s*$`);
 const _NODE = /^\s*(\w+)\[([a-z]+)\]\s*$/;
 
-// Only solid `[IMPORT]`-labeled edges join the ledger: port bindings, the forbidden exemplar,
-// layout links, and core-interior member edges are other grammars and never mint a permitted row.
 const _IMPORT_EDGE = /^[ \t]*(\w+) e\d+@-->\|"\[IMPORT\]: [^"]*"\| (\w+)[ \t]*$/gm;
 
 const _declared = (page: string): HashMap.HashMap<string, readonly [folder: string, stratum: number]> =>
@@ -208,8 +182,6 @@ const _declared = (page: string): HashMap.HashMap<string, readonly [folder: stri
         },
     ).names;
 
-// An edge endpoint no cluster declared voids the whole parse — a reshaped or vanished strata fence
-// fails the gauge loudly instead of shrinking the law to the rows that still happen to parse.
 const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
     pipe(_declared(page), (names) =>
         Option.match(
@@ -250,8 +222,6 @@ const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
         ),
     );
 
-// Acyclicity by expression fixpoint: peel nodes whose every edge points outside the live set; a
-// non-empty residue after |rows| passes is the cycle core.
 const _acyclic = (rows: ReadonlyArray<LedgerRow>): boolean =>
     pipe(
         Array.reduce(Array.range(1, rows.length + 1), rows, (live) =>
@@ -260,15 +230,12 @@ const _acyclic = (rows: ReadonlyArray<LedgerRow>): boolean =>
         Array.isEmptyReadonlyArray,
     );
 
-// The one specifier-to-family projection every admission tier shares.
 const _familyOf = (specifier: string): Option.Option<string> =>
     Option.map(
         Array.findFirst(Record.toEntries(_FAMILIES), ([, pattern]) => pattern.test(specifier)),
         ([family]) => family,
     );
 
-// The package-name law and its inverse: `@rasm/<basename>` per zone folder, with depth projects
-// auditing under their owner zone. Substrate names resolve to no zone and fall to the family tier.
 const _pkgName = (folder: string): string => `@rasm/${_segments(folder).at(-1) ?? folder}`;
 
 const _zoneByName = (rows: ReadonlyArray<LedgerRow>): HashMap.HashMap<string, string> =>
@@ -311,7 +278,6 @@ const _cryptoRules: Parameters<typeof Imports.verdict>[1] = {
     zoneOf: _familyOf,
 };
 
-// A specifier's package name: the scoped pair for @-scopes, the head segment otherwise.
 const _scoped = (specifier: string): string =>
     pipe(_segments(specifier), (parts) => (specifier.startsWith('@') ? Array.take(parts, 2).join('/') : (parts[0] ?? specifier)));
 
@@ -327,7 +293,6 @@ const _ledger = Effect.gen(function* () {
     return _parsedLedger(yield* fs.readFileString(path.join(_ROOT, `${_BRANCH}/.planning/ARCHITECTURE.md`)));
 });
 
-// Every zone package on disk: ledger folders plus declared depth projects, each read as its manifest.
 const _packages = (rows: ReadonlyArray<LedgerRow>) =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -354,8 +319,6 @@ const _tagged = (folder: string, tags: ReadonlyArray<string>): Option.Option<Tag
         plane: Array.findFirst(tags, (tag) => tag.startsWith('plane:')),
     });
 
-// One package's entrypoint-purity verdict: the mandatory "./package.json" row and the single
-// unconditioned "." entry resolving to ./index.ts.
 const _purity = (folder: string, exports: Readonly<Record<string, string | Readonly<Record<string, string>>>>): ReadonlyArray<string> =>
     Array.appendAll(
         exports['./package.json'] === './package.json' ? [] : [`${folder}: exports must carry "./package.json": "./package.json"`],
@@ -372,8 +335,6 @@ const _purity = (folder: string, exports: Readonly<Record<string, string | Reado
         ),
     );
 
-// Every exports entry resolves on disk, unconditionally: entry files live at the package root (the
-// estate carries no src/ nesting), so a phantom condition file is a breach the moment it is declared.
 const _unresolvable = (
     folder: string,
     exports: Readonly<Record<string, string | Readonly<Record<string, string>>>>,
@@ -387,9 +348,6 @@ const _unresolvable = (
                 : Option.some(`${folder}: ${file} is absent on disk`),
     );
 
-// Isolation-completeness: a standalone package declares every bare specifier its source imports —
-// no phantom reach into the root pool or a sibling — and a relative import never escapes the
-// package root. Node builtins are the runtime's own surface and stay exempt.
 const _isolation = (
     folder: string,
     pkg: Pkg,
@@ -554,8 +512,6 @@ layer(NodeContext.layer)('edge ledger', (it) => {
             const rows = yield* _ledger;
             const packages = yield* _packages(rows);
             const names = _zoneByName(rows);
-            // Manifest @rasm/* edges are lawful exactly where the ledger (or the depth-owner seat)
-            // permits the zone crossing; substrate names stay outside the zone system.
             const lawless = Array.flatMap(packages, ({ folder, pkg }) =>
                 Option.match(pkg, {
                     onNone: (): ReadonlyArray<string> => [],
@@ -581,8 +537,6 @@ layer(NodeContext.layer)('edge ledger', (it) => {
                 }),
             );
             expect(lawless).toEqual([]);
-            // tsconfig references mirror the workspace dependency set exactly, so the type graph and
-            // the package graph cannot drift — this gauge replaces `nx sync --check`.
             const mirrors = yield* Effect.forEach(packages, ({ folder, pkg }) =>
                 Effect.gen(function* () {
                     const manifest = Option.getOrUndefined(pkg);
@@ -635,8 +589,6 @@ layer(NodeContext.layer)('edge ledger', (it) => {
                 }),
             );
             expect(Array.flatten(mirrors)).toEqual([]);
-            // Isolation-completeness per package: declared deps cover every bare import, and a
-            // relative import never leaves the package.
             const leaks = yield* Effect.forEach(packages, ({ folder, pkg }) =>
                 Option.match(pkg, {
                     onNone: () => Effect.succeed([] as ReadonlyArray<string>),
@@ -726,13 +678,10 @@ layer(NodeContext.layer)('edge ledger', (it) => {
 });
 
 describe('gauge falsification', () => {
-    // The fixture speaks the parser's own vocabulary: cluster lines mint through `_clusterLine` and
-    // cluster-id endpoints through `_clusterId`, so a re-lettered strata fence can never leave this
-    // block asserting a grammar the live parse no longer reads.
     const rows = _parsedLedger(
         [
             'flowchart TB',
-            _clusterLine(3, 'APP + DEPLOY'), // a multi-word title contributes its stratum alone; its member nodes name the folders
+            _clusterLine(3, 'APP + DEPLOY'),
             '        Shell[shell]',
             '        Plan[plan]',
             '    end',
@@ -759,10 +708,10 @@ describe('gauge falsification', () => {
 
     it('the ledger parser reads the strata fence and refuses undeclared endpoints', () => {
         expect(rows).toEqual([
-            { folder: 'core', edges: [], stratum: 0 }, // the single-word title names the cluster's own folder; `value` never crosses an import edge
+            { folder: 'core', edges: [], stratum: 0 },
             { folder: 'security', edges: ['core'], stratum: 1 },
             { folder: 'data', edges: ['core', 'security'], stratum: 2 },
-            { folder: 'plan', edges: ['data'], stratum: 3 }, // no `app` or `deploy` folder exists: the multi-word cluster named none
+            { folder: 'plan', edges: ['data'], stratum: 3 },
             { folder: 'shell', edges: ['core'], stratum: 3 },
         ]);
         expect(_parsedLedger('| [FROM] | [MAY_IMPORT] | [NOTES] |')).toEqual([]);
@@ -804,7 +753,6 @@ describe('gauge falsification', () => {
         expect(_purity('iac', { '.': './journal.ts', './package.json': './package.json' })).not.toEqual([]);
         expect(_purity('core', { '.': lawful['.'] })).not.toEqual([]);
         expect(_purity('core', { './package.json': './package.json' })).not.toEqual([]);
-        // a pre-minted condition split is refused: conditions are earned by a divergent implementation
         expect(
             _purity('core', {
                 '.': { server: './server.ts', browser: './browser.ts', wasm: './wasm.ts', default: './index.ts' },

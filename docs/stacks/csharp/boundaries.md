@@ -14,8 +14,8 @@ This table selects the owner for a foreign signal; when a signal matches several
 |  [04]   | callback or event    | subscription value  | channel-fed admitted signal       | orphan handler             |
 |  [05]   | thread-affine call   | marshal effect      | `Eff<RT,T>` with captured context | ambient thread check       |
 |  [06]   | session or singleton | token-gated cell    | committed state family            | boolean lifecycle flag     |
-|  [07]   | protocol payload     | wire contract       | admitted owner                    | codec-bearing domain owner |
-|  [08]   | signed byte field    | byte contract       | canonical octets plus hash        | parse-reserialize          |
+|  [07]   | protocol payload     | wire shape          | admitted owner                    | codec-bearing domain owner |
+|  [08]   | signed byte field    | byte identity       | canonical octets plus hash        | parse-reserialize          |
 
 ## [02]-[ADMISSION]
 
@@ -62,7 +62,7 @@ public static class ForeignAdmission {
 - Law: a native borrow spans the full operation that observes the handle — `DangerousAddRef`/`DangerousRelease` bracket the projection, and liveness is never tested apart from the consumption it guards.
 - Law: the native crossing splits into the closed `Fault` cases the projector already owns — the syscall `Host`, the marshalling `Marshal`, the refused mutation `Refused` — so the cause stays addressable, never a bare `Error.New(ex)` flattening a multi-cause domain to one token; the same borrow window the lifetime owns is where the discrimination rides, so no provider exception escapes unconverted.
 - Law: the measured window is the disposition's structural property, not a runtime flag — `Revise` threads one owned span through the edit `Seq` as an in-place kernel and refuses the read-only cases with the `Refused` fault; the per-edit rebind that recopies the whole buffer is the rejected quadratic form the platform makes prohibitive.
-- Law: callers receive values or rails, never live handles; deterministic close is the capsule's contract, and a handle left for finalization where close must precede the backing free is rejected.
+- Law: callers receive values or rails, never live handles; the capsule guarantees deterministic close, and a handle left for finalization where close must precede the backing free is rejected.
 - Law: a host base constructor that invokes virtuals before the subclass's fields exist takes a TYPED construction fence — one mount-phase vocabulary (`Raw` until the subclass constructor completes, `Mounted` after) every shell over that base composes; a bare `bool ready`/`mounted` field names neither the phase nor why the guard exists, and two shells minting sibling bools for one hazard is the fork the shared vocabulary deletes.
 - Exemption: the `SetHandle` populate, the add-ref/release window, and the in-place slice write inside the capsule kernel are the named platform-forced statement seam.
 - Reject: scattered `using`, public handle fields, parallel borrowed/owned/measured wrapper types, a second disposer registry, a bare `Error.New(ex)` where the closed family states the cause, or a per-edit buffer rebind where the measured window is revised in place.
@@ -302,10 +302,10 @@ public static class DrainBoundary {
 - Boundary: the fixed-arity axis set rides a value tuple or `[ComplexValueObject]` composite key, a dynamic one a `FrozenDictionary`; the rooted graph id is a neutral kernel value while any foreign or wire id is a boundary attribute, never the kernel key.
 - Reject: a content-only, path-only, type-only, or option-partial cache dropping the foreign or structural axis; an order-sensitive tree keyed on content alone that collapses identical-content siblings and loses the move; a process-randomized `GetHashCode` persisted as stable identity.
 
-## [06]-[WIRE_CONTRACTS]
+## [06]-[WIRE_SHAPES]
 
 [PROTOCOL_EDGE]:
-- Use: payload records, message envelopes, serializer contracts, persisted packets, and remote frames.
+- Use: payload records, message envelopes, serializer surfaces, persisted packets, and remote frames.
 - Law: wire shapes stay protocol-shaped at the edge — the converter is the only site where protocol and interior schemas meet, and interior owners carry no codec attributes, serializer options, or transport objects.
 - Law: a pure owner↔DTO field rename is a generated `[Mapper]` partial with `[MapProperty]` rows, never a hand-written field-by-field projection; only a discriminant-resolving or value-transforming crossing earns the hand-written `JsonConverter<T>`, so the rename path stays a definition-time aspect and the codec path owns the irreducible transform.
 - Law: inner message envelopes reject drift — duplicate keys, unknown inner members, null-token drift, and depth excess fail before admission — while outer wrappers tolerate only declared extension material; read and write depth limits differ, so a tree that writes cleanly can fail its own round-trip.
@@ -313,12 +313,12 @@ public static class DrainBoundary {
 - Law: the strict `RequiredMappingStrategy` stays strict — a member the message envelope owns and a payload mapping intentionally omits is pinned `[MapperIgnoreSource]` on that mapping, declaring the exclusion where it holds so the unmapped-member build break keeps guarding every other member; relaxing the strategy to discharge one exclusion is the deleted form.
 - Reject: last-write-wins or best-effort parse for owned protocol shapes; a hand-rolled rename mapper where `[Mapper]` generates it.
 
-[CONTRACT_SURFACE]:
-- Law: generation mode is contract coverage, not tuning — `Default` covers read and write, `Metadata` emits shapes with no fast path, `Serialization` emits write-only with no `Populate` — and `JsonTypeInfo<T>` coordinates carry name, requiredness, converter, order, and discriminant as breaking-change axes of equal gravity; resolver, converter, and options instances are stable contract identities, so policy variance travels through values the converter reads, never fresh option graphs that cold-miss the per-type metadata cache.
-- Law: `SerializeHandler != null` swept across every message-envelope type at startup is the compile-adjacent proof the write path stays generated and allocation-free — a null handler inside a source-generated context is the silent reflection fallback the contract claims it deleted.
+[CODEC_SURFACE]:
+- Law: generation mode fixes codec coverage, not tuning — `Default` covers read and write, `Metadata` emits shapes with no fast path, `Serialization` emits write-only with no `Populate` — and `JsonTypeInfo<T>` coordinates carry name, requiredness, converter, order, and discriminant as breaking-change axes of equal gravity; resolver, converter, and options instances are stable codec identities, so policy variance travels through values the converter reads, never fresh option graphs that cold-miss the per-type metadata cache.
+- Law: `SerializeHandler != null` swept across every message-envelope type at startup is the compile-adjacent proof the write path stays generated and allocation-free — a null handler inside a source-generated context is the silent reflection fallback the declared surface claims it deleted.
 - Law: a `TypeInfoResolver = Context.Default` options set resolves only `[JsonSerializable]`-registered roots, so every wire binding consumer-typed payloads — generic `Deserialize<T>`, POCO property reify — mounts an open-resolver options twin carrying the same converter rows; pointing a consumer wire at the closed context is a silent `GetTypeInfo` refusal, and runtime converters never substitute for root metadata.
-- Law: modifier fusion is ordered policy — rename before redaction is a different contract than redaction before rename — and a captured resolution fault replays on every request: sticky, non-transient, classified expected-non-retriable at the seam.
-- Reject: reflection fallback where the contract claims generated coverage; per-call resolver construction, reordered converter lists, or post-seal mutation; a fresh closured resolver per options forcing a cold metadata cache.
+- Law: modifier fusion is ordered policy — rename before redaction produces a different surface than redaction before rename — and a captured resolution fault replays on every request: sticky, non-transient, classified expected-non-retriable at the seam.
+- Reject: reflection fallback where the declaration claims generated coverage; per-call resolver construction, reordered converter lists, or post-seal mutation; a fresh closured resolver per options forcing a cold metadata cache.
 
 [CONVERTER_OWNER]:
 - Law: one `JsonConverter<T>` owns a closed wire family — read resolves the discriminant once and write emits it with the selected case — and the converter consumes exactly the value it owns, throwing `JsonException` for wire-shape rejection so token displacement, depth balance, and path evidence stay boundary facts.
@@ -371,10 +371,10 @@ public sealed class FrameConverter : JsonConverter<Frame> {
 
 [BYTE_IDENTITY]:
 - Use: signatures, hashes, idempotency keys, checksums, and byte-stable forwarding.
-- Law: semantic equality and byte equality are different contracts; raw octets are captured before parse, canonical octets are emitted once, and one encoder per byte-identity domain is a composition-time invariant asserted once, never chosen per site.
+- Law: semantic equality and byte equality are distinct invariants; raw octets are captured before parse, canonical octets are emitted once, and one encoder per byte-identity domain is a composition-time invariant asserted once, never chosen per site.
 - Law: signed numeric and timestamp fields survive only as raw token bytes — runtime normalization re-spells floats, trims timestamps, and re-kinds non-finite values.
 - Law: a 128-bit identity enters a hash frame as both canonical little-endian halves; converting it to an `Int64` seed truncates identity and manufactures deterministic collisions.
-- Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key and a delta requires a composable accumulator the content-address contract itself owns, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
+- Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key and a delta requires a composable accumulator owned by the content-addressing design, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
 - Law: a parent-ancestry key folds as an ordered incremental hash over the sorted parent keys — an XOR or addition fold self-cancels duplicate identical-content parents and erases multiplicity, so two nodes with different dependency multisets key identically.
 - Exemption: the parse-probe `using` inside the admission kernel is the named platform-forced statement seam.
 - Boundary: receipts carry coordinates and hashes, never payload bytes.

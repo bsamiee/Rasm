@@ -21,9 +21,9 @@ from expression import Error, Ok, Result
 import tomlkit
 from tomlkit.items import Array
 
-from assay.composition.settings import AssaySettings  # registry runtime resolves handler annotations
-from assay.composition.store import ArtifactScope  # registry runtime resolves handler annotations
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.model import BaseParams, Claim, Completed, Fault, RailStatus, receipt, Report
 from assay.diagnostics import fold
 
@@ -116,14 +116,12 @@ def _member_entries(root: Path) -> Result[tuple[str, ...], Fault]:
 
 
 def _declared_dirs(root: Path, members: tuple[str, ...]) -> frozenset[Path]:
-    # Glob rows expand against disk exactly as uv expands them; literal rows admit their one directory.
     return frozenset(
         path.resolve() for row in members for path in (root.glob(row) if any(ch in row for ch in "*?[") else (root / row,)) if path.is_dir()
     )
 
 
 def _disk_manifests(root: Path) -> tuple[Path, ...]:
-    # Governed trees only: one level under libs/python and tools, any depth under apps (apps own their shape).
     shallow = (candidate for tree in (_LIBS, _TOOLS) for candidate in sorted((root / tree).glob("*/pyproject.toml")))
     nested = sorted((root / _APPS).rglob("pyproject.toml")) if (root / _APPS).is_dir() else []
     return (*shallow, *nested)
@@ -180,7 +178,6 @@ def _write_new(root: Path, target: str, *, app: bool) -> Result[tuple[Completed,
     body = _APP_MANIFEST if app else _LIB_MANIFEST
     description = f"{leaf} application project." if app else f"rasm.{module} capability for the Rasm estate."
     package = (root / relative / module) if app else (root / relative / "rasm" / module)
-    # The blessed file set assembles fully before any write, so the try clause carries the effects alone.
     writes: tuple[tuple[Path, str], ...] = (
         (root / relative / "pyproject.toml", body.format(name=leaf, module=module, version=_VERSION, description=description)),
         (package / "__init__.py", f'"""{description}"""\n'),
@@ -199,7 +196,6 @@ def _write_new(root: Path, target: str, *, app: bool) -> Result[tuple[Completed,
 
 
 def _append_member(root: Path, row: str) -> None:
-    # tomlkit round-trips the root manifest so comments and layout survive; a present row appends nothing.
     manifest = tomlkit.parse((root / "pyproject.toml").read_text(encoding="utf-8"))
     members = manifest["tool"]["uv"]["workspace"]["members"]
     if isinstance(members, Array) and row not in {str(item) for item in members}:

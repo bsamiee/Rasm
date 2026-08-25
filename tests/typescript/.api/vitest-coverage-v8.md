@@ -23,28 +23,25 @@
 |  [05]   | `ScriptCoverageWithOffset`                  | type                     | `Profiler.ScriptCoverage` + `startOffset` (raw V8 source frame) |
 
 ```ts signature
-// index.d.ts — the default export is the module vitest loads for provider:'v8'; you never construct it.
 declare const mod: CoverageProviderModule; export { mod as default }
-interface CoverageProviderModule { getProvider(): CoverageProvider | Promise<CoverageProvider>; /* + start/take/stopCoverage worker hooks */ }
-// provider.d.ts — V8 native coverage → AST remap → istanbul reports; the private steps are the v4 pipeline.
+interface CoverageProviderModule { getProvider(): CoverageProvider | Promise<CoverageProvider>;  }
 declare class V8CoverageProvider extends BaseCoverageProvider implements CoverageProvider {
   name: "v8"
-  generateCoverage({ allTestsRun }: ReportContext): Promise<CoverageMap>   // from node:inspector Profiler.ScriptCoverage
+  generateCoverage({ allTestsRun }: ReportContext): Promise<CoverageMap>
   generateReports(coverageMap: CoverageMap, allTestsRun?: boolean): Promise<void>
-  parseConfigModule(configFilePath: string): Promise<ProxifiedModule<any>>  // magicast — rewrites thresholds on autoUpdate
+  parseConfigModule(configFilePath: string): Promise<ProxifiedModule<any>>
 }
 ```
 
 [PUBLIC_TYPE_SCOPE]: the shared report/threshold engine `V8CoverageProvider` inherits — the code the gauge's "thresholds as data" runs through.
 
 ```ts signature
-// vitest/node — BaseCoverageProvider owns the threshold gate; subclasses supply collection + remap only.
 declare class BaseCoverageProvider {
   readonly name: "v8" | "istanbul"; options: ResolvedCoverageOptions
   reportCoverage(coverageMap: unknown, ctx: ReportContext): Promise<void>
-  reportThresholds(coverageMap: CoverageMap, allTestsRun?: boolean): Promise<void>   // sets exit 1 when unmet
-  updateThresholds(args: { thresholds: ResolvedThreshold[]; onUpdate: () => void; configurationFile: unknown }): Promise<void>  // autoUpdate
-  getUntestedFiles(testedFiles: string[]): Promise<string[]>; isIncluded(filename: string, root?: string): boolean  // include/exclude glob gate
+  reportThresholds(coverageMap: CoverageMap, allTestsRun?: boolean): Promise<void>
+  updateThresholds(args: { thresholds: ResolvedThreshold[]; onUpdate: () => void; configurationFile: unknown }): Promise<void>
+  getUntestedFiles(testedFiles: string[]): Promise<string[]>; isIncluded(filename: string, root?: string): boolean
 }
 ```
 
@@ -75,10 +72,10 @@ interface CoverageOptions {
   reporter?: Arrayable<CoverageReporter> | (CoverageReporter | [CoverageReporter] | CoverageReporterWithOptions)[]
   thresholds?: Thresholds | ({ [glob: string]: Pick<Thresholds, 100 | "statements" | "functions" | "branches" | "lines"> } & Thresholds)
   reportOnFailure?: boolean; skipFull?: boolean; allowExternal?: boolean; excludeAfterRemap?: boolean; htmlDir?: string
-  instrumenter?: (options: InstrumenterOptions) => CoverageInstrumenter          // v4 experimental — pluggable instrumenter
-  customProviderModule?: string                                                  // provider:'custom' loader
+  instrumenter?: (options: InstrumenterOptions) => CoverageInstrumenter
+  customProviderModule?: string
 }
-type CoverageReporter = keyof ReportOptions | (string & {})                       // istanbul reporter names + open string
+type CoverageReporter = keyof ReportOptions | (string & {})
 ```
 
 ## [03]-[THRESHOLDS]
@@ -87,13 +84,11 @@ type CoverageReporter = keyof ReportOptions | (string & {})                     
 
 ```ts signature
 interface Thresholds {
-  100?: boolean            // set statements/functions/branches/lines all to 100
-  perFile?: boolean        // gate each file, not the aggregate
-  autoUpdate?: boolean | ((newThreshold: number) => number)   // ratchet the floor up on higher coverage (magicast-rewrites config)
+  100?: boolean
+  perFile?: boolean
+  autoUpdate?: boolean | ((newThreshold: number) => number)
   statements?: number; functions?: number; branches?: number; lines?: number
 }
-// Per-glob override: tighten a hot path above the global floor — one parameterized map, not a per-file config family.
-//   thresholds: { functions: 95, branches: 70, autoUpdate: true, 'src/value/**.ts': { lines: 100, statements: 95 } }
 ```
 
 ## [04]-[INTEGRATION]

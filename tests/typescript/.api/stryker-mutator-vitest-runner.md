@@ -22,7 +22,6 @@
 |  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the `FactoryPlugin` factory yield; implements [02]         |
 
 ```ts signature
-// index.d.ts — the ENTIRE public barrel is two exports; PluginKind/FactoryPlugin import from @stryker-mutator/api/plugin (core [04]).
 import { PluginKind, FactoryPlugin } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]
 export declare const strykerValidationSchema: typeof import('../schema/vitest-runner-options.json')
@@ -43,11 +42,10 @@ export declare const strykerValidationSchema: typeof import('../schema/vitest-ru
 |  [07]   | `TestResult`             | discriminated union | `Success \| Failed \| Skipped` on `TestStatus` — dry-run per-test rows      |
 
 ```ts signature
-// test-runner.d.ts / mutant-run-result.d.ts — the kill verdict is a tagged union; `Killed` names the killing tests.
 interface TestRunner {
   capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities
   init?(): Promise<void>
-  dryRun(options: DryRunOptions): Promise<DryRunResult>       // baseline: run all specs, collect per-test coverage
+  dryRun(options: DryRunOptions): Promise<DryRunResult>
   mutantRun(options: MutantRunOptions): Promise<MutantRunResult>
   dispose?(): Promise<void>
 }
@@ -58,9 +56,9 @@ type MutantRunResult =
   | { status: MutantRunStatus.Error;    errorMessage: string }
 interface MutantRunOptions {
   activeMutant: Mutant; sandboxFileName: string
-  testFilter?: string[]              // only the specs that cover this mutant (from dry-run perTest coverage)
-  hitLimit?: number                  // abort a runaway mutant after N instrumentation hits (infinite-loop guard)
-  mutantActivation: MutantActivation // 'static' = load-time, 'runtime' = per-test
+  testFilter?: string[]
+  hitLimit?: number
+  mutantActivation: MutantActivation
   timeout: number; disableBail: boolean; reloadEnvironment: boolean
 }
 ```
@@ -68,12 +66,11 @@ interface MutantRunOptions {
 [INSTRUMENTATION_CHANNEL] — the runner augments `vitest`'s own context to pass mutant state INTO the worker and coverage back OUT, without a side channel. `ProvidedContext` carries the active mutant and hit budget to each test; `TaskMeta` carries the per-test hit count and `MutantCoverage` back — composing onto the host's canonical instrument channel (`INSTRUMENTER_CONSTANTS` / `MutantCoverage`, `stryker-mutator-core.md` [05]).
 
 ```ts signature
-// stryker-setup.d.ts — `declare module 'vitest'` augmentation; the bridge between Stryker and the vitest worker.
 declare module 'vitest' {
   interface ProvidedContext {
     globalNamespace: '__stryker__' | '__stryker2__'; activeMutant: string | undefined
     hitLimit: number | undefined; mutantActivation: MutantActivation; mode: 'mutant' | 'dry-run'
-    isGreaterThanVitest4Point1: boolean                      // vitest>=4.1 API-shape switch read inside the worker
+    isGreaterThanVitest4Point1: boolean
   }
   interface TaskMeta { hitCount: number | undefined; mutantCoverage: MutantCoverage | undefined }
 }
@@ -95,16 +92,14 @@ Runner and the whole mutation gauge are ONE declarative options object `stryker.
 |  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
 
 ```ts signature
-import type { PartialStrykerOptions } from "@stryker-mutator/api/core"   // the canonical schema — stryker-mutator-core.md [02]
-// StrykerVitestRunnerOptions is the plugin-owned bag; MutationScoreThresholds/CoverageAnalysis are core ([02]).
+import type { PartialStrykerOptions } from "@stryker-mutator/api/core"
 interface StrykerVitestRunnerOptions { vitest: { dir?: string; related: boolean; configFile?: string } }
-// stryker.config.json encodes ONE PartialStrykerOptions (core [02]); this plugin's rows merge onto it, and `checkers` stays empty:
 const strykerConfig = {
   mutate: ["src/**/*.ts", "!src/**/*.spec.ts"],
   testRunner: "vitest",
   coverageAnalysis: "perTest",
   vitest: { configFile: "vitest.config.ts" },
-  thresholds: { high: 90, low: 80, break: 80 },   // CI fails below 80% mutation score
+  thresholds: { high: 90, low: 80, break: 80 },
   reporters: ["json", "html", "clear-text"],
 } satisfies PartialStrykerOptions & StrykerVitestRunnerOptions
 ```

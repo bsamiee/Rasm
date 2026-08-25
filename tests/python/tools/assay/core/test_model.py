@@ -100,10 +100,8 @@ from tests.python.tools.assay.kit import (
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# get_args avoids a manual parallel list that would drift from the union definition.
 _DETAIL_VARIANTS: tuple[type[Detail], ...] = get_args(AnyDetail.__value__)
 
-# Each row drives registration and round-trip coverage for one wire struct.
 _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Stage, stage_st),
     (Tool, tool_st),
@@ -141,7 +139,6 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
     (255, RailStatus.FAILED),
 )
 
-# Pre-trace history fixture keeps additive Diagnostic defaults hermetic.
 _PRE_TRACE_ENVELOPE: bytes = (
     b'{"claim":"static","verb":"fix","status":"faulted","exit_code":2,'
     b'"run_id":"2026-06-10T05-34-31.783586-61744","error":{"argv":[],"message":"parse: x"},'
@@ -268,7 +265,7 @@ def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
 
 def test_alias_skipped_resolves_to_skip() -> None:
     """RailStatus('skipped') is RailStatus.SKIP — the wire alias contract."""
-    assert RailStatus("skipped") is RailStatus.SKIP  # type: ignore[call-arg]  # enum value lookup, not the 3-arg member constructor
+    assert RailStatus("skipped") is RailStatus.SKIP  # type: ignore[call-arg]
 
 
 # --- [CENSUS]
@@ -346,11 +343,11 @@ def test_census_law_refutes_every_way_a_leaf_could_be_miscounted() -> None:
     """The census oracle fails on each historical miscount: a skip folded onto a proof, and a terminal status erased."""
     _census_law((RailStatus.SKIP,), Counts.of(RailStatus.SKIP))
     _census_law((RailStatus.FAULTED, RailStatus.FAILED), Counts.of(RailStatus.FAILED, RailStatus.FAULTED))
-    refutes((RailStatus.SKIP,), _census_law, Counts.of(RailStatus.OK))  # a governed skip counted as a proof
-    refutes((RailStatus.EMPTY,), _census_law, Counts.of(RailStatus.SKIP))  # a clean silent exit counted as never run
-    refutes((RailStatus.FAULTED,), _census_law, Counts())  # a broken tool erased from the tally
-    refutes((RailStatus.TIMEOUT,), _census_law, Counts())  # a lane cut short erased from the tally
-    refutes((RailStatus.OK, RailStatus.OK), _census_law, Counts.of(RailStatus.OK))  # a repeated status seated once
+    refutes((RailStatus.SKIP,), _census_law, Counts.of(RailStatus.OK))
+    refutes((RailStatus.EMPTY,), _census_law, Counts.of(RailStatus.SKIP))
+    refutes((RailStatus.FAULTED,), _census_law, Counts())
+    refutes((RailStatus.TIMEOUT,), _census_law, Counts())
+    refutes((RailStatus.OK, RailStatus.OK), _census_law, Counts.of(RailStatus.OK))
 
 
 # --- [FOLD]
@@ -424,7 +421,6 @@ def test_fold_failed_defect_row_carries_argv_id_and_stderr_tail() -> None:
 
 
 def _stamped(done: Completed, parser: Parser) -> Completed:
-    # Mirrors the engine's receipt-time stamp; receipt() itself never keys a diagnostics family.
     return msgspec.structs.replace(done, parser=parser)
 
 
@@ -525,7 +521,6 @@ def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
     (app_dir / "App.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")))
     (app_dir / "Dep.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency")))
     (lib_dir / "Lib.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0303", "warning", 11, "second")))
-    # The engine stamps Completed.sarif_dir from Check.args; the fold never re-parses the argv token.
     outcomes = (
         msgspec.structs.replace(receipt(("dotnet", "build", "src/App/App.csproj"), 0, status=RailStatus.OK), sarif_dir=str(app_dir)),
         msgspec.structs.replace(receipt(("dotnet", "build", "src/Lib/Lib.csproj"), 0, status=RailStatus.OK), sarif_dir=str(lib_dir)),
@@ -883,12 +878,12 @@ def test_wire_safe_neutralizes_surrogates(surrogates: str) -> None:
     """wire_safe makes any lone-surrogate string UTF-8 encodable, where the raw string would raise."""
     with pytest.raises(UnicodeEncodeError):
         surrogates.encode("utf-8")
-    wire_safe(surrogates).encode("utf-8")  # would raise if a surrogate survived
+    wire_safe(surrogates).encode("utf-8")
 
 
 @example(text="")
-@example(text="\U0010ffff")  # max valid codepoint, multi-byte
-@example(text="a" * 64)  # max-size boundary
+@example(text="\U0010ffff")
+@example(text="a" * 64)
 @given(st.text(max_size=64))
 def test_wire_safe_idempotent_on_clean(text: str) -> None:
     """wire_safe is idempotent: a UTF-8-clean string passes through unchanged."""
@@ -1011,7 +1006,6 @@ def test_language_choice_conflicting_flags_fault() -> None:
 
 
 # --- [BIND]
-# Bind carries callable/type objects, so registry shape is the law instead of wire round-trip.
 
 
 @given(binds_st)

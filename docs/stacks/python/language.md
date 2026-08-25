@@ -1,6 +1,6 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active branch language surface. This page is the version-feature and type-level evidence law: every static, caller-facing type-form contract that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. Value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; structured concurrency rides `concurrency.md`; interpreter isolation and runtime-state introspection ride `runtime.md`. An interpreter-incompatible native service does not weaken this surface: it is an independent uv project, its own files use that project's declared language surface, and generated protobuf is the only crossing.
+Python `>=3.15` is the active branch language surface. This page is the version-feature and type-level evidence law: every static, caller-facing type form that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. Value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; structured concurrency rides `concurrency.md`; interpreter isolation and runtime-state introspection ride `runtime.md`. An interpreter-incompatible native service does not weaken this surface: it is an independent uv project, its own files use that project's declared language surface, and generated protobuf is the only crossing.
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
@@ -10,7 +10,7 @@ Python `>=3.15` is the active branch language surface. This page is the version-
 - Tool baseline: `uv` owns Python environment, lockfile, dependency, and tool execution entrypoints
 - Type gates: strict `ty` and strict `mypy`
 - Formatter and lint gate: `Ruff` preview policy
-- Encoding baseline: UTF-8 default with explicit persisted-I/O contracts
+- Encoding baseline: UTF-8 default with explicit persisted-I/O boundaries
 - Import baseline: module-scope named imports, with `lazy import`/`lazy from` deferring cold dependencies and a module `__getattr__` publishing the deferred package surface; never a function-local or `importlib`-scattered import
 - Export baseline: explicit end-of-file `__all__`; no wildcard imports, barrel files, facade exports, or empty `__init__.py` package markers
 - Annotation baseline: deferred annotations inspected through annotation APIs
@@ -35,7 +35,7 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 |  [08]   | method override          | `@typing.override`                                        | unmarked subclass overrides         |
 |  [09]   | finality                 | `@typing.final` and `Final`                               | prose-only finality                 |
 |  [10]   | typed disjointness       | `@typing.disjoint_base`                                   | prose-only disjointness             |
-|  [11]   | generic slice            | `slice[T]`                                                | unparameterized slice contracts     |
+|  [11]   | generic slice            | `slice[T]`                                                | unparameterized slice declarations  |
 |  [12]   | I/O protocol             | `io.Reader` and `io.Writer`                               | `typing.IO` pseudo-protocols        |
 |  [13]   | buffer protocol          | `collections.abc.Buffer`                                  | `ByteString` or bytes prose         |
 
@@ -54,7 +54,7 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 |  [01]   | kwargs payload     | `Unpack[TypedDict]`              | homogeneous `**kwargs`             |
 |  [02]   | typed dict closure | `closed=` and `extra_items=`     | open payload prose                 |
 |  [03]   | required keys      | `Required[]` and `NotRequired[]` | split `TypedDict` inheritance      |
-|  [04]   | immutable keys     | `ReadOnly[T]` in `TypedDict`     | prose-only immutable key contracts |
+|  [04]   | immutable keys     | `ReadOnly[T]` in `TypedDict`     | prose-only immutable key promises  |
 
 [CLOSED_DISPATCH_AND_VALUE_FORMS]: how a closed domain dispatches, proves exhaustiveness, and carries an immutable value.
 
@@ -105,15 +105,15 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 |  [02]   | startup hook    | `.start` entries                                                        | executable `.pth` import lines        |
 |  [03]   | UTF-8 default   | UTF-8 default; `encoding="locale"`                                      | locale-dependent implicit text I/O    |
 
-## [03]-[LANGUAGE_FORM_CONTRACTS]
+## [03]-[LANGUAGE_FORMS]
 
-Use these contracts when the chooser names the primitive but code still needs a placement rule.
+Use these placement rules when the chooser names the primitive but code still needs a declaration site.
 
 [TYPE_DECLARATION_SITE]:
 - Use when: the defining declaration, the decorator that builds a family of owners, or the callable signature can carry type evidence that callers otherwise repair downstream.
 - Accept: inline type parameters, `type` aliases, `TypeForm[T]` for type-expression values, type parameter defaults, `NoDefault`, `slice[T]`, `io.Reader`/`io.Writer`, `@typing.override`, `typing.Self`, `@typing.disjoint_base`, `@typing.final` and `Final`, `@dataclass_transform()` with `field_specifiers` for a generated-owner decorator, inline `**P` with `Concatenate` for parameter-preserving callable signatures, and `TypeVarTuple` `bound`, `covariant`, `contravariant`, and `infer_variance` arguments.
 - Reject: erased `Callable[..., T]`, imported `ParamSpec` or `TypeVar`/`Generic` where inline `**P` and `class C[T]` express the shape, `from typing_extensions import` for any member the active `typing` namespace exports, `slots_default`/non-existent decorator keywords, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness or finality, bound-self boilerplate, checker-invisible model decorators, and protocol shells created only to type an existing object.
-- Boundary: `TypeForm`, disjointness, finality, generated-owner, and signature evidence are static typing contracts that carry no runtime value; runtime validation, object-family policy, aspect architecture, protocol ports, and payload materialization belong to the owning concept page.
+- Boundary: `TypeForm`, disjointness, finality, generated-owner, and signature evidence are static typing forms that carry no runtime value; runtime validation, object-family policy, aspect architecture, protocol ports, and payload materialization belong to the owning concept page.
 
 [TYPE_PREDICATE_SITE]:
 - Use when: a reusable predicate proves exact type membership that inline narrowing cannot express.
@@ -217,7 +217,7 @@ def described(context: Context, value: Member, raw: object, /) -> str:
 ```
 
 [TYPED_DICT_PAYLOAD_SITE]:
-- Use when: keyword or dictionary payload shape is part of the static callable contract; the type form and its root signature are declared here.
+- Use when: keyword or dictionary payload shape is part of the static callable signature; the type form and its root signature are declared here.
 - Accept: `Unpack[TypedDict]` as the keyword-payload type at the root entrypoint, `closed=True` for exact-key closure, `extra_items=T` for the typed extension band — `ReadOnly`-wrapped when the band is read-only — and `Required[]`, `NotRequired[]`, `ReadOnly[T]` as per-key static evidence; the interior consumes the concrete `TypedDict` by value, reading a `NotRequired[]` key through `.get` rather than re-checking presence.
 - Reject: homogeneous `**kwargs`, open payload prose, split total/non-total `TypedDict` mirror shapes, `Unpack` re-spread through an interior signature, mutable-key promises in comments, and `Mapping[str, object]` bags.
 - Boundary: this site owns the payload type form and the `Unpack` root signature; `TypeAdapter` admission of the raw payload, `frozendict` extension-band materialization, and the `Result` rail are the value lifecycle owned by the shape page.
@@ -251,9 +251,9 @@ SHAPE = admitted(key="<key-a>", span={"lo": 0, "hi": 4}, tag="<ext-a>")
 
 [MODULE_BOUNDARY_SITE]:
 - Use when: a module declares its public names, imports another module surface, or registers an auditable startup hook.
-- Accept: named imports, end-of-file `__all__`, `__init__.py` only when it owns real package initialization or a public package contract, and `.start` entries in mandatory `pkg.mod:callable` form for zero-argument startup hooks.
+- Accept: named imports, end-of-file `__all__`, `__init__.py` only when it owns real package initialization or a public package surface, and `.start` entries in mandatory `pkg.mod:callable` form for zero-argument startup hooks.
 - Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, re-export files that hide the real owner, executable `.pth` import lines, implicit import side effects, and startup code hidden in package marker files.
-- Boundary: package topology, generated API documentation, public package contracts, source-symbol documentation, site processing, and startup ordering belong to their owning platform, architecture, or code-documentation surface.
+- Boundary: package topology, generated API documentation, public package surfaces, source-symbol documentation, site processing, and startup ordering belong to their owning platform, architecture, or code-documentation surface.
 
 [LAZY_IMPORT_SITE]:
 - Use when: a cold, heavy, native, or cyclically coupled dependency must stay declared at the module boundary while its import cost falls on first use, or a package `__init__` publishes a deferred public surface — mandatory re-exports kept lexically static-visible, optional install-extra-gated submodules left degradable, and a computed metadata tail — eagerly importing none of it.

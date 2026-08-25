@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import time
 from typing import Final, TYPE_CHECKING
-lazy import shutil  # materializes on the probe paths alone; non-probe verbs never pay the load
+lazy import shutil
 
 import msgspec
 import psutil
@@ -56,7 +56,6 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = ((Runner.UV.pref
 
 
 class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    # Path+mtime tokens invalidate cached probes on tool or lockfile upgrades.
     token: str = ""
     ts: float = 0.0
     note: str = ""
@@ -72,7 +71,6 @@ class _ProcessRow(msgspec.Struct, frozen=True, gc=False):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json.Decoder(dict[str, _ProbeRow])
-# Catalog anchors: the {argv*} probe template plus the literal git rows; health never mints Tools.
 _TOOL_PROBE: Final[Tool] = next(t for t in TOOLS if t.name == "tool-probe")
 _GIT_HEAD: Final[Check] = Check(tool=next(t for t in TOOLS if t.name == "git-head"))
 _GIT_DIRTY: Final[Check] = Check(tool=next(t for t in TOOLS if t.name == "git-dirty"))
@@ -85,12 +83,10 @@ _LOG: Final = structlog.get_logger("assay.health")
 
 
 def _probe(argv: tuple[str, ...]) -> Check:
-    # One template row owns every launcher probe; the engine fills {argv*} from the typed splice value.
     return Check(tool=_TOOL_PROBE, args=ToolArgs(argv=argv))
 
 
 def _probe_argv(check: Check) -> tuple[str, ...]:
-    # Cache/identity key: the filled probe argv for template checks, the literal row command otherwise.
     return check.args.argv or check.tool.command
 
 
@@ -106,7 +102,6 @@ def _uv_run_program(argv: tuple[str, ...]) -> str | None:
         index += 2 if option in _UV_RUN_VALUE_OPTIONS else 1
     if index >= len(argv):
         return ""
-    # A `python -m <module>` form has no program on PATH; the empty return elects the interpreter as the probe boundary.
     return "" if argv[index : index + 2] == ("python", "-m") and index + 2 < len(argv) else argv[index]
 
 
@@ -118,7 +113,6 @@ def _probe_token(argv: tuple[str, ...]) -> str | None:
             return None
 
     def lock_path(name: str) -> str | None:
-        # Start at the .venv shim so lockfile ancestry follows the workspace, not the Nix-store target.
         bases = Path(sys.executable).parents
         return next((str(base / name) for base in bases if (base / name).exists()), None)
 
@@ -160,7 +154,6 @@ def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
 def _probe_cache_store(
     settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
 ) -> None:
-    # Best-effort cache: persist token-resolvable catalog probes and evict removed-tool keys.
     fresh_rows = {
         _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
         for argv, (note, ok) in fresh.items()
@@ -178,7 +171,6 @@ def _probe_cache_store(
 
 
 def _tool_probes() -> tuple[tuple[str, Check], ...]:
-    # DOTNET rows share one SDK probe; INPROC rows and hole-leading templates ({binary}/{argv*}) have no probeable literal.
     def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:
         match tool.runner:
             case Runner.DOTNET:
@@ -205,7 +197,6 @@ def _probe_note(label: str, result: Result[Completed, Fault]) -> tuple[str, bool
             lines = d.stdout.decode(errors="replace").strip().splitlines()
             return f"tool {label}: {lines[0][:80] if lines else 'present'}", True
         case Completed() as d:
-            # Nonzero --version output still proves the launcher exists; missing launchers return the fault rail.
             lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
             version = f": {lines[0][:80]}" if lines else ""
             return f"tool {label}: present (exit {d.returncode}){version}", True
@@ -260,7 +251,6 @@ def yak_ready() -> bool:
     Returns:
         True when a catalogued PACKAGE-claim yak row exists and ``yak`` resolves on PATH.
     """
-    # shutil.which mirrors DIRECT execvp lookup; os.access would check CWD-relative paths.
     return any(t.name == "yak" and t.claim is Claim.PACKAGE for t in TOOLS) and shutil.which("yak") is not None
 
 

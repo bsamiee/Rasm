@@ -27,21 +27,20 @@ One parameterized builder spans the whole package: `GenericContainer(image)` car
 |  [07]   | `ContentToCopy` / `FileToCopy` | type                             | seed content/files into the image (init SQL, fixtures) |
 
 ```ts signature
-// build/generic-container.d.ts — one builder; a lane is the SET of with* rows it applies. Every setter returns `this`.
 declare class GenericContainer implements TestContainer {
   constructor(image: string)
   static fromDockerfile(context: string, dockerfileName?: string): GenericContainerBuilder
-  withExposedPorts(...ports: PortWithOptionalBinding[]): this   // container port → random host port (getMappedPort)
-  withEnvironment(environment: Environment): this               // POSTGRES_PASSWORD, MINIO_ROOT_USER, …
+  withExposedPorts(...ports: PortWithOptionalBinding[]): this
+  withEnvironment(environment: Environment): this
   withCommand(command: string[]): this; withEntrypoint(entrypoint: string[]): this
-  withWaitStrategy(waitStrategy: WaitStrategy): this            // readiness gate — see [03]
+  withWaitStrategy(waitStrategy: WaitStrategy): this
   withStartupTimeout(startupTimeoutMs: number): this
-  withHealthCheck(healthCheck: HealthCheck): this               // pairs with Wait.forHealthCheck()
-  withCopyContentToContainer(contentsToCopy: ContentToCopy[]): this   // inline init SQL / seed bytes
+  withHealthCheck(healthCheck: HealthCheck): this
+  withCopyContentToContainer(contentsToCopy: ContentToCopy[]): this
   withCopyFilesToContainer(filesToCopy: FileToCopy[]): this
   withBindMounts(bindMounts: BindMount[]): this; withTmpFs(tmpFs: TmpFs): this
   withNetwork(network: StartedNetwork): this; withNetworkAliases(...aliases: string[]): this
-  withReuse(): this                                             // keep a warm container across runs (dev-loop speed)
+  withReuse(): this
   withResourcesQuota(quota: ResourcesQuota): this; withUlimits(ulimits: Ulimits): this
   withPullPolicy(pullPolicy: ImagePullPolicy): this; withPlatform(platform: string): this
   withLabels(labels: Labels): this; withName(name: string): this; withLogConsumer(c: (s: Readable) => unknown): this
@@ -62,18 +61,17 @@ declare class GenericContainer implements TestContainer {
 |  [05]   | `ExecOptions`              | type                                    | `{ workingDir; user; env }` exec context (`psql`/`mc`)      |
 
 ```ts signature
-// build/test-container.d.ts — the started handle; getMappedPort is the whole point, AsyncDisposable is the Effect seam.
 interface StartedTestContainer extends AsyncDisposable {
   getHost(): string
   getFirstMappedPort(): number
-  getMappedPort(port: number, protocol?: string): number          // 5432 → the random host port to connect to
+  getMappedPort(port: number, protocol?: string): number
   getName(): string; getId(): string; getLabels(): Labels
   getNetworkId(networkName: string): string; getIpAddress(networkName: string): string
-  exec(command: string | string[], opts?: Partial<ExecOptions>): Promise<ExecResult>   // psql -c, mc mb, pg_dump …
+  exec(command: string | string[], opts?: Partial<ExecOptions>): Promise<ExecResult>
   logs(opts?: { since?: number; tail?: number }): Promise<Readable>
   restart(options?: Partial<RestartOptions>): Promise<void>
-  stop(options?: Partial<StopOptions>): Promise<StoppedTestContainer>                   // { timeout; remove; removeVolumes }
-  [Symbol.asyncDispose](): Promise<void>                                                // ← Effect.acquireRelease release
+  stop(options?: Partial<StopOptions>): Promise<StoppedTestContainer>
+  [Symbol.asyncDispose](): Promise<void>
 }
 type ExecResult = { output: string; stdout: string; stderr: string; exitCode: number }
 ```
@@ -95,7 +93,6 @@ Every row leaving its gate unset inherits the image's own `HEALTHCHECK` and fall
 |  [07]   | `Wait.forOneShotStartup()`                  | `WaitStrategy`          | ready when a run-to-completion container exits              |
 
 ```ts signature
-// build/wait-strategies — the HTTP gate refines fluently; the pg + S3 rows differ only in which factory + refinements.
 declare class Wait {
   static forLogMessage(message: string | RegExp, times?: number): WaitStrategy
   static forHttp(path: string, port: number, options?: { abortOnContainerExit?: boolean }): HttpWaitStrategy
@@ -125,16 +122,15 @@ Cross-container wiring, runtime detection, image policy, and the multi-service c
 |  [07]   | `StartedDockerComposeEnvironment`     | class `AsyncDisposable` | `.getContainer(name).getMappedPort(p)`; `.down()`                      |
 
 ```ts signature
-// build/network + test-containers + docker-compose-environment — the two-row wiring surface.
 declare class Network { constructor(uuid?: Uuid); start(): Promise<StartedNetwork> }
 declare class TestContainers { static exposeHostPorts(...ports: number[]): Promise<void> }
-declare function getContainerRuntimeClient(): Promise<ContainerRuntimeClient>   // detects Docker vs Colima vs Podman
+declare function getContainerRuntimeClient(): Promise<ContainerRuntimeClient>
 declare class DockerComposeEnvironment {
   constructor(composeFilePath: string, composeFiles: string | string[], uuid?: Uuid)
-  withDefaultWaitStrategy(waitStrategy: WaitStrategy): this      // one gate over EVERY service — the per-service override still wins
+  withDefaultWaitStrategy(waitStrategy: WaitStrategy): this
   withWaitStrategy(containerName: string, waitStrategy: WaitStrategy): this
   withProfiles(...profiles: string[]): this; withProjectName(projectName: string): this
-  up(services?: string[]): Promise<StartedDockerComposeEnvironment>              // both rows in one compose file
+  up(services?: string[]): Promise<StartedDockerComposeEnvironment>
 }
 ```
 
@@ -145,12 +141,11 @@ declare class DockerComposeEnvironment {
 [STACK: both harness rows as data on the one builder] — the pg row and the S3 store row differ only in their `with*` data, not in mechanism:
 
 ```ts signature
-// TWO ROWS, ONE BUILDER — image + ports + env + wait are the parameterization; a third lane is a third row.
-const pgRow    = new GenericContainer(Containers.pin("pg"))         // server-extension image, resolved from tests/containers.json
+const pgRow    = new GenericContainer(Containers.pin("pg"))
   .withExposedPorts(5432).withEnvironment({ POSTGRES_PASSWORD: "…" })
   .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))
-const storeRow = new GenericContainer(Containers.pin("store"))      // S3-compatible lane, resolved from tests/containers.json
-  .withExposedPorts(9000).withEnvironment({ /* root creds */ })
+const storeRow = new GenericContainer(Containers.pin("store"))
+  .withExposedPorts(9000).withEnvironment({  })
   .withWaitStrategy(Wait.forHttp("/minio/health/live", 9000).forStatusCode(200))
 ```
 

@@ -27,13 +27,11 @@ class Config:
     mutate_only_covered_lines: bool; max_stack_depth: int; debug: bool
     timeout_multiplier: float; timeout_constant: float; type_check_command: list[str]; use_setproctitle: bool
     @classmethod
-    def get(cls) -> "Config": ...                          # process-wide singleton accessor
+    def get(cls) -> "Config": ...
 
-# status_by_exit_code value domain — the mutant status vocabulary mutation_gate.py folds into the score
 STATUS = ("killed", "survived", "no tests", "timeout", "suspicious",
           "skipped", "segfault", "not checked", "caught by type check", "check was interrupted by user")
 
-# walk_mutatable_files and orig_function_and_class_names_from_key both live on mutmut.__main__
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -50,11 +48,10 @@ STATUS = ("killed", "survived", "no tests", "timeout", "suspicious",
 |  [08]   | `mutmut export-cicd-stats`                      | CLI telemetry | CI/CD stats JSON export                            |
 
 ```python signature
-# [tool.mutmut] as the repo carries it — the covered-line map is fed an absolute-keyed coverage side-file.
 source_paths = ["assay"] (package-relative; policy lives in tools/assay/pyproject.toml); do_not_mutate = ["assay/__init__.py", "assay/rails/mutation_gate.py"]
 pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]; mutate_only_covered_lines = True; max_stack_depth = -1
 pytest_add_cli_args = ["--hypothesis-profile=rasm-mutation", "-o", "required_plugins=", "-m", "not benchmark and not network and not subprocess"]
-timeout_multiplier = 4.0; timeout_constant = 5.0   # per-mutant cap = (estimated suite time + timeout_constant) * timeout_multiplier
+timeout_multiplier = 4.0; timeout_constant = 5.0
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

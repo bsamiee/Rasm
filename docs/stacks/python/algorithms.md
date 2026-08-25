@@ -52,7 +52,7 @@ type SolveFault = Literal[
     "<broken>",
     "<wrong-arity>",
     "<broken-symmetry>",
-    "<contract>",
+    "<type-hint>",
 ]
 type Solver = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, int]]
 type Gate = Callable[[np.ndarray, np.ndarray, int], Result[np.ndarray, SolveFault]]
@@ -189,7 +189,7 @@ def refined(a: np.ndarray, held: Solve, b: np.ndarray, x: np.ndarray, tol: float
 
 [SPARSE_ROUTE]:
 - Law: a fixed-pattern sparse operator factors once through the companion `scipy.sparse.linalg` direct factor at the compute boundary and reuses the held object for every right-hand side; the held factor's nonzero count over the input nonzero count is the fill ratio read before the numeric sweep, and a fill ratio above the budget routes to an iterative solve instead.
-- Law: an iterative solve — conjugate-gradient for SPD, a restarted-Krylov mirror otherwise — carries its convergence criterion as the call's relative and absolute residual bounds and its iteration ceiling, returns an `(x, info)` verdict pair, and a nonzero `info` is a non-convergence fault routed to the verdict-gated direct fallback, never a silently accepted partial iterate; this `(x, info)` contract is where the choice turns, so the page fixes it while the per-solver member rides the companion owner.
+- Law: an iterative solve — conjugate-gradient for SPD, a restarted-Krylov mirror otherwise — carries its convergence criterion as the call's relative and absolute residual bounds and its iteration ceiling, returns an `(x, info)` verdict pair, and a nonzero `info` is a non-convergence fault routed to the verdict-gated direct fallback, never a silently accepted partial iterate; this `(x, info)` verdict is where the choice turns, so the page fixes it while the per-solver member rides the companion owner.
 - Law: a preconditioner is the matrix-free linear operator passed through the solver's preconditioner slot; an incomplete-LU factor lowered to that operator is the standard accelerant and rides the route value, never a global default.
 - Reject: rebuilding the sparse factorization per right-hand side; accepting an iterative iterate without checking the verdict code; densifying a sparse operator to reuse the dense route.
 
@@ -232,7 +232,7 @@ def settled(verdict: SolveTerminal, witness: float, cap: float, /) -> Result[np.
 
 [TYPED_RECEIPT]:
 - Law: every result leaves as one frozen `msgspec.Struct` `SolveReceipt` carrying the route case as a `Route` member, the scale-derived tolerance it was gated against, and the recomputed residual — the numeric evidence this layer owns; it never carries the operator, the factorization handle, or an eagerly decoded solution array, because the numeric block is large and its decode is the consumer's choice. The solution defers as a `Raw` field: the contiguous-octet capture and the consumer's zero-copy `frombuffer` view are `numpy`'s own `ascontiguousarray(...).tobytes()` and reconstruction, this page's substrate, while the byte-identical opaque round-trip band is `boundaries.md`'s `msgspec.Raw` wire mechanic — this card fixes only which evidence the receipt holds.
-- Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, composed over the pure witness core and never re-derived here: the in-process numeric interior carries no transient provider, so the spine weaves only the factory's fixed contract arm under one shared `BeartypeConf`, which lifts a `BeartypeCallHintViolation` through `lifted` onto `<contract>` — a malformed operand shape becomes a `SolveFault` member rather than an escaping exception, and a co-occurring concern lands as one more `Concern` entry with the body untouched. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress re-imposes a gate the interior owns once.
+- Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, composed over the pure witness core and never re-derived here: the in-process numeric interior carries no transient provider, so the spine weaves only the factory's fixed type-guard arm under one shared `BeartypeConf`, which lifts a `BeartypeCallHintViolation` through `lifted` onto `<type-hint>` — a malformed operand shape becomes a `SolveFault` member rather than an escaping exception, and a co-occurring concern lands as one more `Concern` entry with the body untouched. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress re-imposes a gate the interior owns once.
 - Boundary: the receipt's scalar projection — route, tolerance, residual — is the `str | float` evidence a downstream span or structured-emission consumer reads, never the `Raw` solution bytes; the emission weave that consumes it is the domain observability owner's, this layer states only that the projection carries scalars and the solution stays bytes.
 
 ```python conceptual
@@ -249,7 +249,7 @@ class SolveReceipt(Struct, frozen=True, gc=False):
     solution: Raw
 
 
-_CONTRACT = BeartypeConf(is_pep484_tower=True)
+_TYPE_GUARD = BeartypeConf(is_pep484_tower=True)
 
 
 def attested(a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Result[tuple[np.ndarray, float], SolveFault]:
@@ -257,7 +257,7 @@ def attested(a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Resu
     return Error("<non-finite>") if not np.isfinite(residual) else Ok((x, residual)) if residual <= tol else Error("<residual-exceeded>")
 
 
-@aspected(lifted=lambda _v: "<contract>", conf=_CONTRACT)
+@aspected(lifted=lambda _v: "<type-hint>", conf=_TYPE_GUARD)
 def witnessed(route: Route, a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Result[SolveReceipt, SolveFault]:
     framed = lambda ok: Raw(np.ascontiguousarray(ok, dtype=np.float64).tobytes())
     return attested(a, x, b, tol).map(lambda pair: SolveReceipt(route, tol, pair[1], framed(pair[0])))

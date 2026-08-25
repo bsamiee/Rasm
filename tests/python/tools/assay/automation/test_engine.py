@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import anyio
 import anyio.lowlevel
-from expression import Result  # runtime: msgspec resolves row-struct field annotations at class creation
+from expression import Result
 import msgspec
 import pytest
 
@@ -94,20 +94,16 @@ _GOVERNOR_CASES: tuple[_GovernorCase, ...] = (
     _GovernorCase("t1.0-100-skip", 1.0, 100.0, governed=True),
     _GovernorCase("t1.0-99.9-run", 1.0, 99.9, governed=False),
     _GovernorCase("t0.91-skip", 0.91, 91.0, governed=True),
-    # Disabled governor never touches psutil even when unprimed.
     _GovernorCase("disabled-never-samples", None, 0.0, governed=False, primed=False, intervals=()),
-    # A primed latch reads once, non-blocking, with no warmup.
     _GovernorCase("primed-reads-nonblocking", 0.5, 80.0, governed=True, intervals=(None,)),
 )
 
 _OK_ROW = RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n")
-# The report arm's expected census is the row status's own census, so a per-row literal would only restate the status column.
 _PROGRAM_CASES: tuple[_ProgramCase, ...] = (
     _ProgramCase("ok-report", ("dotnet", "build"), _OK_ROW, RailStatus.OK),
     _ProgramCase("fault-arm", ("missing-tool",), RailProbe.error(("missing-tool",), "spawn: no tool"), RailStatus.FAULTED, message="spawn: no tool"),
     _ProgramCase("rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED), RailStatus.FAILED),
     _ProgramCase("rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY), RailStatus.EMPTY),
-    # A timed-out lane reached no verdict, so it seats its own census row rather than vanishing from the tally.
     _ProgramCase("rc124-timeout", ("t",), RailProbe.receipt(("t",), 124, status=RailStatus.TIMEOUT), RailStatus.TIMEOUT),
 )
 
@@ -116,14 +112,11 @@ _LEAF_CASES: tuple[_LeafCase, ...] = (
     _LeafCase("sequence-two-ok", Sequence(actions=(Program(argv=("p", "1")), Program(argv=("p", "2")))), 2, RailStatus.OK, 2),
     _LeafCase("nested-seq-debounce", _NESTED, 3, RailStatus.OK, 3),
     _LeafCase("manual-debounce-unwrap", Debounce(action=Program(argv=("tool",)), window_ms=500, edge=Edge.TRAILING), 1, RailStatus.OK, 1),
-    # A FAULTED leaf (empty argv) short-circuits _sequence before the trailing leaf runs.
     _LeafCase("halt-on-fault", Sequence(actions=(Program(argv=()), Program(argv=("p", "2")))), 1, RailStatus.FAULTED, 0),
 )
 
 _BAD_ZONE = Schedule(cron="* * * * *", timezone="Invalid/Zone")
 _FAULT_CASES: tuple[_FaultCase, ...] = (
-    # Setup faults stay envelope-local; empty argv faults before spawn; unbound/undecodable rails fault at the leaf;
-    # Debounce wrappers label setup faults by the inner action.
     _FaultCase("setup-error", _BAD_ZONE, Rail(claim=Claim.STATIC, verb="static"), Claim.STATIC, "static", ("automation setup",)),
     _FaultCase("empty-argv", Manual(), Program(argv=()), Claim.STATIC, "program", ("non-empty",)),
     _FaultCase("rail-unbound", Manual(), Rail(claim=Claim.STATIC, verb="nope"), Claim.STATIC, "nope", ("unbound rail", "static:nope")),
@@ -131,7 +124,6 @@ _FAULT_CASES: tuple[_FaultCase, ...] = (
     _FaultCase("debounce-setup-inner-label", _BAD_ZONE, Debounce(action=Rail(claim=Claim.CODE, verb="search")), Claim.CODE, "search"),
 )
 
-# (label, canned awatch batches, expected fire count) — empty timeout heartbeats never fire.
 _WATCH_BATCH_CASES: tuple[tuple[str, tuple[tuple[tuple[str, str], ...], ...], int], ...] = (
     ("fires-per-batch", (_FIRST, _SECOND), 2),
     ("skips-empty-heartbeat", ((), _FIRST, ()), 1),
@@ -160,7 +152,7 @@ def _recording_sampler(value: float) -> tuple[CpuSampler, list[float | None]]:
 def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
     """Return an ``awatch`` double that yields wire-shaped batches then completes."""
 
-    async def _awatch(*_paths: str, **_kw: object) -> AsyncIterator[set[tuple[str, str]]]:  # ruff:ignore[unused-async]  # async def required; no await in body
+    async def _awatch(*_paths: str, **_kw: object) -> AsyncIterator[set[tuple[str, str]]]:  # ruff:ignore[unused-async]
         for batch in batches:
             yield {(kind, path) for kind, path in batch}
 
@@ -378,7 +370,7 @@ async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
     """
     fired: list[tuple[tuple[str, str], ...]] = []
 
-    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
+    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]
         fired.append(changes)
 
     signal, worker = _eng._debounce(_inner, 40, edge=edge)
@@ -429,7 +421,7 @@ def test_debounce_signal_after_close_is_silent() -> None:
     closes both streams before the final signal.
     """
 
-    async def _inner(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
+    async def _inner(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]
         return None
 
     async def _run() -> None:
@@ -481,7 +473,6 @@ def test_watch_filter_resolves_tag_to_watchfiles_filter(filter_tag: WatchFilter,
 
     Falsified by: swapping the DEFAULT/PYTHON arms or constructing the wrong filter class.
     """
-    # Valid regex keeps the law about tag dispatch, not pattern compilation.
     spec = Watch(paths=("x",), filter=filter_tag, ignore_patterns=(r"\.pyc$",))
     assert type(_eng._watch_filter(spec)).__name__ == expected_type
 
@@ -492,7 +483,7 @@ def test_watch_filter_default_extends_builtin_noise_suppression() -> None:
     Falsified by: replacing ``ignore_entity_patterns`` and surfacing built-in ``.pyc``/``.DS_Store`` churn.
     """
     flt = _eng._watch_filter(Watch(paths=("x",), filter=WatchFilter.DEFAULT, ignore_patterns=(r"\.custom$",)))
-    patterns = tuple(r.pattern for r in flt._ignore_entity_regexes)  # DefaultFilter stores compiled regexes here
+    patterns = tuple(r.pattern for r in flt._ignore_entity_regexes)
     assert any("DS_Store" in p for p in patterns), "built-in .DS_Store suppression must survive the extension"
     assert any("py[cod]" in p for p in patterns), "built-in .pyc suppression must survive the extension"
     assert any("custom" in p for p in patterns), "the spec's own ignore must be appended"
@@ -636,7 +627,7 @@ def test_schedule_exits_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None
     async def _run() -> None:
         stop = anyio.Event()
 
-        async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
+        async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]
             return None
 
         with anyio.move_on_after(0.05):
@@ -654,7 +645,7 @@ def test_fire_with_coalesce_runs_catch_up_on_missed_tick(assay_root: AssayHarnes
     monkeypatch.setattr(_eng, "_JITTER_MS", 1)
     fired: list[tuple[tuple[str, str], ...]] = []
 
-    async def _fire(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
+    async def _fire(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]
         fired.append(changes)
 
     async def _run() -> int:
@@ -688,7 +679,7 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
 
     Falsified by: writing to stderr, writing non-JSON bytes, or omitting the newline separator.
     """
-    from tests.python.tools.assay.kit import (  # ruff:ignore[import-outside-top-level]  # deferred: single-test oracle import stays off the module import path
+    from tests.python.tools.assay.kit import (  # ruff:ignore[import-outside-top-level]
         read_one_envelope_from_bytes,
     )
 

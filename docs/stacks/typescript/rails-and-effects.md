@@ -169,7 +169,7 @@ Each surface owns one reason-discriminated fault family whose policy lives in on
 
 [FAMILY_SIZING]:
 - Law: routing sizes the family, never cause — one class per distinct payload-and-recovery route with one `catchTag` arm each, and one `reason` row per cause inside it. Class-per-cause turns `catchTags` into a switch over causes; one class under a free-string reason is unroutable and unfoldable — both are the named defects, and the declaration mechanics of the classes are `shapes.md`'s.
-- Law: one `as const` policy table is the policy's single source of truth — rows carry rank, recovery band, re-offer route, quarantine, and detail text, `keyof typeof` derives the `Reason` union, the contract check is placed by the anchor's export reach, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states.
+- Law: one `as const` policy table is the policy's single source of truth — rows carry rank, recovery band, re-offer route, quarantine, and detail text, `keyof typeof` derives the `Reason` union, the shape check is placed by the anchor's export reach, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states.
 - Law: retriability is two columns, never one bit — `recovery` bands what a re-drive reaches (`throttled`, `transient`, `terminal`) and `reoffer` names the route the next offer takes (`wait` re-invokes identically, `restart` re-takes the dependency handle, `rescope` narrows the offer the caller re-authors) — so the elected representative carries its band and its route whole, and the route record closes over the column.
 - Law: `retryable` survives only as the derived projection `recovery !== "terminal"` — a stored retry column beside the band is a second authority that drifts, and a consumer owed the band reads the band, never the bit that erased it.
 - Law: `throttled` alone admits a producer-stated window, and that window rides the raised value as an `Option<Duration>` — the schedule re-seats its base from it per refusal, so no row holds a slot only a raise can fill and a refusal measuring none spends the blind curve unchanged.
@@ -188,7 +188,7 @@ Each surface owns one reason-discriminated fault family whose policy lives in on
 import { Array, Data, Duration, Effect, Either, Function, Option, Order, Schedule } from "effect";
 
 const FaultPolicy = {
-    // exported anchor: plain as const keeps every literal; the merged guard carries the contract, and each row states its own detail
+    // exported anchor: plain as const keeps every literal; the merged guard carries the proof, and each row states its own detail
     malformed: { rank: 4, recovery: "terminal", reoffer: "rescope", quarantine: true, detail: "<undecodable>" },
     contention: { rank: 2, recovery: "transient", reoffer: "restart", quarantine: false, detail: "<lost-cas>" },
     exhausted: { rank: 3, recovery: "throttled", reoffer: "wait", quarantine: false, detail: "<quota>" },

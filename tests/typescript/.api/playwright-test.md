@@ -27,7 +27,7 @@
 ```ts signature
 export const test: TestType<PlaywrightTestArgs & PlaywrightTestOptions, PlaywrightWorkerArgs & PlaywrightWorkerOptions>
 export const expect: Expect<{}>
-export const devices: { [name: string]: DeviceDescriptor }         // e.g. devices['iPhone 15'] → viewport/userAgent/deviceScaleFactor preset
+export const devices: { [name: string]: DeviceDescriptor }
 export function defineConfig(config: PlaywrightTestConfig, ...configs: PlaywrightTestConfig[]): PlaywrightTestConfig
 export function defineConfig<T, W>(config: PlaywrightTestConfig<T, W>, ...configs: PlaywrightTestConfig<T, W>[]): PlaywrightTestConfig<T, W>
 export function mergeTests<List extends any[]>(...tests: List): MergedTestType<List>
@@ -42,25 +42,23 @@ export function mergeExpects<List extends any[]>(...expects: List): MergedExpect
 interface TestType<TestArgs, WorkerArgs> {
   (title: string, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
   (title: string, details: TestDetails, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
-  only(title: string, body): void                                                    // + (title, details, body) — declares a focused test
-  skip(condition?: boolean, description?: string): void                              // guard: skip() unconditional / skip(cond, desc) / skip(title, body) standalone
-  fixme(condition?: boolean, description?: string): void                             // known-broken; same overload family as skip
-  slow(condition?: boolean, description?: string): void                              // triples the timeout; guarded
-  fail: { (): void; (condition: boolean, description?: string): void }               // expect the current test to fail (callable object)
+  only(title: string, body): void
+  skip(condition?: boolean, description?: string): void
+  fixme(condition?: boolean, description?: string): void
+  slow(condition?: boolean, description?: string): void
+  fail: { (): void; (condition: boolean, description?: string): void }
   describe: { (title: string, cb: () => void): void; only; skip; serial; parallel; configure(o): void; fixme }
-  beforeEach; afterEach; beforeAll; afterAll                                          // fixture-aware hooks (title-optional)
+  beforeEach; afterEach; beforeAll; afterAll
   step: { <T>(title: string, body: (step: TestStepInfo) => T | Promise<T>, o?: { box?: boolean; location?: Location; timeout?: number }): Promise<T>; skip(...): Promise<void> }
   extend<T extends {}, W extends {} = {}>(fixtures: Fixtures<T, W, TestArgs, WorkerArgs>): TestType<TestArgs & T, WorkerArgs & W>
-  use(fixtures: Fixtures<{}, {}, TestArgs, WorkerArgs>): void                         // scope fixture/option overrides to a describe block
+  use(fixtures: Fixtures<{}, {}, TestArgs, WorkerArgs>): void
   info(): TestInfo; setTimeout(timeout: number): void
 }
-// Built-in fixtures = SEED ROWS on the DI rail (destructured in the body); test's params are PlaywrightTestArgs & …TestOptions & PlaywrightWorkerArgs & …WorkerOptions.
 interface PlaywrightTestArgs {
   context: BrowserContext; page: Page; request: APIRequestContext
   mount: <Story>(storyId: string, props?: StoryProps<Story>) => Promise<Locator & { update(props?): Promise<void>; unmount(): Promise<void> }>
 }
 interface PlaywrightWorkerArgs { playwright: typeof import('playwright-core'); browser: Browser }
-// browserName is a PlaywrightWorkerOptions seed row (not a WorkerArg): { browserName; defaultBrowserType; headless; channel; launchOptions; connectOptions }
 ```
 
 - `mount`: component proof rides a stories-and-galleries model — a story fixes one scenario's props, providers, and mock data; the fixture navigates to a project-served gallery, renders the story by id, and hands back a `Locator` scoped to its root whose `update(props)` re-renders and `unmount()` tears down inside the test. Story type arguments type-check the props, and the served gallery makes component proof one more target roster row, never a parallel runner.
@@ -68,30 +66,21 @@ interface PlaywrightWorkerArgs { playwright: typeof import('playwright-core'); b
 Page/context CONTROL surfaces the fixture rail composes — the families a hermetic platform fixture rides:
 
 ```ts signature
-// page.clock — fake-time control: install() AUTO-ADVANCES from its epoch, so pre-jump ticks carry the page-load offset;
-//   callbacks fired by fastForward/pauseAt see the exact target instant — exact-text assertions ride the post-jump surface.
 interface Clock {
   install(o?: { time?: number | string | Date }): Promise<void>
   pauseAt(time: number | string | Date): Promise<void>; resume(): Promise<void>
   fastForward(ticks: number | string): Promise<void>; runFor(ticks: number | string): Promise<void>
   setFixedTime(time: number | string | Date): Promise<void>; setSystemTime(time: number | string | Date): Promise<void>
 }
-// page.routeWebSocket — hermetic WS lanes with no server: the handler IS the peer.
 page.routeWebSocket(url: string | RegExp | ((url: URL) => boolean), handler: (ws: WebSocketRoute) => any): Promise<void>
 interface WebSocketRoute { onMessage(h: (message: string | Buffer) => any): void; send(message: string | Buffer): void; close(o?: { code?: number; reason?: string }): Promise<void>; connectToServer(): WebSocketRoute }
-// HAR record/replay: browserContext.routeFromHAR(har, { url?, update?, notFound? }) — notFound: 'abort' | 'fallback'.
-// browserContext.credentials — the virtual WebAuthn authenticator, every engine, no CDP session.
-//   install() overrides navigator.credentials.create()/get() across current AND future pages and is REQUIRED:
-//   a seeded credential the page never sees is the silent-vacuity trap, and an uninstalled context is the refutation seed.
 interface Credentials {
   install(): Promise<void>
   create(rpId: string, o?: { id?: string; userHandle?: string; privateKey?: string; publicKey?: string }): Promise<Credential>
-  get(o?: { id?: string; rpId?: string }): Promise<Credential[]>   // reads back what the PAGE registered, keys included
+  get(o?: { id?: string; rpId?: string }): Promise<Credential[]>
   delete(id: string): Promise<void>
 }
-type Credential = { id: string; rpId: string; userHandle: string; privateKey: string; publicKey: string }   // base64url throughout
-// Bare create(rpId) mints a discoverable ECDSA P-256 passkey; importing a known one supplies id + userHandle + privateKey + publicKey together.
-// storageState({ credentials: true }) snapshots the held passkeys with their private keys, and restoring that state re-installs the authenticator.
+type Credential = { id: string; rpId: string; userHandle: string; privateKey: string; publicKey: string }
 ```
 
 - Actions and web-first assertions take `signal?: AbortSignal` for caller-owned cancellation; a signal leaves the timeout armed, so unbounded waiting demands `timeout: 0` beside it.
@@ -104,15 +93,12 @@ type Credential = { id: string; rpId: string; userHandle: string; privateKey: st
 ```ts signature
 type Expect<ExtendedMatchers = {}> = {
   <T = unknown>(actual: T, messageOrOptions?: string | { message?: string }): MakeMatchers<void, T, ExtendedMatchers>
-  soft: Expect<ExtendedMatchers>                                                       // record failure, keep going
+  soft: Expect<ExtendedMatchers>
   poll: <T>(actual: () => T | Promise<T>, o?: string | { message?: string; timeout?: number; intervals?: number[] }) => PollMatchers<Promise<void>, T, ExtendedMatchers>
-  configure: (o: { message?: string; timeout?: number; soft?: boolean }) => Expect<ExtendedMatchers>   // a pre-configured expect
-  extend<M extends Record<string, (this: ExpectMatcherState, actual: any, ...args: any[]) => MatcherReturnType | Promise<MatcherReturnType>>>(matchers: M): Expect<ExtendedMatchers & M>   // register matchers → a NEW typed expect, never void
-  not: Omit<AsymmetricMatchers, "any" | "anything">                                     // negation on Locator/Page/API/Generic assertions
-} & AsymmetricMatchers                                                                   // expect.any/anything/arrayContaining/objectContaining/stringMatching …
-// Auto-retrying web-first matchers (Locator/Page assertions): toBeVisible, toHaveText, toHaveValue, toHaveCount,
-//   toBeChecked, toHaveURL, toBeAttached, … ; the visual/aria gauge is toHaveScreenshot() and toMatchAriaSnapshot().
-// expect.poll(fn).toBe(x) and expect(fn).toPass() are the two general retry rails for non-DOM assertions.
+  configure: (o: { message?: string; timeout?: number; soft?: boolean }) => Expect<ExtendedMatchers>
+  extend<M extends Record<string, (this: ExpectMatcherState, actual: any, ...args: any[]) => MatcherReturnType | Promise<MatcherReturnType>>>(matchers: M): Expect<ExtendedMatchers & M>
+  not: Omit<AsymmetricMatchers, "any" | "anything">
+} & AsymmetricMatchers
 ```
 
 `toHaveScreenshot()` (pixel gauge, golden-image compare) and `toMatchAriaSnapshot()` (accessibility-tree gauge) are the two projection matchers the e2e gauge reads as pass/fail data; both persist a golden under the project's snapshot dir — align with the `libs/contracts/conformance/` frozen-vector discipline.
@@ -124,58 +110,47 @@ Golden NAMES pick the pixel format: a `.png` or `.webp` extension captures in th
 `defineConfig` is config-as-code: `projects: Project[]` is the browser × device matrix (each project a `{ name, use }` row where `use` layers `devices[...]` presets), and `use: PlaywrightTestOptions` sets the shared context. Options are ONE bag, split test-scoped vs worker-scoped.
 
 ```ts signature
-// type PlaywrightTestConfig<T = {}, W = {}> = Config<PlaywrightTestOptions & CustomProperties<T>, PlaywrightWorkerOptions & CustomProperties<W>>  (Config extends TestConfig — the optional input fields live there)
 interface TestConfig<T = {}, W = {}> {
-  testDir?: string; testMatch?: string | RegExp | (string | RegExp)[]; outputDir?: string        // outputDir defaults to <package.json-dir>/test-results — a ROOT write on a bare run
+  testDir?: string; testMatch?: string | RegExp | (string | RegExp)[]; outputDir?: string
   projects?: Project<T, W>[]; use?: UseOptions<T, W>
-  reporter?: 'list'|'dot'|'line'|'github'|'json'|'junit'|'html'|'blob'|'null' | ReporterDescription[]   // ['html', { mergeFiles }] groups merged shards from config, not the report UI
-  timeout?: number; globalTimeout?: number; retries?: number; workers?: number | string           // workers accepts a '50%' cores string
-  retryStrategy?: 'immediate' | 'isolated'   // 'isolated' defers every retry to a single trailing worker — a flake stops perturbing the rest of the run
+  reporter?: 'list'|'dot'|'line'|'github'|'json'|'junit'|'html'|'blob'|'null' | ReporterDescription[]
+  timeout?: number; globalTimeout?: number; retries?: number; workers?: number | string
+  retryStrategy?: 'immediate' | 'isolated'
   maxFailures?: number; forbidOnly?: boolean; failOnFlakyTests?: boolean; fullyParallel?: boolean
   captureGitInfo?: { commit?: boolean; diff?: boolean }; tsconfig?: string
   expect?: { timeout?: number; toHaveScreenshot?: { pathTemplate?; maxDiffPixels?; maxDiffPixelRatio?; threshold? }; toMatchAriaSnapshot?: { pathTemplate? } }
-  webServer?: TestConfigWebServer | TestConfigWebServer[]                                          // the ARRAY form boots several servers before the run
-  snapshotPathTemplate?: string   // tokens: {testDir} {snapshotDir} {platform} {projectName} {testFileDir} {testFilePath} {testFileName} {arg} {ext}
+  webServer?: TestConfigWebServer | TestConfigWebServer[]
+  snapshotPathTemplate?: string
 }
-interface Project<T, W> {  // beyond name/use/testMatch: the dependency topology
-  dependencies?: string[]   // project names that must pass first — the auth-setup project pattern (storageState written by setup, consumed via use.storageState)
-  teardown?: string          // project that runs after this one and its dependents complete
+interface Project<T, W> {
+  dependencies?: string[]
+  teardown?: string
 }
-// test-scoped (per test): baseURL, viewport, colorScheme, locale, timezoneId, geolocation, permissions, offline,
-//   storageState, testIdAttribute, contextOptions, serviceWorkers, actionTimeout, navigationTimeout
-// worker-scoped (per worker): browserName, headless, channel, launchOptions, connectOptions, trace, video, screenshot
-// CONFIG RESOLUTION IS CWD-ONLY — resolveConfigLocation probes playwright.config.{ts,js,mts,mjs,cts,cjs} in process.cwd(),
-//   never upward: only a ROOT-resident config defends a bare root invocation from a tree-wide *.spec.ts sweep.
-// CLI rails: --last-failed (+ --last-failed-file, state under outputDir), --only-changed [ref],
-//   blob reporter + `playwright merge-reports` for sharded runs, --update-snapshots for golden minting.
 ```
 
 `@playwright/test/reporter` is the SPI a custom reporter implements, and it runs both directions: `preprocess` SHAPES the run before a test executes, the `on*` events project results as data. That is the seam feeding the e2e gauge a machine result rather than console text, and the seam where a custom selection policy — quarantine rosters, own-sharding, expected-failure ledgers — lands as reporter code instead of a grep string.
 
 ```ts signature
-// import type { Reporter, TestRun, FullConfig, Suite, TestCase, TestResult, TestStep, TestError, WorkerInfo, FullResult } from "@playwright/test/reporter"
 interface Reporter {
-  preprocess?(params: { config: FullConfig; suite: Suite; testRun: TestRun }): Promise<void>   // resolved config, pre-onBegin: the one hook that CHANGES the run
+  preprocess?(params: { config: FullConfig; suite: Suite; testRun: TestRun }): Promise<void>
   onBegin?(config: FullConfig, suite: Suite): void
   onTestBegin?(test: TestCase, result: TestResult): void
   onStepBegin?(test: TestCase, result: TestResult, step: TestStep): void
-  onStepEnd?(test: TestCase, result: TestResult, step: TestStep): void                  // symmetric close — per-step timing/status as data
+  onStepEnd?(test: TestCase, result: TestResult, step: TestStep): void
   onTestEnd?(test: TestCase, result: TestResult): void
-  onStdOut?(chunk: string | Buffer, test?: TestCase, result?: TestResult): void         // captured output, correlated to the test/result
+  onStdOut?(chunk: string | Buffer, test?: TestCase, result?: TestResult): void
   onStdErr?(chunk: string | Buffer, test?: TestCase, result?: TestResult): void
   onError?(error: TestError, workerInfo?: WorkerInfo): void
-  onEnd?(result: FullResult): Promise<{ status?: FullResult["status"] } | void> | void  // final aggregate; may override the run status
-  onExit?(): Promise<void>                                                              // last async flush after onEnd
-  printsToStdio?(): boolean                                                             // declare terminal ownership (a data reporter returns false)
+  onEnd?(result: FullResult): Promise<{ status?: FullResult["status"] } | void> | void
+  onExit?(): Promise<void>
+  printsToStdio?(): boolean
 }
-// preprocess receives a suite filtered by --project / --grep / .only but NEVER by --shard, carrying the full
-//   un-sharded corpus so a reporter shards it itself. Setup and dependency projects stay readonly.
 interface TestRun {
-  exclude(test: TestCase | Suite): void                        // out of the run AND out of the report; body never runs
-  skip(test: TestCase | Suite, reason?: string): void          // reported skipped, body never runs
-  fixme(test: TestCase | Suite, reason?: string): void         // reported skipped, carrying the intent to fix
-  fail(test: TestCase | Suite, reason?: string): void          // RUN it and demand failure — documents broken behavior that must stay broken
-  skipSharding(): void                                         // disarm the built-in shard filter; the reporter owns the split
+  exclude(test: TestCase | Suite): void
+  skip(test: TestCase | Suite, reason?: string): void
+  fixme(test: TestCase | Suite, reason?: string): void
+  fail(test: TestCase | Suite, reason?: string): void
+  skipSharding(): void
 }
 ```
 

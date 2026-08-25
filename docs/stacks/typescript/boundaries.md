@@ -33,7 +33,7 @@ When a foreign signal matches several rows, the most specific owner wins, and id
 
 [DECODE_PLACEMENT]:
 - Use: every ingress — request bodies, headers, query params, file content, message frames, storage reads.
-- Law: the decode sits on the first line that sees the foreign value, and that seam fixes three decisions at once: the owner (`Schema.decodeUnknown(Owner)`), the accumulation posture (`errors: "all"` for reportable admission, first-error for guard seams), and the drift posture (`onExcessProperty: "error"` where an unknown member is evidence of contract skew, the default where extension bands are tolerated). The configured decode is a module-scope value — one admission policy per seam, never per call.
+- Law: the decode sits on the first line that sees the foreign value, and that seam fixes three decisions at once: the owner (`Schema.decodeUnknown(Owner)`), the accumulation posture (`errors: "all"` for reportable admission, first-error for guard seams), and the drift posture (`onExcessProperty: "error"` where an unknown member is evidence of schema skew, the default where extension bands are tolerated). The configured decode is a module-scope value — one admission policy per seam, never per call.
 - Law: a refined record KEY validates only under the erroring drift posture — `Schema.Record` treats a key its refinement rejects as an excess property, so the default posture drops that member and reports the decode clean; a page whose law expects a malformed key to refuse states `onExcessProperty: "error"` at its admission, and a page that means to filter says so at the seam.
 - Law: a `Schema.Literal` index signature compiles to REQUIRED members, one per literal — sparse membership over a closed vocabulary rides explicit optional fields derived from that vocabulary's own roster, never an index signature the reader mistakes for optionality.
 - Law: HTTP decode is written once against the owner both edges instantiate — `HttpServerRequest` and `HttpClientResponse` extend `HttpIncomingMessage` with the edge's fault as `E` (`RequestError`, `ResponseError`), so `HttpIncomingMessage.schemaBodyJson`/`schemaBodyUrlParams`/`schemaHeaders` fuse read, decode, and error lift for server ingress and client replies in one spelling; the server edge adds `HttpServerRequest.schemaSearchParams`/`schemaCookies`, the reply edge adds `HttpClientResponse.schemaJson`/`matchStatus`, and `HttpIncomingMessage.withMaxBodySize` scopes the admission ceiling before any byte materializes. A raw body read followed by a separate validate, or a decode family maintained per edge, is the fused owner decomposed by hand.
@@ -95,15 +95,15 @@ const admitted: (
 export { admitted, Envelope, Passport };
 ```
 
-## [03]-[CONTRACT_FAMILY]
+## [03]-[API_FAMILY]
 
 [CONTRIBUTION_FAMILY]:
 - Use: every HTTP, RPC, and CLI entry surface.
-- Law: the contract is data — `HttpApiEndpoint` carries path, payload, success, and error Schemas as one declaration (`HttpApiEndpoint.get(name, path)` with `.setPath`/`.setPayload`/`.addSuccess`/`.addError`, or the `HttpApiSchema.param` template form); `HttpApiGroup.make(name).add(endpoint)` is the owning module's contribution; exactly one `HttpApi.make(id).add(group)` assembles at the composition root, so no lib-side module spells a god contract.
+- Law: the API is data — `HttpApiEndpoint` carries path, payload, success, and error Schemas as one declaration (`HttpApiEndpoint.get(name, path)` with `.setPath`/`.setPayload`/`.addSuccess`/`.addError`, or the `HttpApiSchema.param` template form); `HttpApiGroup.make(name).add(endpoint)` is the owning module's contribution; exactly one `HttpApi.make(id).add(group)` assembles at the composition root, so no lib-side module spells a god API.
 - Law: the same assembly law spans transports — `RpcGroup.make(...Rpc.make(tag, { payload, success, error, stream }))` is the procedure family, and the CLI command tree contributes verbs under the identical shape; protocol and serialization cross as two orthogonal Layer axes the root selects from the matrix below. A definition names no transport, no port, no engine.
 - Law: handler exhaustiveness is compiler-checked — `HttpApiBuilder.group` demands `.handle` for every declared endpoint and `RpcGroup.toLayer` demands the full handler record; a missing or mistyped handler is a compile error, never a 404 discovered at runtime.
-- Law: group-scoped concerns ride the declaration — `.middleware(Tag)` on the group, `.addError` for group-wide faults, `.prefix` for mount points — so a cross-cutting obligation is recoverable from the contract value, never from handler bodies.
-- Reject: a hand-rolled router table where the declarative family fits; a route registered beside the contract; transport or codec baked into a handler; a second contract authored for a client variant.
+- Law: group-scoped concerns ride the declaration — `.middleware(Tag)` on the group, `.addError` for group-wide faults, `.prefix` for mount points — so a cross-cutting obligation is recoverable from the API value, never from handler bodies.
+- Reject: a hand-rolled router table where the declarative family fits; a route registered beside the API; transport or codec baked into a handler; a second API authored for a client variant.
 
 Axes pair freely — any protocol row under any serialization row, selected only at the root; protocol rows live on `RpcServer`, serialization rows on `RpcSerialization`, and the client mirror rows are `RpcClient.layerProtocolHttp`/`layerProtocolSocket`/`layerProtocolWorker`.
 
@@ -116,9 +116,9 @@ Axes pair freely — any protocol row under any serialization row, selected only
 |  [05]   | `layerProtocolSocketServer`        | `layerNdJsonRpc()`  |
 
 [DERIVED_SURFACES]:
-- Law: one declaration derives every consumer surface — `HttpApiBuilder.api` plus `HttpApiBuilder.serve` derive the server, `HttpApiClient.make` derives the fully typed client, `OpenApi.fromApi` derives the spec, `HttpApiBuilder.toWebHandler` derives the fetch-shaped handler for hostless runtimes; server, client, and spec cannot drift because they are projections of one value. `RpcClient.make` against the same group is the identical law on the RPC axis, `RpcServer.toWebHandler` its hostless projection, and `RpcTest.makeClient` short-circuits transport in specs — the production and test callers share the contract.
+- Law: one declaration derives every consumer surface — `HttpApiBuilder.api` plus `HttpApiBuilder.serve` derive the server, `HttpApiClient.make` derives the fully typed client, `OpenApi.fromApi` derives the spec, `HttpApiBuilder.toWebHandler` derives the fetch-shaped handler for hostless runtimes; server, client, and spec cannot drift because they are projections of one value. `RpcClient.make` against the same group is the identical law on the RPC axis, `RpcServer.toWebHandler` its hostless projection, and `RpcTest.makeClient` short-circuits transport in specs — the production and test callers share the API.
 - Law: endpoint faults are declared — `Schema.TaggedError` classes on `.addError` with their status — so the caller reconstructs the exact tagged family the handler failed with, and one error vocabulary spans the wire; the family's design is `rails-and-effects.md`'s.
-- Reject: a hand-written fetch client beside a contract; an API document authored by hand; a client-side error type parallel to the declared fault; a spec regenerated into source and committed as a second truth.
+- Reject: a hand-written fetch client beside an API declaration; an API document authored by hand; a client-side error type parallel to the declared fault; a spec regenerated into source and committed as a second truth.
 
 ```typescript conceptual
 import {
@@ -143,7 +143,7 @@ class Row extends Schema.Class<Row>("Row")({
 
 class Missing extends Schema.TaggedError<Missing>()("Missing", { key: Schema.Number }) {}
 
-// --- [CONTRACT] -------------------------------------------------------------------------
+// --- [API] ------------------------------------------------------------------------------
 
 const _rows = HttpApiGroup.make("rows")
     .add(
@@ -158,11 +158,11 @@ const _rows = HttpApiGroup.make("rows")
             .addSuccess(Row),
     );
 
-const Contract = HttpApi.make("contract").add(_rows);
+const Api = HttpApi.make("api").add(_rows);
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
-const _RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
+const _RowsLive = HttpApiBuilder.group(Api, "rows", (handlers) =>
     handlers
         .handle("one", ({ path }) =>
             path.key > 0 ? Effect.succeed(new Row({ key: path.key, label: "<value-a>" })) : Effect.fail(new Missing({ key: path.key })),
@@ -170,24 +170,24 @@ const _RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
         .handle("grow", ({ payload }) => Effect.succeed(new Row({ key: 1, label: payload.label }))),
 );
 
-const ContractLive: Layer.Layer<HttpApi.Api> = HttpApiBuilder.api(Contract).pipe(Layer.provide(_RowsLive)); // the root proof: every handler edge eliminated at the declaration
+const ApiLive: Layer.Layer<HttpApi.Api> = HttpApiBuilder.api(Api).pipe(Layer.provide(_RowsLive)); // every handler edge is eliminated at the declaration
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const specification: OpenApi.OpenAPISpec = OpenApi.fromApi(Contract);
+const specification: OpenApi.OpenAPISpec = OpenApi.fromApi(Api);
 
 const probed: (
     key: number,
 ) => Effect.Effect<Row, Missing | HttpApiError.HttpApiDecodeError | HttpClientError.HttpClientError | ParseResult.ParseError, HttpClient.HttpClient> =
     Effect.fn("probed")(function* (key: number) {
         // the stated union is the whole client fault surface: declared fault, decode skew, transport
-        const client = yield* HttpApiClient.make(Contract, { baseUrl: "<origin>" });
+        const client = yield* HttpApiClient.make(Api, { baseUrl: "<origin>" });
         return yield* client.rows.one({ path: { key } });
     });
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Contract, ContractLive, Missing, probed, Row, specification };
+export { Api, ApiLive, Missing, probed, Row, specification };
 ```
 
 ## [04]-[CODEC_ENGINE]
@@ -240,7 +240,7 @@ const engineSchema = <A, I, R>(engine: Engine, shape: Schema.Schema<A, I, R>): S
     }).pipe(Schema.compose(shape, { strict: false }));
 
 const admitted = (engine: Engine): ((raw: unknown) => Effect.Effect<Snapshot, ParseResult.ParseError>) =>
-    Schema.decodeUnknown(engineSchema(engine, Snapshot)); // the configured decode is the exported surface; its stated type is the whole seam contract
+    Schema.decodeUnknown(engineSchema(engine, Snapshot)); // the configured decode is the exported surface and its stated type fixes the seam
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -270,7 +270,7 @@ export type { Engine };
 - Reject: a runtime binding imported for one capability where the aggregate context Layer already carries it; runtime detection branching inside domain flow; a library module that calls any `run*`.
 
 [CONFIG_SURFACE]:
-- Law: configuration is one `Config.unwrap` owner — a nested record of reads collapsed to a single validated struct at construction, each scalar admitted where it enters: `Config.branded` lifts a `Brand.Constructor` an owner already carries, a Schema-refined brand admits through `Schema.Config` with the owning field schema, `Config.url`/`Config.port`/`Config.duration` parse structure, `Config.nested` scopes the namespace, `Config.redacted` seals secrets — so the environment contract is one declaration resolved once at the boot edge and no validated value is re-checked past it.
+- Law: configuration is one `Config.unwrap` owner — a nested record of reads collapsed to a single validated struct at construction, each scalar admitted where it enters: `Config.branded` lifts a `Brand.Constructor` an owner already carries, a Schema-refined brand admits through `Schema.Config` with the owning field schema, `Config.url`/`Config.port`/`Config.duration` parse structure, `Config.nested` scopes the namespace, `Config.redacted` seals secrets — so the environment shape is one declaration resolved once at the boot edge and no validated value is re-checked past it.
 - Law: a config value with real shape admits through `Schema.Config(name, shape)` — the full Schema algebra over a string `Encoded`, brands, unions, and transforms included, its `ParseError` folded into the same `ConfigError` rail — so structure never re-parses past the seam.
 - Law: `Config.withDescription` rides every row — a missing or malformed variable reports its meaning in the `ConfigError`, never a bare key name.
 - Reject: scattered per-site `Config.string` reads; a raw scalar carried where the brand exists; a default buried at a read site where `Config.withDefault` states it at the owner; a regex check after `Config.string` where `Schema.Config` owns the shape.
@@ -425,7 +425,7 @@ export { Bench, BenchLive, framed, Grade, MarshalFault, RunnerLive, Sweep };
 [SQL_STORE]:
 - Use: every relational store — statements, transactions, relation census, batched lookups.
 - Law: the store is the `SqlClient` Tag on `R`, and statements are `sql` tagged-template fragments composed as values — parameters bind at the fragment, and the helper rows (`sql.insert`, `sql.update`, `sql.in`, `sql.and`, `sql.or`) compose fragments from data — so string-built SQL has no spelling; the transaction is the bracket-shaped `sql.withTransaction`, a rail transformer that commits on success and rolls back on failure or interruption.
-- Law: decode rides the admission law — `SqlSchema.findAll`/`findOne`/`single`/`void` fuse Request and Result Schemas with the statement so every row enters as a decoded value on the one `ParseError` rail, and `SqlResolver.ordered`/`grouped`/`findById` batch keyed lookups behind the same fused contract, each resolver's `.execute` the one call surface its callers share; accessors and resolvers bind once at the owning service construction — a fused accessor or resolver rebuilt inside a call body re-mints resolver identity per call and defeats the batch window.
+- Law: decode rides the admission law — `SqlSchema.findAll`/`findOne`/`single`/`void` fuse Request and Result Schemas with the statement so every row enters as a decoded value on the one `ParseError` rail, and `SqlResolver.ordered`/`grouped`/`findById` batch keyed lookups behind the same fused schema pair, each resolver's `.execute` the one call surface its callers share; accessors and resolvers bind once at the owning service construction — a fused accessor or resolver rebuilt inside a call body re-mints resolver identity per call and defeats the batch window.
 - Law: the boot module's Layer verifies the relation census its own ensure rows declare and refuses construction on a gap, carrying every unensured relation beside the DDL that plants it — the deploy plane owns applying that DDL, and the dialect binding is a runtime row at the root under `[05]`'s law.
 - Reject: a driver import in domain flow; a query string assembled by hand; a second decode after the fused accessor; a transaction opened per statement where one bracket owns the unit of work; a `Migrator` row at boot.
 

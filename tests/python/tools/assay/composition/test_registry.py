@@ -9,7 +9,7 @@ import time
 from typing import TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
-from expression import Error, Ok, Result  # Result appears in inner-function annotations evaluated at runtime
+from expression import Error, Ok, Result
 import msgspec
 import msgspec.structs
 from pydantic import BaseModel, ValidationError
@@ -20,8 +20,8 @@ from assay.composition.catalog import TOOLS
 from assay.composition.registry import build_app, delta, parse_fault, rail, REGISTRY, self_test
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope, ArtifactStore
-from assay.core.aspect import RING  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
-from assay.core.govern import RESOURCE  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
+from assay.core.aspect import RING
+from assay.core.govern import RESOURCE
 from assay.core.model import (
     ArtifactKind,
     BridgeLifecycle,
@@ -35,7 +35,7 @@ from assay.core.model import (
     RailStatus,
     receipt,
     Report,
-    RESULT_CAP,  # private cap used to construct overflow tuple in test_ok_envelope_truncation_persists_full_report
+    RESULT_CAP,
     RunDelta,
     StaticRun,
     Step,
@@ -48,13 +48,7 @@ from assay.rails.bridge import BridgeParams
 from assay.rails.docs import FaultedPromotion
 from assay.rails.static import StaticParams
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python.tools.assay.kit import (  # fixture annotation resolved at collection time, not import time
-    AssayHarness,
-    assert_counts_consistent,
-    make_history_envelope,
-    pipe_history,
-    SeamExecutor,
-)
+from tests.python.tools.assay.kit import AssayHarness, assert_counts_consistent, make_history_envelope, pipe_history, SeamExecutor
 
 
 if TYPE_CHECKING:
@@ -71,7 +65,7 @@ _STATIC_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb ==
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _strict_params(strict: bool) -> object:  # ruff:ignore[boolean-type-hint-positional-argument]  # boundary factory: production reads `params.strict` via getattr
+def _strict_params(strict: bool) -> object:  # ruff:ignore[boolean-type-hint-positional-argument]
     """Duck-typed params object exposing only the strict flag.
 
     Returns:
@@ -141,8 +135,6 @@ def test_build_app_structure_and_root_configuration() -> None:
 
     app = build_app(REGISTRY)
     assert isinstance(app, App)
-    # A claim collapses to a root leaf only when its lone verb duplicates the claim token; every other claim
-    # registers as a sub-app whose leaves are its verbs, so the surface always accepts the verb the help names.
     collapsed = frozenset(c for c in _EXPECTED_CLAIMS if [b.verb for b in REGISTRY if b.claim is c] == [c.value])
     validity_matrix(
         (ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY),
@@ -333,7 +325,7 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
     Mutant caught: re-raising the error → caller gets UnicodeEncodeError instead of a valid NDJSON line.
     """
     env = Envelope(claim=Claim.STATIC, verb="static", status=RailStatus.OK, exit_code=0, run_id="x")
-    calls = iter((True, False))  # first encode raises, subsequent encodes succeed
+    calls = iter((True, False))
 
     def patched(obj: object) -> bytes:
         return wire_encode(obj) if not next(calls) else (_ for _ in ()).throw(UnicodeEncodeError("utf-8", "x", 0, 1, "surrogates not allowed"))
@@ -367,22 +359,22 @@ def test_bound_passthrough_identity_and_surplus_fault() -> None:
     assert assert_ok(registry_mod._bound(42, Claim.STATIC, "static")) == 42
     params = StaticParams()
     assert assert_ok(registry_mod._bound(params, Claim.STATIC, "static")) is params
-    surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")  # verify arity=0
+    surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")
     assert isinstance(assert_error(surplus), Fault)
 
 
 @pytest.mark.parametrize(
     "status, strict, passes",
     [
-        (RailStatus.EMPTY, True, False),  # strict gates no-op EMPTY folds
-        (RailStatus.SKIP, True, False),  # strict gates SKIP folds too, not EMPTY alone
+        (RailStatus.EMPTY, True, False),
+        (RailStatus.SKIP, True, False),
         (RailStatus.EMPTY, False, True),
         (RailStatus.OK, True, True),
         (RailStatus.OK, False, True),
     ],
     ids=["strict_empty", "strict_skip", "lax_empty", "strict_ok", "lax_ok"],
 )
-def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix columns
+def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """_strict promotes only strict EMPTY/SKIP folds to FAULTED; every other cell passes through unchanged.
 
     Mutants caught: removed strict guard, EMPTY-only gating, boolean gate drift, attrless strict defaults, and argv=None on the promoted fault.
@@ -476,7 +468,7 @@ def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch:
     env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, ())))
     assert env.status is RailStatus.FAULTED
     assert "scope:" in (env.error.message if env.error else "")
-    assert msgspec.json.decode(wire_encode(env), type=Envelope).status is RailStatus.FAULTED  # argv=None mutants break the wire
+    assert msgspec.json.decode(wire_encode(env), type=Envelope).status is RailStatus.FAULTED
 
 
 def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -510,7 +502,7 @@ def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.
     """
     bind = _STATIC_BIND
     report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
-    writes_token = registry_mod._WRITES.set(iter([1, 2]))  # past 0 so the "second write" arm fires
+    writes_token = registry_mod._WRITES.set(iter([1, 2]))
     ring_token, resource_token = RING.set(deque(maxlen=16)), RESOURCE.set(())
     try:
         env = registry_mod._emit(bind, assay_root.settings, time.perf_counter(), Ok(report))
@@ -541,7 +533,7 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     label: str,
     outcome: Result[Report, Fault],
     exit_code: int,
-    persisted: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix field, not a call-site positional bool
+    persisted: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     assay_root: AssayHarness,
 ) -> None:
     """_emit derives exit code, duration, and persistence from outcome class.
@@ -890,7 +882,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     fn: FunctionType = leaf
     assert fn.__name__ == bind.verb
     assert fn.__doc__ == bind.help
-    ann = inspect.get_annotations(fn, eval_str=True)  # PEP 563/649 lazy annotations resolve
+    ann = inspect.get_annotations(fn, eval_str=True)
     assert ann["params"] is bind.params
     assert ann["return"] is Envelope
 
@@ -901,7 +893,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     env = _leaf(fake_bind, SeamExecutor())(given)
     assert env.claim is Claim.STATIC
     assert env.status is RailStatus.OK
-    assert received[0] is given  # runner(None) mutants drop the bound params on the floor
+    assert received[0] is given
 
 
 def test_read_version_string_and_oserror_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -925,7 +917,7 @@ def test_register_all_match_arms() -> None:
     from cyclopts import App  # ruff:ignore[import-outside-top-level]
 
     app = App(name="test-root")
-    registry_mod._register(app, App(name="sub-app"))  # (None, _) arm
-    registry_mod._register(app, lambda: None, name="my-noop")  # (verb, '') arm
-    registry_mod._register(app, lambda: None, name="my-noop2", help="Some help text")  # (verb, text) arm
+    registry_mod._register(app, App(name="sub-app"))
+    registry_mod._register(app, lambda: None, name="my-noop")
+    registry_mod._register(app, lambda: None, name="my-noop2", help="Some help text")
     assert {"sub-app", "my-noop", "my-noop2"} <= set(app)

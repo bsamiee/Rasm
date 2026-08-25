@@ -5,9 +5,6 @@ using System.Text.Json.Serialization;
 namespace Rasm.Benchmarks;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// The robust statistic the budget gates on is the policy, carried as a vocabulary row with its own
-// nanosecond projector — never a string knob re-dispatched at the gate. Mean is admitted but
-// tail-sensitive; Median is the default robust choice; Min is the contention-free floor.
 [SmartEnum]
 public sealed partial class GateStat {
     public static readonly GateStat Min = new(static stats => stats.Min);
@@ -18,9 +15,6 @@ public sealed partial class GateStat {
     public partial double NanosecondsOf(BdnStatistics stats);
 }
 
-// The per-case verdict is a closed three-way receipt: a case that cannot be gated — absent
-// benchmark, missing statistics, dispersion over ceiling — is a visible outcome, never a silent
-// pass, and only an in-budget, in-dispersion case reads Pass.
 [Union]
 public abstract partial record GateVerdict {
     public sealed record Pass(string Label, double ObservedMs, double BudgetMs) : GateVerdict;
@@ -30,21 +24,15 @@ public abstract partial record GateVerdict {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class RegressionPolicy {
-    // Breakpoints require scale-free BIC gain beyond a per-step penalty; the tolerance is the
-    // fractional final-segment level jump above which a sustained regression fails the session.
     internal const double PottsBeta = 4.0;
     internal const double RegressionTolerance = 0.70;
     internal const double NanosecondsPerMillisecond = 1_000_000.0;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One registry row: the exact benchmark FullName, the absolute budget over the gated statistic,
-// and the dispersion ceiling above which the sample is too noisy to gate.
 public sealed record BenchCase(string FullName, double BudgetMs, GateStat GateStat, double MaxRelIqr = 0.25);
 
 // --- [BDN_REPORT]
-// Source-generated projection over BenchmarkDotNet's `*-report-full.json`; only the median-series
-// and gate inputs are decoded, and BDN emits nanosecond PascalCase statistics through JsonExporter.Full.
 public sealed record BdnStatistics {
     [JsonPropertyName("Min")] public double Min { get; init; }
     [JsonPropertyName("Mean")] public double Mean { get; init; }
@@ -69,8 +57,6 @@ internal sealed partial class BdnContext : JsonSerializerContext;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Regression {
-    // Gate resolves every registered case to one typed verdict row. Matching is exact FullName —
-    // a substring match would let one benchmark satisfy several cases, or the wrong one.
     public static Seq<GateVerdict> Gate(BdnReport report, Seq<BenchCase> cases) {
         ArgumentNullException.ThrowIfNull(argument: report);
         return cases.Map(row =>
@@ -81,8 +67,6 @@ public static class Regression {
             });
     }
 
-    // Sustained segments each per-key median series with the greedy Potts/BIC step criterion and
-    // fails on a final-segment level jump above tolerance; a series with no prior segment never fires.
     public static Fin<Unit> Sustained(HashMap<string, Seq<double>> seriesByKey) {
         Seq<Error> regressions = seriesByKey.AsIterable().ToSeq().Bind(entry =>
             Segments(entry.Value) is var segments && segments.Count >= 2 && LevelJump(segments) is var ratio && ratio > RegressionPolicy.RegressionTolerance
@@ -93,8 +77,6 @@ public static class Regression {
             : Fin.Fail<Unit>(error: Error.Many(errors: regressions));
     }
 
-    // SeriesFromReports reconstructs per-key ordered median series (oldest first) across stored full
-    // reports plus the current run, keyed on the benchmark FullName the gate and segmenter share.
     public static HashMap<string, Seq<double>> SeriesFromReports(params Seq<BdnReport> reports) =>
         reports.Bind(report => toSeq(report.Benchmarks))
             .Filter(static benchmark => benchmark.Statistics is not null)
@@ -104,10 +86,6 @@ public static class Regression {
                     Some: existing => existing.Add(benchmark.Statistics!.Median),
                     None: () => Seq(benchmark.Statistics!.Median)));
 
-    // Registry-discovery parity: every discovered [Benchmark] method key owns at least one registry
-    // row and every row names a discovered method, so a benchmark landing without its BenchCase is
-    // a loud failure, never a silently ungated measurement. A parameterized report FullName suffixes
-    // "(args)" onto the method key, so a row matches exactly or at the "(" boundary — never by bare prefix.
     public static Fin<Unit> RegistryParity(Seq<string> discovered, Seq<BenchCase> cases) {
         static bool Owns(string methodKey, string rowName) =>
             string.Equals(a: rowName, b: methodKey, comparisonType: StringComparison.Ordinal)
@@ -147,9 +125,6 @@ public static class Regression {
     }
 
     // --- [POTTS_SEGMENTATION]
-    // Greedy Potts/BIC partition: the best within-segment split is taken only when its scale-free
-    // BIC gain clears the per-step penalty, recursing into each side; below two points the series
-    // is one segment.
     private static Seq<Seq<double>> Segments(Seq<double> series) =>
         series.Count >= 2 ? Split(series, RegressionPolicy.PottsBeta * Math.Log(d: Math.Max(val1: series.Count, val2: 2))) : (series.IsEmpty ? Seq<Seq<double>>() : Seq(series));
 

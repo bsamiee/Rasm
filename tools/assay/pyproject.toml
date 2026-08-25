@@ -7,29 +7,29 @@ description = "Rasm estate gate: one verdict authority dispatching every languag
 readme = "README.md"
 requires-python = ">=3.15"
 dependencies = [
-    "anyio",                                  # Structured concurrency across the executor fan and process boundaries
-    "beartype",                               # Runtime type gates on the rail surfaces
-    "cyclopts",                               # Command registry and CLI parse
-    "expression",                             # Result/Option rails
-    "fsspec",                                 # Artifact store filesystem boundary
-    "msgspec",                                # Wire structs and envelope codec
-    "mutmut",                                 # Mutation-gate rail drives the mutmut engine in-process
-    "opentelemetry-api",                      # Tracer surface
-    "opentelemetry-exporter-otlp-proto-http", # OTLP span egress
-    "opentelemetry-sdk",                      # Tracer provider and batch processor
-    "psutil",                                 # Process and host telemetry for governed concurrency
-    "pydantic",                               # Settings validation models
-    "pydantic-settings",                      # Validated env admission
-    "stamina",                                # Bounded retry policies
-    "structlog",                              # Structured logging pipeline
-    "tomlkit",                                # Init rail round-trips the workspace member roster
-    "tree-sitter",                            # TSDECL static rail
-    "tree-sitter-python",                     # Python grammar for the TSDECL rail
-    "tree-sitter-typescript",                 # Typescript grammar for the TSDECL rail
-    "universal-pathlib",                      # UPath root anchoring over the fsspec registry
-    "watchfiles",                             # Automation engine file watching
-    "xxhash",                                 # Content identity hashing
-    "zstandard",                              # Run-history frame compression
+    "anyio",
+    "beartype",
+    "cyclopts",
+    "expression",
+    "fsspec",
+    "msgspec",
+    "mutmut",
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-sdk",
+    "psutil",
+    "pydantic",
+    "pydantic-settings",
+    "stamina",
+    "structlog",
+    "tomlkit",
+    "tree-sitter",
+    "tree-sitter-python",
+    "tree-sitter-typescript",
+    "universal-pathlib",
+    "watchfiles",
+    "xxhash",
+    "zstandard",
 ]
 
 [project.scripts]
@@ -42,32 +42,25 @@ requires = ["uv_build>=0.12.5,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-# Flat layout, no src/: the package sits at the project root, and scoped sys.path entries keep the editable install unshadowed.
 module-root = ""
 module-name = "assay"
 
 # --- [MUTMUT] ---------------------------------------------------------------------------
 
-# Mutation policy lives with its package: mutmut runs from this directory (assay stages the tree and chdirs here),
-# so `mutants/.` shadows the venv-editable `assay` and the tests exercise the mutated copy — the src-layout
-# injection contract mutmut special-cases. Paths are package-relative; the pytest selection reaches up to the
-# repo-root proof estate, whose config rides the staged root pyproject.
 [tool.mutmut]
 source_paths = ["assay"]
 pytest_add_cli_args_test_selection = [
     "../../tests/python/tools/assay",
-]  # `type_check_command` stays unset: the prefilter aborts on any pre-existing checker diagnostic; tests are the kill mechanism.
+]
 pytest_add_cli_args = [
     "--hypothesis-profile=rasm-mutation",
     "-o",
-    "required_plugins=",                                 # mutmut disables pytest-randomly, so this invocation waives the required-plugins guard
+    "required_plugins=",
     "-m",
-    "not benchmark and not network and not subprocess",  # Subprocess tests execute the unmutated CLI outside mutmut's copied tree
+    "not benchmark and not network and not subprocess",
 ]
 do_not_mutate = ["assay/__init__.py", "assay/rails/mutation_gate.py"]
-mutate_only_covered_lines = true  # mutation run supplies absolute-keyed coverage data for mutmut's covered-line map
-max_stack_depth = -1  # disables mutmut's strict stack walk over importlib pseudo-filenames
-# Per-mutant wall/CPU cap = (estimated suite time + timeout_constant) * timeout_multiplier, replacing the lax 15x default.
-# Concurrency has no config key: --max-children is CLI-only (assay-governed); a bare run defaults to cpu_count.
+mutate_only_covered_lines = true
+max_stack_depth = -1
 timeout_multiplier = 4.0
 timeout_constant = 5.0

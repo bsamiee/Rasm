@@ -29,14 +29,14 @@ When a concern matches several rows, the most specific wins; the rail the arms r
 - Law: overloaded entrypoints use the `function` declaration form — overload signatures tolerate the wider implementation signature there, while a `const` annotated with the same call signatures checks its arrow against every signature simultaneously and forces the cast the declaration form never needs; single-signature operators stay `const` arrows, and the declaration form is earned by the overload set alone.
 - Law: overload signatures order strictly narrow to wide because resolution binds the first assignable signature — the non-empty tuple above the wide `ReadonlyArray`, the richer record above its structural supertype — and the compiler never diagnoses an unreachable overload: a wide signature placed first captures every call the narrow one owns and silently degrades its return, while the dead signature below keeps promising a shape no call receives; a published signature earns its line by being reachable, and ordering is the only proof.
 - Law: ordering resolves only the type plane — where the widest modality's input runtime-subsumes a narrower modality's domain (every `Cause` is an `unknown`, every non-empty tuple is a `ReadonlyArray`), the wide arm answers its declared return totally over the overlapping values or that return lies for exactly those calls; a modality the wide body cannot answer totally publishes only under a runtime-disjoint input shape the discrimination ladder separates.
-- Law: a public conditional-return generic — `<I extends Key | Batch<Key>>(input: I) => I extends Batch<Key> ? Batch<Row> : Row` — states the same per-shape contract, but no implementation body checks against an unresolved conditional, so it compiles only through an `as`; where overloads can carry the shapes, overloads win, and the conditional form retreats to derived type surfaces.
+- Law: a public conditional-return generic — `<I extends Key | Batch<Key>>(input: I) => I extends Batch<Key> ? Batch<Row> : Row` — states the same per-shape signature, but no implementation body checks against an unresolved conditional, so it compiles only through an `as`; where overloads can carry the shapes, overloads win, and the conditional form retreats to derived type surfaces.
 - Law: a concern with a lawful inverse publishes both directions from one owner — decode beside encode, pack beside unpack, acquire beside release — as members of the same assembled surface or overload set, the codec pair's single bidirectional declaration being `shapes.md`'s twin form; a free inverse export beside its forward twin is the sibling family the entrypoint already deletes, because direction is a modality of one concern, never a second concern.
 - Law: discrimination reads evidence the value already carries — `Predicate.isString`, a `Predicate.hasProperty` shape probe, a `$is` tag probe — ordered so scalar and record shapes are eliminated before the collection residue, which then splits once through `Array.isNonEmptyReadonlyArray`: that refinement is typed over `ReadonlyArray`, so its true branch is the proven non-empty tuple and its false branch the unproven collection, where a raw `Array.isArray` probe narrows to mutable `Array` and forfeits the `readonly` tuple outright. A `mode` parameter beside the input restates what the value answers: the smuggled knob.
 - Exemption: the `function` keyword and its single `return` are the platform seam overload syntax forces; the body stays one expression.
 
 [MODAL_ARITY]:
 - Law: the batch modality is `NonEmptyReadonlyArray` — `readonly [A, ...Array<A>]` — so plurality is a fact of the type: the batch overload returns a non-empty result derived by construction (`Array.headNonEmpty` resolves the proven head, `Effect.forEach` sweeps the tail, `[head, ...tail] as const` recombines the tuple), never a claimed plurality the interior must re-prove over a possibly-empty array.
-- Law: empty is not a batch — the unproven, possibly-empty collection is its own modality one signature below the tuple, same lookup contract at the honestly weaker return with no non-empty claim, so the caller who cannot prove plurality is served without widening the batch overload to admit empty, which discards non-emptiness for every proven caller at once.
+- Law: empty is not a batch — the unproven, possibly-empty collection is its own modality one signature below the tuple, with the same lookup behavior at the honestly weaker return and no non-empty claim, so the caller who cannot prove plurality is served without widening the batch overload to admit empty, which discards non-emptiness for every proven caller at once.
 - Boundary: how the swept rail combines — abort versus accumulate — is `rails-and-effects.md`'s disposition and the declared degree is `concurrency.md`'s; this surface owns only the arity discriminant and the shape-following return.
 
 ```typescript conceptual
@@ -86,7 +86,7 @@ export type { Batch, Key, Ledger, Row, Sweep };
 
 [TERMINAL_SELECTION]:
 - Law: the `Match` terminal is an architecture decision made by what the unmatched residue means: `Match.exhaustive` is the only terminal for a closed family the module owns — a missing arm is a compile error, so a new tag breaks every dispatch site; `Match.option` declares the residue non-failing absence; `Match.either` keeps the residue as typed material — the left channel carries the narrowed leftover union, so staged dispatch threads stages through `Either` and the next stage's input type is the proof of what remains; `Match.orElse` is lawful only over genuinely open input, because on a closed family the fallback silently absorbs every future tag the exhaustive terminal surfaces; `Match.orElseAbsurd` throws and is rejected outright.
-- Law: `Match.withReturnType<Ret>()` composes immediately after `Match.type`/`Match.value` and before the first arm, so every arm is checked against the contract at the arm; placed later it only validates the accumulated union, and a misfit surfaces at the terminal instead of at the offending arm.
+- Law: `Match.withReturnType<Ret>()` composes immediately after `Match.type`/`Match.value` and before the first arm, so every arm is checked against the declared return type at the arm; placed later it only validates the accumulated union, and a misfit surfaces at the terminal instead of at the offending arm.
 - Law: `Match.tag` subtracts exactly and its leading segment is variadic — one arm carries several tags and receives their extracted union; literal and type-refinement patterns subtract the matched shape from the residue, while bare boolean predicates admit without subtracting, so the residue the terminal sees is computed arm by arm and the `either` left type is read, not asserted.
 - Law: several structural patterns share one arm through `Match.whenOr`, a conjunction demands `Match.whenAnd`, and a complement arm rides `Match.not` — the hand-written `||`-predicate arm is the deleted spelling: a bare predicate admits without subtracting and forfeits the pattern's payload narrowing.
 - Law: structural probes spell as the shipped atoms — `Match.string`, `Match.number`, `Match.boolean`, `Match.bigint`, `Match.symbol`, `Match.date`, `Match.record`, `Match.defined`, `Match.null`, `Match.undefined`, `Match.nonEmptyString`, `Match.is("<value-a>", "<value-b>")` — each a refinement that subtracts, standalone or as a field pattern; the hand lambda restating an atom is a bare predicate, so its arm handles the shape yet leaves it in the residue.
@@ -228,8 +228,8 @@ export type { Frame, Pulse, Signal };
 ## [05]-[DUAL_ENTRY]
 
 [DUAL_DEFINITION]:
-- Law: an operator whose first data-first parameter is a pipe subject publishes both postures from one `Function.dual` definition — the data-first body is the single implementation, the `const` annotated with the two call signatures is the published contract, and the parallel curried twin or the consumer adapter lambda `(value) => operator(value, argument)` is the deleted pair.
-- Law: the call-signature annotation carries what the body cannot state for the data-last side — the flowing generics and channel unions — and it is simultaneously the explicit export annotation the compiler demands, so one spelling serves contract, gate, and both postures; the `dual<DataLast, DataFirst>` type-argument spelling restates both parameter lists away from the declaration and survives only where no `const` annotation exists.
+- Law: an operator whose first data-first parameter is a pipe subject publishes both postures from one `Function.dual` definition — the data-first body is the single implementation, the `const` annotated with the two call signatures is the published surface, and the parallel curried twin or the consumer adapter lambda `(value) => operator(value, argument)` is the deleted pair.
+- Law: the call-signature annotation carries what the body cannot state for the data-last side — the flowing generics and channel unions — and it is simultaneously the explicit export annotation the compiler demands, so one spelling serves the surface, gate, and both postures; the `dual<DataLast, DataFirst>` type-argument spelling restates both parameter lists away from the declaration and survives only where no `const` annotation exists.
 - Law: posture and modality are orthogonal axes — input modality lives in the entrypoint's input union, posture is one dual over the settled data-first shape; constructors and admission factories have no subject and never dual.
 
 [DISCRIMINANT_SELECTION]:
@@ -284,17 +284,17 @@ export type { Row };
 
 ## [06]-[HANDLER_RECORD]
 
-[RECORD_CONTRACT]:
-- Law: per-kind behavior is one record at the owner, keyed by the vocabulary and checked against one mapped contract — `{ readonly [K in Kind]: (payload: Payload[K]) => Rail }` — and dispatch is one generic indexed call, `_HANDLERS[kind](payload)`: the mapped annotation is what resolves the indexed access to a single correlated signature, so the per-kind payload flows through without casts.
-- Law: annotation versus `satisfies` is adjudicated by the record's consumer — the record backing a correlated generic dispatch is annotated with its mapped contract, because `satisfies` keeps the inferred per-row function types and the generic indexed call then faces a union of signatures it cannot satisfy; the vocabulary table whose row literals feed derivation takes the anchor form instead, its contract check placed by export reach, because widening is the thing being prevented.
-- Law: a new kind is one vocabulary row, one payload field, and one handler row — the mapped contract turns the missing handler into a compile error at the record while every consumer stays untouched; the diff of the next kind never leaves the owner.
+[RECORD_SURFACE]:
+- Law: per-kind behavior is one record at the owner, keyed by the vocabulary and checked against one mapped shape — `{ readonly [K in Kind]: (payload: Payload[K]) => Rail }` — and dispatch is one generic indexed call, `_HANDLERS[kind](payload)`: the mapped annotation is what resolves the indexed access to a single correlated signature, so the per-kind payload flows through without casts.
+- Law: annotation versus `satisfies` is adjudicated by the record's consumer — the record backing a correlated generic dispatch is annotated with its mapped shape, because `satisfies` keeps the inferred per-row function types and the generic indexed call then faces a union of signatures it cannot satisfy; the vocabulary table whose row literals feed derivation takes the anchor form instead, its shape check placed by export reach, because widening is the thing being prevented.
+- Law: a new kind is one vocabulary row, one payload field, and one handler row — the mapped shape turns the missing handler into a compile error at the record while every consumer stays untouched; the diff of the next kind never leaves the owner.
 - Law: the record and its dispatch publish as one assembled vocabulary owner — interior rows spread in, the dispatch member beside them, companion types on the merged hub — so a consumer imports one name and reaches rows, payloads, receipts, and dispatch; a loose dispatch operation exported beside its table is the split this form deletes.
 - Reject: consumer-side reassembly — a call site assembling its own record over exported loose handlers, a `switch` over kinds repeated per consumer, an `Object.keys` iteration re-deriving what `Kind` already is.
-- Boundary: the assembled owner's interior anchor, guard pair, and member-pollution trap are `derivation.md`'s vocabulary site; this page owns the handler contract and the dispatch member it publishes.
+- Boundary: the assembled owner's interior anchor, guard pair, and member-pollution trap are `derivation.md`'s vocabulary site; this page owns the handler surface and the dispatch member it publishes.
 
 [INLINE_ATTACHMENT]:
 - Law: composition attaches at the row — each handler's admission, guard, and projection compose inside its own row value, and shared per-kind policy is a column on the vocabulary row the handler reads, so behavior variation is data the table already owns, never a wrapper stack applied after the record exists.
-- Law: a method record on an owner object is the same law — the object is contract-annotated or `satisfies`-checked at its declaration and never assembled field-by-field afterward; a record built by staged mutation forfeits the missing-key compile error that is the record's reason to exist.
+- Law: a method record on an owner object is the same law — the object is shape-annotated or `satisfies`-checked at its declaration and never assembled field-by-field afterward; a record built by staged mutation forfeits the missing-key compile error that is the record's reason to exist.
 
 ```typescript conceptual
 import { Data, Effect } from "effect";
@@ -334,12 +334,12 @@ const _HANDLERS: { readonly [K in ROUTE.Kind]: (payload: ROUTE.Payload[K]) => Ef
 const ROUTE: ROUTE.Shape = {
     // one exported owner assembles rows and dispatch: a consumer imports ROUTE and reaches everything
     ..._rows,
-    submit: (kind, payload) => _HANDLERS[kind](payload), // the generic indexed call rides the contextual signature; the mapped contract keeps it cast-free
+    submit: (kind, payload) => _HANDLERS[kind](payload), // the generic indexed call rides the contextual signature and stays cast-free
 };
 
 const _spent: Effect.Effect<ROUTE.Receipt, Refused> = ROUTE.submit("amend", { key: "<key-a>", delta: 2 });
 
-// @ts-expect-error the payload follows the kind: a close seal cannot ride an amend submit
+// @ts-expect-error
 const _drift = ROUTE.submit("amend", { key: "<key-a>", seal: "<seal-a>" });
 
 // --- [EXPORTS] --------------------------------------------------------------------------

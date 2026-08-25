@@ -2,14 +2,14 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable, Generator  # runtime: Protocol and msgspec fields resolve these annotations
+from collections.abc import Callable, Generator
 from pathlib import Path
 import re
 from types import SimpleNamespace
 from typing import Final, override, Protocol, TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from expression import Error, Ok  # Error/Ok are runtime in the RailProbe canned-outcome builders
+from expression import Error, Ok
 from hypothesis import strategies as st
 import msgspec
 import psutil as _psutil
@@ -100,11 +100,9 @@ class CpuDoubleInstaller(Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Mirrors model._ENCODER order so oracle bytes are byte-identical to production wire output.
 WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 # --- [TABLES]
-# Typed aliases keep ``@given(X_st)`` overload resolution; lazy strategy attributes do not.
 
 
 rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
@@ -131,7 +129,6 @@ diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)
 
-# Registry rows and Envelope composition do not map to a single ``resolve(T)`` strategy.
 binds_st = st.sampled_from(REGISTRY)
 detail_st: st.SearchStrategy[AnyDetail] = resolve(AnyDetail)
 
@@ -173,7 +170,6 @@ def assay_settings(root: Path) -> AssaySettings:
         Settings rooted at ``root`` with remote execution disabled.
     """
     (root / "Workspace.slnx").write_text("", encoding="utf-8")
-    # Isolate the machine-wide dotnet slot lock root under the tmp tree so tests never contend on the real ~/.rasm pool.
     return AssaySettings(root=UPath(root), exec_known_hosts=None, machine_lock_root=root / ".rasm" / "locks")
 
 
@@ -225,7 +221,7 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
     project: Callable[[tuple[object, ...]], Generator[Check]] = _pick_check
 
     @override
-    def install(  # ty: ignore[invalid-method-override]  # the 4-arg member-string shim narrows the engine's Shape param to a canned assay payload
+    def install(  # ty: ignore[invalid-method-override]
         self,
         monkeypatch: pytest.MonkeyPatch,
         owner: object,
@@ -248,7 +244,6 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
 
     @property
     def commands(self) -> list[tuple[str, ...]]:
-        # The filled command is the spawned argv body; holeless rows fill to identity.
         return [tuple(c.args.fill(c.tool.command)) for c in self.captured]
 
     def port(self, payload: Result[Completed, Fault]) -> SeamExecutor:
@@ -304,7 +299,7 @@ class SeamExecutor(msgspec.Struct, frozen=True, gc=False):
             The canned run outcome for this call.
         """
         assert self.run_fn is not None, "rail reached executor.run but this SeamExecutor cans no run lane"
-        return self.run_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
+        return self.run_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     def fan(self, *args: object, **kwargs: object) -> tuple[Result[Completed, Fault], ...]:
         """Play the canned batch lane with the rail's exact call shape.
@@ -313,7 +308,7 @@ class SeamExecutor(msgspec.Struct, frozen=True, gc=False):
             The canned per-check outcome slots for this call.
         """
         assert self.fan_fn is not None, "rail reached executor.fan but this SeamExecutor cans no fan lane"
-        return self.fan_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
+        return self.fan_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
 
 def _yak_manifest() -> tuple[Path, str, str, str]:
@@ -335,7 +330,6 @@ def _yak_manifest() -> tuple[Path, str, str, str]:
         for path in sorted((REPO_ROOT / root_name).rglob("*.csproj"))
         if (found := slugged.search(text := path.read_text(encoding="utf-8"))) is not None
     )
-    # The workspace default is body-set, so it seats in either root MSBuild file; exactly one seat carries it and a second forks the election.
     tfm = tuple(
         found
         for name in ("Directory.Build.props", "Directory.Build.targets")
@@ -477,7 +471,7 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     Returns:
         The installed module double for further per-test configuration.
     """
-    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]
 
     fake = _make_psutil_module({}, cpu_count=cpu_count)
     fake.cpu_percent = cpu_percent

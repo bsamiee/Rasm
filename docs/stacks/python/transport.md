@@ -8,7 +8,7 @@ Every cross-language seam resolves to one generated surface; the table names the
 
 | [INDEX] | [CONCERN]              | [USE]                                                             | [REJECTED_FORM]                             |
 | :-----: | :--------------------- | :---------------------------------------------------------------- | :------------------------------------------ |
-|  [01]   | message vocabulary     | generated `<family>_pb` classes under `rasm.contracts`            | msgspec or pydantic twin of a message       |
+|  [01]   | message vocabulary     | generated `<family>_pb` classes under the generated package tree  | msgspec or pydantic twin of a message       |
 |  [02]   | binary crossing        | `Message.to_binary` / `Message.from_binary`                       | magic + layout cell + `struct.unpack` frame |
 |  [03]   | JSON crossing          | `Message.to_json` / `Message.from_json` with one `Registry`       | `json.dumps` of a hand mapping              |
 |  [04]   | oneof construction     | `Oneof(field, value)` on the oneof attribute; `None` unset        | per-arm keyword constructors                |
@@ -26,7 +26,7 @@ Every cross-language seam resolves to one generated surface; the table names the
 
 [GENERATED_VOCABULARY]:
 - Use when: a value crosses to a peer runtime — a reply, a stream frame, a detail, an event payload, a frozen artifact another branch decodes.
-- Accept: the generated class as the only shape, imported by its one package path — `rasm.contracts.rasm.contracts.<family>.<family>_pb` and `<family>_connect`, dependencies at `rasm.contracts.buf.validate`, `rasm.contracts.google.rpc`, `rasm.contracts.google.type`, vendored publishers at `rasm.contracts.grpc.health.v1` and `rasm.contracts.io.cloudevents.v1`; well-known types from `protobuf.wkt`; corpus enums with their prefix stripped (`Modality.IFC`), read by MEMBER NAME wherever a branch vocabulary corresponds to one.
+- Accept: the generated class as the only shape, imported by its one generated package path — each family’s `<family>_pb` and `<family>_connect`, shared validation and common-proto dependencies, and vendored health and CloudEvents publishers; well-known types from `protobuf.wkt`; corpus enums with their prefix stripped (`Modality.IFC`), read by MEMBER NAME wherever a branch vocabulary corresponds to one.
 - Law: construction and assignment validate NOTHING — `to_binary` and `to_json` run the check and raise `TypeError` on a wrong-typed slot, `OverflowError` on a scalar outside its wire range, `ValueError` on a malformed oneof or value — so the one admission site on the proto plane is the fence that encodes, its `catch` names all three, and a decode-only path never fires the check; `from_binary` and `from_json` raise `ValueError` alone.
 - Law: an `optional` scalar constructs on `T | None`, reads its proto zero when unset, and answers presence through `has_field`; a message slot reads `None`; a oneof reads `Oneof(field, value)` or `None`. Presence is the only way a caller states a budget, a window, or a second dimension, so a consumer reads `has_field`, never the zero.
 - Law: corpus `protovalidate` rules are the constraint authority and the runtime evaluates them once at each foreign body boundary. Request violations refuse as `INVALID_ARGUMENT`, response violations refuse as `INTERNAL`, and the structured `buf.validate.Violations` detail crosses intact; no branch re-spells a field rule in application code. Protobuf-py's encode-time structural checks remain the separate construction fence.
@@ -68,8 +68,8 @@ from connectrpc.server import ConnectASGIApplication, Endpoint
 from expression import Error, Ok, Result
 from protobuf import Message, Oneof, Registry
 from protobuf.wkt import Any, Duration, Empty, FieldMask, Struct, any_pb, duration_pb, empty_pb, field_mask_pb, struct_pb
-from rasm.contracts.google.rpc import error_details_pb
-from rasm.contracts.google.rpc.error_details_pb import RetryInfo
+from generated.google.rpc import error_details_pb
+from generated.google.rpc.error_details_pb import RetryInfo
 
 type Profile = Literal["<profile-a>", "<profile-b>"]
 type Encode = Literal["<wrong-type>", "<out-of-range>", "<malformed>"]

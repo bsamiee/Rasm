@@ -8,14 +8,10 @@ import { Array, Effect, Option, Order, Record, Schema } from 'effect';
 const _HOME = new URL('..', import.meta.url).pathname;
 const _ROOT = new URL('../../..', import.meta.url).pathname;
 
-// Every dependency block is audited — a stray pin hides as easily in devDependencies as in dependencies.
 const _BLOCKS = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
 
-// Engine-identity law: the property engine is the one effect/FastCheck re-export; a second engine copy
-// breaks Arbitrary class identity across the kit's input dispatch, so the package itself is refused.
 const _REFUSED = ['fast-check'] as const;
 
-// Workspace facts as data rows: each pattern is one line-grammar claim over the raw manifest text.
 const _FACTS = [
     { fact: 'catalogMode is strict', pattern: /catalogMode:\s*strict/ },
     { fact: 'the spec estate rides the workspace graph', pattern: /-\s*'tests\/typescript\/\*'/ },
@@ -25,11 +21,8 @@ const _FACTS = [
     { fact: 'the @effect/vitest peer tolerance is recorded as an allowedVersions row', pattern: /allowedVersions:[\s\S]{0,600}?vitest:\s*\d/ },
 ] as const;
 
-// A counterfeit manifest missing every fact: each pattern must refuse it, or the fact row is a tautology.
 const _COUNTERFEIT = "catalogMode: loose\npackages:\n- 'apps/*'\npeerDependencyRules:\nallowedVersions:\n";
 
-// The [04] promotion layer: every doctrine anti-pattern no compiler flag or shipped Biome rule
-// rejects is one GritQL rule at error under tools/biome/ — this roster is the law biome.json realizes.
 const _PROMOTED = [
     'no-arity-sibling',
     'no-await-in-domain',
@@ -46,8 +39,6 @@ const _PROMOTED = [
     'no-stdlib-in-domain',
 ] as const;
 
-// Laws a single-pattern rule cannot express (cross-declaration shape comparison, naming judgment,
-// composition review): review-owned by declaration, so a missing rule is a ruling, never an oversight.
 const _REVIEW_ONLY = [
     'anticipatory-collapse',
     'composed-implementation',
@@ -58,18 +49,10 @@ const _REVIEW_ONLY = [
     'semantic-naming',
 ] as const;
 
-// Every promoted rule binds the domain estate and exempts every spec dialect — the trailing `.*`
-// covers ts/tsx/mts/cts and the browser dialects in one row, matching the runner's include globs.
-// Plugin includes match the full file path, so the estate glob leads with `**/` — the bare
-// `libs/typescript/**` form never matches and silently disarms the whole promotion layer.
 const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.*', '!**/*.test.*', '!**/*.bench.*'] as const;
 
-// Domain arming is a closed ruling row set, drift-fenced in both directions: `test` runs
-// recommended; `project` and `types` stay disarmed — their whole-graph type inference belongs to
-// the `tsc` gate, not the lint rail. A silent flip either way is a violation.
 const _DOMAINS = { project: 'none', test: 'recommended', types: 'none' } as const;
 
-// A rule file is armed only when it registers an error diagnostic and carries both proof spans.
 const _ARMED = [
     { mark: 'registers a diagnostic', want: /register_diagnostic\(/ },
     { mark: 'promotes at error', want: /severity\s*=\s*"error"/ },
@@ -77,8 +60,6 @@ const _ARMED = [
     { mark: 'carries its non-firing span', want: /\/\/ CLEAN:/ },
 ] as const;
 
-// The live-fire span grammar: each FIRES line is one self-contained fixture the real binary lints
-// in isolation — a multi-arm rule proves every arm; CLEAN lines join into one silent file.
 const _SPANS = { clean: /^\/\/ CLEAN: (.+)$/gm, fires: /^\/\/ FIRES: (.+)$/gm } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -102,9 +83,6 @@ const _Biome = Schema.Struct({
             suspicious: Schema.Struct({ noExplicitAny: Schema.String }),
         }),
     }),
-    // Shipped-rule promotions ride overrides: a rule Biome ships needs no GritQL twin, only its armed
-    // row. Foreign overrides (panic exclusions, skill-script relaxations) decode to empty rule records;
-    // the estate promotion override is found among the rows, never assumed to be the only one.
     overrides: Schema.Array(
         Schema.Struct({
             includes: Schema.Array(Schema.String),
@@ -132,11 +110,9 @@ const _decodeBiome = Schema.decodeUnknown(Schema.parseJson(_Biome));
 
 const _decodeReport = Schema.decodeUnknown(Schema.parseJson(_LintReport));
 
-// One rule's proof material, extracted from its own file: every span line of the kind, in file order.
 const _spans = (text: string, kind: keyof typeof _SPANS): ReadonlyArray<string> =>
     Array.filterMap(Array.fromIterable(text.matchAll(_SPANS[kind])), (hit) => Option.fromNullable(hit[1]));
 
-// The lint-legislature predicate: one violation list over the decoded config, falsifiable in isolation.
 const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
     Array.flatten([
         config.linter.rules.preset === 'recommended' ? [] : ['linter.rules.preset must hold the recommended preset'],
@@ -165,17 +141,14 @@ const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
             : ['an estate-scoped override must arm suspicious.noConsole and style.noDefaultExport at error'],
     ]);
 
-// The armed-rule predicate over one .grit text.
 const _disarmed = (rule: string, text: string): ReadonlyArray<string> =>
     Array.filterMap(_ARMED, (row) => (row.want.test(text) ? Option.none() : Option.some(`${rule} never ${row.mark}`)));
 
-// Version facts live only in pnpm-workspace.yaml: a spec-estate dependency resolves through the catalog or the workspace graph.
 const _admitted = (pin: string): boolean => pin === 'catalog:' || pin.startsWith('workspace:');
 
 const _entries = (manifest: typeof _Manifest.Type): ReadonlyArray<readonly [block: string, name: string, pin: string]> =>
     Array.flatMap(_BLOCKS, (block) => Array.map(Record.toEntries(manifest[block]), ([name, pin]) => [block, name, pin] as const));
 
-// An overlay copy names its canonical twin at another tier by full catalog path; a canonical copy carries no such pointer.
 const _overlay = (name: string): RegExp => new RegExp(`\`(libs|tests)/typescript(/[a-z]+)?/\\.api/${name.replaceAll('.', '\\.')}\``);
 
 const _manifests = Effect.gen(function* () {
@@ -189,8 +162,6 @@ const _manifests = Effect.gen(function* () {
     return Array.getSomes(decoded);
 });
 
-// The catalog tiers: the two fixed tiers plus every folder tier discovered on disk — a package holds
-// exactly one canonical catalog; a shared basename is legal only as a declared overlay naming it.
 const _tiers = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

@@ -71,17 +71,15 @@ class Input(StrEnum):
     PROJECT = "project", (), True
     SOLUTION = "solution", (), True
     NONE = "none", (), True
-    OWNED = "owned", (), True  # command owns its input placement; place() contributes a single empty tail
+    OWNED = "owned", (), True
 
-    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]
         """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.flag, m.scoped = value, flag, scoped
         return m
 
 
-# Root C# build-config anchors, spelled as git tracks them: every lane manifest crossing a C# closure keeps them, and an
-# edit to any one escalates routing. One roster serves both consumers so the two ends cannot drift apart again.
 DOTNET_CONFIG_ANCHORS: frozenset[str] = frozenset((
     ".config/dotnet-tools.json",
     ".editorconfig",
@@ -97,16 +95,14 @@ DOTNET_CONFIG_ANCHORS: frozenset[str] = frozenset((
 class Language(StrEnum):
     """Language axis for routing."""
 
-    strategy: Literal["closure", "glob"]  # closed route discriminant; typos cannot silently route as glob
+    strategy: Literal["closure", "glob"]
     suffixes: frozenset[str]
-    # Root-relative configs governing the whole lane; a change to one escalates the route because every
-    # verdict in the language derives from them, and no source file need change for the answer to move.
     governors: frozenset[str]
     DOTNET = (
         "dotnet",
         "closure",
         frozenset((".cs", ".csproj", ".props", ".targets", ".slnx")),
-        frozenset((*DOTNET_CONFIG_ANCHORS, "stryker-config.json")),  # anchors roster + the mutation policy file
+        frozenset((*DOTNET_CONFIG_ANCHORS, "stryker-config.json")),
     )
     PYTHON = "python", "glob", frozenset((".py", ".pyi")), frozenset(("pyproject.toml", "uv.lock"))
     TYPESCRIPT = (
@@ -126,9 +122,9 @@ class Language(StrEnum):
             "stryker.config.json",
         )),
     )
-    BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()  # shellcheck/shfmt read no repo config; verdicts derive from source alone
-    SQL = "sql", "glob", frozenset((".sql",)), frozenset(("pyproject.toml",))  # sqlfluff policy rides the root [tool.sqlfluff] tables
-    DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()  # prose gates are self-contained scripts; no repo config governs the verdict
+    BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()
+    SQL = "sql", "glob", frozenset((".sql",)), frozenset(("pyproject.toml",))
+    DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()
     PROTO = "proto", "glob", frozenset((".proto",)), frozenset(("libs/contracts/buf.yaml", "libs/contracts/buf.gen.yaml", "libs/contracts/buf.lock"))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str], governors: frozenset[str]) -> Self:
@@ -158,7 +154,7 @@ class Mode(StrEnum):
     DEPLOY = "deploy", False, False
     PUBLISH = "publish", False, False
 
-    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]
         """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.stream, m.writes = value, stream, writes
@@ -196,7 +192,7 @@ class RailStatus(StrEnum):
     ``UNPROVED``, because none of them examined the axis.
     """
 
-    exit_code: int  # bound by __new__; not a real descriptor
+    exit_code: int
     severity: int
     band: Band
 
@@ -219,7 +215,7 @@ class RailStatus(StrEnum):
         member.severity = severity
         member.band = band
         for alias in aliases:
-            member._add_value_alias_(alias)  # Python 3.13+ raises on cross-member alias collisions
+            member._add_value_alias_(alias)
         return member
 
     @classmethod
@@ -261,7 +257,7 @@ class Runner(StrEnum):
     DIRECT = "direct", ()
     UV = "uv", ("uv", "run")
     DOTNET = "dotnet", ("dotnet",)
-    PNPM = "pnpm", ("pnpm", "--silent", "exec")  # --silent keeps the pnpm reporter off stdout, whose JSON belongs to the child tool
+    PNPM = "pnpm", ("pnpm", "--silent", "exec")
     INPROC = "inproc", ()
 
     def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:
@@ -308,7 +304,7 @@ class Step(StrEnum):
     ``scan=True`` members may appear as ``{step}:`` message prefixes; status-derived members stay classification-only.
     """
 
-    scan: bool  # bound by __new__; True for the prefix-scan roster, False for status-derived classifications
+    scan: bool
 
     STRICT = "strict", True
     VALIDATION = "validation", True
@@ -320,7 +316,7 @@ class Step(StrEnum):
     LEASE_BUSY = "lease_busy", False
     DEFECTS = "defects", False
 
-    def __new__(cls, value: str, scan: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # positional enum-member payload, not a boolean knob
+    def __new__(cls, value: str, scan: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]
         """Bind the wire token and the prefix-scan roster flag."""
         member = str.__new__(cls, value)
         member._value_ = value
@@ -341,7 +337,7 @@ class SymbolShape(StrEnum):
 class ToolGroup(StrEnum):
     """Tool policy group: uv dependency groups inject ``uv run --group``; assay tags drive status/eligibility."""
 
-    uv: bool  # genuine uv dependency group when True, assay policy tag when False
+    uv: bool
 
     MUTATION = "mutation", True
     RUN_DEFAULT = "run-default", False
@@ -349,7 +345,7 @@ class ToolGroup(StrEnum):
     REQUIRES_BENCHMARK = "requires-benchmark", False
     EMPTY_ON_EXIT1 = "empty-on-exit1", False
 
-    def __new__(cls, value: str, uv: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, uv: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]
         """Attach the uv-dependency-group flag not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.uv = value, uv
@@ -361,10 +357,7 @@ type InprocThunk = Callable[[Check], Completed]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 RESULT_CAP: int = 1000
-# host-bound claims cannot run off-host; remote execution rejects them before argv composition.
 HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.INIT))
-# Catalog command holes: `{name}` substitutes a ToolArgs string field inside a token; `{name*}` is a whole-token
-# tuple splice. A token whose referenced string value is empty drops whole, so optional flags vanish cleanly.
 _HOLE: re.Pattern[str] = re.compile(r"\{([a-z_]+)(\*)?\}")
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -384,7 +377,7 @@ class Stage(Base, frozen=True, cache_hash=True):
     root: str = ""
     inputs: tuple[str, ...] = ()
     project: bool = False
-    chdir: str = ""  # staged-subtree working directory for tools whose config owner lives below the stage root
+    chdir: str = ""
 
 
 class ToolArgs(Base, frozen=True, cache_hash=True):
@@ -467,14 +460,9 @@ class Tool(Base, frozen=True, cache_hash=True):
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
     stage: Stage = Stage()
     env: tuple[tuple[str, str], ...] = ()
-    # (returncode, output marker) the tool emits for "nothing to do"; a b"" marker keys on the returncode alone.
     empty_signature: tuple[int, bytes] | None = None
-    # Diagnostics family for the row's parseable output; the engine stamps it onto each receipt for the report fold.
     parser: Parser = Parser.NONE
-    # Row-owned PROJECT placement flag (e.g. ("--project",)); empty means the bare project token.
     input_flag: tuple[str, ...] = ()
-    # The tool's rule-violation exit (buf's 100): that code reads FAILED with parsed rows, every other non-zero exit
-    # reads FAULTED carrying the stderr tail; TIMEOUT and BUSY stay untouched. ``None`` keeps the returncode projection.
     defect_exit: int | None = None
 
     def uv_groups(self) -> tuple[ToolGroup, ...]:
@@ -569,9 +557,7 @@ class Completed(Base, frozen=True):
     artifacts: tuple[Artifact, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
     exec: ExecReceipt | None = None
-    # Stamped from the tool row by the engine at receipt time; keys the diagnostics fold without argv sniffing.
     parser: Parser = Parser.NONE
-    # Stamped from Check.args at receipt time; the SARIF fold reads this typed field, never re-parses argv.
     sarif_dir: str = ""
 
 
@@ -669,7 +655,6 @@ class ApiSource(Detail, frozen=True, tag="api-source"):
     selected: tuple[str, ...] = ()
     candidates: tuple[tuple[str, int], ...] = ()
     reason: str = ""
-    # Consumer-bound target framework chosen by the oracle's TFM policy; empty for non-NuGet sources.
     tfm: str = ""
 
 
@@ -779,7 +764,7 @@ class RunDelta(Detail, frozen=True, tag="delta"):
     after: RunSnapshot = RunSnapshot()
     added: int = 0
     removed: int = 0
-    drift: tuple[tuple[str, str, str], ...] = ()  # (host-fact key, before, after) for changed cross-session host facts
+    drift: tuple[tuple[str, str, str], ...] = ()
 
 
 class StaticRun(Detail, frozen=True, tag="static"):
@@ -792,7 +777,6 @@ class StaticRun(Detail, frozen=True, tag="static"):
     phases: tuple[str, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
     artifacts: tuple[str, ...] = ()
-    # (csproj-stem, SarifStatus token) per C# build outcome; absent:* keeps a warm-incremental skip distinct from a clean pass.
     sarif_status: tuple[tuple[str, str], ...] = ()
 
 
@@ -921,7 +905,7 @@ class Envelope(Base, frozen=True, kw_only=True):
     truncated: bool = False
     notes: tuple[str, ...] = ()
 
-    def __cyclopts_returncode__(self) -> int:  # ruff:ignore[bad-dunder-method-name]  # Cyclopts protocol hook: supplies process exit code
+    def __cyclopts_returncode__(self) -> int:  # ruff:ignore[bad-dunder-method-name]
         """Return the process exit code for the Cyclopts runtime."""
         return self.exit_code
 
@@ -955,7 +939,6 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
             return default
 
 
-# Reserve headroom within the hint cap so surplus-token text does not sever the diagnostic suffix framing.
 HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
 _SURPLUS_TOKEN_CAP: int = HINT_CAP - 76
 
@@ -976,7 +959,7 @@ class BaseParams:
         Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault."),
     ] = ()
 
-    def _arity(self, verb: str) -> int | None:  # ruff:ignore[no-self-use]  # polymorphic dispatch point: package/bridge override on self's type to declare 0
+    def _arity(self, verb: str) -> int | None:  # ruff:ignore[no-self-use]
         _ = verb
         return None
 

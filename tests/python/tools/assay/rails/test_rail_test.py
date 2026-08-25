@@ -79,7 +79,6 @@ _PY_ROUTED = Routed(language=_PY, scope=Scope.CHANGED)
 _SHELL_CSPROJ = "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup></Project>"
 _HOST_CSPROJ = "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
 _NON_TEST_CSPROJ = "<Project><PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup></Project>"
-# A shell csproj that still looks like a full test project: the marker must win over its content.
 _SHELL_WITH_CONTENT_CSPROJ = (
     "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup>"
     '<ItemGroup><ProjectReference Include="../../../../libs/dotnet/Rasm/Rasm.csproj" /></ItemGroup></Project>'
@@ -93,20 +92,16 @@ def _ok(argv: tuple[str, ...], stdout: bytes = b"", *, status: RailStatus = Rail
     return receipt(argv, 0, status=status, stdout=stdout)
 
 
-# Laws compose argv from the real catalog rows, never synthetic mirrors.
 def _row(name: str, mode: Mode) -> Tool:
     (row,) = tuple(t for t in TOOLS if t.name == name and t.mode is mode and t.claim is Claim.TEST)
     return row
 
 
-# Minimal TEST row for pure-policy laws, carrying the catalog's policy groups for the name.
 def _tool(name: str = "pytest", mode: Mode = Mode.RUN, runner: Runner = Runner.UV, language: Language = _PY) -> Tool:
     groups = next((t.groups for t in TOOLS if t.name == name and t.claim is Claim.TEST), ())
     return Tool(name=name, runner=runner, command=(name,), input=Input.NONE, language=language, claim=Claim.TEST, mode=mode, groups=groups)
 
 
-# The one justified synthetic row: every real mutation row projects a CHANGED scope, but the
-# degradation law (unscoped -> UNSUPPORTED, never a full-tree run) must hold for future runners.
 def _unscoped_mutation() -> Tool:
     return _tool("vitest-mut", Mode.MUTATION)
 
@@ -137,7 +132,6 @@ def _capture_rail(monkeypatch: pytest.MonkeyPatch) -> list[tuple[TestParams, obj
     return seen
 
 
-# Seed Workspace.slnx plus the marker-bearing csproj roster; the Ghost project stays unwritten on purpose.
 def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
     markers = {
         "libs/dotnet/Rasm/Rasm.csproj": "<Project />",
@@ -316,12 +310,10 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
     )
     _filled_law(scoped, stryker, ("tool", "run", "dotnet-stryker", "--", *_STRYKER_POLICY, *anchors))
 
-    # Wrong filled shapes prove the transform is non-vacuous.
-    # passthrough: no governor, no module-name glob
     refutes(changed, _filled_law, mutmut, ("mutmut", "run", "tools/assay/assay/a.py", "tools/assay/assay/b.py"))
-    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "--max-children=2", "assay/a.py*", "assay/b.py*"))  # path-shaped glob: zero mutant NAMES
-    refutes(full, _filled_law, mutmut, ("mutmut", "run"))  # governor dropped
-    refutes(scoped, _filled_law, stryker, ("tool", "run", "dotnet-stryker", "--", "src/Foo.cs", "src/Bar.cs"))  # --mutate flag dropped
+    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "--max-children=2", "assay/a.py*", "assay/b.py*"))
+    refutes(full, _filled_law, mutmut, ("mutmut", "run"))
+    refutes(scoped, _filled_law, stryker, ("tool", "run", "dotnet-stryker", "--", "src/Foo.cs", "src/Bar.cs"))
 
 
 def test_mutation_rows_confine_every_path_to_artifacts() -> None:
@@ -330,8 +322,6 @@ def test_mutation_rows_confine_every_path_to_artifacts() -> None:
     assert not stryker.stage.root, "Stryker runs at the repo root: cwd discovery needs the source tree, .gitignore carries .stryker-tmp"
     assert mutmut.stage.root == ".artifacts/python/mutmut/work", "mutmut cwd (and its mutants/ cache) is the staged work root"
     assert all(part in stryker.command for part in (*_STRYKER_POLICY, "--config-file")), "policy is pinned; the rail fills {config} absolutely"
-    # The roster derives from the catalog: a hand-named pair leaves every later mutation row unproven. Every path is a
-    # typed hole the rail fills, and a root-resident config bounds the rows whose containment rides auto-discovery.
     rows = tuple(t for t in TOOLS if t.claim is Claim.TEST and t.mode is Mode.MUTATION)
     assert {mutmut, stryker} <= set(rows)
     literal_paths = [t for row in rows for t in row.command if "/" in t and "{" not in t]
@@ -363,7 +353,6 @@ def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
     assert [c.tool.name for c in uv_checks] == ["pytest"]
     assert uv_checks[0].args.filter == (), "UV rows carry no MTP filter splice"
 
-    # Explicit [paths...] leave the pytest family unpinned for file tails; the changed default and --all pin an empty tail.
     scoped_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tests/t_a.py",))
     (suite_wide,) = _checks(scoped_routed, TestParams(), assay_root.settings, Mode.RUN)
     (all_wide,) = _checks(scoped_routed, TestParams(paths=("tests",), all=True), assay_root.settings, Mode.RUN)
@@ -404,7 +393,6 @@ def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> Non
 def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """_unsupported_scope emits CHANGED-unscoped mutation, host-bound, and shell-target receipts — and nothing else."""
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=("src/foo.py",))
-    # Counterfactual catalog: every real mutation row is scoped, so the degradation arm needs the synthetic row.
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_unscoped_mutation(),))
     (unscoped_row,) = _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.MUTATION)
     completed = assert_ok(unscoped_row)
@@ -451,8 +439,6 @@ def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
         "tests/dotnet/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj",
         host,
     }
-    # Shell projects never reach dispatch even when they carry real content — the marker wins; the unreadable
-    # Ghost roster entry is fault-shaped NON_TEST, never silently MANAGED.
     assert not {"tests/dotnet/libs/Rasm/Rasm.Tests.csproj", "tests/dotnet/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj"} & set(selected.routed.projects)
     counts = {lane.value: total for lane in _TestProjectLane if (total := sum(1 for _, actual in selected.lanes if actual is lane))}
     assert counts == {"managed": 4, "host_bound": 1, "shell": 2, "support": 1, "benchmark": 1, "non_test": 4}
@@ -637,7 +623,6 @@ def test_run_gap_note_and_coverage_detail(assay_root: AssayHarness, monkeypatch:
     params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
     routed_report = assert_ok(test_rail.run(assay_root.settings, scope, params, SeamExecutor()))
     assert not any("mutation requested" in n for n in routed_report.notes)
-    # The guard stays live for a row set a params filter empties, so it is proved directly rather than by a language.
     assert test_rail._mutation_gap(params, ())
     assert not test_rail._mutation_gap(TestParams(language=Language.TYPESCRIPT), ())
 
@@ -728,7 +713,6 @@ def test_thin_rail_no_mutation_skips_leasing(assay_root: AssayHarness, monkeypat
 # --- [LAWS_MUTATION_GATE] ---------------------------------------------------------------
 
 
-# Synthesize mutmut's persisted result surface: cwd pyproject + source tree + mutants/ meta cache.
 def _seed_cache(root: Path, monkeypatch: pytest.MonkeyPatch, exit_codes: dict[str, int | None]) -> None:
     (root / "src").mkdir(parents=True)
     (root / "src" / "mod.py").write_text("X = 1\n")
@@ -804,7 +788,7 @@ def test_schema_report_projects_mutmut_results(tmp_path: Path, monkeypatch: pyte
     assert by_id["src.mod.x_alpha__mutmut_1"]["location"] == {"start": {"line": 1, "column": 1}, "end": {"line": 2, "column": 13}}
     assert by_id["src.mod.xǁOwnerǁx_beta__mutmut_1"]["location"] == {"start": {"line": 6, "column": 5}, "end": {"line": 7, "column": 17}}
 
-    assert gate() == 1  # score 0.5 under the 0.80 floor; the schema artifact still lands
+    assert gate() == 1
     capsys.readouterr()
     emitted = msgspec.json.decode((tmp_path / ".artifacts" / "python" / "mutmut" / "mutation-report.json").read_bytes())
     assert set(emitted["files"]) == {"src/mod.py"}
@@ -847,7 +831,6 @@ def test_gate_skips_without_success_or_stage(assay_root: AssayHarness, monkeypat
     params = TestParams(mutation=MutationLane.FULL)
     for argv, code in ((("uv", "run", "mutmut", "run"), 1), (("uv", "run", "pytest"), 0)):
         assert _gate((Ok(receipt(argv, code)),), _PY_ROUTED, params, settings=assay_root.settings, scope=scope, executor=executor) == ()
-    # Counterfactual catalog: the real mutmut row is staged, so the stage-less arm needs the synthetic row.
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_tool("mutmut", Mode.MUTATION),))
     done = (Ok(receipt(("uv", "run", "mutmut", "run"), 0)),)
     assert _gate(done, _PY_ROUTED, params, settings=assay_root.settings, scope=scope, executor=executor) == ()

@@ -21,11 +21,11 @@
 
 ```python signature
 class BenchmarkFixture:
-    group: str | None; extra_info: dict[str, object]; stats: Metadata | None       # stats is None until a run completes
+    group: str | None; extra_info: dict[str, object]; stats: Metadata | None
     def __call__(self, function_to_benchmark: Callable[..., R], *args: object, **kwargs: object) -> R: ...
     def pedantic(self, target: Callable[..., R], args: tuple = (), kwargs: dict | None = None, setup: Callable | None = None,
                  teardown: Callable | None = None, rounds: int = 1, warmup_rounds: int = 0, iterations: int = 1) -> R: ...
-class Stats:  # median, iqr, ops, ... read as attributes after a run
+class Stats:
     min: float; median: float; mean: float; iqr: float; ops: float; rounds: int
 ```
 
@@ -46,9 +46,6 @@ class Stats:  # median, iqr, ops, ... read as attributes after a run
 
 ```python signature
 def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None: ...
-# output_json shape: {"machine_info": {...}, "commit_info": {...}, "datetime": str, "version": str,
-#   "benchmarks": [{"fullname": str, "name": str, "group": str | None, "params": dict, "extra_info": dict,
-#                   "stats": {"min": float, "median": float, "mean": float, "iqr": float, "ops": float, "rounds": int}}]}
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

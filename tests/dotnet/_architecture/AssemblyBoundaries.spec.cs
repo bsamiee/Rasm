@@ -8,7 +8,6 @@ using static ArchUnitNET.Fluent.ArchRuleDefinition;
 namespace Rasm.Architecture.Tests;
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The host-free closure: every Rasm assembly loadable without a Rhino installation. Rules run over this architecture only; host-closed assemblies are manifest facts, never loaded types.
 internal static class HostFreeModel {
     public static readonly System.Reflection.Assembly TestKit = typeof(Spec).Assembly;
     public static readonly System.Reflection.Assembly Contract = typeof(Bridge.Contract.Handshake).Assembly;
@@ -16,7 +15,6 @@ internal static class HostFreeModel {
     public static readonly ArchUnitNET.Domain.Architecture Architecture =
         new ArchLoader().LoadAssemblies(TestKit, Contract, CspContracts).Build();
 
-    // Every ArchUnitNET rule is vacuously true over an empty type set; rules call this gate first.
     public static void NonVacuous(params System.Reflection.Assembly[] assemblies) =>
         Spec.Matrix(rows: [.. assemblies.Select(assembly => (
             Label: $"types loaded for {assembly.GetName().Name}",
@@ -26,8 +24,6 @@ internal static class HostFreeModel {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
-    // Exact reference topology per project — "only" is implied by exactness, so per-project sibling facts collapse into this one folded table. `Rasm.Contracts` is the generated bindings
-    // distribution, not a stratum: it references no sibling and every wire consumer references it.
     private static readonly (string Project, string[] References)[] Strata = [
         ("libs/dotnet/Rasm/Rasm.csproj", []),
         ("libs/contracts/Rasm.Contracts.csproj", []),
@@ -51,8 +47,6 @@ public sealed class AssemblyBoundaryLaws {
         Manifests.ProjectGraph(rows: Strata);
     }
 
-    // The disk side is the WHOLE workspace walk, never a root roster: a csproj landing at a new top-level root fails this law loudly instead of silently skipping slnx and CPM parity.
-    // The solution is generation-shaped — its project set equals disk exactly, with no carve.
     [Fact]
     public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {
         FrozenSet<string> solution = Manifests.SolutionProjects();
@@ -64,7 +58,6 @@ public sealed class AssemblyBoundaryLaws {
     private static readonly string[] EstateFiles = ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props"];
     private static readonly string[] EstateRoots = ["libs", "apps", "tools", "tests"];
 
-    // A nested MSBuild estate file that omits the upward chaining import silently erases the whole root estate and still builds green, so the import line is mandatory the moment one lands.
     [Fact]
     public void NestedMsBuildEstateFilesChainUpward() {
         string[] unchained = [.. EstateRoots
@@ -96,7 +89,6 @@ public sealed class AssemblyBoundaryLaws {
             .HasNoViolations(architecture: HostFreeModel.Architecture));
     }
 
-    // The TestKit is host-free and wire-blind end to end; the ScenarioKit assembly owns the bridge wire seam, so the whole TestKit assembly carries the wire-blind obligation.
     [Fact]
     public void TestKitStaysWireBlind() {
         HostFreeModel.NonVacuous(HostFreeModel.TestKit);

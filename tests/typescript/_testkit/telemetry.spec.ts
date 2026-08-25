@@ -4,8 +4,6 @@ import { Telemetry } from './telemetry.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Metric identity is registry-global; every spec here mints its own names so no drift row can
-// alias another spec's counters.
 const _reuse = Metric.counter('kit_spec_token_reuse');
 const _taggedReuse = Metric.tagged(Metric.counter('kit_spec_tagged_reuse'), 'tenant', '<tenant-a>');
 const _inert = Metric.counter('kit_spec_inert');

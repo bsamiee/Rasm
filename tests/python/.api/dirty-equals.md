@@ -30,14 +30,14 @@
 ```python signature
 class DirtyEquals[T]:
     def __eq__(self, other: object) -> bool: ...
-    def __and__(self, other: DirtyEquals[object]) -> DirtyEquals[object]: ...   # both matchers hold
-    def __or__(self, other: DirtyEquals[object]) -> DirtyEquals[object]: ...    # either matcher holds
-    def __invert__(self) -> DirtyEquals[T]: ...                                 # negate the match
+    def __and__(self, other: DirtyEquals[object]) -> DirtyEquals[object]: ...
+    def __or__(self, other: DirtyEquals[object]) -> DirtyEquals[object]: ...
+    def __invert__(self) -> DirtyEquals[T]: ...
 class IsInt(DirtyEquals[int]):
     def __init__(self, *, exactly: int | None = None, approx: int | None = None, delta: int | None = None,
                  gt: int | None = None, lt: int | None = None, ge: int | None = None, le: int | None = None) -> None: ...
 class IsPartialDict(DirtyEquals[dict]):
-    def __init__(self, *expected_args: dict[object, object], **expected_kwargs: object) -> None: ...   # subset match on named keys
+    def __init__(self, *expected_args: dict[object, object], **expected_kwargs: object) -> None: ...
 class IsNow(DirtyEquals[datetime]):
     def __init__(self, *, delta: timedelta | int | float = 2, unix_number: bool = False, iso_string: bool = False,
                  format_string: str | None = None, enforce_tz: bool = True, tz: str | tzinfo | None = None) -> None: ...
@@ -57,7 +57,7 @@ class IsNow(DirtyEquals[datetime]):
 from dirty_equals import IsInt, IsNow, IsUUID, IsPartialDict, IsJson, IsApprox
 def test_receipt(emit: Callable[[], dict[str, object]]) -> None:
     assert emit() == {"id": IsUUID(4), "count": IsInt(ge=1), "at": IsNow(tz="UTC"), "score": IsApprox(0.5, delta=0.01)}
-    assert emit() == IsPartialDict(kind="shape")                        # remaining keys unconstrained
+    assert emit() == IsPartialDict(kind="shape")
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

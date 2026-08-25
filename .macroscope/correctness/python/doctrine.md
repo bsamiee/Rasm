@@ -38,7 +38,7 @@ include:
 - `functools.singledispatch` is reserved for a genuinely open type set foreign code extends; a closed owned family dispatches via `match` or a `frozendict` table.
 - Durable owners freeze after materialization (`@dataclass(frozen=True, slots=True, kw_only=True)`, `msgspec.Struct(frozen=True)`); state change is a transition returning `Self` or a closed successor union. Durable collections are `tuple`/`frozenset`/`frozendict`; `MappingProxyType` over mutable storage is not immutability.
 - A `frozendict` table declares one primary correspondence as the single edit site; every secondary map derives by comprehension over the primary — a hand-maintained parallel inverse is a finding.
-- Wire shapes stay at the edge (`msgspec.Struct` with `rename=`/`forbid_unknown_fields=True`); canonical owners carry no codec attributes. A numeric solve leaves as a frozen receipt carrying route, tolerance, and recomputed true relative residual — never a raw `ndarray` or factorization handle.
+- Wire shapes stay at the edge (`msgspec.Struct` with `rename=`/`forbid_unknown_fields=True`); canonical owners carry no codec attributes. A numeric solve returns its route, tolerance, and recomputed true relative residual on the domain result — never a raw `ndarray` or factorization handle.
 - Route selection rides one `Route` `StrEnum` plus `frozendict[Route, Policy]` tables; a `mode: str` or `sym: bool` knob beside the operand, or sibling per-route solve functions, are findings.
 
 ## [04]-[CONCURRENCY_AND_IMPORTS]

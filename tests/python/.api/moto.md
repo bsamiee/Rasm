@@ -22,7 +22,7 @@
 class ThreadedMotoServer:
     def __init__(self, ip_address: str = "0.0.0.0", port: int = 5000, verbose: bool = True) -> None: ...
     def start(self) -> None: ...
-    def get_host_and_port(self) -> tuple[str, int]: ...      # port=0 yields the OS-assigned ephemeral port
+    def get_host_and_port(self) -> tuple[str, int]: ...
     def stop(self) -> None: ...
 ```
 
@@ -38,10 +38,9 @@ class ThreadedMotoServer:
 
 ```python signature
 def mock_aws(func: Callable[P, T] | None = None, config: DefaultConfig | None = None) -> MockAWS | Callable[P, T]: ...
-# ObjectStore double: ephemeral bind, resolve endpoint, project an s3fs view over it.
 server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False); server.start()
 host, port = server.get_host_and_port(); endpoint = f"http://{host}:{port}"
-httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)   # idempotent teardown — process-global state cleared
+httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

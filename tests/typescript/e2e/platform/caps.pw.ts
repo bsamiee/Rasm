@@ -1,7 +1,5 @@
 import { expect, test } from '../fixtures.ts';
 
-// Capability rows ride the built-in context surface directly — a fixture wrapping grantPermissions
-// would be a rename adapter, not a row.
 const _SITE = { latitude: 35.6892, longitude: 51.389 };
 
 test.describe('capability lanes', () => {

@@ -25,7 +25,6 @@ internal sealed record UnionOpsModel(string Namespace, string Keyword, string Na
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// SelfOp generation binds union cases to domain operation provenance; caseless targets are inert.
 [Generator]
 public sealed class UnionOpsGenerator : IIncrementalGenerator {
     private const string GenerateUnionOpsMetadataName = "Rasm.Domain.GenerateUnionOpsAttribute";
@@ -72,7 +71,6 @@ public sealed class UnionOpsGenerator : IIncrementalGenerator {
             _ => "partial class",
         };
 
-    // IndentedTextWriter is the Roslyn emission boundary; statement loops are the owned kernel.
     private static SourceText Render(UnionOpsModel model) {
         using StringWriter buffer = new(CultureInfo.InvariantCulture) { NewLine = "\n" };
         using IndentedTextWriter writer = new(buffer, tabString: "    ") { NewLine = "\n" };

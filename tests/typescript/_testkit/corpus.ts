@@ -305,8 +305,6 @@ const _isDescriptor = (value: unknown): value is DescMessage | DescService =>
     'typeName' in value &&
     typeof value.typeName === 'string';
 
-// Module-relative glob (vite-root independent); keys renormalize to estate-root form so registry
-// distribution rows ('/libs/...') resolve under any project root.
 const _modules = Object.fromEntries(
     Object.entries(import.meta.glob<Module>('../../../libs/contracts/gen/typescript/**/*.ts', { eager: true })).map(
         ([key, module]) => [key.replace(/^(?:\.\.\/)+/, '/'), module] as const,

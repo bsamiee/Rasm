@@ -7,7 +7,6 @@ import { expect, test } from '../fixtures.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The playwright body is the platform-forced promise seam; the k6 driver stays on the rail up to it.
 const _run = <A, E>(program: Effect.Effect<A, E, CommandExecutor.CommandExecutor | FileSystem.FileSystem>): Promise<A> =>
     Effect.runPromise(Effect.provide(program, NodeContext.layer));
 

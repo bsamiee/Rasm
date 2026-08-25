@@ -80,7 +80,6 @@ _LONE_CASES: tuple[tuple[str, tuple[tuple[str, str], ...], bool, bool], ...] = (
     ("pkg", (), False, False),
 )
 
-# error_fragment None = the Ok anchor row proving the failure rows can fail.
 _VALIDATE_CASES: tuple[tuple[str, str | None, _MetaMutator | None, str | None], ...] = (
     ("ok", None, None, None),
     ("slug_mismatch", "other-slug", None, "slug mismatch"),
@@ -91,7 +90,6 @@ _VALIDATE_CASES: tuple[tuple[str, str | None, _MetaMutator | None, str | None], 
 
 _NON_OK_STATUSES: tuple[RailStatus, ...] = (RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT, RailStatus.BUSY)
 
-# Above common pid_max values; psutil resolves it as a dead process.
 _DEAD_PID = 99_999_999
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -139,7 +137,6 @@ def _flow_run_check(
                 (Path(str(check.cwd)) / meta.package_pattern).write_bytes(b"PK\x03\x04yak")
                 return Ok(receipt((str(meta.yak_path), "build"), 0, status=stage_status))
             case Mode.VERIFY:
-                # Bridge lifecycle steps ride the real client_run; the lane plays an OK supervisor session.
                 bridge_verbs.append(str(check.args.verb)) if bridge_verbs is not None else None
                 return Ok(receipt(filled, 0, stdout=msgspec.json.encode({"status": RailStatus.OK.value}), status=RailStatus.OK))
             case _:
@@ -403,7 +400,7 @@ def test_publish_non_bridge_slug_runs_install_and_push(assay_root: AssayHarness)
     assert report.detail.project == non_bridge.project.as_posix()
     assert (assay_root.root / non_bridge.project.parent / "yak" / non_bridge.package_pattern).is_file()
     assert bridge_verbs == []
-    assert report.counts.band(Band.PROVED) >= 3  # stage + install + push
+    assert report.counts.band(Band.PROVED) >= 3
 
 
 def test_publish_bridge_slug_cycles_host_with_install_and_push(assay_root: AssayHarness, yak_shape: YakShape) -> None:

@@ -4,12 +4,9 @@ using System.Runtime.InteropServices;
 namespace Rasm.TestKit;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// One gate delegate: a metric row owns how a pair of sequences is admitted under a tolerance.
 public delegate bool MetricGate(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance);
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One `(abs, rel, ulps)` regime covers every tolerance variant; `Ulps` admits bit-adjacent floats
-// the magnitude gates reject near cancellation bands, and 0 disables the lane entirely.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Tolerance(double Abs, double Rel, long Ulps = 0L) {
     public static Tolerance Absolute(double epsilon) => new(Abs: epsilon, Rel: 0.0);
@@ -21,7 +18,6 @@ public readonly record struct Tolerance(double Abs, double Rel, long Ulps = 0L) 
         Abs + (Rel * Math.Max(val1: 1.0, val2: Math.Max(val1: Math.Abs(value: left), val2: Math.Abs(value: right))));
     public bool WithinUlpsOf(double left, double right) =>
         Ulps > 0L && double.IsFinite(d: left) && double.IsFinite(d: right) && UlpDistance(left: left, right: right) <= Ulps;
-    // Lexicographic bit order: adjacent finite floats differ by exactly 1 and +0.0/-0.0 coincide.
     private static Int128 UlpDistance(double left, double right) =>
         Int128.Abs(value: (Int128)Lexical(value: left) - Lexical(value: right));
     private static long Lexical(double value) {
@@ -30,15 +26,10 @@ public readonly record struct Tolerance(double Abs, double Rel, long Ulps = 0L) 
     }
 }
 
-// Metric rows are the comparison policy: sign ambiguity (eigenvectors, principal axes) and angular
-// wrap (headings, phase, rotation seams) are rows, never sibling methods. NaN admits nothing on
-// any row — non-finite equality is always a failure.
 public sealed record Metric(string Name, MetricGate Admits) {
     public static readonly Metric Absolute = new(Name: nameof(Absolute), Admits: static (left, right, tolerance) => Elementwise(left: left, right: right, tolerance: tolerance, negate: false));
     public static readonly Metric SignAmbiguous = new(Name: nameof(SignAmbiguous), Admits: static (left, right, tolerance) =>
         Elementwise(left: left, right: right, tolerance: tolerance, negate: false) || Elementwise(left: left, right: right, tolerance: tolerance, negate: true));
-    // Values equal modulo `period` admit: IEEERemainder folds the delta into [-period/2, period/2]
-    // and propagates NaN for non-finite input, so the wrap seam and the NaN ban share one gate.
     public static Metric Periodic(double period) {
         _ = double.IsFinite(d: period) && period > 0.0
             ? period : throw new ArgumentOutOfRangeException(paramName: nameof(period), actualValue: period, message: "period must be finite and positive");
@@ -55,7 +46,6 @@ public sealed record Metric(string Name, MetricGate Admits) {
             return true;
         });
     }
-    // Span traversal is the kernel exemption: elementwise relative scaling cannot ride LINQ.
     private static bool Elementwise(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, bool negate) {
         if (left.Length != right.Length) {
             return false;
@@ -71,7 +61,6 @@ public sealed record Metric(string Name, MetricGate Admits) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// One metric-driven oracle: scalar, span, and Seq call shapes over the same row dispatch.
 public static class Approx {
     public static bool Equal(double left, double right, Tolerance tolerance, Metric? metric = null) =>
         (metric ?? Metric.Absolute).Admits([left], [right], tolerance);
@@ -85,9 +74,6 @@ public static class Approx {
 }
 
 // --- [GATES]
-// The throwing gates live beside their oracle so Approx.cs stays the one equality owner. Scalar,
-// span, and Seq shapes each reach every Tolerance regime and Metric row; the double-tolerance
-// scalar form is Tolerance.Absolute sugar for the dominant call shape.
 public static partial class Spec {
     public static void Equal(double left, double right, double tolerance = 1.0e-9, Metric? metric = null, string? what = null) =>
         Holds(condition: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance), metric: metric),
@@ -105,8 +91,6 @@ public static partial class Spec {
         double[] tail = [.. right];
         Equal(left: head, right: tail, tolerance: tolerance, metric: metric, what: what);
     }
-    // One golden-value table: every row gates through the shared tolerance regime and metric row,
-    // and the fold names EVERY diverging row in one verdict — never a first-failure stop.
     public static void Golden(Tolerance tolerance, Metric? metric = null, params (string Label, double Actual, double Expected)[] rows) {
         ArgumentNullException.ThrowIfNull(argument: rows);
         Holds(condition: rows.Length > 0, label: "Golden: empty golden table proves nothing");
@@ -115,7 +99,6 @@ public static partial class Spec {
             .Select(selector: static row => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Label}: {row.Actual:R} vs {row.Expected:R}"))];
         Holds(condition: drift.Length == 0, label: $"golden drift ({(metric ?? Metric.Absolute).Name}): {string.Join(separator: "; ", values: drift)}");
     }
-    // Bounded render keeps span failures actionable without flooding the sampler output.
     private static string Render(ReadOnlySpan<double> values) {
         string head = string.Join(separator: ", ", values: values[..Math.Min(val1: 8, val2: values.Length)].ToArray()
             .Select(selector: static x => x.ToString(format: "R", provider: CultureInfo.InvariantCulture)));

@@ -87,19 +87,12 @@ Every structural mistake — a capability rebuilt over a wrong foundation, a fla
 Universal code law: binds every language, present or future; `docs/stacks/<language>/` deepens it per stack and never weakens it.
 
 [CRITICAL]:
+- ALWAYS ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected and rebuilt on sight.
+- ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
+- ALWAYS model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
 - NEVER use weak, unbounded, or erased types where the language can express the domain precisely.
 - NEVER use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
 - NEVER spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
-
-[DENSITY] - dense: every surviving line load-bearing because one declaration carries the family; rich: the owner models its full domain:
-- ALWAYS ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected and rebuilt on sight.
-- ALWAYS treat doctrine as the floor, never the ceiling — a conformant-but-weak form is a defect wherever a stronger form exists.
-- ALWAYS rebuild functionality GROUND-UP with zero loss — density is the consequence of collapse, never the goal; file-size budgets do not exist.
-- ALWAYS replace flat code — hand-rolled loops, branch ladders, parallel models, per-instance bodies — with folds, tables, generators, owners.
-- ALWAYS model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
-- ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
-- ALWAYS state what every collapse loses — a plural form carrying a guarantee is lawful; erasing the guarantee is a downgrade wearing density.
-- ALWAYS consume every declared capability — a policy row or column nothing reads is decorative density; add the arm or delete it.
 
 [POLYMORPHISM] - fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
 - ALWAYS fold one polymorphic entrypoint per concern, discriminating on input shape; forward and inverse of one correspondence share one owner.

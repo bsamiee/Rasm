@@ -25,11 +25,9 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Sub-100us probes are re-calibrated because timer resolution dominates single-iteration pedantic runs.
 _CALIBRATION_FLOOR_NS = 100_000
 _ITERATIONS_CAP = 10_000
 
-# Breakpoints require scale-free BIC gain beyond the ASV-style per-step penalty.
 _POTTS_BETA = 4.0
 _REGRESSION_TOLERANCE = 0.70
 
@@ -118,10 +116,8 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
     """
     proc = psutil.Process(os.getpid())
     payload = row.workload(size)
-    # Metadata snapshots fixture.group inside pedantic; late assignment drops the storage series key.
     benchmark.group = row.label
 
-    # Prime psutil so the post-pedantic read reflects the timed window.
     proc.cpu_percent(interval=None)
     rss_before = proc.memory_info().rss
 
@@ -136,11 +132,11 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
 
     def _measure() -> object:
         return (
-            benchmark.pedantic(  # type: ignore[no-untyped-call]  # BenchmarkFixture.pedantic has no stub; ty resolves, mypy cannot
+            benchmark.pedantic(  # type: ignore[no-untyped-call]
                 row.subject, setup=lambda: ((row.workload(size),), {}), rounds=row.rounds, warmup_rounds=row.warmup_rounds
             )
             if row.fresh_per_round
-            else benchmark.pedantic(  # type: ignore[no-untyped-call]  # BenchmarkFixture.pedantic has no stub; ty resolves, mypy cannot
+            else benchmark.pedantic(  # type: ignore[no-untyped-call]
                 row.subject, args=(payload,), rounds=row.rounds, iterations=iterations, warmup_rounds=row.warmup_rounds
             )
         )
@@ -154,7 +150,6 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
 
     result = _gated() if row.disable_gc else _measure()
 
-    # pytest-benchmark stores robust stats under Metadata.stats, not on the Metadata wrapper.
     assert benchmark.stats is not None
     s = benchmark.stats.stats
     rel_iqr = s.iqr / s.median if s.median > 0 else inf

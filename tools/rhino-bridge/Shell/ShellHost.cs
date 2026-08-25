@@ -18,8 +18,6 @@ namespace Rasm.Bridge.Shell;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Ownership: closed GH2 quit-scrub outcome. The reflective Document.AllDocuments + Unmodify path
-// projects to one of these cases so its failure surfaces as a typed fact instead of a sentinel string.
 [Union]
 internal abstract partial record Gh2ScrubOutcome {
     private Gh2ScrubOutcome() { }
@@ -35,13 +33,9 @@ internal abstract partial record Gh2ScrubOutcome {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: shell composition root and RPC target seam. It owns pipe lifecycle, endpoint
-// write/heal, host event taps, busy admission, and Contract payload projection through CargoGate
-// and IdlePump. Failed starts poison the endpoint record instead of deleting evidence.
 public sealed class ShellHost : IDisposable {
     private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
-    // McNeel Rhino-MCP-Platform PlugIn GUID ([assembly: Guid] in its AssemblyInfo); the community fork uses a distinct GUID.
     private const string McneelPlugInGuid = "2668d7ed-f507-4a68-8295-8172147a0e39";
 
     private readonly Lock sync = new();
@@ -97,7 +91,6 @@ public sealed class ShellHost : IDisposable {
         ?? "unknown";
 
     public static ShellHost? Start(string deployDir, int rhinoPid) {
-        // BOUNDARY ADAPTER: startup failures become poisoned endpoint records, never host faults.
         try {
             return new ShellHost(deployDir: deployDir, rhinoPid: rhinoPid);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
@@ -122,13 +115,11 @@ public sealed class ShellHost : IDisposable {
             pump.Dispose();
             gate.Dispose();
             lifetime.Dispose();
-            // Endpoint records stay as staleness evidence after shell disposal.
         }
     }
 
     // --- [CONNECTION_TARGET]
 
-    // Ownership: per-connection RPC target carrying the busy-admission identity.
     private sealed class Connection(ShellHost host, JsonRpc rpc, IBridgeEvents events) : IBridgeShell {
         internal IBridgeEvents Events { get; } = events;
         internal int ClientPid { get; set; }
@@ -179,7 +170,6 @@ public sealed class ShellHost : IDisposable {
         activeManifest = manifest;
         return await pump.OnUiThreadAsync(job: () => {
             PreloadHostPlugins(plugins: manifest.HostPlugins);
-            // The post-preload fingerprint is the drift baseline cargo attributes HostDrift against.
             CargoReceipt receipt = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
             Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: receipt.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
             Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: receipt.Scenarios.Select(selector: static scenario => scenario.Name))));
@@ -221,8 +211,6 @@ public sealed class ShellHost : IDisposable {
 
     private async Task<QuitPrepareReceipt> PrepareQuitAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
-        // UI-thread scrub, then re-read: ResidualDirty == 0 is the AE-rung precondition that keeps
-        // `terminate` off the AppKit save sheet; the GH2 outcome stays a typed union, never a sentinel.
         (QuitPrepareReceipt receipt, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
             int markedClean = open.Count(predicate: static doc => doc.Modified);
@@ -272,7 +260,6 @@ public sealed class ShellHost : IDisposable {
 
     // --- [EVIDENCE]
 
-    // Single in-host writer: shell stamps every event while preserving the author's scenario slot.
     private void Publish(BridgeEvent evt) {
         EventStamp stamp = new(
             SessionId: activeManifest?.SessionId ?? Guid.Empty,
@@ -291,7 +278,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private async Task ForwardLoopAsync(CancellationToken token) {
-        // BOUNDARY ADAPTER: dead peers drop forwarded events; spool remains the durable rail.
         try {
             await foreach (BridgeEvent evt in outbox.Reader.ReadAllAsync(cancellationToken: token).ConfigureAwait(continueOnCapturedContext: false)) {
                 if (CurrentOwner() is { Events: { } events }) {
@@ -313,7 +299,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private Assembly? RecordDefaultResolve(AssemblyName assemblyName) {
-        // Default-ALC fallthrough names are reported through hello for deploy-set trimming.
         defaultResolves.Enqueue(item: assemblyName.Name ?? "unknown");
         return null;
     }
@@ -324,8 +309,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static CapabilityEntry McpListener() =>
-        // Autostart is never driven by the bridge; the gate distinguishes deliberate suppression
-        // from an unavailable gate so the absent listener is never silently identical evidence.
         Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT") switch {
             "0" => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
                 Receipt: "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"),
@@ -347,9 +330,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static bool IsMcneelRhinoMcp(Assembly assembly) =>
-        // McNeel's official Rhino-MCP-Platform ships assembly RhinoMcpPlatform / namespace RhMcp and
-        // pins its PlugIn GUID via [assembly: Guid]; the community fork (assembly rhinomcp) carries
-        // neither, so the rename-stable GUID is the primary signal with the identity pair as fallback.
         string.Equals(a: assembly.GetCustomAttribute<GuidAttribute>()?.Value, b: McneelPlugInGuid, comparisonType: StringComparison.OrdinalIgnoreCase)
         || (string.Equals(a: assembly.GetName().Name, b: "RhinoMcpPlatform", comparisonType: StringComparison.Ordinal)
             && HostReflection.LoadableTypes(assembly: assembly).Any(predicate: static type => IsRhMcpNamespace(ns: type.Namespace)));
@@ -370,7 +350,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private void PreloadHostPlugins(Guid[] plugins) {
-        // Host plugin preload records false returns and throws under the same capability reading.
         foreach (Guid id in plugins) {
             string outcome;
             try {
@@ -393,8 +372,6 @@ public sealed class ShellHost : IDisposable {
         RuntimeVersion: Environment.Version.ToString());
 
     private static Gh2ScrubOutcome CleanGrasshopper2() {
-        // BOUNDARY ADAPTER: the reflective GH2 Document.AllDocuments + Unmodify scrub projects loader
-        // drift and reflection faults onto the typed Failed case, never a swallow folded into success.
         try {
             Type? documentType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(selector: static assembly => HostReflection.LoadableTypes(assembly: assembly))
@@ -447,7 +424,6 @@ public sealed class ShellHost : IDisposable {
     // --- [TRANSPORT]
 
     private async Task AcceptLoopAsync(CancellationToken token) {
-        // BOUNDARY ADAPTER: pipe cancellation and transient IO do not kill the accept loop.
         while (!token.IsCancellationRequested) {
             try {
                 NamedPipeServerStream pipe = new(
@@ -468,8 +444,6 @@ public sealed class ShellHost : IDisposable {
 
     private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken token) {
         using SystemTextJsonFormatter formatter = new();
-        // Formatter options derive from Contract; the default resolver tail preserves protocol
-        // error payloads that the generated context does not own.
         formatter.JsonSerializerOptions = new JsonSerializerOptions(BridgeJsonContext.Default.Options) {
             TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(
                 BridgeJsonContext.Default, new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()),
@@ -491,7 +465,6 @@ public sealed class ShellHost : IDisposable {
     // --- [ENDPOINT]
 
     private void EnsureEndpoint() {
-        // BOUNDARY ADAPTER: hello heals missing, foreign, or poisoned endpoint records.
         try {
             EndpointRecord? onDisk = File.Exists(path: EndpointRecord.EndpointPath)
                 ? JsonSerializer.Deserialize(json: File.ReadAllText(path: EndpointRecord.EndpointPath), jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord)
@@ -511,7 +484,6 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static void WritePoisoned(int rhinoPid, string fault) {
-        // BOUNDARY ADAPTER: poisoned endpoint records use the live codec with an empty pipe.
         try {
             WriteEndpoint(record: EndpointRecord.Create(
                 pipeName: string.Empty,

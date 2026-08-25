@@ -90,7 +90,6 @@ class Model(pydantic.BaseModel):
 
 
 class Priced(pydantic.BaseModel):
-    # annotated-types spellings keep the Decimal multiple exact; Field's multiple_of stub admits only int | float.
     cost: Annotated[Decimal, annotated_types.Gt(Decimal(0)), annotated_types.Le(Decimal(1)), annotated_types.MultipleOf(Decimal("0.05"))]
     scale: Decimal = pydantic.Field(ge=Decimal("-2.5"), lt=Decimal("2.5"), decimal_places=2)
     budget: Decimal = pydantic.Field(max_digits=3)
@@ -108,7 +107,6 @@ def test_msgspec_constraints_hold_and_encode_clean(value: Bounded) -> None:
     assert 10 <= value.count <= 40 and value.count % 5 == 0, f"count constraint broke: {value.count}"
     assert 2 <= len(value.label) <= 4, f"label length broke: {value.label!r}"
     assert 0.0 <= value.ratio <= 1.0, f"ratio bound broke: {value.ratio}"
-    # gt + multiple_of: the exclusive boundary is itself a multiple, so a naive k-window draws it.
     assert 0.0 < value.gain <= 2.0 and (value.gain / 0.25).is_integer(), f"gain exclusive-multiple broke: {value.gain}"
     assert msgspec.json.decode(msgspec.json.encode(value), type=Bounded) == value
 

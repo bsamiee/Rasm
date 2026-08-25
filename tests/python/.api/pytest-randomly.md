@@ -21,11 +21,8 @@ Seed helpers and the reseed extension point third-party RNGs register against.
 |  [04]   | `pytest_randomly.random_seeder`    | entry-point group | each registered callable receives the per-test seed to reseed a custom RNG  |
 
 ```python signature
-def make_seed() -> int: ...                              # random.Random().getrandbits(32)
-def seed_type(value: str) -> str | int: ...              # 'default' | 'last' | int
-# A third-party RNG registers a reseeder via the entry-point group:
-#   [project.entry-points."pytest_randomly.random_seeder"]
-#   my_rng = "my_pkg:reseed"      # reseed(seed: int) -> None
+def make_seed() -> int: ...
+def seed_type(value: str) -> str | int: ...
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -40,10 +37,6 @@ CLI surface fixing the seed and toggling the two behaviors independently.
 |  [04]   | `-p no:randomly`                                 | disable       | unloads the plugin entirely — the mutmut invocation path             |
 
 ```python signature
-# addoption bindings (dest / default):
-#   --randomly-seed            dest=randomly_seed      default="default"   type=seed_type
-#   --randomly-dont-reset-seed dest=randomly_reset_seed  default=True  (store_false)
-#   --randomly-dont-reorganize dest=randomly_reorganize  default=True  (store_false)
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

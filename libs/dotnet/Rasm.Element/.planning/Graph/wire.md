@@ -274,7 +274,7 @@ public static class ElementWire {
 - [CODEC_DIVISION]: generated messages own structure, Celly owns corpus-authored validation, Mapperly owns field transcription, and Thinktecture/generated case enums own exhaustive dispatch.
 - [BOUNDARY_SCOPE]: native graphs, deltas, and relationships have no peer decoder, so no protobuf root, registry row, event announcement, redaction wrapper, or local replacement codec exists.
 - [WIRE_BYTES_LAW]: `NodeWire` bytes are transport spelling, never graph identity. Content identity remains `ContentAddress.Of(node, tolerance)`.
-- [CONTRACT_EVOLUTION]: the corpus proto is the only wire declaration; compatible node payload growth is append-only and regenerates all bindings before consumers compile.
+- [WIRE_EVOLUTION]: the corpus proto is the only wire declaration; compatible node payload growth is append-only and regenerates all bindings before consumers compile.
 
 ## [04]-[RESEARCH]
 

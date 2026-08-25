@@ -20,7 +20,7 @@ import anyio
 from anyio import to_thread
 from expression import Error, Ok, Result
 import msgspec
-import psutil  # typed via the types-psutil stub (psutil ships no py.typed marker)
+import psutil
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
@@ -37,7 +37,7 @@ from assay.diagnostics import fold
 if TYPE_CHECKING:
     from typing import Protocol
 
-    from anyio.abc import TaskGroup  # annotation-only; anyio.abc is not exposed from the root anyio import
+    from anyio.abc import TaskGroup
     from anyio.streams.memory import MemoryObjectReceiveStream
     from watchfiles import BaseFilter
 
@@ -78,13 +78,11 @@ class _Drive:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Context-local priming prevents one driver from inheriting another driver's CPU sample state.
 _CPU_PRIMED: ContextVar[bool] = ContextVar("assay_cpu_primed", default=False)
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
 _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
-# The one total row for automation Program actions; a missing row is an immediate import-time KeyError.
 _PROGRAM_TOOL: Tool = next(t for t in select(Claim.STATIC, Language.PYTHON) if t.name == "program")
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -95,7 +93,6 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 
 
 def _emit(line: Envelope) -> None:
-    # Per-line flush preserves Envelope framing across concurrent fires.
     sys.stdout.buffer.write(_ENCODER.encode(line) + b"\n")
     sys.stdout.buffer.flush()
 
@@ -128,7 +125,6 @@ def _resolve(action: Rail) -> Bind | None:
 
 
 def _label(action: Action) -> tuple[Claim, str]:
-    # Canonical (claim, verb) routing pair for the Envelope; the human telemetry string is owned by model.describe.
     match action:
         case Rail(claim=c, verb=v):
             return c, v
@@ -139,17 +135,14 @@ def _label(action: Action) -> tuple[Claim, str]:
 
 
 def _program_check(argv: tuple[str, ...]) -> Check:
-    # The catalog `program` row owns arbitrary automation argv; the whole command rides the {argv*} splice.
     return Check(tool=_PROGRAM_TOOL, args=ToolArgs(argv=argv))
 
 
 async def _program_outcome(action: Program, ctx: _Drive) -> Result[Report, Fault]:
-    # Program deadlines stay with the invoked tool; this boundary converts spawn/process failures to Faults.
     if not action.argv:
         return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
     scope = ArtifactScope.open(ctx.settings, Claim.STATIC)
-    # The port is synchronous (it owns its own loop), so the spawn hops to a thread like the Rail lane.
     outcome = await to_thread.run_sync(partial(ctx.executor.run, check, settings=ctx.settings, scope=scope, routed=_PROGRAM_ROUTED))
     match outcome:
         case Result(tag="ok", ok=done):
@@ -164,7 +157,6 @@ def _emitted(line: Envelope) -> Envelope:
 
 
 def _rail_outcome(action: Rail, ctx: _Drive) -> RailOutcome:
-    # Decode failures fold to FAULTED Envelope rows instead of escaping the automation task.
     bind = _resolve(action)
     match bind:
         case None:
@@ -191,11 +183,9 @@ async def _emit_leaf(leaf: Action, ctx: _Drive) -> RailStatus:
     match is_governed(ctx.ceiling):
         case True:
             claim, verb = _label(leaf)
-            # The governed leaf seats itself as one skipped census row even though it bypasses the rail fold; describe owns the label string.
             note = f"governed: {describe(leaf)} cpu>={ctx.ceiling or 0.0:.0%}"
             skip = Report(claim, verb, RailStatus.SKIP, Counts.of(RailStatus.SKIP), notes=(note,))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
-        # Recursive Sequence/Debounce leaves reuse the held limiter token; re-acquire raises in anyio.
         case False:
             match leaf:
                 case Rail() as r:
@@ -212,7 +202,6 @@ async def _emit_leaf(leaf: Action, ctx: _Drive) -> RailStatus:
 
 
 async def _sequence(leaves: tuple[Action, ...], ctx: _Drive) -> RailStatus:
-    # Short-circuit fold: the first terminal status stops the leaf walk.
     folded = RailStatus.EMPTY
     for leaf in leaves:
         folded = RailStatus.dominant(folded, await _emit_leaf(leaf, ctx))
@@ -225,7 +214,6 @@ async def _sequence(leaves: tuple[Action, ...], ctx: _Drive) -> RailStatus:
 
 
 def _fire(action: Action, ctx: _Drive) -> Fire:
-    # _emit_leaf is total over Action (Rail/Program/Sequence/Debounce), so the fire closure dispatches there once.
     async def fire(_changes: ChangeBatch) -> None:
         _ = await _emit_leaf(action, ctx)
 
@@ -233,7 +221,6 @@ def _fire(action: Action, ctx: _Drive) -> Fire:
 
 
 async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: float) -> ChangeBatch:
-    # Boundary kernel: drain until one quiet window elapses; the timeout scope is the sole exit.
     latest: ChangeBatch = _NO_CHANGES
     while True:
         with anyio.move_on_after(window_ms / 1000.0) as scope:
@@ -243,10 +230,9 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
 
 
 def _debounce(inner: Fire, window_ms: int, *, edge: Edge) -> tuple[Fire, Worker]:
-    # The caller owns worker lifetime through its task group and stop scope.
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
-    async def signal(changes: ChangeBatch) -> None:  # ruff:ignore[unused-async]  # async required: trigger loop awaits this as a Fire coroutine
+    async def signal(changes: ChangeBatch) -> None:  # ruff:ignore[unused-async]
         try:
             match send.statistics().current_buffer_used:
                 case 0:
@@ -263,7 +249,7 @@ def _debounce(inner: Fire, window_ms: int, *, edge: Edge) -> tuple[Fire, Worker]
                     match edge:
                         case Edge.LEADING:
                             await inner(changes)
-                            await _quiesce(recv, window_ms)  # drain the window; later events discarded
+                            await _quiesce(recv, window_ms)
                         case Edge.TRAILING:
                             await inner((await _quiesce(recv, window_ms)) or changes)
         finally:
@@ -276,7 +262,6 @@ def _watch_filter(spec: Watch) -> BaseFilter:
     ignores = spec.ignore_patterns
     match spec.filter:
         case WatchFilter.DEFAULT:
-            # Supplying ignore_entity_patterns replaces watchfiles' built-in file-noise filters.
             return DefaultFilter(ignore_entity_patterns=(*DefaultFilter.ignore_entity_patterns, *ignores))
         case WatchFilter.PYTHON:
             return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
@@ -291,15 +276,14 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         debounce=spec.debounce,
         step=spec.step,
         stop_event=stop,
-        rust_timeout=1000,  # bound stop latency to the local event loop instead of watchfiles' default wait
-        yield_on_timeout=True,  # timeout heartbeats are filtered by the empty-batch path
+        rust_timeout=1000,
+        yield_on_timeout=True,
         force_polling=spec.force_polling,
         poll_delay_ms=spec.poll_delay_ms,
         recursive=spec.recursive,
         ignore_permission_denied=spec.ignore_permission_denied,
     ):
         batch = tuple((str(kind), path) for kind, path in sorted(changes, key=itemgetter(1)))
-        # Timeout heartbeats preserve stop responsiveness without firing actions.
         match batch:
             case ():
                 pass
@@ -331,7 +315,6 @@ async def _fire_with_coalesce(fire: Fire, settings: AssaySettings, changes: Chan
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
-    # Mid-fire ticks collapse to one catch-up fire; telemetry stays off the Envelope stream.
     running = False
     missed = 0
 
@@ -344,7 +327,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
                 running = True
                 try:
                     missed = await _fire_with_coalesce(fire, settings, changes, missed)
-                except Exception as exc:  # ruff:ignore[blind-except]  # automation boundary: exceptions emit one FAULTED row instead of escaping the task group
+                except Exception as exc:  # ruff:ignore[blind-except]
                     _emit_automation_fault(exc, settings, action)
                 finally:
                     running = False
@@ -394,8 +377,6 @@ async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event
 
 
 async def _drive(spec: Watch | Schedule, action: Action, ctx: _Drive, *, stop: anyio.Event, harden: bool) -> None:
-    # One driver for watch and schedule: spec selects the wakeup source; harden coalesces missed schedule ticks while
-    # watch relies on watchfiles' own debounce, and a debounce worker (worker is not None) already owns its catch-up.
     fire, worker = _armed(action, replace(ctx, ceiling=spec.cpu_threshold))
     driven = _hardened_fire(fire, ctx.settings, action) if harden and worker is None else fire
     async with anyio.create_task_group() as tg:

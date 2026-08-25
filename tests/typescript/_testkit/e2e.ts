@@ -20,14 +20,10 @@ declare namespace K6 {
 
 const _ORIGIN = 'https://rasm.test';
 
-// The one websocket endpoint the corpus speaks: pages and route interceptors derive it, never respell it.
 const _WIRE = `${_ORIGIN.replace(/^https/, 'wss')}/ws`;
 
-// k6's documented exit contract: 0 = clean, 99 = thresholds breached; every other code is a crash.
 const _EXIT = { breach: 99, pass: 0 } as const;
 
-// Hermetic page corpus: deterministic documents fulfilled by route interception — a secure-context
-// origin with zero servers, zero network, and zero litter. A new probe surface is a row.
 const _PAGES = {
     '/clock': {
         title: 'clock',
@@ -120,7 +116,6 @@ document.querySelector('[data-testid=held]').textContent = localStorage.getItem(
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// Both threshold-gate spellings the summary export has shipped; the verdict authority stays the exit code.
 const _Gate = Schema.Union(Schema.Boolean, Schema.Struct({ ok: Schema.Boolean }));
 
 const _Metric = Schema.Struct({
@@ -144,7 +139,6 @@ class K6Fault extends Data.TaggedError('K6Fault')<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// lang rides the shell so every corpus document clears the axe html-has-lang gauge by construction.
 const _shell = (page: { readonly title: string; readonly body: string }): string =>
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${page.title}</title></head><body>${page.body}</body></html>`;
 
@@ -164,13 +158,10 @@ const Hermetic = {
 const K6 = {
     Summary,
     Verdict: Data.taggedEnum<K6.Verdict>(),
-    // Activation probe for the load lane: the binary is a machine fact, never a JS dependency.
     locate: Command.exitCode(Command.make('k6', 'version')).pipe(
         Effect.map((code) => code === 0),
         Effect.orElseSucceed(() => false),
     ),
-    // `env` feeds the script's `__ENV` — the one sanctioned parameterization channel; a hardcoded target host in a script is
-    // the rejected form. `binary` defaults to the PATH k6 and exists so the subprocess contract stays falsifiable hermetically.
     run: (lane: {
         readonly script: string;
         readonly summary: string;
@@ -186,8 +177,6 @@ const K6 = {
                 ),
                 (fault: PlatformError) => new K6Fault({ reason: 'crashed', detail: fault.message }),
             );
-            // The exit code is the verdict authority and discriminates FIRST: a crashed run reports its crash,
-            // never a masking summary-read fault over the file the crash prevented.
             yield* code === _EXIT.pass || code === _EXIT.breach ? Effect.void : new K6Fault({ reason: 'crashed', detail: `exit ${code}` });
             const fs = yield* FileSystem.FileSystem;
             const raw = yield* Effect.mapError(fs.readFileString(lane.summary), (fault) => new K6Fault({ reason: 'summary', detail: fault.message }));

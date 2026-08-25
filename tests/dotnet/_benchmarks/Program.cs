@@ -10,15 +10,12 @@ using BenchmarkDotNet.Validators;
 namespace Rasm.Benchmarks;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
-// The gate registry: one row per gated benchmark, keyed by exact BDN FullName. Benchmark classes register here as they land; an empty registry still gates visibly through the session receipt.
 internal static class BenchRegistry {
     public static readonly Seq<BenchCase> Cases = Seq<BenchCase>();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static class Program {
-    // `gate <report-full.json> [older-reports...]` reads BDN full-JSON reports (newest last), verifies the corpus manifest against its committed fixtures, gates the newest report
-    // against the registry, and runs the sustained segmenter across the series. Any other argv routes to the BenchmarkSwitcher.
     public static int Main(string[] args) =>
         args is ["gate", .. var reportPaths]
             ? Gate(reportPaths: reportPaths)
@@ -34,7 +31,6 @@ internal static class Program {
             Console.Error.WriteLine(value: "gate: at least one BDN *-report-full.json path is required");
             return 1;
         }
-        // Corpus admission is report-independent: a declared slug with no committed fixture, a fixture no roster declares, a slug the corpus- prefix cannot realize, or a fixture over the ceiling breaches the gate as its own typed CORPUS row, so declarations never float free of fixtures.
         Seq<Error> corpus = BenchCorpus.Admit()
             .Match(Succ: static _ => Seq<Error>(), Fail: static error => error switch { ManyErrors many => toSeq(many.Errors), _ => Seq(error) });
         _ = corpus.AsIterable().Iter(error => Console.WriteLine(value: $"CORPUS   {error.Message}"));
@@ -52,7 +48,6 @@ internal static class Program {
         _ = sustained.AsIterable().Iter(error => Console.WriteLine(value: $"SUSTAINED {error.Message}"));
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture,
             $"gate: cases={rows.Count} pass={rows.Count(static row => row is GateVerdict.Pass)} tooNoisy={rows.Count(static row => row is GateVerdict.TooNoisy)} breach={rows.Count(static row => row is GateVerdict.Breach)} sustained={sustained.Count} corpusGaps={corpus.Count} unreadable={unreadable.Count}"));
-        // TooNoisy is a distinct visible exit, never folded into pass: 1 = breach/regression, 2 = ungateable noise.
         bool breached = !unreadable.IsEmpty || !sustained.IsEmpty || !corpus.IsEmpty || rows.Exists(static row => row is GateVerdict.Breach);
         bool noisy = rows.Exists(static row => row is GateVerdict.TooNoisy);
         return breached ? 1 : noisy ? 2 : 0;
@@ -72,7 +67,6 @@ internal sealed class RasmBenchmarkConfig : ManualConfig {
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(static attr => string.Equals(a: attr.Key, b: "RasmWorkspaceRoot", comparisonType: StringComparison.Ordinal));
         ArtifactsPath = Path.Combine(path1: root?.Value ?? Directory.GetCurrentDirectory(), path2: ".artifacts", path3: "dotnet", path4: "benchmarks");
-        // Explicit adaptive-engine ceilings keep every session self-limiting regardless of BDN default drift.
         _ = AddJob(Job.Default.WithId(id: "net10-release").WithMaxWarmupCount(count: 50).WithMaxIterationCount(count: 100));
         _ = AddDiagnoser(MemoryDiagnoser.Default);
         _ = AddExporter(JsonExporter.Full);

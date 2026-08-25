@@ -355,7 +355,7 @@ public readonly record struct Receipt(CodeValue Code, int Count) {
 One implementation crosses carriers through `K<F,A>`; transformer stack order is a capability decision, and host values cross into rails at adapter edges.
 
 [CARRIER_POLYMORPHIC]:
-- Use: `K<F,A>` and trait-constrained arrows when one body genuinely serves `Fin`, `Eff`, `Option`, `IO`, and transformer stacks; the constraint set is the capability contract — functor maps, applicative adds pure and apply, monad adds bind.
+- Use: `K<F,A>` and trait-constrained arrows when one body genuinely serves `Fin`, `Eff`, `Option`, `IO`, and transformer stacks; the constraint set fixes capability — functor maps, applicative adds pure and apply, monad adds bind.
 - Law: failures raise through trait statics — `Fallible.fail<E,F,A>` — never a concrete `Fin.Fail` inside the body, which silently pins the carrier.
 - Law: the caller re-anchors the erased kind with the carrier's own `.As()`; omitting the pin is the most common carrier-polymorphic error — the value stays existentially kinded and refuses concrete operators.
 - Law: carrier migration is direction-typed — the static entry `Natural.transform<F,G,A>` constrains `where F : Natural<F,G>` so the obligation falls on the source and delegates to the `static abstract Transform<A>` member, `CoNatural.transform<F,G,A>` constrains `where F : CoNatural<F,G>` so it falls on the target and delegates to `CoTransform<A>`, and a transformer stack's downward hop is `CoNatural.transform<Outer,Inner,A>` against the upward `Natural.transform<Inner,Outer,A>`; `NaturalMono<F,G> : Natural<F,G>, CoNatural<G,F>` derives the co-direction default from the forward `Transform` with no second body, `NaturalEpi<F,G> : CoNatural<F,G>, Natural<G,F>` derives `Transform` from `CoTransform` with the variance inverted, and `NaturalIso<F,G> : Natural<F,G>, CoNatural<F,G>` is the invariant-both-ways isomorphism rejected wherever one leg loses failure information, because a narrowing such as `FinT<M>` into `OptionT<M>` has no inverse.
@@ -366,7 +366,7 @@ One implementation crosses carriers through `K<F,A>`; transformer stack order is
 - Law: stack order is a capability decision — a layer needing retry, bracket, fork, or timeout must sit on the unliftable side of any product-shaped state layer; state placed outside the effect boundary makes the outer effect un-bracketable.
 - Law: a lift enters the stack at one layer — a layer-lift wraps a value in that layer's constructor, the effect-lift cascade threads a real effect to the IO floor; conflating them substitutes a value where the floor effect was intended.
 - Law: the whole composition-time surface — `fork`, `timeout`, `bracket`, `retry` — is one projection from the carrier to its bare effect, so a transformer that cannot project that effect forfeits the entire algebra.
-- Law: unlift is a runtime contract — a stack whose innermost monad supplies no IO floor type-checks and then throws on first use, so a constraint set including unlift asserts a legal ordering.
+- Law: unlift requires a runtime-valid ordering — a stack whose innermost monad supplies no IO floor type-checks and then throws on first use, so a constraint set including unlift asserts a legal ordering.
 - Reject: hand-recomposing `fork`-then-`await` over the trait's own `await` member, or `await` inside an effect-returning body where an effect lift expresses the boundary; a state layer buried under the effect-capable layer.
 
 ```csharp conceptual

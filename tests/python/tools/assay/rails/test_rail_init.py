@@ -28,7 +28,6 @@ members = ["libs/contracts", "libs/python/*", "tools/assay"]
 
 
 def _seeded(root: Path) -> None:
-    # The contracts estate is a literal row outside the governed libs/python glob; runtime is the glob-admitted existing member.
     (root / "pyproject.toml").write_text(_ROOT_MANIFEST, encoding="utf-8")
     for member in ("libs/contracts", "libs/python/runtime", "tools/assay"):
         (root / member).mkdir(parents=True)

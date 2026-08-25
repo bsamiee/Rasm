@@ -12,7 +12,6 @@ internal static class EvidenceGens {
     public static readonly Gen<(string Label, int Payload)> Projection = Label.Select(Gen.Int[start: -1_000_000, finish: 1_000_000], static (string label, int payload) => (label, payload));
     public static readonly Gen<(string Key, int Payload)[]> Stream = Projection.Array[0, 24];
 
-    // Null Doc proves evidence verbs stay doc-blind; any dereference fails the law.
     public static ScenarioContext Context(List<(string Key, object? Value)> log) =>
         new(doc: null!, sink: (key, value) => log.Add(item: (key, value)));
 }
@@ -72,8 +71,6 @@ public sealed class ExpectLaws {
 }
 
 public sealed class FactLaws {
-    // Note is the unasserted observation verb: it facts the EvidenceName key verbatim and counts
-    // as evidence, with no assertion or reference count movement.
     [Fact]
     public void NoteFactsTheEvidenceNameKeyVerbatim() =>
         Spec.ForAll(gen: EvidenceGens.Projection, property: static input => {
@@ -102,7 +99,6 @@ public sealed class FactLaws {
 }
 
 public sealed class FactsEmptyTriggerLaws {
-    // The runner's facts.empty trigger is exactly FactCount == 0 after entrypoint return.
     [Fact]
     public void FreshContextFiresTheTrigger() {
         List<(string Key, object? Value)> log = [];
@@ -113,7 +109,6 @@ public sealed class FactsEmptyTriggerLaws {
 
     [Fact]
     public void EveryEvidenceVerbSuppressesTheTrigger() {
-        // Failed evidence verbs still suppress facts.empty; failure plus empty evidence is contradictory.
         (string Verb, Action<ScenarioContext> Call)[] verbs = [
             (Verb: "fact", Call: static ctx => ctx.Fact(key: "k", value: 1)),
             (Verb: "require.pass", Call: static ctx => _ = ctx.Require(label: "k", observed: true)),
@@ -132,9 +127,6 @@ public sealed class FactsEmptyTriggerLaws {
 }
 
 public sealed class ReferenceEmissionLaws {
-    // Author-mode candidates are minted from exactly this wire payload: the supervisor fold reads
-    // {name, actual, tolerance} off the reference.-prefixed fact and decides admission itself from
-    // evidence mode and corpus state — an SDK-asserted admission field would be a standing lie.
     [Fact]
     public void CertifyEmitsTheCandidateActualUnderTheReferenceGrammar() =>
         Spec.ForAll(gen: EvidenceGens.Projection, property: static input => {
@@ -177,8 +169,6 @@ public sealed class ReferenceEmissionLaws {
 }
 
 public sealed class ManifestAndArtifactLaws {
-    // One manifest verb owns all four lanes; the wire strings are frozen law the supervisor
-    // classifies by prefix, and a non-manifest role is an SDK input guard that facts nothing.
     [Fact]
     public void ManifestVerbRendersEveryLaneAndRejectsForeignRoles() {
         List<(string Key, object? Value)> log = [];
@@ -191,7 +181,6 @@ public sealed class ManifestAndArtifactLaws {
         Assert.Equal(expected: 4, actual: ctx.FactCount);
         _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: () => ctx.Manifest(role: EvidenceRole.Reference, key: new EvidenceName(Key: "k"), value: 5));
         Assert.Equal(expected: 4, actual: ctx.FactCount);
-        // Round trip through the Contract parse side: prefix classification recovers each lane.
         Assert.Equal(expected: EvidenceRole.ObjectManifest, actual: EvidenceRole.OfFactKey(key: "manifest.object.k"));
         Assert.Equal(expected: "k", actual: EvidenceRole.Gh2CanvasManifest.FactArgument(key: "manifest.gh2.k"));
     }
@@ -215,8 +204,6 @@ public sealed class ScopeAndCaptureLaws {
         Assert.Equal(expected: 0, actual: ctx.DrainScopes());
     }
 
-    // The scope rail is honest: a faulting document surface (the unit context carries no live
-    // doc) degrades to typed failure instead of throwing across the entrypoint boundary.
     [Fact]
     public void OpenOnAFaultingDocumentSurfaceDegradesTyped() =>
         Spec.Fail(result: DocumentScope.Open(ctx: EvidenceGens.Context(log: [])));
@@ -240,10 +227,6 @@ public sealed class ScopeAndCaptureLaws {
 }
 
 public sealed class FactKeyGrammarLaws {
-    // Rendered fact keys are frozen wire law: Supervisor session folds classify by these exact
-    // strings and prefixes, so any drift in a row is a bridge protocol break, never a refactor.
-    // Prefix lanes (reference., manifest.*, artifact.) render off EvidenceRole.FactPrefix and are
-    // pinned at their emitting verbs in ReferenceEmissionLaws and ManifestAndArtifactLaws.
     [Fact]
     public void EveryRowRendersTheExactWireString() {
         Assert.Equal(expected: 7, actual: FactKey.Items.Count);
@@ -259,7 +242,6 @@ public sealed class FactKeyGrammarLaws {
             ("document.after", () => Renders(FactKey.DocumentAfter, string.Empty, "document.after.objects"), true));
     }
 
-    // The evidence verbs must route through the grammar: a context-emitted key equals the row render.
     [Fact]
     public void EvidenceVerbsRenderThroughTheGrammar() {
         List<(string Key, object? Value)> log = [];
@@ -269,7 +251,6 @@ public sealed class FactKeyGrammarLaws {
         Assert.Equal(expected: "ok", actual: log[1].Value);
     }
 
-    // Scratch and Stamp land their constant keys and return stem-derived deterministic values.
     [Fact]
     public void ScratchAndStampFactTheirConstantKeysAndDeriveFromTheStem() {
         List<(string Key, object? Value)> log = [];
@@ -280,15 +261,11 @@ public sealed class FactKeyGrammarLaws {
         Assert.StartsWith(expectedStartString: "probe-", actualString: stamp, comparisonType: StringComparison.Ordinal);
         Assert.Equal(expected: ["scratch.path", "stamp"], actual: log.Select(selector: static row => row.Key), comparer: StringComparer.Ordinal);
         Assert.Equal(expected: 2, actual: ctx.FactCount);
-        // A stem that escapes the scratch root is an input guard that facts nothing: upward
-        // traversal and rooted stems both refuse before any evidence lands.
         _ = Assert.ThrowsAny<ArgumentException>(testCode: () => ctx.Scratch(stem: "../escape.bin"));
         _ = Assert.ThrowsAny<ArgumentException>(testCode: () => ctx.Scratch(stem: "/rooted/escape.bin"));
         Assert.Equal(expected: 2, actual: ctx.FactCount);
     }
 
-    // A throwing sub-case is a host boundary fact, not a lost status: the bracket converts it to a
-    // typed failure, lands the status fact, and lets sibling cases keep running.
     [Fact]
     public void ThrowingSubCaseLandsTypedFailureAndTheStatusFact() {
         List<(string Key, object? Value)> log = [];
@@ -303,9 +280,6 @@ public sealed class FactKeyGrammarLaws {
 }
 
 public sealed class ScenarioDiscoveryWireLaws {
-    // Cargo discovers scenario methods over staged assemblies BY FULL NAME ("Rasm.ScenarioKit.
-    // RhinoScenarioAttribute"): a namespace move compiles clean everywhere and silently discovers
-    // ZERO scenarios, so the reflected discovery shape is pinned here as frozen wire law.
     [Fact]
     public void DiscoveryShapeIsFrozenWireLaw() {
         Assert.Equal(expected: "Rasm.ScenarioKit.RhinoScenarioAttribute", actual: typeof(RhinoScenarioAttribute).FullName);
@@ -313,7 +287,6 @@ public sealed class ScenarioDiscoveryWireLaws {
         AttributeUsageAttribute usage = Assert.IsType<AttributeUsageAttribute>(@object: Attribute.GetCustomAttribute(
             element: typeof(RhinoScenarioAttribute), attributeType: typeof(AttributeUsageAttribute)));
         Assert.Equal(expected: AttributeTargets.Method, actual: usage.ValidOn);
-        // The manifest member roster cargo reads off attribute metadata: name and type are law.
         Spec.Matrix(
             (Label: "theme-is-string", Probe: static () => typeof(RhinoScenarioAttribute).GetProperty(name: nameof(RhinoScenarioAttribute.Theme))?.PropertyType == typeof(string), Expected: true),
             (Label: "requires-is-string-array", Probe: static () => typeof(RhinoScenarioAttribute).GetProperty(name: nameof(RhinoScenarioAttribute.Requires))?.PropertyType == typeof(string[]), Expected: true),

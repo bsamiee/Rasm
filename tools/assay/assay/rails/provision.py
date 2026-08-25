@@ -1,20 +1,20 @@
 """Run local provisioning infrastructure through the Forge-owned CLI."""
 
-from collections.abc import Callable  # handler factory annotations are runtime-evaluated at registry weave
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
 import re
 from typing import ClassVar, Final, override
 
-from expression import Error, Ok, Result  # beartype resolves provision handler annotations at registry runtime
+from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # registry runtime resolves handler annotations
-from assay.composition.store import ArtifactScope  # registry runtime resolves handler annotations
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.model import BaseParams, Check, Claim, Completed, Fault, Language, Mode, ProvisionRun, RailStatus, Report, Step, Tool, ToolArgs
 from assay.core.routing import Routed, Scope
 from assay.diagnostics import fold
@@ -192,8 +192,6 @@ class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-# One row per forge-provision verb: (catalog mode, timeout seconds). The JSON roster, mode split, and per-verb deadlines all derive from
-# this table, so a new verb is one row here plus its handler assignment and registry Bind. `tools` also rides `check` as an internal fan leg.
 _VERBS: Final[dict[str, tuple[Mode, float]]] = {
     "up": (Mode.WRITE, 300.0),
     "down": (Mode.WRITE, 120.0),
@@ -244,7 +242,6 @@ _SENSITIVE_VALUE: Final[re.Pattern[str]] = re.compile(
     r")"
 )
 _SAFE_WIRE_CAP: Final[int] = 512
-# Curated schema-v3 runtime facts: one row per doctor/status/teardown wire path; the label is the evidence key.
 _DOCTOR_ROWS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("dockerPolicyStatus", ("docker", "policy", "status")),
     ("dockerPolicyReason", ("docker", "policy", "reason")),
@@ -286,7 +283,6 @@ _DOCTOR_ROWS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("appleContainerSystem", ("appleContainer", "system")),
     ("appleContainerEligible", ("appleContainer", "eligible", "gate")),
 )
-# Catalog owns every probe row and its argv; the roster names pin the check-verb fan order.
 _PROBE_NAMES: Final[tuple[str, ...]] = ("forge-python-abi", "forge-openblas", "forge-onnxruntime-lib")
 _PROVISION_ROWS: Final[dict[tuple[str, Mode], Tool]] = {(t.name, t.mode): t for t in select(Claim.PROVISION, Language.PYTHON)}
 _PROBE_ROWS: Final[tuple[Tool, ...]] = tuple(_PROVISION_ROWS[name, Mode.RUN] for name in _PROBE_NAMES)
@@ -297,7 +293,6 @@ _PAYLOAD_DECODER: Final[msgspec.json.Decoder[_ProvisionPayload]] = msgspec.json.
 
 
 def _stack(verb: str) -> Check:
-    # The verb selects the RUN or WRITE forge-provision row; per-verb timeout rides the Check override.
     args = ToolArgs(flags=("--json",) if verb in _JSON_VERBS else (), verb=verb)
     mode, timeout = _VERBS[verb]
     return Check(tool=_PROVISION_ROWS["forge-provision", mode], args=args, timeout=timeout)
@@ -898,7 +893,6 @@ def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, checks: tuple
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# Only `check` fans beyond its own forge-provision row: the tools evidence row plus the local runtime probes.
 _VERB_CHECKS: Final[dict[str, Callable[[], tuple[Check, ...]]]] = {
     "check": lambda: (_stack("check"), _stack("tools"), *(Check(tool=row) for row in _PROBE_ROWS))
 }

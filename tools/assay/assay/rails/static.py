@@ -1,6 +1,6 @@
 """Run one polyglot static lane: diagnose, restore, then build; ``--fix`` prepends the write-mode fixer rows."""
 
-from collections.abc import Callable  # runtime: callable annotation is resolved through the rail layer
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
@@ -16,9 +16,9 @@ import msgspec
 import structlog
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # runtime: public rail signatures are inspected
-from assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE  # runtime: public rail signatures are inspected
-from assay.core.exec import argv_for, Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE
+from assay.core.exec import argv_for, Executor
 from assay.core.govern import leased, resource_projection
 from assay.core.model import (
     Artifact,
@@ -72,17 +72,9 @@ type SkipRows = tuple[tuple[Phase, str, str], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Full per-language order: write fixers land before diagnostics; restore precedes closure builds. The default
-# lane derives its roster by dropping the Mode.writes rows; --fix restores the full order.
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
-# Reverse of the Phase->Mode payload; a non-lane mode is a loud KeyError, not a silent default.
 _PHASE: dict[Mode, Phase] = {phase.mode: phase for phase in Phase}
-# Probe status that proves the target compiles; FAULTED/TIMEOUT/BUSY and any Error are infra-ambiguous and take the safe
-# no-mutation path, never read as "does not compile".
 _COMPILES: frozenset[RailStatus] = frozenset((RailStatus.OK, RailStatus.EMPTY))
-# Analyzer-free, SARIF-free compile probe row gating the format phase: dotnet-format mutates and binds against the
-# analyzer view, so a non-compiling target must gate the write before it lands. The VERIFY catalog row carries no
-# SARIF hole, so a probe never drops SARIF the report could fold.
 _PROBE_ROW: Tool = next(t for t in select(Claim.STATIC, Language.DOTNET) if t.mode is Mode.VERIFY)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -159,8 +151,6 @@ def _sarif_key(check: Check, routed: Routed, settings: AssaySettings) -> str:
 
 
 def _build_args(check: Check, routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> Check:
-    # Typed splice values fill the build row's {max_cpu}/{sarif_dir} holes; the per-invocation SARIF drop dir also
-    # rides the receipt as the typed fold key, so nothing downstream re-parses argv.
     match (check.tool.runner, check.tool.mode):
         case (Runner.DOTNET, Mode.BUILD):
             args = ToolArgs(max_cpu=str(settings.dotnet_max_cpu), sarif_dir=f"{scope.sarif_dir}/{_sarif_key(check, routed, settings)}")
@@ -170,8 +160,6 @@ def _build_args(check: Check, routed: Routed, settings: AssaySettings, scope: Ar
 
 
 def _routed_tool(tool: Tool, routed: Routed) -> Tool:
-    # Route-driven placement policy the row cannot carry: one catalog row serves scoped and full-workspace routes,
-    # so the resolved route (not the tool) re-pins the Input axis; the command template is never edited.
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
         case (Language.DOTNET, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
             return msgspec.structs.replace(tool, input=Input.SOLUTION)
@@ -186,9 +174,6 @@ def _tool_skip(tool: Tool, routed: Routed) -> str:
         case (Input.SOLUTION, _) if not _workspace_route(routed):
             return "solution input unsupported by scoped static"
         case (Input.FILES, "glob") if not routed.files:
-            # A governor trigger escalates the lane, but a path-fed tool with zero matching files would run bare
-            # and sweep foreign trees (a bare sqlfluff lints vendored fixtures inside .venv); owned-input siblings
-            # still run, so the escalation loses nothing.
             return "no files of this kind on the route; path-fed tools never run bare"
         case _:
             return ""
@@ -254,8 +239,6 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
             id=route_row.language.value,
             kind=ArtifactKind.SCOPE,
             text=(
-                # A --project target routes through the CHANGED machinery; the raw enum then reads as "changed files=0"
-                # and misleads agents into "stale cache", so the label names what was actually targeted.
                 f"scope={'project' if route_row.scope is Scope.CHANGED and route_row.projects else route_row.scope.value} "
                 f"files={len(route_row.files)} projects={len(route_row.projects)} "
                 f"triggers={len(route_row.full_triggers)} groups={len(route_row.groups)}"
@@ -268,7 +251,7 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
     return (*route_matches, *rejected, *skipped_matches)
 
 
-def _detail(  # ruff:ignore[too-many-arguments]  # each param is a distinct StaticRun projection input; no grouping reduces the count without a synthetic carrier
+def _detail(  # ruff:ignore[too-many-arguments]
     targets: TargetFiles,
     routed: tuple[Routed, ...],
     planned: tuple[tuple[str, str, str], ...],
@@ -305,8 +288,6 @@ def _params_argv(params: StaticParams) -> tuple[str, ...]:
 
 
 def _target_result(settings: AssaySettings, params: StaticParams) -> Result[TargetFiles, Fault]:
-    # Target value alone selects all, project, folder/file, or changed-default scope.
-    # Unsupported files remain skipped target rows, not hard faults.
     argv = _params_argv(params)
     path_targets = bool(params.folders or params.files)
     match (int(params.all) + int(bool(params.project)) + int(path_targets), params.all, params.project):
@@ -387,9 +368,6 @@ def _build_route(routed: Routed) -> Routed:
 
 
 def _empty_route(routed: Routed) -> bool:
-    # A governor-escalated glob route carries no source file and still owes every whole-lane check its run. The
-    # trigger decides, never the scope: `_build_route` escalates on the catalog alone, so a scope test would admit
-    # every sourceless route and sweep the estate for an edit the lane never owned.
     return (routed.language.strategy == "glob" and not routed.files and not routed.full_triggers) or (
         routed.language.strategy == "closure" and not routed.files and not routed.projects and not _workspace_route(routed)
     )
@@ -471,15 +449,10 @@ def _write_fan(
 
 
 def _probe_check(build_check: Check) -> Check:
-    # Reuse the build check's resolved tail/placement so the probe targets exactly what the closure build will;
-    # zeroed args keep the real build's SARIF drop and cpu cap off the analyzer-free probe row.
     return msgspec.structs.replace(build_check, tool=_PROBE_ROW, args=ToolArgs())
 
 
 def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: AssaySettings, executor: Executor) -> bool:
-    # A throwaway per-closure scope isolates the probe's --artifacts-path from the real build scope; its receipt never
-    # reaches report.results. compiles is True only when every build target probes OK/EMPTY; a FAILED probe means
-    # "does not compile" and an Error/ambiguous probe takes the same safe no-mutation path.
     builds = tuple(_probe_check(check) for phase, checks in closure_phases if phase is Phase.BUILD for check in checks)
     if not builds:
         return True
@@ -487,10 +460,8 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
     _LOG.info("phase.start", phase="probe", checks=len(builds), run_id=settings.run_id, route=routed.language.value)
     try:
         outcomes = tuple(executor.run(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
-        compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # ruff:ignore[boolean-positional-value-in-call]  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
+        compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # ruff:ignore[boolean-positional-value-in-call]
     finally:
-        # Throwaway means thrown away: an analyzer-free probe tree is a full solution build that must never accumulate.
-        # The scope's dotnet-cli home survives as a live cache so a probe never re-pays the NuGet first-run cost.
         for leaf in ("bin", "obj"):
             rmtree(f"{throwaway.path}/{leaf}", ignore_errors=True)
     _LOG.info("phase.end", phase="probe", checks=len(builds), compiles=compiles, run_id=settings.run_id, route=routed.language.value)
@@ -498,10 +469,6 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
 
 
 def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[tuple[Check, ...], tuple[Check, ...]]:
-    # A non-compiling target drops both the write fix and its read-only check twin: the format tool binds against the
-    # analyzer view and may fault or emit spurious drift on a target the compiler itself rejects. The write-capable tool
-    # names drive the gate; the gated slice returns so dispatch surfaces SKIP receipts — a silently absent format
-    # family would read as a clean pass.
     writable = frozenset(check.tool.name for _, lane in phases for check in lane if check.tool.mode.writes)
     return tuple(check for check in checks if check.tool.name not in writable), tuple(check for check in checks if check.tool.name in writable)
 
@@ -511,12 +478,9 @@ def _dispatch(
 ) -> tuple[Result[Completed, Fault], ...]:
     if _empty_route(routed):
         return ()
-    # Writes run under the mutating lease; C# restore/build runs under the closure lease.
-    # Non-closure build checks stay in the plain fan-out with diagnostics.
     write = tuple(check for phase, checks in phases if phase is Phase.FIX for check in checks)
     closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {Phase.RESTORE, Phase.BUILD})
     uses_closure = _uses_build_scope(routed, closure_phases)
-    # The probe gates the format phase before the write lease; it is orthogonal to _build_fan's RESTORE->BUILD block gate.
     compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings, executor)
     active_write, gated_write = (write, ()) if compiles else _format_gated(write, phases)
     plain_rows = tuple(
@@ -535,8 +499,6 @@ def _dispatch(
 
 
 def _backpressure_note(resources: tuple[tuple[str, float], ...]) -> tuple[str, ...]:
-    # Structured threading: every field rides the typed resource rows resource_projection already folded from
-    # _ConcurrencyPressure and notes (slot max-wait is dotnet.slot_wait_ms.max). The note touches no receipt text.
     row = dict(resources)
     original, reduced = int(row.get("concurrency.original", 0.0)), int(row.get("concurrency.reduced", 0.0))
     foreign, mem = int(row.get("dotnet.foreign", 0.0)), row.get("memory.percent", 0.0)

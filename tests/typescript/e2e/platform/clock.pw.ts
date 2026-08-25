@@ -1,7 +1,5 @@
 import { expect, test } from '../fixtures.ts';
 
-// install() auto-advances from the epoch, so pre-jump readings carry the page-load offset; only the
-// fired-at-target instant after fastForward is exact — the assertions ride that surface.
 const _T0 = new Date('2026-01-01T00:00:10.000Z');
 const _ADVANCED = '2026-01-01T00:05:10.000Z';
 
@@ -24,6 +22,6 @@ test.describe('clock control', () => {
         await target.open('/clock');
         await clock.setFixedTime(_T0);
         await clock.runFor('00:05');
-        await expect(page.getByTestId('now')).toHaveText(_T0.toISOString()); // ticks fired; the reading never moved off the pinned instant
+        await expect(page.getByTestId('now')).toHaveText(_T0.toISOString());
     });
 });

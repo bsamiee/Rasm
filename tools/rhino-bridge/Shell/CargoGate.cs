@@ -17,8 +17,6 @@ internal enum AssemblyOwner {
 
 // --- [TABLES] --------------------------------------------------------------------------
 
-// Ownership: assembly ownership table. Host families stay in the default ALC, bridge families stay
-// in the shell ALC, and everything else resolves cargo-first for per-swap dependency isolation.
 internal static class HostAssemblyTable {
     internal static readonly FrozenSet<string> HostOwned = new[] {
         "RhinoCommon", "Rhino.UI", "Rhino.Runtime.Code", "RhinoCodePlatform.Rhino3D",
@@ -63,7 +61,6 @@ internal static class HostAssemblyTable {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: per-swap cargo resolution scope over the assembly ownership table.
 internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Rasm.Bridge.Cargo#{generation}"), isCollectible: true) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: cargoAssemblyPath);
     private readonly string stagePath = Path.GetDirectoryName(path: cargoAssemblyPath) ?? ".";
@@ -84,8 +81,6 @@ internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation)
         resolver.ResolveUnmanagedDllToPath(unmanagedDllName: unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(unmanagedDllPath: path) : nint.Zero;
 }
 
-// Ownership: collectible cargo ALC lifecycle. Hash equality short-circuits swaps inside the gate,
-// while unload reports WeakReference confirmation honestly so workstation policy decides recycle.
 internal sealed class CargoGate : IDisposable {
     private const string CargoAssemblyFile = "Rasm.Bridge.Cargo.dll";
     private const string CargoEntryType = "Rasm.Bridge.Cargo.CargoHost";
@@ -152,8 +147,6 @@ internal sealed class CargoGate : IDisposable {
         try {
             Assembly assembly = context.LoadFromAssemblyPath(assemblyPath: entryPath);
             Type entry = assembly.GetType(name: CargoEntryType, throwOnError: true)!;
-            // Manifest identity and the shell-computed running fingerprint cross shell-ALC-first so
-            // cargo stamps the session root and attributes drift without re-deriving host identity.
             IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(type: entry, args: [manifest, running])!;
             return new CargoLease(ContentHash: manifest.ContentHash, Context: context, Cargo: cargo);
         } catch {
@@ -165,10 +158,6 @@ internal sealed class CargoGate : IDisposable {
     private static UnloadReceipt UnloadKernel(CargoLease lease) {
         long started = Stopwatch.GetTimestamp();
         bool debugger = Debugger.IsAttached;
-        // Release sheds its own frame (NoInlining) before the WeakReference probe so no caller local
-        // pins the context; a leak-free ALC then collects within the retry budget because each cycle's
-        // GC.Collect plus finalizer drain reclaims the unreferenced load context, while a genuine leak
-        // (a host-rooted reference into cargo) stays alive past the budget and reports Confirmed=false.
         WeakReference probe = Release(lease: lease);
         int retries = 0;
         while (probe.IsAlive && retries < GcRetryBudget) {
@@ -176,7 +165,6 @@ internal sealed class CargoGate : IDisposable {
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
-        // Debugger-pinned collectible ALCs report unconfirmed unload without forcing recycle.
         return new UnloadReceipt(
             Confirmed: !probe.IsAlive,
             DebuggerAttached: debugger,
@@ -186,11 +174,9 @@ internal sealed class CargoGate : IDisposable {
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference Release(CargoLease lease) {
-        // NoInlining keeps caller frames from retaining the ALC after cargo disposal drains hooks.
         try {
             lease.Cargo.Dispose();
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            // Dispose failures cannot block unload; the receipt reports any remaining leak.
             Debug.WriteLine(message: $"cargo dispose threw: {error.Message}");
         }
         WeakReference probe = new(target: lease.Context);

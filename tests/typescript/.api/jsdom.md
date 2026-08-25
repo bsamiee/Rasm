@@ -28,26 +28,25 @@ Two consumption seams carry it — vitest selects the environment by the `enviro
 |  [07]   | `toughCookie`                | namespace            | the re-exported `tough-cookie` module (`Cookie`, `MemoryCookieStore`, …)     |
 
 ```ts signature
-// SOURCE-VERIFIED shapes (no bundled .d.ts). runScripts absent ⇒ scripts do NOT run (the safe default).
 declare class JSDOM {
   constructor(html?: string | ArrayBuffer | ArrayBufferView, options?: ConstructorOptions)
   readonly window: DOMWindow
   readonly virtualConsole: VirtualConsole
   readonly cookieJar: CookieJar
-  serialize(): string                                  // HTML-fragment-serialization-algorithm output — the byte-parity source
-  nodeLocation(node: Node): ElementLocation            // parse5 source location; THROWS unless includeNodeLocations was set
-  getInternalVMContext(): unknown                      // the contextified global for node:vm; throws without runScripts
+  serialize(): string
+  nodeLocation(node: Node): ElementLocation
+  getInternalVMContext(): unknown
   reconfigure(settings: { windowTop?: DOMWindow; url?: string }): void
   static fromURL(url: string, options?: ConstructorOptions): Promise<JSDOM>
   static fromFile(filename: string, options?: ConstructorOptions): Promise<JSDOM>
   static fragment(html?: string): DocumentFragment
 }
 interface ConstructorOptions {
-  url?: string; referrer?: string; contentType?: string     // contentType "text/html" (default) vs an XML type flips the parser
-  includeNodeLocations?: boolean; storageQuota?: number     // storageQuota default 5_000_000 (localStorage/sessionStorage bytes)
-  runScripts?: "dangerously" | "outside-only"               // absent ⇒ no execution; "outside-only" gives window.eval but no in-page <script>
-  pretendToBeVisual?: boolean                               // grants requestAnimationFrame / document.hidden; window.matchMedia stays absent
-  resources?: "usable" | { userAgent?: string; dispatcher?: Dispatcher; interceptors?: unknown[] }  // see [02]
+  url?: string; referrer?: string; contentType?: string
+  includeNodeLocations?: boolean; storageQuota?: number
+  runScripts?: "dangerously" | "outside-only"
+  pretendToBeVisual?: boolean
+  resources?: "usable" | { userAgent?: string; dispatcher?: Dispatcher; interceptors?: unknown[] }
   virtualConsole?: VirtualConsole; cookieJar?: CookieJar; beforeParse?(window: DOMWindow): void
 }
 ```
@@ -63,13 +62,11 @@ Subresource loading is ONE parameterized option keyed by shape: `undefined` fetc
 
 ```ts signature
 import { JSDOM, requestInterceptor } from "jsdom"
-// Dispatchers route real fetches; interceptors inspect and synthesize them — compose both to sandbox network in a spec.
 new JSDOM(html, {
   runScripts: "dangerously",
   resources: {
-    dispatcher: /* undici ProxyAgent | MockAgent | Pool */ agent,
+    dispatcher:  agent,
     interceptors: [requestInterceptor((request, context) => {
-      // return a synthetic Response to stub, or undefined to pass through; context.element names the requesting node
       return undefined
     })],
   },

@@ -21,7 +21,7 @@ Worker-identity helpers a fixture or conftest reads to branch on execution role.
 |  [04]   | `xdist.is_xdist_master`     | role probe | legacy alias of `xdist.is_xdist_controller`                                            |
 
 ```python signature
-def get_xdist_worker_id(request_or_session: FixtureRequest | Session) -> str: ...  # 'gw0' | 'master'
+def get_xdist_worker_id(request_or_session: FixtureRequest | Session) -> str: ...
 def is_xdist_worker(request_or_session: FixtureRequest | Session) -> bool: ...
 def is_xdist_controller(request_or_session: FixtureRequest | Session) -> bool: ...
 ```
@@ -41,14 +41,6 @@ CLI surface controlling worker count, scheduling mode, and restart tolerance.
 |  [07]   | `@pytest.mark.xdist_group(name)` | group pin    | under `--dist loadgroup`; routes same-group tests to one worker            |
 
 ```python signature
-# --dist scheduler vocabulary (choices enforced by the option):
-#   load       — round-robin dynamic dispatch, no affinity
-#   loadscope  — group by module::class, one scope per worker
-#   loadfile   — group by test file
-#   loadgroup  — group by @pytest.mark.xdist_group(name)
-#   worksteal  — dynamic dispatch with idle workers stealing queued tests
-#   each       — every worker runs the full suite (env-matrix runs)
-#   no         — the default: run in-process, no distribution
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

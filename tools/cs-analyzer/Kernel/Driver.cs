@@ -11,7 +11,6 @@ namespace Rasm.Csp.Kernel;
 public sealed class Driver : DiagnosticAnalyzer {
     // --- [TABLES]
 
-    // Build one trigger registration per Roslyn kind; row dispatch stays array-backed.
     private static readonly ImmutableArray<KindBucket> SyntaxBuckets = Buckets(TriggerKind.Syntax);
     private static readonly ImmutableArray<KindBucket> OperationBuckets = Buckets(TriggerKind.Operation);
     private static readonly ImmutableArray<KindBucket> SymbolBuckets = Buckets(TriggerKind.Symbol);
@@ -46,7 +45,6 @@ public sealed class Driver : DiagnosticAnalyzer {
                 ImmutableArray<Slot> slots = bucket.Slots;
                 start.RegisterSymbolStartAction(symbolStartContext => symbolStartContext.RegisterSymbolEndAction(endContext => DispatchSymbol(endContext, facts, slots)), (SymbolKind)bucket.Kind);
             }
-            // Compilation-end checks are batch-build-only; IDE live analysis skips them.
             if (!CompilationEndSlots.IsEmpty) start.RegisterCompilationEndAction(endContext => DispatchCompilationEnd(endContext, facts, CompilationEndSlots));
         });
     }
@@ -82,7 +80,6 @@ public sealed class Driver : DiagnosticAnalyzer {
     private static void DispatchCompilationEnd(CompilationAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) {
         SyntaxTree? tree = FirstTree(context.Compilation);
         if (tree is null) return;
-        // Whole-compilation rules gate on assembly scope; per-tree overrides cannot apply.
         Fan(facts, slots, facts.ScopeOf(tree, context.Compilation.Assembly), node: null, operation: null,
             context.Compilation.Assembly, model: null, context.ReportDiagnostic, context.CancellationToken);
     }
@@ -103,8 +100,6 @@ public sealed class Driver : DiagnosticAnalyzer {
             context.Node, operation: null, context.ContainingSymbol, context.SemanticModel,
             context.ReportDiagnostic, context.CancellationToken);
 
-    // One scope-gated fan-out: the four trigger contexts differ only in which RuleContext slots they
-    // fill, so the gate loop and ref-struct construction live once here instead of per-trigger.
     private static void Fan(CompilationFacts facts, ImmutableArray<Slot> slots, CspScope scope,
         SyntaxNode? node, IOperation? operation, ISymbol? symbol, SemanticModel? model,
         Action<Diagnostic> report, CancellationToken cancel) {

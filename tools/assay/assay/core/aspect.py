@@ -69,7 +69,7 @@ RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
 
 
 @dataclass(frozen=True, slots=True)
-class Inversion(Exception):  # ruff:ignore[error-suffix-on-exception-name]  # surfaced via TypeError, not an *Error leaf
+class Inversion(Exception):  # ruff:ignore[error-suffix-on-exception-name]
     """Decoration-time layer ordering failure."""
 
     outer: Slot
@@ -121,7 +121,6 @@ def ring_recent() -> tuple[str, ...]:
 
 
 def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    # Idempotency is per decorator instance; callers wire factories once at module scope.
     tag = id(dec)
 
     @wraps(dec)
@@ -270,10 +269,8 @@ def traced[**P, T: HasStatus](*, span: str, attrs: Callable[P, Attrs], agent: Ca
         @wraps(fn)
         async def awoven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
             with _scope(*a, **k) as s:
-                # iscoroutinefunction narrows runtime shape; ParamSpec remains opaque to both checkers.
                 return _stamp(s, await fn(*a, **k))  # type: ignore[misc]  # ty: ignore[invalid-await]
 
-        # Runtime coroutine dispatch is precise; strict ParamSpec cannot unify the wrapper union.
         return awoven if inspect.iscoroutinefunction(fn) else woven  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     return (Slot.traced, dec)

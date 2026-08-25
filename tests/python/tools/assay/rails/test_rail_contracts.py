@@ -12,7 +12,7 @@ from struct import pack
 from typing import Self, TYPE_CHECKING
 
 import anyio
-from expression import Ok, Result  # canned executor lanes return Result instances at runtime
+from expression import Ok, Result
 import jsonschema
 import msgspec
 from protobuf.wkt import (
@@ -122,7 +122,6 @@ _MODULE_INFO = msgspec.json.encode({
     "default_label_name": "main",
 })
 _ACCOUNT = msgspec.json.encode({"username": "rasm-publisher"})
-# The one contracts estate: buf workspace, manifests, seams, `.api` catalogs, and the generated tree all seat under this root.
 _CORPUS = "libs/contracts"
 _README = f"{_CORPUS}/README.md"
 _TEMPLATE_PATH = f"{_CORPUS}/buf.gen.yaml"
@@ -131,7 +130,6 @@ _TS_PACKAGE = f"{_CORPUS}/package.json"
 _TS_REPOSITORY = "https://github.com/bsamiee/Rasm.git"
 _SEAM_DIR = "conformance/DEMO_SEAM"
 _PY_MARKER = f"{_CORPUS}/gen/python/rasm/contracts/py.typed"
-# Module paths are buf.yaml-relative: the named estate module and one unnamed publisher mirror under vendor/.
 _CONFIG = f"""version: v2
 modules:
   - path: proto
@@ -198,11 +196,8 @@ plugins:
 
 _BINARIES = ("node_modules/.bin/protoc-gen-es", ".venv/bin/protoc-gen-py", ".venv/bin/protoc-gen-connectrpc")
 _OUTS = ("libs/contracts/gen/typescript", "libs/contracts/gen/python/rasm/contracts", "libs/contracts/gen/dotnet")
-# The authored package shells beside the out roots: one per emission target, none of them generated, every one of them admitted at the root.
 _SHELLS = ("pyproject.toml", "tsconfig.json", "Rasm.Contracts.csproj")
 
-# The conforming TypeScript SDK manifest: the workspace wildcard resolves committed emission and `publishConfig` overlays the compiled tarball map.
-# Every export defect derives from this one document, so a fixture and the gate never drift into two spellings of the same package.
 _TS_PUBLISHED: dict[str, object] = {"./*": {"types": "./dist/*.d.ts", "import": "./dist/*.js", "default": "./dist/*.js"}}
 _TS_MANIFEST: dict[str, object] = {
     "name": "@rasm/contracts",
@@ -219,7 +214,6 @@ _TS_MANIFEST: dict[str, object] = {
 }
 
 
-# The Python-authored document the demo seam derives from; `_DEMO_MODULE` seats the same declaration in the fixture repo as `demo_docs.shape.Demo`.
 class Demo(msgspec.Struct, forbid_unknown_fields=True):
     key: str
     issued: datetime.date | None = None
@@ -372,7 +366,6 @@ _PUB_CASE = Case(
     consumers=(_message("dotnet:Demo/Page/one#CLUSTER", "PublisherBytes.read", "package"),),
 )
 _PUB: Entry = Entry(id="PUB", law="The publisher bytes are frozen under immutable upstream custody.", cases=(_PUB_CASE,))
-# An estate seam whose message lives in the publisher package: its generated actors root the publisher symbol on the same plugin rows.
 _PUB_EVENT = Entry(
     id="PUB_EVENT",
     law="The publisher event message generates through the estate rows that carry every other root.",
@@ -547,7 +540,6 @@ def _corpus(
     _write(corpus, "buf.gen.yaml", template)
     _write(corpus, "buf.yaml", config)
     _write(corpus, "package.json", _json(_TS_MANIFEST))
-    # The one estate index page: the TS `files` row proves it on disk and bare-path anchors resolve their coordinates inside it.
     _write(corpus, "README.md", "# contracts\n\nDemoSchema.prove reads the manifest descriptor contract.\n")
     for binary in binaries:
         _write(root, binary, "#!/bin/sh\nexit 0\n", executable=True)
@@ -576,7 +568,6 @@ def _corpus(
     roster_files = _roster_files(root, template_result.ok) if template_result.is_ok() else {}
     for language, row in contracts_rail._ROSTERS.items():
         if catalogs is None or language in catalogs:
-            # A fixture with an unmodelled template still lands its catalogs; the block is empty there, since nothing derives it.
             roots = contracts_rail._actor_roots(registry, language, row.kinds)
             distributions = contracts_rail._catalog_distributions(registry, language)
             block = (
@@ -585,7 +576,7 @@ def _corpus(
             _write(root, row.catalog, _CATALOG.replace(f"{ROSTER_BEGIN}\n{ROSTER_END}", f"{ROSTER_BEGIN}\n{block}{ROSTER_END}"))
     for out in _OUTS:
         _write(root, f"{out}/demo/demo_pb.txt", "generated\n")
-    _write(root, _PY_MARKER, b"")  # the projected typing marker every clean freshness diff expects beside the swept python tree
+    _write(root, _PY_MARKER, b"")
     return root
 
 
@@ -600,7 +591,6 @@ def _stamped(done: Completed, parser: Parser) -> Completed:
 
 
 def _applied(tool: Tool, done: Completed) -> Completed:
-    # Mirrors the engine: the row's parser stamps the receipt and the row's status policy applies.
     return apply_row_status(tool, _stamped(done, tool.parser))
 
 
@@ -624,7 +614,6 @@ def _fan(
     picture = image if image is not None else _image()
 
     def mirror(scratch: Path) -> None:
-        # buf's clean sweep: the scratch out root holds this run's emission alone.
         for out in _OUTS:
             shutil.rmtree(scratch / out, ignore_errors=True)
             shutil.copytree(root / out, scratch / out)
@@ -809,7 +798,6 @@ def test_publish_admits_only_exact_first_publish_absence_and_returns_commit(assa
     assert calls[-3] == ("buf", "registry", "module", "info", _MODULE, "--format", "json")
     assert calls[-2] == push and "--git-metadata" not in push and "BUF_TOKEN" not in push
     assert "--create-visibility" in push and push[push.index("--create-visibility") + 1] == "public"
-    # Bootstrap resolves no baseline; the only label resolution reads the pushed coordinate back off `main` afterwards.
     resolves = [index for index, argv in enumerate(calls) if argv[:5] == ("buf", "registry", "module", "commit", "resolve")]
     assert resolves == [len(calls) - 1]
     assert calls[-1] == ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json")

@@ -5,8 +5,6 @@ namespace Rasm.Bridge.Shell;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: host UI marshal. One job per RhinoApp.Idle pulse keeps the host responsive; failures
-// return to the awaiting caller, and cancellation abandons only the wait, never queued UI work.
 internal sealed class IdlePump : IDisposable {
     private readonly ConcurrentQueue<IdleJob> jobs = new();
     private readonly EventHandler pulse;
@@ -49,7 +47,6 @@ internal sealed class IdlePump : IDisposable {
     }
 
     private static Task<T> InlineAsync<T>(Func<T> job) {
-        // BOUNDARY ADAPTER: host-thread callers run inline to avoid self-pump deadlock.
         try {
             return Task.FromResult(result: job());
         } catch (Exception error) when (NonFatal(error: error)) {
@@ -58,7 +55,6 @@ internal sealed class IdlePump : IDisposable {
     }
 
     private static void Invoke<T>(Func<T> job, TaskCompletionSource<T> completion) {
-        // BOUNDARY ADAPTER: job failures become awaiting caller exceptions.
         try {
             _ = completion.TrySetResult(result: job());
         } catch (Exception error) when (NonFatal(error: error)) {

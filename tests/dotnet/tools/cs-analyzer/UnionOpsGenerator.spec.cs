@@ -15,7 +15,6 @@ internal static class UnionSpecimens {
         public sealed class GenerateUnionOpsAttribute : System.Attribute;
         """;
 
-    // Decoy members prove case filtering ignores accessibility but rejects non-cases.
     public const string Unions = """
         namespace Rasm.Specimen;
 

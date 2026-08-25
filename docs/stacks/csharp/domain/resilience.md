@@ -212,7 +212,7 @@ The retry-owner table is a decision procedure; rows overlap and first match wins
 - Law: ambient retry — interceptors, base-class hooks, middleware over all calls — has no hop identity and therefore no claim row; it is dismantled into one of the three layers before any other resilience work proceeds.
 - Law: a hop owns one allotment — total and attempt spans co-validated as a named class, the attempt deadline a linked child of the total, single-pass rows collapsing the class to one span — and allotments inherit through nested seams as the minimum of the child's class and the inherited remainder; a break consumes allotment while rejecting fast, never pausing it.
 - Law: the idempotency window equals the allotment — key lifetime derives from it and from no backoff parameter, the key mints above the owner and fixes in the context before the pipeline runs, because a key minted inside the retried callback changes per attempt and defeats itself; hedging widens the window to overlapping duplicates in flight.
-- Boundary: transport seams compose these pipelines into their handler chains; wire contracts and handler mechanics are transport law.
+- Boundary: transport seams compose these pipelines into their handler chains; wire shapes and handler mechanics are transport law.
 
 ```csharp conceptual
 public sealed record HopKey(string Hop, string Instance);

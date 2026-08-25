@@ -5,29 +5,29 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import TYPE_CHECKING
 
-from expression import Result  # beartype resolves return annotations at import time
+from expression import Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # beartype resolves rail annotations at import time
-from assay.composition.store import ArtifactScope  # beartype resolves rail annotations at import time
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.model import (
     ArtifactKind,
     BaseParams,
     Check,
     Claim,
-    Completed,  # _findings/_outcomes annotate the ordered fan-out outcomes
-    Fault,  # beartype resolves Result[Report, Fault] under PEP 649 at import time
-    InprocThunk,  # beartype resolves the _planning return annotation at import time
+    Completed,
+    Fault,
+    InprocThunk,
     Language,
     Match,
     Mode,
     RailStatus,
     receipt,
-    Report,  # beartype resolves Report in return annotations at import time
+    Report,
     Runner,
     ToolArgs,
 )
@@ -64,17 +64,9 @@ class _Finding(msgspec.Struct, frozen=True):
 _FINDING = msgspec.json.Decoder(_Finding)
 _FINDING_ROW = msgspec.json.Encoder()
 _SEVERITY = {"fail": "error", "warn": "warning"}
-# Engine suffix ownership: prose-gate and planning-gate own Markdown only; unlisted engines take every routed docs suffix.
 _SUFFIXES: dict[str, frozenset[str]] = {"prose-gate": frozenset((".md",)), "planning-gate": frozenset((".md",))}
 
-# Planning-durable grammar. Card files (IDEAS.md/TASKLOG.md under libs/) carry `[SLUG]-[STATUS]:` leaders whose section
-# status set and bullet labels come from each file's own source-only template comment, falling back to the canonical
-# vocabularies below; design pages (libs/**/.planning/<sub>/*.md) end on one `## [NN]-[RESEARCH]` section whose rows are
-# `- [TOKEN]-[OPEN|BLOCKED]: <question>; <route>` or a settled record form (`- [TOKEN]: <record>`, `- [TOKEN] — <record>`). The gate rejects only
-# fake, wrong, or deformed markers — an illegal status, a malformed leader, an unknown bullet label, an absolute /Users/
-# path in a card, a deleted, displaced, or duplicated RESEARCH section — never a missing optional field.
 _CARD_FILES: frozenset[str] = frozenset(("IDEAS.md", "TASKLOG.md"))
-# Ratified card vocabulary: the four core bullets are required on every open card; the rest are optional-by-condition.
 _CARD_CORE: frozenset[str] = frozenset(("Capability", "Shape", "Unlocks", "Anchors"))
 _CARD_BULLETS: frozenset[str] = frozenset((*_CARD_CORE, "Arms", "Route", "Tension", "Ripple", "Atomic"))
 _STATUSES: dict[str, frozenset[str]] = {
@@ -83,7 +75,6 @@ _STATUSES: dict[str, frozenset[str]] = {
     "RESEARCH": frozenset(("OPEN", "BLOCKED")),
 }
 _LEADER = re.compile(r"^\[([A-Z0-9_-]+)\]-\[([A-Z]+)\]: *(.*)$")
-# Slugs are UPPERCASE_SNAKE with no exceptions; a hyphen-bearing bracketed token is a defect at leaders and references alike.
 _SLUG_HYPHEN = re.compile(r"\[[A-Z0-9_]*-[A-Z0-9_-]*\]")
 _BULLET = re.compile(r"^- ([A-Z][A-Za-z]*): *(.*)$")
 _SECTION = re.compile(r"^## \[\d{1,2}\]-\[([A-Z_]+)\]\s*$")
@@ -91,17 +82,14 @@ _HEADING = re.compile(r"^#{1,2} ")
 _RESEARCH_HEADER = re.compile(r"^#{1,2} \[\d{1,2}\]-\[RESEARCH\]\s*$")
 _RESEARCH_ROW = re.compile(r"^- \[([A-Z0-9_-]+)\](.*)$")
 _RESEARCH_TAIL = re.compile(r"^-\[([A-Z]+)\]: *(.*)$")
-# Settled record tails: `- [TOKEN]: <record>`, `- [TOKEN] — <record>`, and the qualified `- [TOKEN] (<qualifier>)...` form.
 _RESEARCH_RECORD = re.compile(r"^(?:: *| — | \()\S")
-# Template-comment leaders (`[ID]-[COMPLETE|DROPPED]:`, `[TOKEN]-[OPEN|BLOCKED]:`) extend the ratified status set;
-# the bare `STATUS` placeholder adds nothing, leaving the canonical vocabulary intact.
 _TEMPLATE_LEADER = re.compile(r"^\[[A-Z0-9_]+\]-\[([A-Z|]+)\]:")
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-class FaultedPromotion(Exception):  # ruff:ignore[error-suffix-on-exception-name]  # sentinel, not an *Error condition: caught at the registry seam, mapped to Fault
+class FaultedPromotion(Exception):  # ruff:ignore[error-suffix-on-exception-name]
     """Strict-mode promotion raised before registry fault wrapping."""
 
     def __init__(self) -> None:
@@ -120,7 +108,6 @@ def _decode(line: str) -> _Finding | None:
 
 
 def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
-    # The engines print one NDJSON row per finding to stdout; ``ok`` rows are passes and never surface.
     return tuple(
         Match(
             id=f"docs:{kind}",
@@ -141,7 +128,6 @@ def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _masked(lines: tuple[str, ...]) -> tuple[tuple[bool, bool], ...]:
-    # Per-line (comment, fence) membership; a delimiter line counts inside its span so template comments and fence walls never scan as content.
     rows: list[tuple[bool, bool]] = []
     comment = fence = False
     for line in lines:
@@ -161,8 +147,6 @@ def _fail(rel: str, line: int, check: str, detail: str) -> _Finding:
 
 
 def _template_statuses(lines: tuple[str, ...], flags: tuple[tuple[bool, bool], ...], section: str) -> frozenset[str]:
-    # Ratified status set is fixed law a file's source-only template comment extends, never restricts: a partial or malformed comment
-    # adds a status but can never reject a canonical one, so the check survives template evolution without a code edit.
     tracked, declared = "", set()
     for line, (comment, _fence) in zip(lines, flags, strict=True):
         if (head := _SECTION.match(line)) is not None:
@@ -173,8 +157,6 @@ def _template_statuses(lines: tuple[str, ...], flags: tuple[tuple[bool, bool], .
 
 
 def _template_bullets(lines: tuple[str, ...], flags: tuple[tuple[bool, bool], ...]) -> frozenset[str]:
-    # Ratified bullet vocabulary is fixed law a template comment extends, never restricts: the four core bullets card-core requires can
-    # never scan as unknown, and a canonical optional label (Arms/Route/Atomic) stays valid whether or not a sparse comment enumerates it.
     labels = frozenset(found.group(1) for line, (comment, _fence) in zip(lines, flags, strict=True) if comment and (found := _BULLET.match(line)))
     return labels | _CARD_BULLETS
 
@@ -200,11 +182,10 @@ def _card_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bool],
     vocab = {section: _template_statuses(lines, flags, section) for section in ("OPEN", "CLOSED")}
     bullets = _template_bullets(lines, flags)
     section = ""
-    card: tuple[int, set[str]] | None = None  # (leader line, seen bullet labels) of the open-section card being read
+    card: tuple[int, set[str]] | None = None
     rows: list[_Finding] = []
 
     def closed(next_card: tuple[int, set[str]] | None) -> tuple[int, set[str]] | None:
-        # Every open card carries the four core bullets; closing a card at the next leader, section, or EOF settles the law.
         if card is not None and (missing := _CARD_CORE - card[1]):
             rows.append(_fail(rel, card[0], "card-core", f"open card missing required bullet(s): {', '.join(sorted(missing))}"))
         return next_card
@@ -224,8 +205,6 @@ def _card_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bool],
 
 
 def _research_row(rel: str, number: int, line: str, statuses: frozenset[str]) -> tuple[_Finding, ...]:
-    # Well-formed row shapes: the open-question row `- [TOKEN]-[STATUS]: <question>; <route>` and the settled record
-    # tails `_RESEARCH_RECORD` admits; anything else starting `- [` is a deformed row.
     grammar = f"- [TOKEN]-[{'|'.join(sorted(statuses))}]: <question>; <route> or a settled - [TOKEN]: / - [TOKEN] — record"
     match _RESEARCH_ROW.match(line):
         case None:
@@ -261,7 +240,6 @@ def _research_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bo
         if not fence and line.startswith("#") and "[RESEARCH]" in line and not _RESEARCH_HEADER.match(line)
     )
     if not headers:
-        # Orphan evidence stays precise: only the full canonical row shape — legal status plus the `; <route>` tail — marks a deleted section.
         orphan = next(
             (
                 number
@@ -284,7 +262,6 @@ def _research_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bo
         for number, line, (_comment, fence) in after
         if not fence and _HEADING.match(line) and number not in headers
     )
-    # Row grammar binds inside the section alone: the scan stops at the first heading after the RESEARCH header.
     stop = next((number for number, line, (_comment, fence) in after if not fence and _HEADING.match(line)), len(lines) + 1)
     rows = tuple(
         finding
@@ -296,7 +273,6 @@ def _research_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bo
 
 
 def _planning_findings(rel: str, root: Path) -> tuple[_Finding, ...] | None:
-    # Planning durables live under libs/: card files anywhere, design pages one level below a .planning folder.
     parts = PurePosixPath(rel).parts
     card = bool(parts) and parts[0] == "libs" and parts[-1] in _CARD_FILES
     page = bool(parts) and parts[0] == "libs" and not card and ".planning" in parts[:-1] and parts.index(".planning") < len(parts) - 2
@@ -336,7 +312,6 @@ def _planning(root: Path) -> InprocThunk:
 def _outcomes(
     routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor
 ) -> Result[Report, Fault]:
-    # Each engine reads its file and writes to its own cache; assay passes only the input, never a sink placement.
     thunk = _planning(Path(str(settings.root)))
     checks = tuple(
         Check(tool=t, args=ToolArgs(input=f), thunk=thunk if t.runner is Runner.INPROC else None)
@@ -350,8 +325,6 @@ def _outcomes(
     def _promote(done: tuple[Completed, ...]) -> Report:
         base = fold(claim, verb, done)
         status = RailStatus.OK if done and base.status is RailStatus.EMPTY else base.status
-        # The engines emit a structured NDJSON row for every failure, so parsed findings supersede fold's raw
-        # stdout-tail defect rows; keep those only when nothing parsed (a tool crash), so a bare traceback surfaces.
         findings = _findings(done)
         return msgspec.structs.replace(base, status=status, results=findings or base.results)
 
@@ -359,7 +332,6 @@ def _outcomes(
 
 
 def _strict(report: Report, *, strict: bool) -> Report:
-    # Only EMPTY/SKIP are ambiguous in strict mode; real defects carry their status through.
     match (strict, report.status):
         case (True, RailStatus.EMPTY | RailStatus.SKIP):
             raise FaultedPromotion

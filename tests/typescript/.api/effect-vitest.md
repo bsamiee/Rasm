@@ -39,7 +39,6 @@ import type * as Scope from "effect/Scope"
 import type * as TestServices from "effect/TestServices"
 import type * as V from "vitest"
 
-// --- root API (vitest TestAPI overlay; the Effect `scoped` runner shadows Vitest's fixture `scoped`, reached via `scopedFixtures`) ---
 type API = {
   scopedFixtures: V.TestAPI<{}>["scoped"]
 } & {
@@ -47,7 +46,6 @@ type API = {
 } & TestCollectorCallable
 
 interface TestCollectorCallable<C = object> {
-  /** @deprecated Use options as the second argument instead */
   <ExtraContext extends C>(name: string | Function, fn: V.TestFunction<ExtraContext>, options: TestCollectorOptions): void
   <ExtraContext extends C>(name: string | Function, fn?: V.TestFunction<ExtraContext>, options?: number | TestCollectorOptions): void
   <ExtraContext extends C>(name: string | Function, options?: TestCollectorOptions, fn?: V.TestFunction<ExtraContext>): void
@@ -58,7 +56,6 @@ type TestCollectorOptions = {
   fails?: boolean; timeout?: number; retry?: number; repeats?: number
 }
 
-// --- Vitest namespace: the Effect runner type tree ---
 declare namespace Vitest {
   interface TestFunction<A, E, R, TestArgs extends Array<any>> {
     (...args: TestArgs): Effect.Effect<A, E, R>
@@ -117,7 +114,6 @@ declare namespace Vitest {
   }
 }
 
-// --- runner/harness values ---
 const addEqualityTesters: () => void
 const effect: Vitest.Tester<TestServices.TestServices>
 const scoped: Vitest.Tester<TestServices.TestServices | Scope.Scope>
@@ -148,7 +144,7 @@ import type * as Exit from "effect/Exit"
 import type * as Option from "effect/Option"
 
 function fail(message: string): void
-function deepStrictEqual<A>(actual: A, expected: A, message?: string, ..._: Array<never>): void   // via Equal.equals trait
+function deepStrictEqual<A>(actual: A, expected: A, message?: string, ..._: Array<never>): void
 function notDeepStrictEqual<A>(actual: A, expected: A, message?: string, ..._: Array<never>): void
 function strictEqual<A>(actual: A, expected: A, message?: string, ..._: Array<never>): void
 function assertEquals<A>(actual: A, expected: A, message?: string, ..._: Array<never>): void

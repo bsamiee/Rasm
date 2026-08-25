@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <!-- Single scenario home: [RhinoScenario] content ships to the live host via the bridge closure; assay routes SHELL-lane projects out of unit-test runs. -->
         <AssayTestShell>true</AssayTestShell>
         <RasmHost>grasshopper;platform</RasmHost>
     </PropertyGroup>

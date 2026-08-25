@@ -26,7 +26,6 @@
 |  [08]   | `StringLiteral`             | `{ type: 'StringLiteral', value: string }`    | the specifier text                                        |
 
 ```ts signature
-// index.d.ts — the composed scanner lane; the AST vocabulary rides `export type * from '@swc/types'`.
 function parseSync(src: string, options?: ParseOptions): Module
 interface TsParserConfig { syntax: 'typescript'; tsx?: boolean; decorators?: boolean }
 interface Module extends Node, HasSpan, HasInterpreter { type: 'Module'; body: ModuleItem[] }

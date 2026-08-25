@@ -9,12 +9,8 @@ using Xunit.Sdk;
 namespace Rasm.Architecture.Tests;
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One source-generated contract feeds RoundtripBytes, NdjsonOracle, and VariantWriter without a
-// reflection serializer; the row carries the deterministic wire shape the byte-identity laws check.
 public sealed record SampleRow(string Tag, int Rank);
 
-// The byte-identity falsification carrier: its converter mangles the READ side, so decode drifts
-// and the re-encode can never match the raw bytes — the input RoundtripBytes must reject.
 [JsonConverter(typeof(DriftingTagConverter))]
 public sealed record DriftRow(string Tag);
 
@@ -34,7 +30,6 @@ internal sealed class DriftingTagConverter : JsonConverter<DriftRow> {
 [JsonSerializable(typeof(DriftRow))]
 internal sealed partial class SampleContext : JsonSerializerContext;
 
-// Production-shaped exemption sites: Laws.Sut must derive them from the typed Csp attributes.
 [CspExempt("coverage-gate self-proof site")]
 internal static class ExemptSite { public static int Reached() => 1; }
 
@@ -45,9 +40,6 @@ internal static class ToolingSite { public static int Reached() => 2; }
 internal static class DomainSite { public static int Reached() => 3; }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// The kit's only falsification suite: every mechanism must be shown failing, not just passing.
-// The class-level [Law] proves ScanAssembly folds type-level markers; the pilot SUT is the
-// host-free Csp.Contracts assembly.
 [Law(typeof(Laws), "law-manifest-scan")]
 public sealed class TestInfrastructurePrimitiveLaws {
     private static readonly Gen<SampleRow> Rows =
@@ -66,8 +58,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Law(typeof(Laws), nameof(Laws.AssertCoverage), Member = nameof(Laws.AssertCoverage))]
     public void CoverageGateReportsUncoveredSutSurface() {
         SutTarget target = Laws.Sut(sutAssembly: typeof(CspScope).Assembly);
-        // The pilot SUT carries no [Law] markers, so the gate must Fail with a ManyErrors body that
-        // names the uncovered public symbols — the mechanism, not full coverage, is the law here.
         Spec.Fail(result: Laws.AssertCoverage(target: target, manifest: Seq<LawRecord>()), then: static error => {
             ManyErrors many = Assert.IsType<ManyErrors>(@object: error);
             Assert.NotEmpty(collection: many.Errors);
@@ -82,11 +72,8 @@ public sealed class TestInfrastructurePrimitiveLaws {
         SutTarget target = Laws.Sut(sutAssembly: typeof(CspScope).Assembly);
         FrozenSet<string> surface = typeof(CspScope).Assembly.GetExportedTypes().Select(static type => type.Name).ToFrozenSet(StringComparer.Ordinal);
         Seq<LawRecord> covering = toSeq(surface).Map(static name => new LawRecord(Subject: typeof(CspScope), Name: name, Member: Optional(name), DeclaringType: typeof(TestInfrastructurePrimitiveLaws)));
-        // Covering every exported type name collapses the gap set to member-level symbols only.
         Spec.Fail(result: Laws.AssertCoverage(target: target, manifest: covering), then: error =>
             Assert.DoesNotContain(collection: Assert.IsType<ManyErrors>(@object: error).Errors, filter: e => e.Message.Contains(value: $"'{nameof(CspScopeAttribute)}'", comparisonType: StringComparison.Ordinal)));
-        // Typed derivation: [CspExempt] and [CspScope(Tooling)] sites exempt themselves; any other
-        // scope carries the full obligation — the matching runs on the real attribute types.
         SutTarget self = Laws.Sut(sutAssembly: typeof(TestInfrastructurePrimitiveLaws).Assembly);
         Assert.Contains(expected: nameof(ExemptSite), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
         Assert.Contains(expected: nameof(ExemptSite.Reached), collection: self.ExemptNames, comparer: StringComparer.Ordinal);
@@ -98,14 +85,11 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Law<>), "witness-mandatory-hold")]
     public void HoldDemandsARefutingWitnessBeforeSampling() {
-        // A genuine law: the witness fails the property, the sampled band passes it.
         Spec.Hold(law: Law.Of(
             name: "square-grows-past-one",
             gen: Gen.Double[2.0, 1.0e3],
             property: static x => Spec.Holds(condition: x * x >= x, label: "square must not shrink"),
             refutingWitness: 0.5));
-        // Refutation matches the sampler's failure notion: a witness crashing a guard (not an
-        // assert) still refutes, because any throw fails a sampled property.
         Spec.Hold(law: Law.Of(
             name: "guarded-sqrt",
             gen: Gen.Double[1.0, 1.0e3],
@@ -114,42 +98,31 @@ public sealed class TestInfrastructurePrimitiveLaws {
                 Spec.Holds(condition: Math.Sqrt(d: x) > 0.0, label: "positive root");
             },
             refutingWitness: -1.0));
-        // A tautology: no witness can fail it, so registration itself is the failure.
         XunitException tautology = Assert.Throws<XunitException>(testCode: static () => Spec.Hold(law: Law.Of(
             name: "vacuous",
             gen: Gen.Int[0, 10],
             property: static _ => Spec.Holds(condition: true, label: "unreachable"),
             refutingWitness: 0)));
         Assert.Contains(expectedSubstring: "tautology", actualString: tautology.Message, comparisonType: StringComparison.Ordinal);
-        // An empty law table proves nothing and must refuse to run.
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Hold<int>());
     }
 
     [Fact]
     [Law(typeof(Law<>), "algebra-row-constructors")]
     public void AlgebraRowsCarryTheirOwnRefutation() {
-        // Strict `==` makes each row genuinely falsifiable: the finite gen passes, and a NaN witness
-        // — outside the gen — refutes because every operator propagates NaN and NaN != NaN under `==`.
         static bool strict(double a, double b) => a == b;
         Spec.Hold(
             Law.Identity(name: "times-one-identity", gen: Gen.Double[-1.0e3, 1.0e3], f: static x => x * 1.0, witness: double.NaN, eq: strict),
             Law.Idempotent(name: "clamp-idempotent", gen: Gen.Double[-1.0e3, 1.0e3], f: static x => Math.Clamp(value: x, min: -1.0, max: 1.0), witness: double.NaN, eq: strict),
             Law.Inverse(name: "double-halve-inverse", gen: Gen.Double[-1.0e3, 1.0e3], f: static x => x * 2.0, g: static x => x / 2.0, witness: double.NaN, eq: strict),
             Law.Roundtrip(name: "negate-roundtrips", gen: Gen.Double[-1.0e3, 1.0e3], forward: static x => -x, back: static x => -x, witness: double.NaN, eq: strict));
-        // Max/Min form an exact IEEE lattice: associativity and Max-over-Min distributivity hold
-        // bit-for-bit on the finite band, and the NaN witness refutes both under strict ==.
         Spec.Hold(
             Law.Associative(name: "max-associates", gen: Gen.Double[-1.0e3, 1.0e3], op: Math.Max, witness: (A: double.NaN, B: 1.0, C: 2.0), eq: strict),
             Law.Distributive(name: "max-distributes-over-min", gen: Gen.Double[-1.0e3, 1.0e3], mul: Math.Max, add: Math.Min, witness: (A: double.NaN, B: 1.0, C: 2.0), eq: strict));
-        // The permutation row shares one shuffle walk; the witness is a non-permutation pair the
-        // exact integer projection genuinely splits.
         Spec.Hold(law: Law.Permutation(name: "max-permutation-invariant", gen: Gens.NonEmptyArray(element: Gen.Int[-1000, 1000], max: 16),
             f: static xs => xs.Max(), witness: (Source: [1, 2], Shuffled: [3])));
-        // A monotone row refutes on an out-of-order pair the OrderedPair gen never emits — no NaN needed.
         Spec.Hold(law: Law.Monotone(name: "identity-monotone", pairs: Gens.OrderedPair(Gen.Double[-1.0e3, 1.0e3]), projection: static x => x, witness: (Lo: 5.0, Hi: 3.0)));
         Spec.Hold(law: Law.Commutative(name: "max-commutes", gen: Gen.Double[-1.0e3, 1.0e3], op: Math.Max, witness: (A: double.NaN, B: 1.0), eq: strict));
-        // The commutative row is result-typed: a symmetric projection that is not a closed op rides
-        // the same row; the NaN witness refutes under strict ==, which Equals semantics would pass.
         Spec.Hold(law: Law.Commutative(name: "sorted-pair-symmetric", gen: Gen.Double[-1.0e3, 1.0e3],
             op: static (a, b) => (Lo: Math.Min(val1: a, val2: b), Hi: Math.Max(val1: a, val2: b)),
             witness: (A: double.NaN, B: 1.0),
@@ -170,7 +143,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Law(typeof(Spec), nameof(Spec.RoundtripBytes), Member = nameof(Spec.RoundtripBytes))]
     public void RoundtripBytesProvesByteIdentityAndRefusesADriftingCodec() {
         Spec.RoundtripBytes(gen: Rows, contract: SampleContext.Default.SampleRow, iter: 50);
-        // The falsification lane: a read-mangling codec re-encodes different bytes and must fail.
         _ = Assert.ThrowsAny<Exception>(testCode: static () =>
             Spec.RoundtripBytes(gen: Gen.Const(value: new DriftRow(Tag: "a")), contract: SampleContext.Default.DriftRow, iter: 1));
     }
@@ -178,15 +150,12 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), nameof(Spec.Replay), Member = nameof(Spec.Replay))]
     public void ReplayRefailsThePinnedSeedDeterministically() {
-        // The sampler's failure banner carries the shrunk seed as its first quoted token; Replay
-        // must re-fail on the pinned seed and pass a law the seeded case satisfies.
         CsCheckException failure = Assert.Throws<CsCheckException>(testCode: static () =>
             Spec.ForAll(gen: Gen.Int[0, 63], property: static x => Spec.Holds(condition: x != 7, label: "planted defect"), iter: 4000, threads: 1));
         string seed = failure.Message.Split('"')[1];
         _ = Assert.ThrowsAny<Exception>(testCode: () =>
             Spec.Replay(gen: Gen.Int[0, 63], property: static x => Spec.Holds(condition: x != 7, label: "planted defect"), seed: seed));
         Spec.Replay(gen: Gen.Int[0, 63], property: static x => Spec.Holds(condition: x is >= 0 and <= 63, label: "band"), seed: seed);
-        // The law-shaped overload replays the sampled property off the row without re-refuting.
         Spec.Replay(law: Law.Of(name: "band-law", gen: Gen.Int[0, 63],
             property: static x => Spec.Holds(condition: x is >= 0 and <= 63, label: "band"), refutingWitness: -1), seed: seed);
     }
@@ -194,8 +163,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), nameof(Spec.ModelBased), Member = nameof(Spec.ModelBased))]
     public void ModelBasedThreadsActualAgainstModel() =>
-        // Actual and model are both mutable cells so each operation advances both; the actual-vs-model
-        // equality across the operation sequence IS the stateful law CsCheck shrinks against.
         Spec.ModelBased(
             init: Gen.Int[0, 100].Select(static seed => (Actual: Atom(seed), Model: Atom(seed))),
             equal: static (actual, model) => actual.Value == model.Value,
@@ -206,9 +173,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Law(typeof(Spec), nameof(Spec.Distributed), Member = nameof(Spec.Distributed))]
     public void DistributedGatesGeneratorSkewByChiSquared() {
         Spec.Distributed(gen: Gen.Int[0, 3], bucket: static x => x, expected: [1000, 1000, 1000, 1000]);
-        // A fair generator against a 9:1 expectation fails chi-squared decisively — the gate rejects.
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.Distributed(gen: Gen.Int[0, 1], bucket: static x => x, expected: [9000, 1000]));
-        // A one-bucket expectation proves nothing and must refuse to run.
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Distributed(gen: Gen.Int[0, 0], bucket: static x => x, expected: [100]));
     }
 
@@ -239,8 +204,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.None(result: Some(value: 1)));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Valid(result: Fail<Error, int>(value: new Fault.Cancelled())));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Invalid(result: Success<Error, int>(value: 1)));
-        // Every rail gate must also fail on the WRONG value, not merely the wrong rail: a drifted
-        // category, a drifted error-set, a drifted count, and an unwrapped failure all reject.
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.SuccValue(result: Fin.Fail<int>(error: new Fault.Missing()), label: "succ-value"));
         _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.FailCategory(result: Fin.Fail<int>(error: new Fault.Missing()), category: nameof(Fault.Rejected)));
         _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.AllErrors(v: Success<Error, int>(value: 1), nameof(Fault.Missing)));
@@ -252,13 +215,10 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), nameof(Spec.FinChainOrder), Member = nameof(Spec.FinChainOrder))]
     public void FinChainOrderDemandsCommutingRailsAndRefutesAsymmetry() {
-        // Power-of-two scalings commute exactly; a both-fail pair shares the failure lane even
-        // when the short-circuiting order surfaces different errors.
         Spec.FinChainOrder(gen: Gen.Double[-1.0e3, 1.0e3], first: static x => Fin.Succ(value: x * 2.0), second: static x => Fin.Succ(value: x * 4.0));
         Spec.FinChainOrder(gen: Gen.Double[-1.0e3, -1.0],
             first: static _ => Fin.Fail<double>(error: new Fault.Missing()),
             second: static _ => Fin.Fail<double>(error: new Fault.Rejected()));
-        // An order-dependent pair refutes: the guard admits the raw value and rejects the shifted one.
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.FinChainOrder(
             gen: Gen.Double[1.0, 100.0],
             first: static x => Fin.Succ(value: x + 1000.0),
@@ -278,19 +238,16 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), nameof(Spec.Parallel), Member = nameof(Spec.Parallel))]
     public void ParallelChecksLinearizabilityAndSurfacesFailingOperations() {
-        // Atomic Swap is linearizable, so the actual-vs-model pairing holds under every interleaving.
         Spec.Parallel(
             init: Gen.Int[0, 10].Select(static seed => (Actual: Atom(seed), Model: Atom(seed))),
             equal: static (actual, model) => actual.Value == model.Value,
             operations: [TrackedAdd()]);
-        // A throwing operation is surfaced by the parallel sampler, never swallowed.
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.Parallel(
             init: Gen.Const(value: Atom(0)),
             operations: [GenOperation.Create<Atom<int>, int>(
                 gen: Gen.Int[1, 3],
                 name: static delta => string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"boom({delta})"),
                 action: static (_, _) => throw new InvalidOperationException(message: "parallel op failure"))]));
-        // An empty operation table proves nothing and must refuse to run.
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Parallel(init: Gen.Const(value: Atom(0)), operations: []));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Parallel(
             init: Gen.Const(value: (Actual: Atom(0), Model: Atom(0))),
@@ -331,8 +288,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         static bool TryPositive(int value, out int owned) { owned = value; return value > 0; }
         static bool AdmitAll(int value, out int owned) { owned = value; return true; }
         Spec.Family(new Spec.ValueObjectShape<int, int>(Valid: Gen.Int[1, 100], Invalid: Gen.Int[-100, 0], TryCreate: TryPositive, Read: static value => value));
-        // An admit-everything TryCreate is refuted by the invalid lane — a one-sided family proves
-        // nothing; the sampler surfaces the violation as a CsCheck failure carrying the witness.
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.Family(
             new Spec.ValueObjectShape<int, int>(Valid: Gen.Int[1, 10], Invalid: Gen.Int[-10, 0], TryCreate: AdmitAll, Read: static value => value)));
     }
@@ -348,8 +303,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), "cscheck-hash-regression")]
     public void HashPinsARegressionValueAndRefutesDrift() {
-        // First run (expected 0) reports the discovered hash by throwing; the pinned value then
-        // passes and any drifted expectation fails — no hardcoded literal survives in the law.
         static void Fold(Hash hash) { hash.Add(Math.PI); hash.Add("kit"); hash.Add(42); }
         CsCheckException discovery = Assert.Throws<CsCheckException>(testCode: static () => Check.Hash(action: Fold, expected: 0));
         long pinned = long.Parse(s: discovery.Message.Split(' ')[^1], provider: System.Globalization.CultureInfo.InvariantCulture);
@@ -360,9 +313,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), "cscheck-faster-comparison")]
     public void FasterDetectsAsymmetryAndRefutesTheInversion() {
-        // A spot performance law over a 10^4 workload asymmetry; never a BenchmarkDotNet replacement.
-        // The void workload keeps the lambdas on the Action overload — a value-returning lambda
-        // selects the Func<T> overload, which gates return-value equality instead of timing.
         static void Burn(int count) => _ = Enumerable.Range(start: 1, count: count).Sum(selector: static i => Math.Sqrt(i));
         Check.Faster(faster: static () => Burn(10), slower: static () => Burn(100_000), threads: 1, timeout: 30);
         _ = Assert.Throws<CsCheckException>(testCode: static () =>
@@ -400,7 +350,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             (Label: "signed-zero-coincides", Probe: static () => Approx.Equal(left: 0.0, right: -0.0, tolerance: Tolerance.WithinUlps(units: 1L)), Expected: true),
             (Label: "nan-never", Probe: static () => Approx.Equal(left: double.NaN, right: double.NaN, tolerance: Tolerance.WithinUlps(units: long.MaxValue)), Expected: false),
             (Label: "infinity-never", Probe: static () => Approx.Equal(left: double.PositiveInfinity, right: double.PositiveInfinity, tolerance: Tolerance.WithinUlps(units: long.MaxValue)), Expected: false));
-        // The scalar gate reaches every Tolerance regime without span ceremony, both polarities.
         Spec.Equal(left: basis, right: Math.BitIncrement(x: basis), tolerance: Tolerance.WithinUlps(units: 1L), what: "one-ulp-gate");
         _ = Assert.Throws<XunitException>(testCode: () =>
             Spec.Equal(left: basis, right: Math.BitIncrement(x: Math.BitIncrement(x: basis)), tolerance: Tolerance.WithinUlps(units: 1L), what: "two-ulp-gate"));
@@ -415,7 +364,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             (Label: "absolute-ignores-magnitude", Probe: static () => Approx.Equal(left: 1.0e6, right: 1.0e6 + 1.0, tolerance: Tolerance.Absolute(epsilon: 1.0e-9)), Expected: false),
             (Label: "hybrid-floor-admits-near-zero", Probe: static () => Approx.Equal(left: 0.0, right: 5.0e-13, tolerance: Tolerance.Hybrid(absolute: 1.0e-12, relative: 1.0e-9)), Expected: true),
             (Label: "pure-relative-starves-near-zero", Probe: static () => Approx.Equal(left: 0.0, right: 5.0e-13, tolerance: Tolerance.Relative(epsilon: 1.0e-15)), Expected: false),
-            // The Seq call shape reaches the same regime dispatch as scalar and span.
             (Label: "seq-shape-admits", Probe: static () => Approx.Equal(left: Seq(1.0, 2.0), right: Seq(1.0, 2.0), tolerance: Tolerance.Default), Expected: true),
             (Label: "seq-length-mismatch-rejects", Probe: static () => Approx.Equal(left: Seq(1.0), right: Seq(1.0, 2.0), tolerance: Tolerance.Default), Expected: false));
         Spec.Equal(left: Seq(1.0, 2.0), right: Seq(1.0, 2.0), tolerance: Tolerance.Default, what: "seq gate");
@@ -458,8 +406,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Assert.Equal(expected: "outer", actual: current);
         outerScope.Dispose();
         Assert.Equal(expected: "<unbound>", actual: current);
-        // The typed log: canned records the member with a payload, factory records its inner label
-        // with none — the payload bag is a typed Option, never an object?/kwargs pair.
         Assert.Equal(expected: 2, actual: probe.Calls.Count);
         Assert.Equal(expected: new SeamCall<Unit>(Member: "outer", Payload: Some(value: unit)), actual: probe.Calls[0]);
         Assert.Equal(expected: new SeamCall<Unit>(Member: "<factory>.run", Payload: Option<Unit>.None), actual: probe.Calls[1]);
@@ -492,9 +438,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Assert.Equal(expected: 9, actual: seam(unit));
         XunitException exhausted = Assert.Throws<XunitException>(testCode: () => seam(unit));
         Assert.Contains(expectedSubstring: "exhausted after 2", actualString: exhausted.Message, comparisonType: StringComparison.Ordinal);
-        // Each successful walk step records typed; the exhausted call records nothing.
         Assert.Equal(expected: 2, actual: probe.Calls.Count);
-        // A fresh install restarts the walk: the cursor is install-scoped, never shape-scoped.
         Shape<int>.FanOut shared = new(Values: Seq(1));
         SeamProbe<Unit> second = new();
         Func<Unit, int>? replay = null;
@@ -511,43 +455,30 @@ public sealed class TestInfrastructurePrimitiveLaws {
         byte[] one = JsonSerializer.SerializeToUtf8Bytes(value: new SampleRow(Tag: "x", Rank: 5), jsonTypeInfo: SampleContext.Default.SampleRow);
         string two = $"{Encoding.UTF8.GetString(one)}\n{Encoding.UTF8.GetString(one)}";
         Assert.Equal(expected: new SampleRow(Tag: "x", Rank: 5), actual: oracle.One(raw: one));
-        // The string call shape rides the same gate-and-decode walk as the byte shape.
         Assert.Equal(expected: new SampleRow(Tag: "x", Rank: 5), actual: oracle.One(raw: Encoding.UTF8.GetString(one)));
         _ = Assert.Throws<XunitException>(testCode: () => oracle.One(raw: Encoding.UTF8.GetBytes(two)));
-        // All decodes every gated row in order and refuses a drifted line count just like One.
         NdjsonOracle<SampleRow> stream = new(Decoder: SampleContext.Default.SampleRow, ExpectLines: 2);
         Assert.Equal(expected: [new SampleRow(Tag: "x", Rank: 5), new SampleRow(Tag: "x", Rank: 5)], actual: stream.All(raw: two));
         _ = Assert.Throws<XunitException>(testCode: () => stream.All(raw: one));
-        // Gate and decode share one segmentation walk: a CRLF-terminated row decodes clean, a
-        // doubled trailing newline is a counted empty segment that fails at decode — never a
-        // gate-passing payload that silently yields fewer rows than it gated.
         string crlf = $"{Encoding.UTF8.GetString(one)}\r\n";
         Assert.Equal(expected: new SampleRow(Tag: "x", Rank: 5), actual: oracle.One(raw: Encoding.UTF8.GetBytes(crlf)));
         _ = Assert.ThrowsAny<Exception>(testCode: () => stream.All(raw: Encoding.UTF8.GetBytes($"{crlf}\r\n")));
-        // ExpectLines 0 with All is the empty-stream assertion, not a vacuous gate.
         Assert.Empty(collection: new NdjsonOracle<SampleRow>(Decoder: SampleContext.Default.SampleRow, ExpectLines: 0).All(raw: ""u8));
     }
 
     [Fact]
     [Law(typeof(Gens), "geometry-bands")]
     public void GeometryBandsCarryTheirConstructionInvariants() {
-        // Directions are unit vectors in every dimension the band serves.
         Spec.ForAll(gen: Gen.Int[1, 8].SelectMany(Gens.Direction), property: static direction =>
             Spec.Equal(left: Math.Sqrt(d: direction.Sum(static x => x * x)), right: 1.0, tolerance: 1.0e-12, what: "unit norm"));
-        // Householder products pass the orthogonality residual the kit itself owns.
         Spec.ForAll(gen: Gen.Int[1, 6].SelectMany(n => Gens.Orthogonal(n: n).Select(q => (N: n, Q: q))), property: static t =>
             Spec.Holds(condition: Numeric.OrthogonalityResidual(rows: t.N, cols: t.N, at: (i, j) => t.Q[i][j]) <= 1.0e-10, label: "orthogonal residual"), iter: 40);
-        // The parity lane covers both O(n) components: determinant sign splits evenly, where a pure
-        // n-reflection product would pin every sample to det = (-1)^n.
         Spec.Distributed(gen: Gens.Orthogonal(n: 3), bucket: static q => Numeric.Determinant(n: 3, at: (i, j) => q[i][j]) > 0.0 ? 0 : 1, expected: [500, 500]);
-        // Conditioned matrices are symmetric with trace equal to the constructed spectrum sum.
         Spec.ForAll(gen: Gen.Int[2, 6].SelectMany(n => Gens.Conditioned(n: n, kappa: 1.0e6).Select(m => (N: n, M: m))), property: static t => {
             Spec.Holds(condition: Numeric.SymmetryResidual(dimension: t.N, at: (i, j) => t.M[i][j]) <= 1.0e-10, label: "symmetric");
             double expected = Enumerable.Range(start: 0, count: t.N).Sum(i => Math.Pow(x: 1.0e6, y: -(double)i / (t.N - 1)));
             Spec.Equal(left: Enumerable.Range(start: 0, count: t.N).Sum(i => t.M[i][i]), right: expected, tolerance: 1.0e-8, what: "trace = spectrum sum");
         }, iter: 40);
-        // Rings are star-shaped and CCW by construction: shoelace area is strictly positive and
-        // reversal negates it up to accumulation order over the all-positive term stream.
         Spec.ForAll(gen: Gen.Int[3, 12].SelectMany(Gens.Ring), property: static ring => {
             double area = Numeric.ShoelaceArea(ring: ring);
             Spec.Holds(condition: area > 0.0, label: "ccw ring area positive");
@@ -567,8 +498,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Spec.Holds(condition: t.Weights.Filter(static weight => weight <= 0.0).IsEmpty, label: "simplex weights are strictly positive");
             Spec.Equal(left: Numeric.Sum(values: t.Weights), right: 1.0, what: "simplex mass");
         }, iter: 100);
-        // The cancellation band keeps its relative offset inside the annihilation window; a pair
-        // rounding to identity is the extreme of the band, never a violation.
         Spec.ForAll(gen: Gens.Cancellation, property: static pair => {
             Spec.Holds(condition: double.IsFinite(d: pair.X) && double.IsFinite(d: pair.Y), label: "cancellation pair finite");
             Spec.Holds(condition: Math.Abs(value: pair.Y - pair.X) <= Math.Abs(value: pair.X) * 1.0e-7, label: "cancellation offset stays in the band");
@@ -583,8 +512,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.Simplex(count: 0));
     }
 
-    // Collection and admission bands carry checkable construction claims: order, uniqueness,
-    // distinctness, size windows, key grammar, and predicate-filtered admission.
     [Fact]
     [Law(typeof(Gens), "collection-bands")]
     public void CollectionBandsCarryTheirConstructionInvariants() {
@@ -605,7 +532,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Spec.Holds(condition: xs.Length is >= 1_000 and <= 10_000, label: "large band"), iter: 5);
         Spec.ForAll(gen: Gens.Key, property: static key =>
             Spec.Holds(condition: key.Length is >= 1 and <= 32 && key.All(predicate: static c => c is >= 'a' and <= 'z'), label: "key band"));
-        // Admitted yields only TryCreate-admitted values; rejects ride the filtered lane, never a throw.
         Spec.ForAll(gen: Gens.Admitted<int, int>(source: Gen.Int[0, 1000], tryCreate: TryEven), property: static x =>
             Spec.Holds(condition: (x & 1) == 0, label: "admitted band"));
     }
@@ -617,7 +543,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Spec.ForAll(gen: Gens.Exceptional, property: static error => Spec.Holds(condition: error.IsExceptional, label: "exceptional lane carries live exceptions"));
     }
 
-    // Chi-squared over non-default weights proves the lane knobs actually steer the distribution.
     [Fact]
     [Law(typeof(Gens), "rail-lane-weights")]
     public void RailGeneratorsHonorTheirLaneWeights() {
@@ -629,14 +554,11 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Numeric), nameof(Numeric.OrientSign), Member = nameof(Numeric.OrientSign))]
     public void OrientSignIsExactOnTheCollinearTortureBand() {
-        // Closed-form anchors: CCW positive, swap negates, exact collinearity is exactly zero.
         Assert.Equal(expected: 1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]));
         Assert.Equal(expected: -1, actual: Numeric.OrientSign(simplex: [[1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]));
         Assert.Equal(expected: 0, actual: Numeric.OrientSign(simplex: [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]]));
         Assert.Equal(expected: 1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]));
         Assert.Equal(expected: -1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]));
-        // Antisymmetry and cyclic invariance are exact integer determinant identities, so they hold
-        // even where the double-precision determinant misjudges the near-collinear band.
         Spec.ForAll(gen: Gens.NearCollinear(dim: 2), property: static t => {
             int sign = Numeric.OrientSign(simplex: [t.A, t.B, t.C]);
             Assert.Equal(expected: -sign, actual: Numeric.OrientSign(simplex: [t.B, t.A, t.C]));
@@ -666,7 +588,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
     public void PointMomentOraclesMatchClosedForms() {
         Spec.Equal(left: Numeric.Centroid(points: [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]]), right: [1.0, 1.0], tolerance: Tolerance.Default, what: "uniform centroid");
         Spec.Equal(left: Numeric.Centroid(points: [[0.0], [10.0]], weights: [3.0, 1.0]), right: [2.5], tolerance: Tolerance.Default, what: "weighted centroid");
-        // Central second moments of the segment {(0,0),(2,0)} under uniform mass, packed upper row-major.
         Spec.Equal(left: Numeric.CovarianceUpper(points: [[0.0, 0.0], [2.0, 0.0]]), right: [1.0, 0.0, 0.0], tolerance: Tolerance.Default, what: "covariance upper triangle");
         Spec.Equal(left: Numeric.ArcLength(points: [[0.0, 0.0], [3.0, 4.0], [3.0, 4.0]]), right: 5.0, what: "polyline arc length");
         (double min, double mean, double max) = Numeric.PairwiseDistances(points: [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
@@ -675,7 +596,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Spec.Equal(left: max, right: Math.Sqrt(d: 2.0), what: "unit square max pair");
         Spec.Equal(left: Numeric.ConvergenceOrder(coarseError: 1.0e-2, fineError: 2.5e-3), right: 2.0, what: "second-order convergence");
         Spec.Equal(left: Numeric.Sum(values: Seq(1.5, 2.5, -1.0)), right: 3.0, what: "seq fold");
-        // NaN lanes are the reachable reds: every degraded input fails the calling gate loudly.
         Spec.Matrix(
             (Label: "weight-count-mismatch-is-nan", Probe: static () => Numeric.Centroid(points: [[1.0]], weights: [1.0, 2.0]).All(predicate: double.IsNaN), Expected: true),
             (Label: "vanishing-mass-is-nan", Probe: static () => Numeric.Centroid(points: [[1.0], [2.0]], weights: [1.0, -1.0]).All(predicate: double.IsNaN), Expected: true),
@@ -697,7 +617,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         double[][] a3 = [[2.0, 0.0, 1.0], [1.0, 3.0, -1.0], [0.0, 5.0, 2.0]];
         Spec.Equal(left: Numeric.Determinant(n: 3, at: (row, col) => a3[row][col]), right: 27.0, what: "3x3 determinant");
         Spec.Equal(left: Numeric.Determinant(n: 0, at: static (_, _) => 0.0), right: 1.0, what: "empty determinant is the empty product");
-        // Exact solve and eigenpair residuals vanish; shape mismatches are the reachable NaN reds.
         double[][] diag = [[2.0, 0.0], [0.0, 3.0]];
         Spec.Equal(left: Numeric.SolveResidual(rows: 2, cols: 2, at: (row, col) => diag[row][col], x: [1.0, 2.0], b: [2.0, 6.0]), right: 0.0, what: "exact solve residual");
         Spec.Equal(left: Numeric.EigenpairResidual(n: 2, at: (row, col) => diag[row][col], eigenvalue: 3.0, eigenvector: [0.0, 1.0]), right: 0.0, what: "exact eigenpair residual");
@@ -706,7 +625,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Spec.Matrix(
             (Label: "solve-shape-mismatch-is-nan", Probe: () => double.IsNaN(d: Numeric.SolveResidual(rows: 2, cols: 2, at: At, x: [1.0], b: [2.0, 6.0])), Expected: true),
             (Label: "eigenvector-shape-mismatch-is-nan", Probe: () => double.IsNaN(d: Numeric.EigenpairResidual(n: 2, at: At, eigenvalue: 1.0, eigenvector: [1.0])), Expected: true));
-        // The path-graph Laplacian meets its own closed-form eigenpair and conserves row mass.
         double[][] laplacian = Numeric.PathGraphLaplacian(n: 5);
         double lambda = 2.0 - (2.0 * Math.Cos(d: 2.0 * Math.PI / 5.0));
         double[] phi = [.. Enumerable.Range(start: 0, count: 5).Select(j => Math.Cos(d: 2.0 * Math.PI * (j + 0.5) / 5.0))];
@@ -716,7 +634,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Probe: (Func<bool>)(() => Numeric.LaplacianRowSum(laplacian: laplacian, row: row) == 0.0),
             Expected: true))]);
         _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Numeric.PathGraphLaplacian(n: 1));
-        // Heat kernel over a delta eigenbasis reduces to exp(-lambda t) on the diagonal.
         Spec.Equal(left: Numeric.HeatKernel(eigenvalues: [0.5, 2.0], eigenvectors: static (i, x) => i == x ? 1.0 : 0.0, t: 0.7, x: 0, y: 0), right: Math.Exp(d: -0.35), what: "diagonal heat kernel");
         Spec.Equal(left: Numeric.HeatKernel(eigenvalues: [0.5, 2.0], eigenvectors: static (i, x) => i == x ? 1.0 : 0.0, t: 0.7, x: 0, y: 1), right: 0.0, what: "off-diagonal heat kernel");
         System.Numerics.Complex[] z = [new(1.0, 2.0), new(3.0, -1.0)];
@@ -745,13 +662,10 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Assert.True(condition: written["raw"].Exists);
             Assert.True(condition: written["enc"].Exists);
             Assert.False(condition: written["gone"].Exists);
-            // A named variant with no payload row and no absence declaration is a table defect.
             VariantWriter<string> orphan = writer with {
                 Names = new Dictionary<string, string>(StringComparer.Ordinal) { ["lost"] = "lost.json" }.ToFrozenDictionary(StringComparer.Ordinal),
             };
             _ = Assert.Throws<XunitException>(testCode: () => orphan.Path(variant: "lost"));
-            // The inverse defect: a payload row outside the name table can never emit — WriteAll
-            // refuses the whole table and names the stray row.
             VariantWriter<string> stray = writer with {
                 Payloads = new Dictionary<string, VariantPayload>(StringComparer.Ordinal) {
                     ["ghost"] = new VariantPayload.Raw(Bytes: ReadOnlyMemory<byte>.Empty),
@@ -774,12 +688,10 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Assert.True(condition: file.Exists);
             Assert.Equal(expected: root.FullName.Length, actual: tmp.Settings);
             Assert.Equal(expected: "payload", actual: File.ReadAllText(path: file.FullName));
-            // The mode knob is real: an executable bit lands on disk (non-Windows lane).
             if (!OperatingSystem.IsWindows()) {
                 FileInfo exec = tmp.Write(relative: "bin/run.sh", text: "#!/bin/sh", mode: Some(value: UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
                 Assert.Equal(expected: UnixFileMode.UserExecute, actual: File.GetUnixFileMode(path: exec.FullName) & UnixFileMode.UserExecute);
             }
-            // Isolation is guarded: upward traversal and rooted relatives refuse before any write.
             _ = Assert.ThrowsAny<ArgumentException>(testCode: () => tmp.Write(relative: "../escape.txt"));
             _ = Assert.ThrowsAny<ArgumentException>(testCode: () => tmp.Write(relative: "/rooted/escape.txt"));
         } finally {
@@ -793,17 +705,12 @@ public sealed class TestInfrastructurePrimitiveLaws {
         KeyAxis<byte[]> copy = new(Name: "representation-copy", Transform: static bytes => [.. bytes], PreservesKey: true);
         KeyAxis<byte[]> append = new(Name: "content-append", Transform: static bytes => [.. bytes, 0x2A], PreservesKey: false);
         Spec.ContentKey(gen: Gens.Payload, mint: Mint, copy, append);
-        // The Mutant band is the canonical separation witness: a real mint splits every pair.
         Spec.ForAll(gen: Gens.Mutant, property: static pair =>
             Spec.Holds(condition: !string.Equals(a: Mint(bytes: pair.Original), b: Mint(bytes: pair.Mutated), comparisonType: StringComparison.Ordinal), label: "mint must split a one-byte mutant"));
-        // A constant mint survives every preserving axis and is rejected by the separating one.
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.ContentKey(gen: Gens.Payload, mint: static _ => "<pinned>", copy, append));
-        // An unstable mint is rejected by the stability gate before any axis runs.
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.ContentKey(gen: Gens.Payload, mint: static _ => Guid.NewGuid().ToString(), copy, append));
-        // A lying preserving axis — one that actually changes content — is rejected.
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.ContentKey(gen: Gens.Payload, mint: Mint,
             new KeyAxis<byte[]>(Name: "lying-copy", Transform: static bytes => [.. bytes, 0x00], PreservesKey: true), append));
-        // An empty axis table and an all-preserving table both refuse to run.
         _ = Assert.Throws<XunitException>(testCode: () => Spec.ContentKey(gen: Gens.Payload, mint: Mint));
         _ = Assert.Throws<XunitException>(testCode: () => Spec.ContentKey(gen: Gens.Payload, mint: Mint, copy));
         static string Mint(byte[] bytes) => Convert.ToHexString(inArray: System.Security.Cryptography.SHA256.HashData(source: bytes));
@@ -814,15 +721,12 @@ public sealed class TestInfrastructurePrimitiveLaws {
     public void CausalGaugeEnforcesTheHlcAdvanceLaw() {
         Gen<(long P, ulong L)> stamps = Gen.Long[0L, 1_000_000L].Select(Gen.ULong[0UL, 8UL], static (long p, ulong l) => (P: p, L: l));
         Spec.Causal(gen: stamps, advance: Advance, physical: static s => s.P, logical: static s => s.L, refutingWitness: (Before: (P: 5L, L: 3UL), After: (P: 5L, L: 3UL)));
-        // Physical advance without a logical reset is rejected by sampling.
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.Causal(gen: stamps, advance: static s => (s.P + 1L, s.L + 1UL),
             physical: static s => s.P, logical: static s => s.L, refutingWitness: (Before: (P: 5L, L: 3UL), After: (P: 5L, L: 3UL))));
-        // A frozen stamp and a regressed stamp are rejected by sampling.
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.Causal(gen: stamps, advance: static s => s,
             physical: static s => s.P, logical: static s => s.L, refutingWitness: (Before: (P: 5L, L: 3UL), After: (P: 5L, L: 3UL))));
         _ = Assert.ThrowsAny<Exception>(testCode: () => Spec.Causal(gen: stamps, advance: static s => (s.P - 1L, 0UL),
             physical: static s => s.P, logical: static s => s.L, refutingWitness: (Before: (P: 5L, L: 3UL), After: (P: 5L, L: 3UL))));
-        // A witness pair that satisfies the order exposes the registration as a tautology.
         XunitException tautology = Assert.Throws<XunitException>(testCode: () => Spec.Causal(gen: stamps, advance: Advance,
             physical: static s => s.P, logical: static s => s.L, refutingWitness: (Before: (P: 5L, L: 3UL), After: (P: 6L, L: 0UL))));
         Assert.Contains(expectedSubstring: "tautology", actualString: tautology.Message, comparisonType: StringComparison.Ordinal);
@@ -850,12 +754,10 @@ public sealed class TestInfrastructurePrimitiveLaws {
     public void SemilatticeGaugeProvesTheVerdictFoldExhaustively() {
         int[] vocabulary = [0, 1, 2, 3];
         Spec.Semilattice(vocabulary: vocabulary, combine: Math.Max, identity: 0);
-        // Non-associative, non-closed, wrong-identity, and non-idempotent folds all reject.
         _ = Assert.Throws<XunitException>(testCode: () => Spec.Semilattice(vocabulary: vocabulary, combine: static (a, b) => a - b, identity: 0));
         _ = Assert.Throws<XunitException>(testCode: () => Spec.Semilattice(vocabulary: vocabulary, combine: Math.Max, identity: 1));
         _ = Assert.Throws<XunitException>(testCode: () => Spec.Semilattice(vocabulary: vocabulary, combine: Math.Max, identity: 9));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Semilattice(vocabulary: (int[])[0, 1], combine: static (a, b) => a + b, identity: 0));
-        // Duplicate vocabulary rows and empty vocabularies refuse to run.
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Semilattice(vocabulary: (int[])[0, 0, 1], combine: Math.Max, identity: 0));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Semilattice(vocabulary: (int[])[], combine: Math.Max, identity: 0));
     }
@@ -863,12 +765,9 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Spec), "dual-path-differential")]
     public void DualPathDifferentialArmProvesSubjectAgainstReference() {
-        // The pure arm: an iterative subject against a closed-form reference.
         Spec.DualPath(gen: Gen.Int[0, 1000], subject: static n => Enumerable.Range(start: 1, count: n).Sum(), reference: static n => n * (n + 1) / 2);
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.DualPath(gen: Gen.Int[1, 1000],
             subject: static n => Enumerable.Range(start: 1, count: n).Sum(), reference: static n => (n * (n + 1) / 2) + 1));
-        // The tolerance arm classifies divergence through the Metric row: a sign flip is an
-        // admitted class under SignAmbiguous and a rejection under the default absolute row.
         Spec.DualPath(gen: Gen.Double[0.1, 100.0], subject: Math.Sqrt, reference: static x => -Math.Sqrt(d: x), tolerance: Tolerance.Default, metric: Metric.SignAmbiguous);
         _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.DualPath(gen: Gen.Double[0.1, 100.0],
             subject: Math.Sqrt, reference: static x => -Math.Sqrt(d: x), tolerance: Tolerance.Default));
@@ -902,8 +801,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
             Assert.Equal(expected: ["alpha.json", "nested/beta.json"], actual: paths);
             Assert.NotEqual(expected: corpus[0].Key, actual: corpus[1].Key);
             Spec.RoundtripBytes(contract: SampleContext.Default.SampleRow, corpus: corpus);
-            // Content addressing: identical bytes mint identical keys under any name or nesting,
-            // and the gate refuses the byte-identical twins as a corpus defect naming both.
             File.WriteAllBytes(path: Path.Combine(path1: root.FullName, path2: "twin.json"), bytes: alpha);
             CorpusEntry[] twinned = [.. Manifests.Corpus(root: root, pattern: "*.json")];
             Dictionary<string, UInt128> keys = twinned.ToDictionary(keySelector: static entry => entry.RelativePath, elementSelector: static entry => entry.Key, comparer: StringComparer.Ordinal);
@@ -911,11 +808,9 @@ public sealed class TestInfrastructurePrimitiveLaws {
             XunitException twins = Assert.Throws<XunitException>(testCode: () => Spec.RoundtripBytes(contract: SampleContext.Default.SampleRow, corpus: twinned));
             Assert.Contains(expectedSubstring: "twin.json", actualString: twins.Message, comparisonType: StringComparison.Ordinal);
             File.Delete(path: Path.Combine(path1: root.FullName, path2: "twin.json"));
-            // A fixture that decodes but re-encodes differently is named drift, never accepted.
             File.WriteAllBytes(path: Path.Combine(path1: root.FullName, path2: "gamma.json"), bytes: "{ \"tag\": \"g\",  \"rank\": 3 }"u8.ToArray());
             XunitException drift = Assert.Throws<XunitException>(testCode: () => Spec.RoundtripBytes(contract: SampleContext.Default.SampleRow, corpus: [.. Manifests.Corpus(root: root, pattern: "*.json")]));
             Assert.Contains(expectedSubstring: "gamma.json", actualString: drift.Message, comparisonType: StringComparison.Ordinal);
-            // An absent root is an empty corpus, and the gate refuses an empty corpus as vacuous.
             Assert.True(condition: Manifests.Corpus(root: new DirectoryInfo(path: Path.Combine(path1: root.FullName, path2: "absent")), pattern: "*.json").IsEmpty);
             _ = Assert.Throws<XunitException>(testCode: static () => Spec.RoundtripBytes(contract: SampleContext.Default.SampleRow, corpus: (CorpusEntry[])[]));
         } finally {
@@ -929,15 +824,12 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Timeline timeline = new();
         using ITimer once = timeline.Probe(label: "once", due: TimeSpan.FromMilliseconds(value: 50));
         using ITimer beat = timeline.Probe(label: "beat", due: TimeSpan.FromMilliseconds(value: 30), period: TimeSpan.FromMilliseconds(value: 30));
-        // Nothing fires before its due instant; one advance crossing several dues fires each in
-        // schedule order, and Elapsed is the schedule's own arithmetic — never the advanced clock.
         Assert.True(condition: timeline.Advance(delta: TimeSpan.FromMilliseconds(value: 29)).IsEmpty);
         Seq<ClockMark> fired = timeline.Advance(delta: TimeSpan.FromMilliseconds(value: 41));
         string[] labels = [.. fired.Map(static mark => mark.Label)];
         double[] instants = [.. fired.Map(static mark => mark.Elapsed.TotalMilliseconds)];
         Assert.Equal(expected: ["beat", "once", "beat"], actual: labels);
         Assert.Equal(expected: [30.0, 50.0, 60.0], actual: instants);
-        // Determinism: an identical script on a fresh timeline lands the identical mark log.
         Timeline replay = new();
         using ITimer replayOnce = replay.Probe(label: "once", due: TimeSpan.FromMilliseconds(value: 50));
         using ITimer replayBeat = replay.Probe(label: "beat", due: TimeSpan.FromMilliseconds(value: 30), period: TimeSpan.FromMilliseconds(value: 30));
@@ -946,7 +838,6 @@ public sealed class TestInfrastructurePrimitiveLaws {
         ClockMark[] first = [.. timeline.Marks];
         ClockMark[] second = [.. replay.Marks];
         Assert.Equal(expected: first, actual: second);
-        // A disposed probe never fires again; a live periodic probe keeps firing.
         Timeline scoped = new();
         using (ITimer transient = scoped.Probe(label: "transient", due: TimeSpan.FromMilliseconds(value: 10), period: TimeSpan.FromMilliseconds(value: 10))) {
             Assert.Equal(expected: 2, actual: scoped.Advance(delta: TimeSpan.FromMilliseconds(value: 20)).Count);
@@ -958,21 +849,17 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Fact]
     [Law(typeof(Gens), "wire-stamp-quantity-bands")]
     public void WireStampAndQuantityBandsCarryTheirConstructionInvariants() {
-        // Wire strings are hazard-rich yet UTF-8 total: no lone surrogate ever enters the band.
         Spec.ForAll(gen: Gens.WireString, property: static text =>
             Spec.Holds(condition: string.Equals(a: Encoding.UTF8.GetString(bytes: Encoding.UTF8.GetBytes(s: text)), b: text, comparisonType: StringComparison.Ordinal), label: "wire string survives the UTF-8 wire"));
         Spec.ForAll(gen: Gens.Payload, property: static bytes =>
             Spec.Holds(condition: bytes.Length <= 4096, label: "payload band size"));
         Spec.Distributed(gen: Gens.Payload, bucket: static bytes => bytes.Length == 0 ? 0 : 1, expected: [130, 870]);
-        // Mutant pairs are equal-length and differ in exactly one byte — the separation witness.
         Spec.ForAll(gen: Gens.Mutant, property: static pair => {
             Assert.Equal(expected: pair.Original.Length, actual: pair.Mutated.Length);
             Spec.Holds(condition: Enumerable.Range(start: 0, count: pair.Original.Length).Where(i => pair.Original[i] != pair.Mutated[i]).Take(count: 2).Count() == 1, label: "mutant differs in exactly one byte");
         });
         Spec.ForAll(gen: Gens.Hlc, property: static stamp =>
             Spec.Holds(condition: stamp.Physical >= 0L, label: "hlc physical half is a nonnegative tick"));
-        // Quantity bands: seven bounded exponents on every draw, and every draw is a FRESH array —
-        // the mutation here can never poison a later canonical-row sample.
         Spec.ForAll(gen: Gens.SiExponents, property: static exponents => {
             Spec.Holds(condition: exponents.Length == 7 && exponents.All(predicate: static e => e is >= -4 and <= 4), label: "seven bounded SI exponents");
             exponents[0] = 99;

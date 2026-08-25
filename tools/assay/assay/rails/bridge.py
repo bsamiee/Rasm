@@ -1,6 +1,6 @@
 """Run live Rhino bridge supervisor lifecycle and scenario verification rails."""
 
-from collections.abc import Callable  # beartype resolves the public bridge_lease signature at runtime under PEP 649
+from collections.abc import Callable
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path, PurePosixPath
@@ -11,9 +11,9 @@ from expression import Error, Ok, Result
 import msgspec
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # beartype resolves public rail annotations at runtime
-from assay.composition.store import ArtifactScope  # beartype resolves public rail annotations at runtime
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.govern import leased
 from assay.core.model import (
     Artifact,
@@ -22,7 +22,7 @@ from assay.core.model import (
     BridgeLifecycle,
     Check,
     Claim,
-    Completed,  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
+    Completed,
     Diagnostic,
     Fault,
     Language,
@@ -30,7 +30,7 @@ from assay.core.model import (
     Mode,
     RailStatus,
     receipt,
-    Report,  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
+    Report,
     Tool,
     ToolArgs,
     VerifySummary,
@@ -46,7 +46,6 @@ _STUB_PROJECT: Final[str] = "tools/rhino-bridge/Stub/Stub.csproj"
 _SHELL_PROJECT: Final[str] = "tools/rhino-bridge/Shell/Shell.csproj"
 _CARGO_PROJECT: Final[str] = "tools/rhino-bridge/Cargo/Cargo.csproj"
 _CONTRACT_PROJECT: Final[str] = "tools/rhino-bridge/Contract/Contract.csproj"
-# Single scenario home: one project, one assembly, one reference root; the in-host shell owns per-scenario resolution.
 _SCENARIO_PROJECT: Final[str] = "tests/dotnet/scenarios/Rasm.Scenarios.csproj"
 _SCENARIO_ASSEMBLY: Final[str] = "Rasm.Scenarios.dll"
 _REFERENCE_ROOT: Final[str] = "tests/dotnet/scenarios/_references"
@@ -59,7 +58,6 @@ _ALL_TOKENS: Final[frozenset[str]] = frozenset(("", "all", "*"))
 _EMPTY_CORPUS_NOTE: Final[str] = f"bridge.corpus=empty: scenario corpus empty under {Path(_SCENARIO_PROJECT).parent.as_posix()}; nothing to verify"
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _SHELL_SOURCE_DIRS: Final[tuple[str, ...]] = ("Shell", "Contract", "Cargo")
-# Mirrors the supervisor's BundleInfo.RhinoLineMajor anchor; the installed-plugin probe derives its packages segment from it.
 RHINO_LINE_MAJOR: Final[int] = 9
 _INSTALLED_PLUGIN_GLOB: Final[str] = (
     f"Library/Application Support/McNeel/Rhinoceros/packages/{RHINO_LINE_MAJOR}.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
@@ -70,7 +68,6 @@ _FRESHNESS_STALE: Final[str] = (
 _FRESHNESS_ABSENT: Final[str] = (
     "bridge.freshness=absent: rasm-bridge plugin not installed; run `assay package publish --slug rasm-bridge --version <v>`"
 )
-# Not-yet-certified reference lane: unpromoted-only problem rows degrade, mirroring the supervisor's exit-2 fold; mixed rows stay faulted.
 _REFERENCE_UNPROMOTED_PREFIX: Final[str] = "reference.unpromoted:"
 type _CountRow[T] = tuple[str, Callable[[T], int]]
 
@@ -111,7 +108,7 @@ class _HostFingerprint(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
 
 class _CapabilityEntry(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     key: str = ""
-    outcome: str = ""  # PhaseStatus key token: ok / skipped / unsupported / failed / timeout / busy
+    outcome: str = ""
     receipt: str = ""
 
 
@@ -314,14 +311,11 @@ def _routed() -> Routed:
 
 
 def _pivot_output(scope_path: object, project: str, configuration: str) -> Path | None:
-    # dotnet artifacts pivots are `<config>` or `<config>_<rid>`; the newest matching pivot is the bound output.
     root = Path(str(scope_path)) / "bin" / project
     return next(iter(sorted(root.glob(f"{configuration.lower()}*"), key=lambda p: p.stat().st_mtime, reverse=True)), None)
 
 
 def _supervisor_binary(settings: AssaySettings) -> Path | None:
-    # dotnet run recomposes artifacts-path output locations by SDK heuristics that drift per release;
-    # the built apphost under the stable bridge scope is the one spawn target that cannot drift.
     pivot = _pivot_output(ArtifactScope.build(settings, "bridge").path, "Supervisor", settings.configuration.value)
     binary = pivot / _SUPERVISOR_BINARY if pivot is not None else None
     return binary if binary is not None and binary.is_file() else None
@@ -446,7 +440,6 @@ def _corpus_sources(settings: AssaySettings) -> tuple[Path, ...]:
 
 
 def _scenario_closure(scope: ArtifactScope) -> Result[tuple[Path, _ClosureManifest], Fault]:
-    # One scenario assembly, one manifest: the first closure naming Rasm.Scenarios.dll is the bound manifest.
     root = Path(scope.path)
     try:
         manifests = tuple(sorted(root.rglob(_CLOSURE_FILE)))
@@ -814,8 +807,6 @@ def _manifest_count(counts: _EvidenceCounts) -> int:
 def _evidence_status(
     *, evidence: Literal["verify", "author"], done: RailStatus, certificate_ok: bool, reference_problems: tuple[str, ...]
 ) -> RailStatus:
-    # Unpromoted-only reference problems are honest not-yet-certified evidence: DEGRADED (exit 2), never OK, never FAULTED.
-    # Any promoted-corpus problem (missing/mismatch/not-reviewed) faults, alone or mixed with unpromoted rows.
     if done.severity > RailStatus.OK.severity:
         return done
     if evidence == "author":

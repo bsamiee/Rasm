@@ -23,11 +23,11 @@ Resolved per-item settings and the diagnostic dump the plugin emits on breach.
 ```python signature
 class Settings(NamedTuple):
     timeout: float | None
-    method: str            # 'signal' | 'thread'
+    method: str
     func_only: bool
     disable_debugger_detection: bool
-def dump_stacks(terminal: TerminalWriter) -> None: ...                              # traceback dump of every thread but the current one
-def pytest_timeout_set_timer(item: Item, settings: Settings) -> bool | None: ...    # hook to override the timer
+def dump_stacks(terminal: TerminalWriter) -> None: ...
+def pytest_timeout_set_timer(item: Item, settings: Settings) -> bool | None: ...
 def pytest_timeout_cancel_timer(item: Item) -> bool | None: ...
 ```
 
@@ -46,9 +46,6 @@ Config key, marker, and CLI/env surface resolving a per-test ceiling.
 |  [07]   | `--timeout-disable-debugger-detection`         | debugger policy   | keeps the timer armed under a debugger                           |
 
 ```python signature
-# ini keys (addini): timeout, timeout_method, timeout_func_only,
-#                    timeout_disable_debugger_detection, session_timeout
-# marker: @pytest.mark.timeout(30, method="thread", func_only=True)
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

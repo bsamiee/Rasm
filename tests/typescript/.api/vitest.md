@@ -32,11 +32,10 @@
 - [01]-[MODIFIERS]: `.skip`/`.only`/`.each`/`.concurrent`/`.sequential`/`.fails`/`.skipIf`/`.runIf`/`.extend`.
 
 ```ts signature
-// Collectors + hooks re-exported from '@vitest/runner'; bench from tinybench; inject is the typed globalSetup channel.
-declare const test: TestAPI; declare const describe: SuiteAPI    // aliases: it, suite
-declare function aroundEach(fn: (test: TaskPopulated, use: () => Promise<void>) => Awaitable<void>): void  // v4 — setup+teardown in one
-declare function recordArtifact(artifact: TestArtifact): void     // v4 — attach an artifact to the running test
-declare const bench: BenchmarkAPI                                 // tinybench-backed; folds a Benchmark result
+declare const test: TestAPI; declare const describe: SuiteAPI
+declare function aroundEach(fn: (test: TaskPopulated, use: () => Promise<void>) => Awaitable<void>): void
+declare function recordArtifact(artifact: TestArtifact): void
+declare const bench: BenchmarkAPI
 declare function inject<T extends keyof ProvidedContext & string>(key: T): ProvidedContext[T]
 ```
 
@@ -60,9 +59,9 @@ declare function inject<T extends keyof ProvidedContext & string>(key: T): Provi
 interface VitestUtils {
   useFakeTimers(config?: FakeTimerInstallOpts): VitestUtils; advanceTimersByTime(ms: number): VitestUtils
   setSystemTime(time: number | string | Date): VitestUtils; setTimerTickMode(mode: "manual" | "nextTimerAsync"): VitestUtils
-  fn: typeof fn; spyOn: typeof spyOn; mockObject<T>(v: T, o?: ModuleMockOptions): MaybeMockedDeep<T>   // v4
+  fn: typeof fn; spyOn: typeof spyOn; mockObject<T>(v: T, o?: ModuleMockOptions): MaybeMockedDeep<T>
   mock(path: string, factory?: ModuleMockFactoryWithHelper | ModuleMockOptions): void
-  doMock(path: string, factory?: ModuleMockFactoryWithHelper): Disposable                              // v4 — Disposable
+  doMock(path: string, factory?: ModuleMockFactoryWithHelper): Disposable
   stubEnv<T extends string>(name: T, value: string | undefined): VitestUtils; unstubAllEnvs(): VitestUtils
   waitFor<T>(cb: () => T | Promise<T>, o?: number | WaitForOptions): Promise<T>; defineHelper<F extends (...a: any) => any>(fn: F): F
 }
@@ -85,10 +84,10 @@ declare const vi: VitestUtils
 - [06]-[INLINE_CONFIG]: `pool`/`environment`/`coverage`/`browser`/`typecheck`/`projects`/`setupFiles`/`globalSetup`/`sequence`/`reporters`.
 
 ```ts signature
-declare function defineConfig(config: UserConfig): UserConfig                              // + fn/promise overloads
-declare function defineProject(config: UserWorkspaceConfig): UserWorkspaceConfig           // v4 — replaces `workspace`
+declare function defineConfig(config: UserConfig): UserConfig
+declare function defineProject(config: UserWorkspaceConfig): UserWorkspaceConfig
 declare const coverageConfigDefaults: Required<Pick<CoverageOptions, FieldsWithDefaultValues>>
-declare const configDefaults: Readonly<{ environment: "node"; include: string[]; exclude: string[]; isolate: boolean; /* … */ }>
+declare const configDefaults: Readonly<{ environment: "node"; include: string[]; exclude: string[]; isolate: boolean;  }>
 declare module "vite" { interface UserConfig { test?: InlineConfig }; interface Plugin { configureVitest?: HookHandler<(c: VitestPluginContext) => void> } }
 ```
 
@@ -115,7 +114,6 @@ declare module "vite" { interface UserConfig { test?: InlineConfig }; interface 
 declare function startVitest(mode: VitestRunMode, cliFilters?: string[], options?: CliOptions, viteOverrides?: ViteUserConfig, vitestOptions?: VitestOptions): Promise<Vitest>
 declare function createVitest(mode: VitestRunMode, options: CliOptions, ...): Promise<Vitest>
 declare function parseCLI(argv: string | string[], config?: CliParseOptions): { filter: string[]; options: CliOptions }
-// Reported-Tasks read model (post-run): TestModule ⊇ TestSuite ⊇ TestCase, each carrying TestResult (passed|failed|skipped) + TestDiagnostic.
 interface TestRunResult { testModules: TestModule[]; unhandledErrors: unknown[] }
 ```
 

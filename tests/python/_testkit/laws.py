@@ -2,7 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
+from collections.abc import Callable
 from datetime import timedelta
 import enum
 import functools
@@ -19,20 +19,17 @@ import pytest
 from ruamel.yaml import YAML
 
 from tests.python._testkit.runtime import REPO_ROOT
-lazy from tests.python._testkit.strategies import resolve  # strategies imports this module; the lazy binding breaks the cycle at first draw
+lazy from tests.python._testkit.strategies import resolve
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# bench_*.py are measurement sessions, never census members; laws live only in these module shapes.
 _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 
-# Distinguishes a genuinely-None public value (value-only exempt) from an attribute __all__ promises but the module never defines.
 _ABSENT: object = object()
 
-# The estate generation template is the one authority on generated out roots; a tree beneath one is emitted, never authored, so it owes no suite.
 _TEMPLATE: Path = REPO_ROOT / "libs" / "contracts" / "buf.gen.yaml"
-_OUT_BASE: Path = REPO_ROOT  # template `out` rows are repo-relative, so they resolve here rather than beside the template
+_OUT_BASE: Path = REPO_ROOT
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -86,7 +83,6 @@ def auto_exempt(subject: object) -> bool:
         case type() if issubclass(subject, enum.StrEnum):
             return True
         case type() if issubclass(subject, msgspec.Struct):
-            # __post_init__ is admission behavior: a frozen struct validating itself still needs a law.
             declared = any(
                 callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property))
                 for klass in subject.__mro__
@@ -100,7 +96,6 @@ def auto_exempt(subject: object) -> bool:
         case TypeAliasType():
             return True
         case _:
-            # Value-only symbols: constants, tables, codecs, ContextVars, typing aliases — anything neither class nor callable.
             return type(subject).__module__ == "typing" or not callable(subject)
 
 
@@ -118,7 +113,6 @@ def generated_roots(source_root: Path) -> frozenset[Path]:
             return frozenset()
 
 
-# The filesystem walk and per-module public-name fold are one import-failure-aware coverage pass.
 def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, str], ...]]:
     """Collect a package's public symbols and import failures.
 
@@ -126,12 +120,9 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
         Public simple-name → object mapping and ``(module_name, error)`` import failures.
     """
     root = importlib.import_module(package_name)
-    # rglob keeps namespace subpackages visible; pkgutil.walk_packages silently skips them.
     modules = [root]
     failures: list[tuple[str, str]] = []
     for base in getattr(root, "__path__", ()):
-        # Generation authors every module beneath an out root, so those symbols owe no law here for the same
-        # reason register_tree grants their folder no suite: one template, one authority, both census grains.
         emitted = generated_roots(Path(base).resolve())
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
@@ -143,7 +134,7 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
                 continue
             try:
                 modules.append(importlib.import_module(mod_name))
-            except Exception as exc:  # ruff:ignore[blind-except]  # accumulated and surfaced by assert_law_coverage, never swallowed
+            except Exception as exc:  # ruff:ignore[blind-except]
                 failures.append((mod_name, repr(exc)))
 
     surface: dict[str, object] = {}
@@ -155,7 +146,6 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
         for name in names:
             member = getattr(mod, name, _ABSENT)
             if member is _ABSENT:
-                # A phantom export is a broken public surface, never a silent value-only exemption.
                 failures.append((getattr(mod, "__name__", "<module>"), f"__all__ names {name!r} but the module never defines it"))
             elif not inspect.ismodule(member):
                 surface.setdefault(name, member)
@@ -198,13 +188,9 @@ def spec[**P](
 
         match given:
             case True:
-                # The registration algebra matches the resolver's: classes, PEP 695 aliases, and
-                # parameterized forms (unions, Literal, Annotated) all inject; bare callables refuse.
                 if not _resolvable(subject):
                     msg = f"@spec given=True requires a resolvable type form, got {subject!r}"
                     raise TypeError(msg)
-                # Hypothesis maps the positional strategy to fn's rightmost parameter and injects it as
-                # a KEYWORD argument, so event taggers read that name; wraps preserves the collected signature.
                 drawn = next(reversed(inspect.signature(fn).parameters), "")
                 target = (
                     functools.wraps(fn)(
@@ -220,8 +206,6 @@ def spec[**P](
             case _:
                 with_given = fn
 
-        # Explicit settings attach only for a named pin or a deadline; hypothesis numeric deadlines are
-        # MILLISECONDS, so seconds convert here — and an unpinned law stays governed by the active profile.
         pinned = hyp_settings.get_profile(profile) if profile is not None else None
         deadline = timedelta(seconds=timeout) if timeout is not None else None
         match (pinned, deadline):
@@ -236,7 +220,7 @@ def spec[**P](
 
         all_marks = (*markers, *(("mutation",) if mutation else ()))
         result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), all_marks, with_settings)
-        _STAMPED.add(result)  # identity stamp: the only durable double-decoration witness (@given sets no __wrapped__)
+        _STAMPED.add(result)
 
         fn_name: str = getattr(fn, "__name__", repr(fn))
         MANIFEST.append(
@@ -248,7 +232,6 @@ def spec[**P](
             )
         )
 
-        # Keep @given's signature-erased stack so the strategy param does not reappear as a fixture.
         return result
 
     return _decorator

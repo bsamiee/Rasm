@@ -24,13 +24,13 @@ from hypothesis import given, HealthCheck, settings as hyp_settings, strategies 
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 import psutil
 import pytest
 from upath import UPath
 
 from assay.composition.settings import AssaySettings
-from assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
+from assay.core.aspect import RING
 from assay.core.exec import run_check
 import assay.core.govern as govern_mod
 from assay.core.govern import (
@@ -67,7 +67,6 @@ from assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language,
 from assay.core.routing import Routed, Scope
 from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
 
-# Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
 
 
@@ -261,13 +260,13 @@ def test_liveness_access_denied_defers_to_pid_exists(monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize(
     "cpu_count, max_checks, dotnet, mutation, runner_modes, expected",
     [
-        (4, 8, 4, 4, (), 4),  # cpu_count caps below max_checks
-        (4, 2, 4, 4, (), 2),  # max_checks caps below cpu_count
-        (8, 8, 8, 8, (), 8),  # equal axes
-        (1, 8, 8, 8, (), 1),  # a single usable cpu floors the limit at 1
-        (4, 8, 2, 8, ((Runner.DOTNET, Mode.CHECK),), 2),  # a dotnet check engages the runner cap
-        (4, 8, 8, 1, ((Runner.DIRECT, Mode.MUTATION),), 1),  # a mutation batch engages the mode cap
-        (4, 8, 2, 3, ((Runner.DOTNET, Mode.MUTATION),), 2),  # dotnet(2) ∩ mutation(3) ⇒ 2
+        (4, 8, 4, 4, (), 4),
+        (4, 2, 4, 4, (), 2),
+        (8, 8, 8, 8, (), 8),
+        (1, 8, 8, 8, (), 1),
+        (4, 8, 2, 8, ((Runner.DOTNET, Mode.CHECK),), 2),
+        (4, 8, 8, 1, ((Runner.DIRECT, Mode.MUTATION),), 1),
+        (4, 8, 2, 3, ((Runner.DOTNET, Mode.MUTATION),), 2),
     ],
 )
 def test_governed_concurrency_cap_table(
@@ -281,7 +280,6 @@ def test_governed_concurrency_cap_table(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``governed_concurrency`` folds the cpu / dotnet-runner / mutation-mode ceilings into one floor ≥ 1."""
-    # Host pressure is pinned below every ceiling so the cap table stays deterministic.
     monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
     monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(
@@ -320,7 +318,6 @@ def test_governed_concurrency_halves_under_pressure_sources(
     assert (census_event.get("foreign_dotnet"), census_event.get("mem_pressure")) == (8, False)
 
 
-# assay_root is read-only (model_copy only), so function_scoped_fixture is suppressed.
 @hyp_settings(parent=hyp_settings.get_profile("rasm"), suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(cpu=st.integers(min_value=1, max_value=256), maxc=st.integers(min_value=1, max_value=64))
 def test_governed_concurrency_bounded_in_unit_to_cpu(cpu: int, maxc: int, assay_root: AssayHarness) -> None:
@@ -374,7 +371,6 @@ def test_drain_stream_terminus_and_empty_rows() -> None:
         assert captured.lines == expected_lines, f"{chunks!r} drained to {captured.lines} lines, expected {expected_lines}"
     empty = anyio.run(lambda: drain_stream(_recv_of(()), tail_cap=16, spill_cap=1 << 20, kind="out", path="art/out.log"))
     assert empty == Captured(path="art/out.log"), "empty EOF did not drain to the zero capture with its path preserved"
-    # recv_anyio(None, ...) is the inherited-fd / absent-pipe arm: white-box, no public driver reaches it with None.
     assert anyio.run(lambda: drain_stream(recv_anyio(None, 32), tail_cap=128, spill_cap=1 << 20)) == Captured()
 
 
@@ -483,7 +479,6 @@ def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: Assay
     artifact = next((a for a in done.artifacts if a.id.startswith("nonstream-artifact-law-") and a.id.endswith("-out")), None)
     assert artifact is not None, f"non-streaming process emitted no stdout artifact: {done.artifacts!r}"
     assert scope.store.read_path(artifact.path) == payload
-    # The non-streaming receipt carries the unified _measure key set, child-tree rows included, matching the streaming path.
     keys = {name for name, _ in done.resources}
     assert {"proc.children", "proc.children_rss_bytes", "process.duration_ms"} <= keys, f"non-streaming receipt key set drifted: {sorted(keys)!r}"
 
@@ -659,7 +654,6 @@ def test_leased_runs_action_only_when_held(assay_root: AssayHarness) -> None:
     token = receipt(("held",), 0)
     first = leased("act", lambda _held: Ok(token), settings=assay_root.settings, run_id="run-a")
     assert assert_ok(first) is token
-    # A contended action returns FAULTED only if the BUSY short-circuit is broken.
     breach = Fault((), status=RailStatus.FAULTED, message="action ran under a held lease")
     with exclusive_lease("act", "holder", settings=assay_root.settings) as guard:
         assert_ok(guard)
@@ -682,7 +676,7 @@ def test_leased_maps_lease_io_error_to_fault(assay_root: AssayHarness, monkeypat
 
     @contextlib.contextmanager
     def _boom(*_args: object, **_kwargs: object) -> Iterator[object]:
-        if not ran[0]:  # always True here; the branch keeps `yield` reachable for the generator typing
+        if not ran[0]:
             raise OSError("lease fs gone")
         yield None  # pragma: no cover
 
@@ -749,7 +743,6 @@ class LeaseStateMachine(RuleBasedStateMachine):
 
     @override
     def teardown(self) -> None:
-        # tuple() forces close side effects; ExitStack.close() returns None.
         _ = tuple(slot.stack.close() for slot in self._slots.values())
 
 
@@ -858,9 +851,7 @@ def test_steal_rewrites_owner_and_yields_contention_on_lost_race(assay_root: Ass
 
 
 @pytest.mark.mutation
-def test_claim_contention_busy_vs_steal_decision(  # three contention scenarios share one scripted flock + fd harness
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_claim_contention_busy_vs_steal_decision(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_claim`` maps live contention to BUSY and stale contention to owner rewrite.
 
     The persisted owner block and flock count pin live/stale dispatch plus run/cwd/project/mode/target forwarding.

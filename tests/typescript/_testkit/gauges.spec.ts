@@ -128,7 +128,6 @@ layer(NodeContext.layer)('gauges over the real tree', (it) => {
                 const fs = yield* FileSystem.FileSystem;
                 const path = yield* Path.Path;
                 const scratch = yield* fs.makeTempDirectoryScoped();
-                // Two metadata segments (project + platform) over one owned spec, one metadata segment over another, one ghost.
                 yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'visual.pw.ts'), { recursive: true });
                 yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'webkit', 'engine.pw.ts'), { recursive: true });
                 yield* fs.makeDirectory(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts'), { recursive: true });
@@ -139,7 +138,6 @@ layer(NodeContext.layer)('gauges over the real tree', (it) => {
                 yield* fs.writeFileString(path.join(scratch, 'e2e', 'goldens', 'webkit', 'engine.pw.ts', 'trace.png'), '');
                 yield* fs.writeFileString(path.join(scratch, 'e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts', 'stale.png'), '');
                 const report = yield* Snapshots.audit(scratch);
-                // Only the three golden files are claimed: the goldens home, metadata, and spec-named directories never count.
                 expect(report.scanned).toBe(3);
                 expect(report.orphans).toEqual([path.join('e2e', 'goldens', 'chromium', 'darwin', 'platform', 'ghost.pw.ts', 'stale.png')]);
             }),

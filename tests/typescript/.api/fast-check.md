@@ -33,21 +33,19 @@
 |  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + counterexample rendering    |
 
 ```ts signature
-// Arbitrary algebra — every primitive/combinator below returns one of these; refine with three methods.
 abstract class Arbitrary<T> {
   abstract generate(mrng: Random, biasFactor: number | undefined): Value<T>
   abstract canShrinkWithoutContext(value: unknown): value is T
   abstract shrink(value: T, context: unknown | undefined): Stream<Value<T>>
-  map<U>(mapper: (t: T) => U, unmapper?: (possiblyU: unknown) => T): Arbitrary<U>   // unmapper keeps shrinking sound
+  map<U>(mapper: (t: T) => U, unmapper?: (possiblyU: unknown) => T): Arbitrary<U>
   filter<U extends T>(refinement: (t: T) => t is U): Arbitrary<U>
-  filter(predicate: (t: T) => boolean): Arbitrary<T>                                 // INGRESS_BUDGET refinement rail
-  chain<U>(chainer: (t: T) => Arbitrary<U>): Arbitrary<U>                            // value-dependent generation
+  filter(predicate: (t: T) => boolean): Arbitrary<T>
+  chain<U>(chainer: (t: T) => Arbitrary<U>): Arbitrary<U>
 }
-// Shrink/bias modifiers are FREE functions, not methods:
 declare function noShrink<T>(arb: Arbitrary<T>): Arbitrary<T>
 declare function noBias<T>(arb: Arbitrary<T>): Arbitrary<T>
 declare function limitShrink<T>(arb: Arbitrary<T>, maxShrinks: number): Arbitrary<T>
-declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]>      // N clones of one draw
+declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]>
 ```
 
 ## [02]-[RUNNERS]
@@ -68,7 +66,6 @@ declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]> 
 |  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering     |
 
 ```ts signature
-// Signatures verified against lib/types/fast-check-default.d.ts (variadic-tuple arbitraries → typed predicate).
 declare function property<Ts extends [unknown, ...unknown[]]>(
   ...args: [...arbitraries: { [K in keyof Ts]: Arbitrary<Ts[K]> }, predicate: (...args: Ts) => boolean | void]
 ): IPropertyWithHooks<Ts>
@@ -102,7 +99,7 @@ declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(constraints
 declare function record<T>(model: { [K in keyof T]: Arbitrary<T[K]> }, constraints?: RecordConstraints<keyof T>): Arbitrary<T>
 declare function letrec<T>(builder: T extends Record<string, unknown> ? LetrecTypedBuilder<T> : never): LetrecValue<T>
 declare function constant<T>(value: T): Arbitrary<T>
-declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitrary<TArgs[number]> // the literal-preserving row picker
+declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitrary<TArgs[number]>
 ```
 
 ## [04]-[RUN_CONFIG_AND_RECEIPT]
@@ -111,15 +108,15 @@ declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitr
 
 ```ts signature
 interface Parameters<T = void> {
-  seed?: number                                  // 32-bit; replay anchor
+  seed?: number
   randomType?: RandomType | ((seed: number) => RandomGenerator)
-  numRuns?: number                               // sample budget (default 100)
-  maxSkipsPerRun?: number                        // pre() budget before RunDetailsFailureTooManySkips
-  timeout?: number                               // per-predicate ms (async)
+  numRuns?: number
+  maxSkipsPerRun?: number
+  timeout?: number
   interruptAfterTimeLimit?: number; markInterruptAsFailure?: boolean
   skipAllAfterTimeLimit?: number; skipEqualValues?: boolean; ignoreEqualValues?: boolean
-  path?: string                                  // replay coordinate from a prior counterexample
-  examples?: T[]                                 // always-run seeded cases (regression corpus)
+  path?: string
+  examples?: T[]
   endOnFailure?: boolean; unbiased?: boolean; verbose?: boolean | VerbosityLevel
   reporter?: (r: RunDetails<T>) => void; asyncReporter?: (r: RunDetails<T>) => Promise<void>
   includeErrorInReport?: boolean; logger?(v: string): void
@@ -139,10 +136,10 @@ interface RunDetailsCommon<Ts> {
 
 ```ts signature
 import * as Arbitrary from "effect/Arbitrary"
-import type * as FastCheck from "effect/FastCheck"       // re-export of this package — one engine, no version skew
+import type * as FastCheck from "effect/FastCheck"
 import type { Schema } from "effect/Schema"
 declare const make: <A, I, R>(schema: Schema.Schema<A, I, R>) => FastCheck.Arbitrary<A>
-declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => LazyArbitrary<A>   // LazyArbitrary<A> = (fc: typeof FastCheck) => FastCheck.Arbitrary<A>
+declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => LazyArbitrary<A>
 ```
 
 [STACK: `fast-check` + `@effect/vitest`] — the `_testkit` law source closes each law with `assert`, but specs bind arbitraries through `@effect/vitest` `it.prop(name, arbitraries, self)` (array OR record of arbitraries) and effect-returning predicates through `it.effect` / `it.scoped`; `layer(SharedLayer)(…)` shares one acquired Layer across a property block so the harness resources (see `electric-sql-pglite.md`) build once. `it.flakyTest` wraps a known-nondeterministic effect.

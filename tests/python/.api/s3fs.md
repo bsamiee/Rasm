@@ -24,7 +24,6 @@ class S3FileSystem(AsyncFileSystem):
                  default_cache_type="readahead", version_aware=False, config_kwargs=None, s3_additional_kwargs=None,
                  session=None, username=None, password=None, cache_regions=False, asynchronous=False, loop=None,
                  max_concurrency=10, fixed_upload_size=False, local_expiry_check=False, **kwargs) -> None: ...
-    # skip_instance_cache rides **kwargs into the fsspec instance-cache metaclass, never a named parameter
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -41,8 +40,7 @@ class S3FileSystem(AsyncFileSystem):
 
 ```python signature
 def url(self, path, expires: int = 3600, client_method: str = "get_object", **kwargs) -> str: ...
-def call_s3(self, method, *akwarglist, **kwargs): ...        # _call_s3 is the async core; call_s3 the sync facade
-# bucket creation bypasses s3fs.mkdir's unconditional LocationConstraint (S3 rejects us-east-1 as a constraint):
+def call_s3(self, method, *akwarglist, **kwargs): ...
 fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"LocationConstraint": region}} if region != "us-east-1" else {}))
 ```
 

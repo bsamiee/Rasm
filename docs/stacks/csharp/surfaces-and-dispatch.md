@@ -31,7 +31,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: arms returning sibling case types leave best-common-type inference empty (CS0411); the first arm casts to the union base — or the call spells explicit `Switch` type arguments — and the anchor is load-bearing, never a redundant cast.
 - Law: a per-case rewrite homes on the union owner rather than as a case ladder at each translating caller, with the transform itself threaded through the state slot, so every arm stays `static` and closure-free and each caller reads one call; a rewrite captured by the lambda instead closes over caller state and forfeits the generated dispatch's allocation-free form.
 - Law: N sibling surfaces riding one shared rail and re-spelling the same lifecycle machinery — mint, custody hand-off, multi-product harvest, failure release, entry guard — collapse onto the rail owner's generic members, each sibling a one-line composition; hand-maintained congruence invariants become structural inside the one generic builder, and a guard present on some family entries but absent on siblings is the latent defect the absorption fixes.
-- Law: an arm that is unconditionally failing — unreachable by the family's own contract — is never defensive coverage; it proves the case cannot inhabit the dispatch's shared context and splits out as a sibling method on the structural discriminant that justifies it — an extra receiver or an out-of-family result type — with a pre-dispatch `is`-guard extracting the case before the total `Switch` as the tell.
+- Law: an arm that is unconditionally failing — unreachable under the family's own invariant — is never defensive coverage; it proves the case cannot inhabit the dispatch's shared context and splits out as a sibling method on the structural discriminant that justifies it — an extra receiver or an out-of-family result type — with a pre-dispatch `is`-guard extracting the case before the total `Switch` as the tell.
 - Law: a concern whose domain admits an inverse carries both directions on the one owner — admit and project, encode and decode, to-wire and from-wire are paired operations of one surface, and a sibling owner split by direction is the rejected form.
 - Use: `[Union<T1,...>]` ad-hoc when the request is a positional sum of already-defined payloads extracted by `IsTi`/`AsTi`; regular `[Union]` named cases when cases carry distinct fields and `value is CaseName` extracts.
 - Reject: a request-union-shaped success-or-failure carrier; rails own outcome transport.
@@ -201,7 +201,7 @@ public static class MarkerBoundary {
 
 [ONE_CARRIER_SURFACE]:
 - Law: the form selects which arm runs, the carrier the arms return selects how results combine — orthogonal axes; an arm returning `K<F,A>` makes one entrypoint the `Fin`, `Eff`, `IO`, and `Validation` dispatcher, and the per-carrier sibling family is the rejected form.
-- Law: the trait stack is the precise capability contract — `Monad` binds, `Fallible<E,F>` fails and catches, `Choice` falls back, `Alternative` adds `Empty`, `Traversable` sweeps — and over-constraining beyond what the body uses is dead surface narrowing the admitted carrier set for nothing.
+- Law: the trait stack fixes the precise capability set — `Monad` binds, `Fallible<E,F>` fails and catches, `Choice` falls back, `Alternative` adds `Empty`, `Traversable` sweeps — and over-constraining beyond what the body uses is dead surface narrowing the admitted carrier set for nothing.
 - Use: `.As()` to recover the concrete carrier exactly once at the materialization boundary; capabilities ride the carrier through `Has`/`Stateful` accessors, never a trailing dependency tail.
 - Boundary: pinning `Fallible<E,M>` to a domain error union makes the failure surface a closed family, and the named catch family generated once against the trait applies to every fallible carrier via `|` with no per-monad wiring.
 
@@ -268,7 +268,7 @@ public static class IterativeSurface {
 ## [07]-[TYPE_LEVEL_DISPATCH]
 
 [OPEN_OWNER_BOUNDARY]:
-- Law: the self-constrained factory contract — `where TOwner : IObjectFactory<TOwner, TValue, TError>`, sole member a static abstract `Validate` — is the inversion of case dispatch: `Switch` is closed over one owner's cases, the constrained generic is open over the unbounded family of all owners, resolved by the JIT with no instance, no vtable, no reflection.
+- Law: the self-constrained factory interface — `where TOwner : IObjectFactory<TOwner, TValue, TError>`, sole member a static abstract `Validate` — is the inversion of case dispatch: `Switch` is closed over one owner's cases, the constrained generic is open over the unbounded family of all owners, resolved by the JIT with no instance, no vtable, no reflection.
 - Law: the error vocabulary stays owner-chosen because `TError` carries its own static abstract `Create`; bounding `TError` by the shared fault base keeps every owner's precise faults rail-liftable with no translation hop.
 - Law: a generic bound binds only the signature that spells it, so every interior core a bounded seam forwards to repeats the bound — a constraint on the forwarding method alone leaves the unconstrained core a compile-valid bypass for its direct callers.
 - Use: a span-keyed instantiation — the span is the `TValue` under `allows ref struct` — so protocol text decodes into the closed vocabulary with zero heap traffic on both legs.
@@ -277,7 +277,7 @@ public static class IterativeSurface {
 [REACH_LIMIT]:
 - Law: an unresolved static abstract member is not a first-class value — no open delegate, no method group, no expression tree — so type-level static dispatch serves boundaries whose owner is resolved at compile time at the call site.
 - Use: the generated static-abstract metadata surface for runtime-discovered owners, folded by a generic codec over the metadata's own generated dispatch, keeping the runtime-discovered case reflection-free.
-- Boundary: choosing the static-virtual form for runtime discovery reintroduces reflection through closed-generic invocation — the exact cost the contract exists to delete.
+- Boundary: choosing the static-virtual form for runtime discovery reintroduces reflection through closed-generic invocation — the exact cost the generic factory exists to delete.
 
 [OPEN_FLOOR_DISPATCH]:
 - Law: when a foreign assembly supplies the implementation, the seam inverts again — an instance-interface floor (`IProjection<TIn,TOut>`, one member returning the rail) is the open extension point, a minting factory selects the concrete the consumer never names, and one polymorphic operation dispatches over the floor — distinct from the closed family the owner exhaustively `Switch`es and never publishes.

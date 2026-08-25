@@ -10,13 +10,13 @@ import hashlib
 import re
 from typing import assert_never, ClassVar, override, TYPE_CHECKING
 
-from cyclopts.types import PositiveInt  # Cyclopts evaluates Param dataclass annotations at runtime.
+from cyclopts.types import PositiveInt
 from expression import Error, Ok, Result
 import msgspec
 
-from assay.composition.settings import AssaySettings  # beartype resolves these types at runtime in @checked signatures
-from assay.composition.store import ArtifactScope, ArtifactStore  # beartype resolves these at runtime in @checked signatures
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope, ArtifactStore
+from assay.core.exec import Executor
 from assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -29,7 +29,7 @@ from assay.core.model import (
     Fault,
     Match,
     RailStatus,
-    Report,  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
+    Report,
     RESULT_CAP,
     SourceKind,
     SymbolShape,
@@ -42,12 +42,12 @@ from assay.oracle import (
     host_sources,
     NAME_CAP as _NAME_CAP,
     nuget_source,
-    Oracle,  # beartype resolves the adapter-port annotation at runtime
+    Oracle,
     oracle_for,
     package_owner_index,
     packages,
     PATH_KINDS as _PATH_KINDS,
-    PathKind as _PathKind,  # Cyclopts evaluates the ApiParams.kind annotation at runtime
+    PathKind as _PathKind,
     probe_ilspy,
     pydist_inventory_sources,
     rank_candidates,
@@ -55,9 +55,9 @@ from assay.oracle import (
     rank_type,
     rhino_app,
     safe_key,
-    Source,  # beartype resolves report-projection annotations at runtime under PEP 649
+    Source,
     split_arity,
-    Surface,  # beartype resolves report-projection annotations at runtime under PEP 649
+    Surface,
     to_api_source,
     tsdecl_names,
     tsdecl_source,
@@ -72,22 +72,18 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))
-_INPROC_KINDS: frozenset[SourceKind] = frozenset((SourceKind.PYDIST, SourceKind.TSDECL))  # live-introspection sources with a member-scan leg
-_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # status compact-output source kinds
-_COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))  # polyglot summary rows always shown in compact output
-# Strict status faults only on an absent core bundle here, never a transitive package.
+_INPROC_KINDS: frozenset[SourceKind] = frozenset((SourceKind.PYDIST, SourceKind.TSDECL))
+_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))
+_COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))
 _REQUIRED_SOURCE_IDS: frozenset[str] = frozenset(HOST_KEYS) | frozenset(("rhino-app", "ilspycmd"))
 _PREVIEW_ROWS: int = 12
-_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order across runs
+_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 _LATEST_ARTIFACT: str = "latest"
-# Declaration-shaped decompile lines: ilspycmd emits every declaration behind modifiers or a type keyword, so this
-# prefix separates real declarations from body statements that merely mention the needle.
 _DECL_SHAPE: re.Pattern[str] = re.compile(
     r"^\s*(?:\[[^\]]*\]\s*)*(?:public|private|protected|internal|static|sealed|abstract|partial|virtual|override|readonly"
     r"|event|const|unsafe|extern|async|new|implicit|explicit|operator|class|struct|interface|enum|delegate|record)\b"
 )
-_ANCHOR_HIDDEN: tuple[str, ...] = ("///", "namespace ", "using ")  # doc/header lines never anchor a declaration window
-# Signature-derived member truth: two-word access modifiers scan before their one-word prefixes.
+_ANCHOR_HIDDEN: tuple[str, ...] = ("///", "namespace ", "using ")
 _CS_ACCESS: tuple[str, ...] = ("protected internal", "private protected", "public", "internal", "protected", "private")
 _CS_KIND: frozenset[str] = frozenset(("class", "struct", "interface", "enum", "delegate", "record"))
 
@@ -98,7 +94,6 @@ _CS_KIND: frozenset[str] = frozenset(("class", "struct", "interface", "enum", "d
 class ApiParams(BaseParams):
     """Parameters shared by api verbs."""
 
-    # One class-owned verb-slot vocabulary: usage text plus (arity, owning flags); a positional surplus names the exact flags.
     SLOTS: ClassVar[dict[str, str]] = {"": "", "query": "[SYMBOL]", "resolve": "[KEY [KIND]]", "show": "[TOKEN]"}
     VERB_SLOTS: ClassVar[dict[str, tuple[int, tuple[str, ...]]]] = {
         "query": (1, ("--symbol",)),
@@ -115,7 +110,7 @@ class ApiParams(BaseParams):
     grep: str = ""
     full: bool = False
     strict: bool = False
-    sources: tuple[str, ...] = ()  # non-empty → restrict status inventory to source_ids matching these prefixes
+    sources: tuple[str, ...] = ()
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
@@ -163,20 +158,17 @@ def shape_of(symbol: str) -> SymbolShape:
 
 
 def _signature_truth(signature: str) -> tuple[str, str]:
-    # Explicit interface members and interface bodies carry no access modifier; the parse never invents one.
     accessibility = next((access for access in _CS_ACCESS if signature.startswith(access)), "")
     kind = next((token for token in signature.split() if token in _CS_KIND), "")
     return accessibility, kind or ("method" if "(" in signature else "member")
 
 
 def _source_notes(source: Source) -> tuple[str, ...]:
-    # The consumer-bound TFM rides a note beside fidelity so a notes-first reader sees which framework was decompiled.
     tfm = (f"tfm: {source.tfm}",) if source.kind is SourceKind.NUGET and source.tfm else ()
     return (fidelity_note(source), *tfm)
 
 
 def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Identity-shaped ids keep delta comparisons stable across result order changes.
     query_text = pattern.casefold()
 
     def score(text: str) -> int:
@@ -199,7 +191,7 @@ def _artifact(settings: AssaySettings, source: Source, name: str, content: str) 
     return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
-def _api_detail(  # ruff:ignore[too-many-arguments]  # single ApiSurface constructor surface; keyword-only slots prevent positional confusion
+def _api_detail(  # ruff:ignore[too-many-arguments]
     source: Source,
     shape: SymbolShape,
     *,
@@ -248,7 +240,6 @@ def _strict(report: Report, p: ApiParams, core_absent: tuple[ApiSource, ...] = (
 
 
 def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
-    # The nearest keys ride the note inline so a notes-first reader self-corrects without opening detail.
     nearest = ", ".join(name for name, _ in resolution.candidates[:3])
     note = f"no '{key}' source; {resolution.reason}" + (f", nearest: {nearest}" if nearest else "")
     done = Completed(("api", verb, key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
@@ -315,7 +306,6 @@ def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, .
 
 
 def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]) -> tuple[Artifact, ...]:
-    # One durable inventory artifact: the structured JSON. The compact preview rides the envelope; the TSV had no reader.
     json_raw = _ENCODER.encode(sources)
     json_path = settings.store().write_bytes(json_raw, Claim.API.value, settings.run_id, "status-inventory.json")
     return (Artifact(id="status-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),)
@@ -399,7 +389,6 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executo
 
 
 def _resolve_report(settings: AssaySettings, orc: Oracle, p: ApiParams) -> Report:
-    # Full path list rides an artifact; ranked previews ride results.
     if p.kind not in _PATH_KINDS:
         done = Completed(("api", "resolve", p.key, p.kind), 0, status=RailStatus.UNSUPPORTED, notes=(f"unknown kind: {p.kind}",))
         return fold(
@@ -408,7 +397,6 @@ def _resolve_report(settings: AssaySettings, orc: Oracle, p: ApiParams) -> Repor
     targets = orc.resolve(p.kind)
     existing = tuple(t for t in targets if t.exists())
     results, cap_notes = _matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, "")
-    # The full path list rides an artifact only when ranked results saturate the cap; small sets ride inline.
     artifact = _artifact(settings, orc.source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets)) if cap_notes else None
     note = f"{len(existing)}/{len(targets)} {p.kind} paths present"
     done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note, *cap_notes))
@@ -438,7 +426,6 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executor:
 
 
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Namespace-shaped symbols still decompile when they also match a type suffix.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             rows = surface.namespaces or surface.types
@@ -447,15 +434,13 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, sur
             return _resolve_namespace(settings, scope, orc, surface, p)
         case SymbolShape.TYPE | SymbolShape.MEMBER as shape:
             return _member_report(settings, scope, orc, surface, p.symbol, shape, p)
-        case SymbolShape.SEARCH:  # pragma: no cover  # shape_of never emits SEARCH; the decompile-miss path routes through _decompile_report
+        case SymbolShape.SEARCH:  # pragma: no cover
             return Ok(_search_report(settings, scope, orc, surface, p))
         case never:  # pragma: no cover
             assert_never(never)
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Type-suffix match wins over exact namespace roster; no match falls through to search. Ranking runs on the
-    # arity-free base and an explicit backtick arity re-qualifies the resolved type for the member leg.
     base, arity = split_arity(p.symbol)
     type_fqn = rank_type(surface.types, base)
     owned = surface.by_namespace.get(rank_namespace(surface, base), ()) if not type_fqn else ()
@@ -476,7 +461,7 @@ def _member_report(
             return _cs_member(settings, scope, orc, surface, symbol, shape, p)
         case SourceKind.PYDIST | SourceKind.TSDECL:
             return _inproc_member(settings, scope, orc, surface, symbol, shape, p)
-        case SourceKind.TOOL:  # pragma: no cover  # TOOL never resolves through the oracle
+        case SourceKind.TOOL:  # pragma: no cover
             return Ok(_search_report(settings, scope, orc, surface, p))
         case never:  # pragma: no cover
             assert_never(never)
@@ -507,11 +492,9 @@ def _member_anchor(lines: tuple[str, ...], needle: str) -> tuple[int, ...]:
     return next((tier for tier in tiers if tier), ())
 
 
-def _cs_member(  # decompile rendering uses its locals as independent pipeline stages
+def _cs_member(
     settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
-    # Ranking runs arity-free (the roster displays bare names); an explicit backtick arity re-qualifies the
-    # resolved FQN so the oracle narrows its reflection spellings to the requested instantiation.
     base, arity = split_arity(symbol)
     head, _, tail = base.rpartition(".")
     direct = rank_type(surface.types, base)
@@ -520,8 +503,6 @@ def _cs_member(  # decompile rendering uses its locals as independent pipeline s
         return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
     match orc.member(scope, surface, f"{fqn}`{arity}" if arity else fqn):
         case Result(tag="ok", ok=done) if done.returncode == 0 and not done.stdout:
-            # A roster-resolved type whose every reflection spelling missed is a typed resolution gap; ranked
-            # candidates answer better than a search hit re-asserting the roster row the decompiler cannot find.
             miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=done.notes)
             return Ok(fold(Claim.API, "query", (miss,), detail=ApiResolution(candidates=rank_candidates(surface.types, base), reason="partial")))
         case Result(tag="ok", ok=done):
@@ -529,7 +510,6 @@ def _cs_member(  # decompile rendering uses its locals as independent pipeline s
             lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
             declared = _member_anchor(lines, tail or base.rsplit(".", 1)[-1])
             if not declared and not direct and head and done.returncode == 0 and text:
-                # The head-resolved owner never declares the member: ranked candidates answer better than an unrelated window.
                 return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
             anchor = next(iter(declared), 0)
             window = lines if p.full else lines[anchor : anchor + p.max_lines]
@@ -561,12 +541,9 @@ def _cs_member(  # decompile rendering uses its locals as independent pipeline s
 def _inproc_member(
     settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
-    # Docs come from thunk captures (inspect.getdoc / TSDoc comment), not XMLDoc sidecar lookup.
     def _build(done: Completed) -> Report:
         captured = {cap.name: cap.text for cap in CAPTURES.decode(done.stdout or b"[]")}
         if owners := captured.get("owners", ""):
-            # A bare member with two live class owners is a real ambiguity: the exact spellings answer as
-            # candidates so the caller re-queries qualified, never a silent pick.
             spellings = tuple(owners.splitlines())
             note = f"ambiguous member '{symbol}': {len(spellings)} owners"
             miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
@@ -574,8 +551,6 @@ def _inproc_member(
                 Claim.API, "query", (miss,), detail=ApiResolution(candidates=tuple((s, 100) for s in spellings[:_CANDIDATE_CAP]), reason="ambiguous")
             )
         if not captured:
-            # A thunk that captured nothing is a typed member miss; ranked roster candidates answer better than
-            # an empty report shell.
             miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{symbol}'",))
             return fold(Claim.API, "query", (miss,), detail=ApiResolution(candidates=rank_candidates(surface.types, symbol), reason="partial"))
         signature = captured.get("signature", "")
@@ -603,8 +578,6 @@ def _inproc_member(
 
 
 def _roster_report(settings: AssaySettings, surface: Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
-    # INDEX's sole durable artifact is the content-fingerprinted surface cache (unfiltered source output); other shapes
-    # write a .txt only when ranked results saturate the cap, so small rosters ride the envelope with zero artifacts.
     source = surface.source
     results, cap_notes = _matches(rows, ArtifactKind.SCOPE, p.grep)
     store = settings.store()
@@ -630,17 +603,13 @@ def _roster_report(settings: AssaySettings, surface: Surface, shape: SymbolShape
 
 
 def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams, *, member_leg: bool = True) -> Report:
-    # Misses carry nearest candidates so callers can route to suggestions.
     source = surface.source
     needle = p.symbol.casefold()
     hits = tuple(fqn for fqn in surface.types if needle in fqn.casefold())
     match hits:
         case () if p.grep and source.kind in {SourceKind.ASSEMBLY, SourceKind.NUGET}:
-            # No type hit but a --grep member needle: fan out member decompiles over the cap-bounded, relevance-ranked candidates.
             return _grep_member_report(settings, scope, orc, surface, p)
         case () if member_leg and p.symbol and source.kind in _INPROC_KINDS:
-            # Roster substring missed on a live-introspection source: the member leg scans class owners, so a
-            # bare method name answers from its owning class before conceding to candidates.
             deep = _inproc_member(settings, scope, orc, surface, p.symbol, SymbolShape.MEMBER, p).default_value(None)
             return deep if deep is not None else _search_miss(surface, p)
         case ():
@@ -650,7 +619,6 @@ def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, s
             done = Completed(
                 ("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits", *_source_notes(source), *cap_notes)
             )
-            # The artifact carries the full hit set only when results saturate the cap; small sets ride inline.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits)) if cap_notes else None
             detail = _api_detail(
                 source,
@@ -676,8 +644,6 @@ def _grep_miss(surface: Surface, p: ApiParams, note: str) -> Report:
 
 
 def _grep_hits(scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams) -> tuple[tuple[str, ...], str]:
-    # _CANDIDATE_CAP is the explosion guard: name-relevance ranks first; a pure member needle resembling no type name
-    # falls back to the first cap roster types, so a broad needle decompiles at most _CANDIDATE_CAP candidates.
     needle = p.grep.casefold()
     candidates = tuple(name for name, _score in rank_candidates(surface.types, p.grep, n=_CANDIDATE_CAP)) or surface.types[:_CANDIDATE_CAP]
     fault_note = ""
@@ -724,7 +690,7 @@ def _grep_member_report(settings: AssaySettings, scope: ArtifactScope, orc: Orac
             return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
-def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]  # all slots are structural caller positions shared across C# and INPROC paths
+def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     settings: AssaySettings,
     scope: ArtifactScope,
     orc: Oracle,
@@ -742,8 +708,6 @@ def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-ar
     kind: str = "",
     owner: str = "",
 ) -> Report:
-    # Empty signatures try namespace roster before falling to fuzzy search; member_leg=False keeps the search
-    # fall-through one-shot so a signatureless member capture never loops back into the member leg.
     match signature:
         case "":
             ns_key = rank_namespace(surface, p.symbol)
@@ -757,17 +721,12 @@ def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-ar
             base, queried_arity = split_arity(p.symbol)
             direct_fqn = rank_type(surface.types, base)
             head = base.rpartition(".")[0]
-            # An INPROC owner capture (the scan-resolved owning class) outranks roster ranking, which cannot see
-            # class members; the C# path passes no owner and keeps its rank-resolved FQN.
             resolved_fqn = owner or direct_fqn or (rank_type(surface.types, head) if head else "")
             is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
             final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
             member_name = base.rpartition(".")[2]
             suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
-            # The full decompiled body rides an artifact only when the inline window truncates; untruncated output rides the preview.
             artifact = _artifact(settings, surface.source, f"decompile{suffix}", full) if truncated else None
-            # Member-truth band: reflection spellings and arity from the metadata map, accessibility and kind
-            # from the decompiled signature; an INPROC kind capture wins over the parse.
             reflections = surface.reflection.get(resolved_fqn, ())
             arities = tuple(dict.fromkeys(split_arity(name)[1] for name in reflections))
             accessibility, parsed_kind = _signature_truth(signature)
@@ -796,8 +755,6 @@ def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-ar
                 status=RailStatus.OK,
                 notes=(f"{selected} selected lines", *_source_notes(surface.source), *evidence, *window_note),
             )
-            # The requested identity is the canonical owner qualified by the member segment for a member, the resolved type otherwise,
-            # so results[0].text round-trips the exact queried FQN every verification consumer keys on.
             identity = (f"{resolved_fqn}.{member_name}" if is_member and resolved_fqn else resolved_fqn or p.symbol)[:_NAME_CAP]
             result = Match(id=f"{final_shape.value}:{identity}", kind=ArtifactKind.SCOPE, text=identity, score=100)
             artifacts = (artifact,) if artifact is not None else ()
@@ -866,7 +823,6 @@ def _cache_artifact(store: ArtifactStore, path: str) -> Artifact:
 
 
 def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> tuple[str, int, bool]:
-    # --lines windows after grep; --full overrides both.
     selected = tuple(line for line in text.splitlines() if not grep or grep.casefold() in line.casefold())
     match (full, lines.split(":", maxsplit=1)):
         case (True, _):

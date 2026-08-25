@@ -209,12 +209,12 @@ public static class ProjectionRail {
 ## [04]-[DELIMITED_EXCHANGE]
 
 [PROFILE_LAW]:
-- Law: the default separator is the semicolon — comma exchange always declares `Sep.New(',')`; auto-detection counts candidates in row one only and is exploratory ingest, never a contract profile.
+- Law: the default separator is the semicolon — comma exchange always declares `Sep.New(',')`; auto-detection counts candidates in row one only and is exploratory ingest, never a declared profile.
 - Law: reader and writer harden as one pair — `Strict()` forces quotes-plus-unescape on the reader and escape on the writer, and one side hardened alone produces files the other cannot round-trip; the escape-off writer default writes separator-bearing values raw and corrupts silently, so any writer whose values are not provably separator-free declares `Escape` true.
 - Law: the invariant-culture default is the round-trip guarantee — a culture row on one side without the other breaks numeric and temporal round-trips silently; temporal text crosses in the suite's settled invariant spelling, and `SepSpec` makes symmetry structural — a writer opened from a reader's `Spec` inherits the profile as a value pass.
 - Law: ragged input is loud — column-count deviation throws at row advance carrying the physical line range, because a quoted column spans newlines and the row index diverges from lines exactly there; `DisableColCountCheck` is the explicit ragged opt-in moving absence to `TryGet`, and with a header `ColNotSetOption.Empty` is the absence spelling on write.
 - Law: source and sink ownership is explicit — every stream arm carries `leaveOpen`, the default closes on dispose, so a shared stream passed bare is closed out from under its other consumers; the named-source arms thread a logical name into failure receipts without caller-side context.
-- Law: header indices resolve once outside the loop from the same column rows the descriptor stamps — reader keys, writer emission, and the contract stamp share one declaration, and per-row name lookup re-pays hashing per row; name lookup is ordinal by default, so case-insensitive exchange declares `ColNameComparer` once for every lookup path, and a whole numeric block lifts in one `Cols` range `Parse<T>()` call, never a per-column loop.
+- Law: header indices resolve once outside the loop from the same column rows the descriptor stamps — reader keys, writer emission, and the schema stamp share one declaration, and per-row name lookup re-pays hashing per row; name lookup is ordinal by default, so case-insensitive exchange declares `ColNameComparer` once for every lookup path, and a whole numeric block lifts in one `Cols` range `Parse<T>()` call, never a per-column loop.
 - Exemption: the writer's row-commit block is the platform-forced disposable-row seam.
 
 ```csharp conceptual
@@ -280,8 +280,8 @@ public static class ExchangeSeam {
 
 [STAMP_AND_DIFF]:
 - Law: an artifact binds payload to two distinct identities — the byte-level content hash that the canonical octet codec mints once over stored bytes, and the descriptor-level `SchemaKey` that fingerprints column shape alone; identity placement follows the format's own metadata channel — columnar in the footer, delimited beside the file as a sidecar bound by content hash, never fake header rows — so a renamed artifact keeps its identity and a sidecar whose bytes no longer hash to its claim is corruption, not drift.
-- Law: the descriptor is the one contract value — emission, stamping, and the admission gate all derive from one artifact-class declaration, so a column added to the projection updates writer, `SchemaKey`, and gate in one diff.
-- Law: byte identity and descriptor equality are different contracts, never conflated — the supplied `ContentHash` is the one canonical octet codec the whole identity domain asserts once over stored bytes (never re-derived per call site, never recomputed from parsed-then-reserialized bytes), while `SchemaKey` fingerprints column shape so a newline convention or column reorder leaves it untouched as the content hash moves; the `SchemaKey` digest reuses that same `XxHash3` codec rather than opening a second hashing path, and re-keying by semantic equality requires canonical emission, never hash comparison of foreign bytes.
+- Law: the descriptor is the one schema value — emission, stamping, and the admission gate all derive from one artifact-class declaration, so a column added to the projection updates writer, `SchemaKey`, and gate in one diff.
+- Law: byte identity and descriptor equality are distinct invariants, never conflated — the supplied `ContentHash` is the one canonical octet codec the whole identity domain asserts once over stored bytes (never re-derived per call site, never recomputed from parsed-then-reserialized bytes), while `SchemaKey` fingerprints column shape so a newline convention or column reorder leaves it untouched as the content hash moves; the `SchemaKey` digest reuses that same `XxHash3` codec rather than opening a second hashing path, and re-keying by semantic equality requires canonical emission, never hash comparison of foreign bytes.
 - Law: the diff is name-keyed set algebra under a declared compatibility lattice — additive columns are compatible by construction because consumers read by name and tolerate extras, a widening retype is a reviewed policy row, a narrowing retype never is, and removal or rename is a new artifact class; duplicate header names reject at the gate before any row is read.
 - Law: revisions only increase — a consumer seeing an older revision than its compiled expectation distinguishes a stale producer from a corrupt artifact, two operational responses from one comparison.
 - Law: delivery is a closed destination union whose every arm carries its own provenance — locator, stamp, hash — and a bundle member carries two identity levels, the container hash and its own; a string-typed destination parameter erases the per-arm obligation and reopens dispatch at runtime.
@@ -299,7 +299,7 @@ public abstract partial record Verdict {
     private Verdict() { }
     public sealed record Compatible(Seq<string> Added) : Verdict;
     public sealed record StaleProducer(int Held, int Observed) : Verdict;
-    public sealed record ContractBreak(Seq<string> Violations) : Verdict;
+    public sealed record ShapeBreak(Seq<string> Violations) : Verdict;
 }
 
 public sealed record Lattice(Seq<(string From, string To)> Retype, bool NullWiden) {
@@ -309,7 +309,7 @@ public sealed record Lattice(Seq<(string From, string To)> Retype, bool NullWide
         observed.Revision < held.Revision
             ? new Verdict.StaleProducer(held.Revision, observed.Revision)
             : observed.Columns.Map(static row => row.Name).Distinct().Count != observed.Columns.Count
-                ? new Verdict.ContractBreak(["<duplicate-header>"])
+                ? new Verdict.ShapeBreak(["<duplicate-header>"])
                 : held.Columns.Choose(row =>
                     observed.Columns.Find(peer => peer.Name == row.Name) switch {
                         { IsSome: true, Case: ColumnRow peer } => Admits(row, peer)
@@ -317,7 +317,7 @@ public sealed record Lattice(Seq<(string From, string To)> Retype, bool NullWide
                             : Some($"<retyped:{row.Name}:{row.Type}->{peer.Type}>"),
                         _ => Some($"<removed:{row.Name}>"),
                     }) is { IsEmpty: false } violations
-                    ? new Verdict.ContractBreak(violations)
+                    ? new Verdict.ShapeBreak(violations)
                     : new Verdict.Compatible(
                         observed.Columns.Filter(peer => !held.Columns.Exists(row => row.Name == peer.Name))
                             .Map(static peer => peer.Name));
@@ -345,7 +345,7 @@ public abstract partial record Delivery {
         return lattice.Diff(held, stamp).Switch(
             compatible:    static (s, arm) => Fin.Succ((s.Locator, s.Identity, arm.Added)),
             staleProducer: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8401, $"<stale-producer:{s.Identity}:{arm.Observed}<{arm.Held}>")),
-            contractBreak: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8402, $"<contract-break:{s.Identity}:{string.Join(',', arm.Violations)}>")),
+            shapeBreak: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8402, $"<shape-break:{s.Identity}:{string.Join(',', arm.Violations)}>")),
             state: (Locator: locator, Identity: identity));
     }
 }
@@ -368,8 +368,8 @@ public sealed record GeoProfile(double Precision, bool WriteBBox, string IdPrope
 
     public GeometryFactory Admission => new(new PrecisionModel(Precision), 4326);
 
-    public JsonSerializerOptions Compose(IJsonTypeInfoResolver contracts) {
-        var options = new JsonSerializerOptions { TypeInfoResolver = contracts };
+    public JsonSerializerOptions Compose(IJsonTypeInfoResolver resolver) {
+        var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
         options.Converters.Add(new GeoJsonConverterFactory(Admission, WriteBBox, IdProperty,
             RingOrientationOption.EnforceRfc9746, allowModifyingAttributesTables: false));
         options.MakeReadOnly();
@@ -389,7 +389,7 @@ public static class GeoSeam {
 [BLOB_AND_CONTAINER]:
 - Law: the blob is a header — `GP` magic, version, flags packing endianness, bounding-envelope kind, and the empty bit, SRID, optional bounding envelope — followed by a WKB body; raw WKB readers cannot parse it, the magic at offset zero is the signature gate before any typed decode, and the header, never the WKB body, is the single SRID authority.
 - Law: codec policy freezes per container profile — `HandleSRID` on, `RepairRings` a declared tolerance (a repaired blob re-emits different bytes, so byte-identity flows and repair are mutually exclusive rows), `HandleOrdinates` capped by the coordinate-sequence capability — and the writer's ordinate policy derives both body dimensionality and header bounding-envelope kind, so the two cannot disagree.
-- Law: empty geometries are header-coded — the NaN-coded empty point remaps by flag at read, so consumers never see NaN coordinates and empty round-trips by contract.
+- Law: empty geometries are header-coded — the NaN-coded empty point remaps by flag at read, so consumers never see NaN coordinates and the empty form round-trips exactly.
 - Law: the container is an embedded store with a three-table metadata spine binding each feature table to exactly one geometry column and SRID — a vector layer is spine rows with a feature table, multi-geometry entities are multiple layers joined on the integer id key, and store mechanics arrive as settled embedded-store law.
 - Law: spatial query is two-phase by construction — R-tree bounding-envelope candidates keyed on the integer primary key, then exact predicates on decoded geometries for the candidate set only — because extent-only answers are wrong in proportion to shape elongation; header bounding envelopes feed index maintenance without re-decoding WKB, and bulk loads drop and rebuild the index — trigger maintenance and bulk rebuild are mutually exclusive within one load, and the staleness gate catches protocol violations after the fact.
 - Law: a layer write is one transaction over feature row, index row, and contents extent — a stale denormalized extent misleads every discovery consumer, so write paths maintain it or mark it unknown.

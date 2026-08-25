@@ -23,11 +23,11 @@
 
 ```python signature
 @pytest.fixture
-def cov(request: pytest.FixtureRequest) -> coverage.Coverage | None: ...   # the controller's live Coverage, or None
+def cov(request: pytest.FixtureRequest) -> coverage.Coverage | None: ...
 @pytest.fixture
-def no_cover() -> None: ...                                                # marker-paired fixture; disables coverage for one test
+def no_cover() -> None: ...
 class TestContextPlugin:
-    def switch_context(self, item: pytest.Item, when: str) -> None: ...    # cov.switch_context(f"{item.nodeid}|{when}")
+    def switch_context(self, item: pytest.Item, when: str) -> None: ...
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -45,9 +45,6 @@ class TestContextPlugin:
 |  [09]   | `pytest.mark.no_cover`          | marker     | disable coverage for the marked test                                         |
 
 ```python signature
-# --cov-report destinations resolve to coverage.py report writers:
-#   term|term-missing -> Coverage.report ; html -> html_report ; xml -> xml_report
-#   json -> json_report ; lcov -> lcov_report ; annotate -> annotate ; markdown|markdown-append -> report(output_format="markdown")
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

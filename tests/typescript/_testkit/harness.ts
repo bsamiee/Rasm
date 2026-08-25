@@ -33,7 +33,6 @@ import { GenericContainer, Network, type StartedNetwork, type StartedTestContain
 
 declare namespace Containers {
     type Exec = { readonly exitCode: number; readonly output: string; readonly stderr: string; readonly stdout: string };
-    // A lane is the SET of row fields it declares on the one builder; a new capability is a field, never a second mechanism.
     type Row = {
         readonly image: string;
         readonly ports: Array.NonEmptyReadonlyArray<number>;
@@ -90,13 +89,10 @@ declare namespace ObjectStore {
 const _PG = { port: 5432, database: 'rasm', username: 'rasm', password: 'rasm', startupMs: 120_000 } as const;
 const _STORE = { port: 9000, health: '/minio/health/live', region: 'us-east-1', startupMs: 120_000 } as const;
 
-// The container listen arm barrier: real setTimeout pacing (TestClock-immune), bounded turns before a typed engine fault.
-// The prefix marks kit-internal control frames — every listener on a channel drops foreign arm traffic, never delivers it.
 const _ARM = { pauseMs: 25, turns: 120, prefix: '<rasm-testkit-armed:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// The polyglot image manifest is an open name->image record: a new container lane is a key, never a schema change.
 const _Pins = Schema.Record({ key: Schema.String, value: Schema.NonEmptyString });
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -107,7 +103,6 @@ class HarnessFault extends Data.TaggedError('HarnessFault')<{
     readonly code: Option.Option<string>;
     readonly detail: string;
 }> {
-    // Foreign engines route by their own error NAME, carried typed — never re-derived from message substrings.
     static readonly engine =
         (lane: HarnessFault['lane']) =>
         (defect: unknown): HarnessFault =>
@@ -119,8 +114,6 @@ class HarnessFault extends Data.TaggedError('HarnessFault')<{
             });
 }
 
-// Kit-internal rollback sentinel: the sandbox always fails its transaction with this carrier, so the
-// engine rolls back and the caller's verdict rides out intact.
 class _Rollback<A> extends Data.TaggedError('rasm-testkit/Rollback')<{ readonly verdict: A }> {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -137,7 +130,6 @@ class ObjectStore extends Context.Tag('rasm-testkit/ObjectStore')<ObjectStore, O
 
 class PgLane extends Context.Tag('rasm-testkit/PgLane')<PgLane, PgLane.Service>() {}
 
-// Pin manifest location: defaulted to the polyglot tests/containers.json owner, overridable for fixture-tree specs.
 class PinsPath extends Context.Reference<PinsPath>()('rasm-testkit/PinsPath', {
     defaultValue: (): string => fileURLToPath(new URL('../../containers.json', import.meta.url)),
 }) {}
@@ -151,10 +143,8 @@ const _breath = Effect.promise<void>(() => new Promise((wake) => setTimeout(wake
 
 const _decodePins = Schema.decodeUnknown(Schema.parseJson(_Pins), { errors: 'all' });
 
-// S3 lists keys in UTF-8 byte order; UTF-16 code-unit comparison diverges past the BMP, so the double compares encoded bytes.
 const _utf8 = new TextEncoder();
 const _byKeyBytes: Order.Order<string> = (self, that) => {
-    // BOUNDARY ADAPTER: byte-scan kernel — the tightest total spelling of the S3 ordering contract.
     const left = _utf8.encode(self);
     const right = _utf8.encode(that);
     for (const [at, own] of left.subarray(0, Math.min(left.length, right.length)).entries()) {
@@ -182,8 +172,6 @@ const _lane = (
     sandbox,
 });
 
-// The single-connection sandbox: BEGIN/ROLLBACK brackets the work, so writes never outlive the test;
-// a failed rollback is a die — polluted lane state must never pass silently.
 const _bracketSandbox =
     (exec: PgLane.Service['exec']): PgLane.Service['sandbox'] =>
     (work) =>
@@ -193,8 +181,6 @@ const _bracketSandbox =
             () => Effect.orDie(exec('ROLLBACK')),
         );
 
-// The pooled-driver sandbox: work joins the fiber-scoped transaction connection through
-// withTransaction, and the sentinel failure forces the engine's own rollback on every path.
 const _clientSandbox =
     (pg: PgClient.PgClient): PgLane.Service['sandbox'] =>
     <A, E, R>(work: Effect.Effect<A, E, R>) =>
@@ -204,7 +190,6 @@ const _clientSandbox =
             Effect.flatten,
         );
 
-// Container rows are DATA on the one builder: a new lane is a row, never a new mechanism. Images are caller-owned — the polyglot pin lives in tests/containers.json, never in the kit.
 const Containers = {
     pg: (options: PgLane.ContainerOptions): Containers.Row => ({
         image: options.image,
@@ -225,19 +210,15 @@ const Containers = {
         ready: Wait.forHttp(_STORE.health, _STORE.port).forStatusCode(200),
         startupMs: _STORE.startupMs,
     }),
-    // In-container command receipt: exit code, streams, and interleaved output — the caller owns the verdict.
     exec: (started: StartedTestContainer, command: Array.NonEmptyReadonlyArray<string>): Effect.Effect<Containers.Exec, HarnessFault> =>
         Effect.map(
             _guarded('container', () => started.exec([...command])),
             (receipt) => ({ exitCode: receipt.exitCode, output: receipt.output, stderr: receipt.stderr, stdout: receipt.stdout }),
         ),
-    // Scoped network acquisition: rows join it through their `net` field; teardown rides the scope.
     network: Effect.acquireRelease(
         _guarded('container', () => new Network().start()),
         (started) => Effect.ignore(Effect.promise(() => started.stop())),
     ),
-    // Typed pin resolution over the polyglot image manifest: an unpinned lane is honest typed absence,
-    // a malformed manifest a typed engine fault — never a module-load throw in a consumer spec.
     pin: (name: string): Effect.Effect<string, HarnessFault, FileSystem.FileSystem> =>
         Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
@@ -267,7 +248,6 @@ const Containers = {
                     (built) => (row.resources === undefined ? built : built.withResourcesQuota(row.resources)),
                 ).start(),
             ),
-            // Release never masks the test verdict; Ryuk reaps anything a failed stop strands.
             (started) => Effect.ignore(Effect.promise(() => started.stop())),
         ),
 } as const;
@@ -277,8 +257,6 @@ const _pgliteListen =
     (channel) =>
         Effect.gen(function* () {
             const box = yield* Mailbox.make<string, HarnessFault>();
-            // The acquire IS the registration barrier: once listen resolves, every later NOTIFY is delivered.
-            // Arm-prefixed control frames drop here too — both lanes serve one listen algebra.
             yield* Effect.acquireRelease(
                 _guarded('pg', () => db.listen(channel, (payload) => void (payload.startsWith(_ARM.prefix) || box.unsafeOffer(payload)))),
                 (dispose) => Effect.ignore(Effect.promise(() => dispose())),
@@ -306,8 +284,6 @@ const _pgClientListen =
                 Effect.catchAll((fault) => Effect.asVoid(box.fail(fault))),
                 Effect.forkScoped,
             );
-            // Arm barrier: the driver subscribes asynchronously, so a sentinel self-notify proves the subscription live before
-            // returning. The notify rides pg_notify() — NOTIFY is a utility statement and rejects bind parameters outright.
             yield* Effect.iterate(0, {
                 while: (turn) => turn >= 0 && turn < _ARM.turns,
                 body: (turn) =>
@@ -345,9 +321,6 @@ const _pgFromClient = (seed?: string): Layer.Layer<PgLane, HarnessFault, PgClien
     );
 
 const PgLanes = {
-    // The fast unit lane: one in-process WASM postgres, seeded once at acquire, discarded with the scope. One entry owns
-    // both modalities: a bare string is the seed; the options row adds caller-owned extension modules — the pglite twin
-    // of the caller-owned container image pin.
     pglite: (options?: string | PgLane.PgliteOptions): Layer.Layer<PgLane, HarnessFault> => {
         const lane: PgLane.PgliteOptions = typeof options === 'string' ? { seed: options } : (options ?? {});
         return Layer.scoped(
@@ -375,7 +348,6 @@ const PgLanes = {
             }),
         );
     },
-    // The real-server lane: the pg container row bound through the real driver; server-extension DDL seeds via raw execute.
     container: (options: PgLane.ContainerOptions): Layer.Layer<PgLane, HarnessFault> =>
         Layer.provide(
             _pgFromClient(options.seed),
@@ -397,7 +369,6 @@ const PgLanes = {
 } as const;
 
 const ObjectStores = {
-    // The in-process double: the same filesystem algebra over one keyed cell; presign is a real-store capability and refuses typed here.
     memory: Layer.effect(
         ObjectStore,
         Effect.map(Ref.make(HashMap.empty<string, Uint8Array>()), (cell) => ({
@@ -405,7 +376,6 @@ const ObjectStores = {
             get: (key) => Effect.map(Ref.get(cell), HashMap.get(key)),
             list: (prefix) =>
                 Effect.map(Ref.get(cell), (held) =>
-                    // UTF-8 byte order mirrors the real S3 listing contract, so the double and the live lane agree on every key.
                     Array.sort(
                         Array.filter(Array.fromIterable(HashMap.keys(held)), (key) => key.startsWith(prefix)),
                         _byKeyBytes,
@@ -416,7 +386,6 @@ const ObjectStores = {
                 Effect.fail(new HarnessFault({ lane: 'store', reason: 'unsupported', code: Option.none(), detail: 'presign requires the s3 lane' })),
         })),
     ),
-    // The real lane: an S3-compatible endpoint (container row or external), path-style, bucket ensured at acquire.
     s3: (options: ObjectStore.S3Options): Layer.Layer<ObjectStore, HarnessFault> =>
         Layer.scoped(
             ObjectStore,
@@ -458,7 +427,6 @@ const ObjectStores = {
                                 () => Effect.succeed(Option.none<Uint8Array>()),
                             ),
                         ),
-                    // Continuation-token pagination: the listing is total over the prefix, never the first truncated page.
                     list: (prefix) =>
                         Effect.map(
                             Effect.iterate(
@@ -500,7 +468,6 @@ const ObjectStores = {
         ),
 } as const;
 
-// The loopback capsule: one in-process socket server serving `app`, yielding its endpoint and a base-wired client (relative-path requests).
 const _loopbackValue: Effect.Effect<Context.Tag.Service<Loopback>, never, HttpClient.HttpClient | HttpServer.HttpServer> = Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const url = yield* HttpServer.addressFormattedWith(Effect.succeed);

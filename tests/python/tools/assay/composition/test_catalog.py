@@ -10,7 +10,7 @@ from assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, R
 from tests.python._testkit.laws import spec
 from tests.python._testkit.spec import assert_roundtrip, idempotent
 from tests.python._testkit.strategies import (
-    resolve as _resolve,  # ruff:ignore[unused-import]  # registers the Tool Hypothesis strategy on import; no call site
+    resolve as _resolve,  # ruff:ignore[unused-import]
 )
 
 
@@ -20,7 +20,6 @@ COVERS: tuple[object, ...] = (launch, select)
 
 _VALID_RG_JSON: bytes = b'{"type":"match","data":{"path":{"text":"foo.py"},"lines":{"text":"x = 1\\n"},"line_number":7}}'
 
-# Concrete payload pins field mapping; generated rows only prove shape.
 _AST_MATCH_PAYLOAD: bytes = (
     b'[{"text":"def f()","file":"a.py","lines":"1-3","replacement":"","range":{"start":{"line":1,"column":0},"end":{"line":3,"column":1}}}]'
 )

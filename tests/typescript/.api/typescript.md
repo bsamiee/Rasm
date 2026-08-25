@@ -25,7 +25,6 @@ Workspace consumes this package on the GATE lane only: `tsc --build tsconfig.jso
 |  [07]   | `unstable/fs` / `unstable/proto`        | host fs seam / wire types       | server transport contracts                                   |
 
 ```ts signature
-// dist/api/sync/api.d.ts — the server-backed lane; every call is IPC to the spawned native compiler.
 class API<FromLSP extends boolean = false> {
     constructor(options?: APIOptions | LSPConnectionOptions);
     parseConfigFile(file: DocumentIdentifier): ConfigResponse;
@@ -33,7 +32,6 @@ class API<FromLSP extends boolean = false> {
     close(): void
 }
 class Snapshot { getProjects(): readonly Project[]; getDefaultProjectForFile(file: DocumentIdentifier): Project | undefined; dispose(): void }
-// dist/ast/ast.d.ts — the walk is a Node METHOD now, not a free function.
 interface Node { forEachChild<T>(visitor: (node: Node) => T, visitArray?: (nodes: NodeArray<Node>) => T): T | undefined }
 ```
 

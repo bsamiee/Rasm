@@ -3,7 +3,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import cmath
-from collections.abc import Callable, Iterable, Mapping, Sequence  # msgspec.Struct resolves annotations at runtime
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 import dataclasses
 from decimal import Decimal
@@ -133,8 +133,6 @@ def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
 
 
 def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool:
-    # NaN pairs count as close: wire and solver laws compare degraded lanes, not IEEE ordering.
-    # The equality fast-path also admits matching infinities, where the difference is NaN.
     fa, fb = complex(a), complex(b)
     if fa == fb or (cmath.isnan(fa) and cmath.isnan(fb)):
         return True
@@ -160,7 +158,6 @@ def _rail_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: st
             return f"{path}: rail tags differ: {a!r} != {b!r}"
 
 
-# One arm per data shape; the closed dispatch owns every return.
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
     """Locate the first tolerance divergence between two values.
 
@@ -169,7 +166,6 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
     """
     match (a, b):
         case (bool(), _) | (_, bool()) | (str(), _) | (bytes(), _):
-            # Kind parity first: True == 1 in Python, but bool and int are distinct wire facts.
             return None if isinstance(a, bool) == isinstance(b, bool) and a == b else f"{path}: {a!r} != {b!r}"
         case (np.ndarray() | np.generic(), _) | (_, np.ndarray() | np.generic()):
             left, right = np.asarray(a), np.asarray(b)
@@ -186,7 +182,6 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
         ):
             return None if _num_close(num_a, num_b, rel_tol, abs_tol) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
         case (_QuantityLike() as qty_a, _QuantityLike() as qty_b):
-            # Quantity-shaped values (pint and peers): units match exactly, magnitudes compare recursively.
             if qty_b.units != qty_a.units:
                 return f"{path}: units {qty_a.units!r} != {qty_b.units!r}"
             return _diverge(qty_a.magnitude, qty_b.magnitude, rel_tol, abs_tol, f"{path}.magnitude")
@@ -418,7 +413,6 @@ def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[
 # --- [ROP_ORACLES]
 
 _DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
-# Public wire-axis constant: `assert_roundtrip(value, T, codec=MSGPACK_CODEC)` proves the MessagePack leg.
 MSGPACK_CODEC: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="deterministic")
 
 
@@ -566,7 +560,7 @@ def model_based[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str 
     """
     active = hyp_settings.get_current_profile_name()
     resolved = profile if profile is not None else (PROFILE_MUTATION if active == PROFILE_MUTATION else PROFILE_STATEFUL)
-    run_state_machine_as_test(  # type: ignore[no-untyped-call]  # hypothesis leaves the driver unannotated
+    run_state_machine_as_test(  # type: ignore[no-untyped-call]
         machine_cls, settings=settings if settings is not None else hyp_settings.get_profile(resolved)
     )
 

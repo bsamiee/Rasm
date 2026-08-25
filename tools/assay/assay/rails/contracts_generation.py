@@ -154,8 +154,6 @@ def _read(base: Path, rel: str) -> bytes:
 
 
 def _compose(repo: Path, generated: Path, stage: Path, output_roots: tuple[str, ...], owned_files: tuple[str, ...]) -> None:
-    # The stage mirrors the owned set alone: this run's clean Buf trees, plus each derived file seeded from its committed bytes
-    # so an emission that rewrites nothing still hands the transaction a complete source.
     stage_status = _status(stage)
     if stage_status is not None:
         if not stat.S_ISDIR(stage_status.st_mode):
@@ -314,8 +312,6 @@ def compose_image(
     absent = tuple(str(source) for source in roots if not _source_kind(source, directory=True))
     if absent:
         return Error(Fault(("contracts", "generate"), message=f"generation input root is absent or unsafe: {', '.join(absent)}"))
-    # A derived file absent from the estate stays absent here: its own emission rule names the repair as a finding, and the
-    # transaction never reaches a commit while one stands.
     for source in (*roots, *(repo / rel for rel in owned_files if _status(repo / rel) is not None)):
         audited = audit_image(source, ("contracts", "generate"))
         if audited.is_error():

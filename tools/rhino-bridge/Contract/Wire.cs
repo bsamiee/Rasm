@@ -11,9 +11,6 @@ namespace Rasm.Bridge.Contract;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Ownership: wire status rows carry severity rank and exit code; Worst is the fold monoid.
-// Ok=Skipped rank ties keep skip receipt-local, while Timeout and Busy outrank failed work.
-// Converter attributes stay in source because STJ generation cannot observe companion output.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -36,8 +33,6 @@ public sealed partial class PhaseStatus {
     }
 }
 
-// Ownership: closed session-phase vocabulary. First-fault taxonomy, remedy routing, and quit-rung
-// verdicts project from these rows; per-verb decisiveness remains fold policy.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,8 +54,6 @@ public sealed partial class SessionPhase {
     public static readonly SessionPhase Status = new(key: "status");
 }
 
-// Ownership: evidence-mode admission. Verify demands reviewed references; Author emits candidates.
-// Wire projections are the frozen "verify"/"author" tokens on argv and bridge-closure.json.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -70,8 +63,6 @@ public sealed partial class EvidenceMode {
     public static readonly EvidenceMode Author = new(key: "author");
 }
 
-// Ownership: scenario evidence class. Smoke is admission evidence; CertifiedReference is the
-// mandatory reviewed-reference comparison that turns a run into proof.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -84,9 +75,6 @@ public sealed partial class EvidenceClass {
     public static readonly EvidenceClass CertifiedReference = new(key: "certified-reference");
 }
 
-// Ownership: evidence role is the bridge artifact index AND fact-key vocabulary. FactPrefix rows
-// are frozen wire law rendered by ScenarioKit FactKey and parsed by the session fold; consumers
-// classify through OfFactKey instead of scattering prefix literals or suffix scans.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -119,9 +107,6 @@ public sealed partial class EvidenceRole {
     public string FactArgument(string key) => OwnsFactKey(key: key) ? key[FactPrefix.Length..] : key;
 }
 
-// Ownership: reviewed-reference admission. Candidate exists only in authoring mode; verify mode
-// requires Reviewed plus a Matched result. Unpromoted marks a verify run whose reference root
-// carries no reviewed corpus yet — a distinct degraded state, never a structural failure.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -135,7 +120,6 @@ public sealed partial class ReferenceAdmission {
     public static readonly ReferenceAdmission Matched = new(key: "matched");
 }
 
-// Ownership: artifact retention belongs to the bridge certificate, not Assay directory pruning.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -149,8 +133,6 @@ public sealed partial class ArtifactRetentionClass {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-// Ownership: closed failure taxonomy. Status and prescription derive from the union, and new
-// cases flow only shell->supervisor where the reader is the newer assembly.
 [JsonDerivedType(typeof(LaunchFailed), "launch-failed")]
 [JsonDerivedType(typeof(ConnectFailed), "connect-failed")]
 [JsonDerivedType(typeof(BusyHeld), "busy-held")]
@@ -214,12 +196,8 @@ public abstract partial record BridgeFault {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// Ownership: inert event stamp; session-scoped events leave Scenario null for boundary admission.
 public readonly record struct EventStamp(Guid SessionId, long Sequence, long AtUnixMs, string? Scenario);
 
-// Ownership: one evidence type for RPC notifications, JSONL spool lines, and envelope facts.
-// Fact keys stay author-open; OnFailure records the trigger and never selects behavior. The Fact
-// factories are the single FactCase construction owner across shell, cargo, and supervisor.
 [JsonDerivedType(typeof(FactCase), "fact")]
 [JsonDerivedType(typeof(CaptureCase), "capture")]
 [JsonDerivedType(typeof(PhaseCase), "phase")]
@@ -253,9 +231,6 @@ public abstract partial record BridgeEvent {
     }
 }
 
-// Ownership: the single ~/.rasm home for bridge endpoint, lease, and quit-journal state. Every bridge path under the
-// home resolves through this owner; no other site in Contract or Supervisor reconstructs the home directory. The
-// dependency-zero Stub mirrors only the home name locally because it loads before the shell ALC exists.
 public static class RasmHome {
     public static string Directory =>
         Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
@@ -263,8 +238,6 @@ public static class RasmHome {
     public static string Resolve(string name) => Path.Combine(path1: Directory, path2: name);
 }
 
-// Ownership: the single report-dir layout vocabulary. Every bridge writer and the session fold
-// resolve report paths through these rows; the strings are frozen wire law for assay artifact reads.
 public static class ReportLayout {
     public const string CertificateFile = "bridge-certificate.json";
     public const string CapturesDirectory = "captures";
@@ -280,8 +253,6 @@ public static class ReportLayout {
         Path.Combine(path1: reportDir, path2: EventsDirectory, path3: scenario + ".jsonl");
 }
 
-// Ownership: partial-load type enumeration shared by shell and cargo ALC residents; loader faults
-// surface through the optional sink instead of aborting discovery.
 public static class HostReflection {
     public static IEnumerable<Type> LoadableTypes(Assembly assembly, Action<Exception>? onLoaderFault = null) {
         ArgumentNullException.ThrowIfNull(argument: assembly);
@@ -297,8 +268,6 @@ public static class HostReflection {
     }
 }
 
-// Ownership: endpoint admission. Validation owns pipe shape, IsLiveFor owns liveness, and `rbx-`
-// remains the distinct pipe family so stale or foreign endpoints reject typed.
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
 [JsonConverter(typeof(Converter))]
 public sealed partial class EndpointRecord {
@@ -313,7 +282,6 @@ public sealed partial class EndpointRecord {
     public int ContractGeneration { get; }
     public string ShellVersion { get; }
     public string RhinoVersion { get; }
-    // Live and poisoned endpoint records share this codec so startup failure remains typed evidence.
     public string Fault { get; }
 
     static partial void ValidateFactoryArguments(
@@ -329,8 +297,6 @@ public sealed partial class EndpointRecord {
     public bool IsLiveFor(int pid, long startedAtUnixMs) =>
         RhinoPid == pid && Math.Abs(value: RhinoStartedAtUnixMs - startedAtUnixMs) <= 1_000;
 
-    // Boundary codec: user-declared JsonConverter suppresses the generated value-object converter,
-    // so reads route through Validate while unknown members preserve additive evolution.
     public sealed class Converter : JsonConverter<EndpointRecord> {
         public override EndpointRecord? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
             ArgumentNullException.ThrowIfNull(argument: options);
@@ -395,7 +361,6 @@ public sealed partial class EndpointRecord {
     }
 }
 
-// Inert wire data stays plain because no member carries an admission invariant.
 public readonly record struct HostFingerprint(string BundleVersion, string RhinoCommonVersion, string Grasshopper2Version, string RuntimeVersion);
 public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Receipt);
 public readonly record struct ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
@@ -442,8 +407,6 @@ public sealed record EvidenceCertificate(
     ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
     ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
     ScratchManifest[] ScratchManifests, PhaseReceipt[] Phases, FaultSummary? FirstFault);
-// Certificate, artifact index, and evidence counts are session-scoped envelope facts; the receipt
-// carries only per-scenario verdict, reference rows, and first failure.
 public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
     public PhaseStatus ScenarioStatus { get; init; } = Status;
     public ReferenceEvidenceResult[] ReferenceResults { get; init; } = [];
@@ -452,35 +415,22 @@ public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Statu
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
 public readonly record struct UnloadReceipt(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
 
-// Ownership: quit-scrub receipt. The shell marks every open RhinoDoc clean and re-reads to report
-// the residual still-Modified count and any persisted doc Path that would raise the AppKit save sheet
-// on terminate; ResidualDirty == 0 is the supervisor's AE-rung precondition. SavedPaths carries the
-// on-disk Path of any doc the scrub could not fully clean so a dirty terminate is typed evidence.
 public readonly record struct QuitPrepareReceipt(int Documents, int MarkedClean, int ResidualDirty, string Gh2, string[] SavedPaths) {
     public bool Scrubbed => ResidualDirty == 0;
 }
 
-// Ownership: per-session cargo carrier; SessionId and ReportDir source all in-host stamps and
-// artifacts, while content-hash reuse stays inside the shell swap. Evidence mode and reference
-// roots are supervisor-side concerns and never cross into the host.
 public sealed record CargoManifest(
     Guid SessionId, string ReportDir, string ContentHash, string StagePath,
     Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
 public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
-// Ownership: the frozen negotiation shape. Directional nulls and capability facts keep handshake
-// growth additive without dedicated one-off generation fields.
 public sealed record Handshake(
     int ContractGeneration, string SenderVersion,
     CapabilityEntry[] Capabilities, HostFingerprint? Fingerprint, EndpointRecord? Endpoint) {
-    // The single contract-generation declaration drives both directions and ShellSkew projection.
     public const int Generation = 1;
     public const string ShellContentCapability = "shell.content.sha256";
 }
 
-// Ownership: wire selection by value shape AND its matching semantics; supervisor->shell payloads
-// grow by fields unless handshake capabilities gate a new case. Filter is the single owner of
-// theme/name resolution: fnmatch-style `*`/`?` wildcards, ordinal case, and bare-method-name hits.
 [JsonDerivedType(typeof(AllCase), "all")]
 [JsonDerivedType(typeof(ThemesCase), "themes")]
 [JsonDerivedType(typeof(NamesCase), "names")]
@@ -510,8 +460,6 @@ public abstract partial record ScenarioSelection {
     }
 }
 
-// Ownership: the terminal session fold. Fields materialize fold results only; evidence carries
-// facts and captures while phase history stays in receipts and spool artifacts.
 public sealed record SessionEnvelope(
     string RunId, string Verb, PhaseStatus Status, double DurationMs, string ReportDir,
     HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioReceipt[] Scenarios,

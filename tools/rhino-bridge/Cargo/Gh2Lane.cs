@@ -5,12 +5,10 @@ namespace Rasm.Bridge.Cargo;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// Ownership: scenarios and the runner exchange typed capture receipts, never raw GH2 graphs.
 internal readonly record struct CaptureFile(string Path, int Width, int Height);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: the only Grasshopper2 type boundary. The render lane uses the editor constructor, never ShowEditor, so offscreen DrawToBitmap avoids NSView realization while keeping GH2 breakage local to this file.
 internal sealed class Gh2Lane : IDisposable {
     private const int FallbackHeight = 720;
     private const int FallbackWidth = 1280;
@@ -22,7 +20,6 @@ internal sealed class Gh2Lane : IDisposable {
     internal static Gh2Lane Acquire() => new(editor: GhEditor.Instance ?? new GhEditor());
 
     internal Fin<CaptureFile> DrawCanvas(string path) {
-        // BOUNDARY ADAPTER: GH2 paint failures and null bitmaps stay on the typed rail.
         if (editor is not { Canvas: { } canvas }) {
             return Fin.Fail<CaptureFile>(error: Error.New(message: "Gh2Lane: editor canvas absent"));
         }

@@ -26,7 +26,7 @@ When a concern matches several rows, the most specific wins; the rail axis is re
 [REQUEST_COLLAPSE]:
 - Law: one concern exposes one entrypoint; a verb family is a `@tagged_union` with one `case()` per verb under the settled total `match`, and each sibling's distinct parameters become its case payload while the shared preamble becomes the dispatch prologue executed once before the `match` — the verb set is the closed family the exhaustiveness mechanic proves, so a new verb is one case that breaks every dispatch arm at type-check, never a sibling `create`/`update` function beside the union.
 - Law: admission is two-tier — the private `@tagged_union` constructor seals the case family, and one `of_*` classmethod returning `Result[Request, Fault]` is the validated ingress, so the dispatch interior is total over well-formed requests and never re-checks a field the factory already proved; a verb's independent field checks compose applicatively through `map2` over the field rails rather than a nested abort ladder, and whether that composition short-circuits or accumulates is the rail page's disposition carried as the factory's policy value, fixed once at the admission boundary.
-- Law: the entrypoint internalizes the concern's whole operating envelope — policy resolution rides the `[04]` policy values, retry, contract, and telemetry ride the `[08]` aspect stack, lifecycle rides the owner's own transitions — so the consumer hands in one request and composes the returned rail, never re-assembling internals at the call site or importing a symbol per concern; where the domain admits an inverse — encode/decode, project/absorb, advance/rewind — the reverse direction is one more case on the same request family under the same total `match`, never a sibling entrypoint pair.
+- Law: the entrypoint internalizes the concern's whole operating envelope — policy resolution rides the `[04]` policy values, retry, type guarding, and telemetry ride the `[08]` aspect stack, lifecycle rides the owner's own transitions — so the consumer hands in one request and composes the returned rail, never re-assembling internals at the call site or importing a symbol per concern; where the domain admits an inverse — encode/decode, project/absorb, advance/rewind — the reverse direction is one more case on the same request family under the same total `match`, never a sibling entrypoint pair.
 - Law: a fan entrypoint binding one payload to several discriminant-scoped consumers slices the validated payload per consumer's declared scope — each key rides exactly the consumers that observe it, and refusal fires only for a key no selected consumer observes — because a per-consumer strict foreign-key refusal composed naively over the fan rejects every heterogeneous payload the fan exists to serve.
 - Use: `@tagged_union` named cases when verbs carry distinct fields; a `StrEnum` discriminant on one frozen owner when the verbs share one field set and differ only by tag.
 - Reject: a request shaped as success-or-failure — rails own outcome transport; a `dispatch(verb: str, **kwargs)` signature where `verb` is an open string and `kwargs` is an untyped bag.
@@ -348,16 +348,16 @@ def discovered(candidate: object, key: str, seal: str, /) -> Result[ShapeStore, 
 ## [08]-[ASPECTS]
 
 [WEAVE_TAXONOMY]:
-- Law: a definition-time aspect is a property of the function — declared by a signature-preserving decorator, present at every call site; a call-site aspect is a property of one invocation — attached as a scope or combinator around the call it modifies, and the classification test is per-site variance: a concern present at every use weaves at definition (retry policy, runtime contract, observability span, memoization), a concern that varies per site composes at the site (one deadline, one cancellation scope, one resource bracket).
-- Law: a definition-time aspect preserves the signature and the rail through inline `**P` and `functools.wraps`, materializes policy from its arguments, and never raises inside domain flow — a failing aspect returns the rail's `Error`, it does not throw past the wrapped function, so the contract weave applies `beartype(conf=...)` under a shared cached `BeartypeConf` and catches `BeartypeCallHintViolation` (the root both the param and return violations inherit, so one arm covers the default conf), lifting it through `lifted` onto the fault rather than a bare `@beartype` that throws the violation into the interior; the `violation_type=` redirect that raises a domain exception instead of railing is the shape page's admission-factory form, distinct from this rail-lift weave.
-- Exemption: the weave's `try`/`except BeartypeCallHintViolation` is the measured rail-lift kernel — the one statement a definition-time aspect admits, converting the contract violation to the fault rail so the wrapped core stays expression-shaped and the raised violation never reaches domain flow.
+- Law: a definition-time aspect is a property of the function — declared by a signature-preserving decorator, present at every call site; a call-site aspect is a property of one invocation — attached as a scope or combinator around the call it modifies, and the classification test is per-site variance: a concern present at every use weaves at definition (retry policy, runtime type guard, observability span, memoization), a concern that varies per site composes at the site (one deadline, one cancellation scope, one resource bracket).
+- Law: a definition-time aspect preserves the signature and the rail through inline `**P` and `functools.wraps`, materializes policy from its arguments, and never raises inside domain flow — a failing aspect returns the rail's `Error`, it does not throw past the wrapped function, so the guard weave applies `beartype(conf=...)` under a shared cached `BeartypeConf` and catches `BeartypeCallHintViolation` (the root both the param and return violations inherit, so one arm covers the default conf), lifting it through `lifted` onto the fault rather than a bare `@beartype` that throws the violation into the interior; the `violation_type=` redirect that raises a domain exception instead of railing is the shape page's admission-factory form, distinct from this rail-lift weave.
+- Exemption: the weave's `try`/`except BeartypeCallHintViolation` is the measured rail-lift kernel — the one statement a definition-time aspect admits, converting the type-hint violation to the fault rail so the wrapped core stays expression-shaped and the raised violation never reaches domain flow.
 - Boundary: the synchronous weave layering this page shows is the definition-time form; an async core threads each weave as an `async def` layer whose structured-concurrency placement — the retry seeing only a raised transient, the deadline scope, the offload — is `concurrency.md`'s, composed over this fold and never re-derived here.
 
 [CONCERN_PRECEDENCE]:
 - Law: the cross-cutting concerns over one pure core rank by a single `_RANK` precedence table keyed on the closed `WeaveName` vocabulary — the page's own concerns are a closed `Concern` family resolving each case's payload to one `Weave`, the owner-built weaves compose in pre-constructed through the `owned` table keyed by `Deferred`, and the factory derives the canonical innermost-to-outermost order from the rank and never the caller's argument order, so an unranked name is a type error, a miswired stack is unspellable, and a new concern lands as one `Concern` case or one `owned` row plus one `_RANK` row with every existing call site untouched.
-- Law: the table fixes the one ordering correctness forces and declares the rest in one place — `contract` is innermost (rank 0) because a memoization weave that hashes arguments before the contract validates them caches the rejected `Error` permanently, so `cache` and every outer weave wrap an already-validated body; the relative rank of `cache`, `observe`, and `retry` is the policy the `_RANK` table declares — here `observe` encloses `cache` so a cache hit is still traced and `retry` is outermost so a transient re-drives the whole observed body — so a policy change is one row edit, never a tower re-spelled at every call site.
-- Law: every weave in the fold satisfies one signature — `Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]` — which keeps `**P`, the return rail, and `functools.wraps` identity intact through an arbitrary-depth stack; `contract` and `retry` are this page's own weaves built from the concern's payload (`beartype(conf=...)` plus the `except BeartypeCallHintViolation` rail-lift, `stamina.retry(on=...)` over the backoff hook whose raised-versus-railed edge `concurrency.md` owns), while `cache` and `observe` enter as owner-built weaves the `owned` frozendict carries already constructed for the rank alone to place; raw-ingress coercion never joins the stack, because admission is the shape page's once-at-the-edge factory and the core the weave wraps already holds admitted owners.
-- Use: the `Concern` family and the `owned` weaves folded by ascending rank onto the forced `contract` arm, the rail-safe `beartype(conf=...)` + `except BeartypeCallHintViolation` weave as this page's spotlight; this factory the moment local or owner-built weaves co-occur over one pure core.
+- Law: the table fixes the one ordering correctness forces and declares the rest in one place — `guard` is innermost (rank 0) because a memoization weave that hashes arguments before the guard validates them caches the rejected `Error` permanently, so `cache` and every outer weave wrap an already-validated body; the relative rank of `cache`, `observe`, and `retry` is the policy the `_RANK` table declares — here `observe` encloses `cache` so a cache hit is still traced and `retry` is outermost so a transient re-drives the whole observed body — so a policy change is one row edit, never a tower re-spelled at every call site.
+- Law: every weave in the fold satisfies one signature — `Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]` — which keeps `**P`, the return rail, and `functools.wraps` identity intact through an arbitrary-depth stack; `guard` and `retry` are this page's own weaves built from the concern's payload (`beartype(conf=...)` plus the `except BeartypeCallHintViolation` rail-lift, `stamina.retry(on=...)` over the backoff hook whose raised-versus-railed edge `concurrency.md` owns), while `cache` and `observe` enter as owner-built weaves the `owned` frozendict carries already constructed for the rank alone to place; raw-ingress coercion never joins the stack, because admission is the shape page's once-at-the-edge factory and the core the weave wraps already holds admitted owners.
+- Use: the `Concern` family and the `owned` weaves folded by ascending rank onto the forced `guard` arm, the rail-safe `beartype(conf=...)` + `except BeartypeCallHintViolation` weave as this page's spotlight; this factory the moment local or owner-built weaves co-occur over one pure core.
 - Reject: a hand-rolled `try`/`except` retry loop; a fixed decorator tower re-spelled at every owner; a span timer or `structlog.get_logger` chain rebuilt here where the observability weave owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature; a caller-ordered stack where the `_RANK` table already fixes the order.
 
 ```python conceptual
@@ -371,13 +371,13 @@ from beartype.roar import BeartypeCallHintViolation
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
 
-type FetchFault = Literal["<empty>", "<contract>"]
+type FetchFault = Literal["<empty>", "<type-hint>"]
 type Weave[**P, T, E] = Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]
-type WeaveName = Literal["contract", "cache", "observe", "retry"]
+type WeaveName = Literal["guard", "cache", "observe", "retry"]
 type Deferred = Literal["cache", "observe"]
 
-_RANK: frozendict[WeaveName, int] = frozendict({"contract": 0, "cache": 1, "observe": 2, "retry": 3})
-_CONTRACT = BeartypeConf(is_pep484_tower=True)
+_RANK: frozendict[WeaveName, int] = frozendict({"guard": 0, "cache": 1, "observe": 2, "retry": 3})
+_TYPE_GUARD = BeartypeConf(is_pep484_tower=True)
 
 
 def _transient(error: Exception, /) -> bool | float:
@@ -386,12 +386,12 @@ def _transient(error: Exception, /) -> bool | float:
 
 @tagged_union(frozen=True)
 class Concern:
-    tag: Literal["contract", "retry"] = tag()
-    contract: BeartypeConf = case()
+    tag: Literal["guard", "retry"] = tag()
+    guard: BeartypeConf = case()
     retry: Callable[[Exception], bool | float] = case()
 
 
-def _contracted[**P, T, E](lifted: Callable[[BeartypeCallHintViolation], E], conf: BeartypeConf, /) -> Weave[P, T, E]:
+def _guarded[**P, T, E](lifted: Callable[[BeartypeCallHintViolation], E], conf: BeartypeConf, /) -> Weave[P, T, E]:
     def weave(operation: Callable[P, Result[T, E]], /) -> Callable[P, Result[T, E]]:
         guarded = beartype(conf=conf)(operation)
 
@@ -415,14 +415,14 @@ def aspected[**P, T, E](
 ) -> Weave[P, T, E]:
     def ranked(concern: Concern, /) -> tuple[int, Weave[P, T, E]]:
         match concern:
-            case Concern(tag="contract", contract=cfg):
-                return _RANK["contract"], _contracted(lifted, cfg)
+            case Concern(tag="guard", guard=cfg):
+                return _RANK["guard"], _guarded(lifted, cfg)
             case Concern(tag="retry", retry=hook):
                 return _RANK["retry"], stamina.retry(on=hook, attempts=5)
             case unreachable:
                 assert_never(unreachable)
 
-    ranked_local = (ranked(concern) for concern in (Concern(contract=conf), *concerns))
+    ranked_local = (ranked(concern) for concern in (Concern(guard=conf), *concerns))
     ranked_owned = ((_RANK[name], weave) for name, weave in owned.items())
     ordered = sorted((*ranked_local, *ranked_owned), key=lambda rw: rw[0])
     return lambda operation: reduce(lambda wrapped, rw: rw[1](wrapped), ordered, operation)
@@ -432,7 +432,7 @@ def _observed[**P, T, E](operation: Callable[P, Result[T, E]], /) -> Callable[P,
     return operation
 
 
-@aspected(Concern(retry=_transient), owned=frozendict({"observe": _observed}), lifted=lambda _v: "<contract>", conf=_CONTRACT)
+@aspected(Concern(retry=_transient), owned=frozendict({"observe": _observed}), lifted=lambda _v: "<type-hint>", conf=_TYPE_GUARD)
 def fetched(code: str, /) -> Result[str, FetchFault]:
     return Error("<empty>") if code == "" else Ok(code.upper())
 ```

@@ -25,12 +25,11 @@
 |  [07]   | `open(path, mode?)`           | ambient global | read a fixture file at init time (corpus / payload seed)     |
 
 ```ts signature
-// index.d.ts + global.d.ts — Checkers is a name→predicate record; a check is one row, discriminated by description.
 export function check<VT>(val: VT, sets: Checkers<VT>, tags?: object): boolean
 export function group<RT>(name: string, fn: () => RT): RT
 export function sleep(t: number): void
 export function fail(err?: string): never
-interface Checkers<VT> { [description: string]: (val: VT) => boolean }   // { "status is 200": r => r.status === 200 }
+interface Checkers<VT> { [description: string]: (val: VT) => boolean }
 declare var __ENV: { [name: string]: string }; declare var __VU: number; declare var __ITER: number
 ```
 
@@ -47,12 +46,11 @@ declare var __ENV: { [name: string]: string }; declare var __VU: number; declare
 |  [05]   | `Stage`           | interface           | `{ duration; target }` — a ramping segment for `stages`/`ramping-*`      |
 
 ```ts signature
-// options/index.d.ts — ONE Options object; scenarios is executor-discriminated; thresholds is the gate.
 interface Options {
   vus?: number; duration?: string; iterations?: number
-  stages?: Stage[]                                         // ramping VU segments
-  scenarios?: { [name: string]: Scenario }                // named load shapes, executor-discriminated
-  thresholds?: { [name: string]: Threshold[] }            // metric-name → pass rules; the e2e gate
+  stages?: Stage[]
+  scenarios?: { [name: string]: Scenario }
+  thresholds?: { [name: string]: Threshold[] }
   tags?: { [name: string]: string }; summaryTrendStats?: string[]; systemTags?: string[]
   rps?: number; discardResponseBodies?: boolean; noConnectionReuse?: boolean
   dns?: { … }; hosts?: { [h: string]: string }; tlsAuth?: Certificate[]; insecureSkipTLSVerify?: boolean
@@ -60,7 +58,6 @@ interface Options {
 }
 type Threshold = string | ObjectThreshold
 interface ObjectThreshold { threshold: string; abortOnFail?: boolean; delayAbortEval?: string }
-// Executor collapse — seven rows, one union, discriminated by `executor`:
 type Executor =
   | "shared-iterations" | "per-vu-iterations" | "constant-vus" | "ramping-vus"
   | "constant-arrival-rate" | "ramping-arrival-rate" | "externally-controlled"
@@ -79,7 +76,6 @@ type Executor =
 |  [05]   | `url` / `expectedStatuses`                                  | function      | URL tagged-template / status-set predicate            |
 
 ```ts signature
-// http/index.d.ts — RT threads through: RefinedResponse<'text'>.body is string, <'binary'> is ArrayBuffer.
 export function request<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): RefinedResponse<RT>
 export function asyncRequest<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): Promise<RefinedResponse<RT>>
 export function batch<Q extends BatchRequests>(requests: Q): BatchResponses<Q>
@@ -108,7 +104,6 @@ Custom metrics feed thresholds BY NAME — a `new Trend("my_op_ms")` becomes the
 |  [08]   | `k6/browser`                                | ambient module | browser-automation driver                                         |
 
 ```ts signature
-// metrics/index.d.ts + execution/index.d.ts — the metric name is the threshold key; execution.test.abort is the panic.
 export abstract class Metric { constructor(name: string, isTime?: boolean); add(value: number | boolean, tags?: { [name: string]: string }): void }
 export class Trend extends Metric {}  export class Counter extends Metric {}  export class Rate extends Metric {}  export class Gauge extends Metric {}
 export const test: { abort(input?: string): void }

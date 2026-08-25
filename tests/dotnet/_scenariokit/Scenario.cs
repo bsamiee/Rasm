@@ -6,9 +6,6 @@ using Rhino.Display;
 namespace Rasm.ScenarioKit;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// Scenario attributes are the in-host manifest: discovery reads theme, requirements, budget,
-// and static Fin<Unit>(ScenarioContext) entrypoints BY FULL NAME over staged assemblies, so the
-// attribute's full name and member signatures are frozen wire law. There is no pre-host registry.
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class RhinoScenarioAttribute(string theme) : Attribute {
     public string Theme { get; } = theme;
@@ -16,9 +13,6 @@ public sealed class RhinoScenarioAttribute(string theme) : Attribute {
     public int BudgetMs { get; init; }
 }
 
-// The closed grammar for composite and constant wire keys. Prefix lanes (reference., manifest.*,
-// artifact.) render straight off the Contract's EvidenceRole.FactPrefix, so render and parse
-// share the Contract as their one string owner — rendered strings never change.
 [SmartEnum]
 internal sealed partial class FactKey {
     public static readonly FactKey CaseStart = new(static argument => $"{EvidenceRole.Assertion.FactPrefix}{argument}.start");
@@ -34,11 +28,7 @@ internal sealed partial class FactKey {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// ScenarioContext is the SDK boundary: assert+fact calls write runner-owned facts while the SDK
-// stays wire-blind, and scope registration lets the runner drain leaks before unload.
 public sealed class ScenarioContext {
-    // The manifest admission table derives from the Contract: every role whose FactPrefix sits in
-    // the manifest fact-key family is a lane, so a new Contract manifest lane needs no SDK edit.
     private static readonly FrozenSet<EvidenceRole> ManifestLanes = EvidenceRole.Items
         .Where(predicate: static role => role.FactPrefix.StartsWith(value: "manifest.", comparisonType: StringComparison.Ordinal))
         .ToFrozenSet();
@@ -77,9 +67,6 @@ public sealed class ScenarioContext {
 
     public void Note<T>(EvidenceName key, T value) => Fact(key: key.Key, value: value);
 
-    // One reference verb owns every actual (typed value or raw JsonElement via T). The supervisor
-    // fold consumes exactly {name, actual, tolerance}; admission is decided supervisor-side by
-    // evidence mode and corpus state, never asserted by the SDK.
     public Fin<Unit> Certify<T>(EvidenceName key, T actual, ReferenceTolerance tolerance) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: key.Key, paramName: nameof(key));
         ReferenceCount++;
@@ -91,8 +78,6 @@ public sealed class ScenarioContext {
         return Fin.Succ(value: unit);
     }
 
-    // One manifest verb owns all four manifest lanes: the role argument is the modality, and the
-    // admission table gates it — an unknown lane is an input guard, never a mis-prefixed fact.
     public void Manifest<T>(EvidenceRole role, EvidenceName key, T value) {
         ArgumentNullException.ThrowIfNull(argument: role);
         _ = ManifestLanes.Contains(item: role)
@@ -106,7 +91,6 @@ public sealed class ScenarioContext {
         Fact(key: EvidenceRole.Artifact.FactPrefix + role.Key, value: path);
     }
 
-    // A rooted or upward-traversing stem would silently escape the scratch root; normalization gates it.
     public string Scratch(string stem) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: stem);
         string root = Path.GetTempPath();
@@ -128,8 +112,6 @@ public sealed class ScenarioContext {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: name);
         ArgumentNullException.ThrowIfNull(argument: action);
         Fact(key: FactKey.CaseStart.Render(argument: name), value: true);
-        // Host boundary: Try converts a throwing sub-case to typed failure so the status fact
-        // always lands and sibling cases still run; the Error keeps the exception for the fold.
         Fin<Unit> result = Try.lift(f: action).Run();
         Fact(key: FactKey.CaseStatus.Render(argument: name), value: result.Match(Succ: static _ => "ok", Fail: static error => $"failed:{error.Message}"));
         return result;
@@ -142,7 +124,6 @@ public sealed class ScenarioContext {
     }
 
     internal int DrainScopes() {
-        // Leaked scopes are reported before forced disposal restores the document for unload.
         int leaked = 0;
         foreach (DocumentScope scope in scopes) {
             if (scope.IsLive) {

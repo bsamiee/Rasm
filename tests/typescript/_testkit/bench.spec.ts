@@ -6,7 +6,6 @@ import { Bench, BenchFault, BenchHome, BenchRow } from './bench.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// A vitest-shaped latest.json whose lane continues an already-slumped history: harvesting it must trip the gate.
 const _SLUMPED_LATEST = JSON.stringify({
     files: [{ filepath: '/abs/kit.bench.ts', groups: [{ fullName: 'kit hot paths', benchmarks: [{ name: 'fold', hz: 58, rme: 1 }] }] }],
 });

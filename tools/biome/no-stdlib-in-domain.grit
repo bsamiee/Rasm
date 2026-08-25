@@ -1,15 +1,5 @@
 language js(typescript, jsx)
 
-// LIBRARY_DEPTH promotion. Trigger: a stdlib collection, promise, clock, scheduler, or entropy
-// primitive in domain code. Predicate: construction, static-combinator, or ambient-capability call
-// of the named globals — the Effect substrate owns each (HashMap/HashSet, Effect.all/raceAll and
-// the rail for async, Clock/DateTime for time, Random for entropy, Effect.sleep/Schedule for
-// timers, Effect.yieldNow for scheduling). Exemption: none in-pattern; the FFI seam rides the
-// plugin's negated include globs.
-// FIRES: const seen = new Map<string, number>(); const at = Date.now(); const dice = Math.random();
-// FIRES: const settled = Promise.all([left, right]); const eager = Promise.resolve(seed); const gate = Promise.withResolvers();
-// FIRES: const at = Date.parse(stamp); const tick = performance.now(); queueMicrotask(drain);
-// CLEAN: const seen = HashMap.empty<string, number>(); const stamped = Effect.zipWith(Clock.currentTimeMillis, Random.next, (at, dice) => Row.make({ at, dice }));
 or {
     `new Map($_)`,
     `new Map<$_>($_)`,

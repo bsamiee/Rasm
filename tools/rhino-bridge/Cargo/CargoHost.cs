@@ -13,8 +13,6 @@ namespace Rasm.Bridge.Cargo;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Ownership: capability rows own their probes, so live checks, recorded host hazards, and
-// requires-lattice degradation stay in one vocabulary instead of parallel probe tables.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -34,7 +32,6 @@ internal sealed partial class HostCapability {
     private readonly Func<CargoHost, (PhaseStatus Outcome, string Receipt)> probe;
 
     internal CapabilityEntry Probe(CargoHost host) {
-        // BOUNDARY ADAPTER: throwing probes fail their own capability row, never the next scenario.
         try {
             (PhaseStatus outcome, string receipt) = probe(host);
             return new CapabilityEntry(Key: Key, Outcome: outcome, Receipt: receipt);
@@ -46,18 +43,10 @@ internal sealed partial class HostCapability {
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 
-// Ownership: the per-scenario scratch redirect. Live scenarios root their File3dm/PDF/OBJ writes at
-// Path.GetTempPath(); pointing the OS temp vars at a <reportDir>/scratch/<scenario> tree for the
-// scenario bracket keeps those artifacts under the retained report dir (DrainScopes never touches
-// the filesystem) instead of leaking into the system temp tree. Dispose restores the prior env once.
-// Root is the honest artifact root in both states: the redirected scratch tree when live, else the
-// OS temp tree the un-redirected scenario actually writes to — never a reportDir the env never aimed at.
 internal readonly record struct ScratchRedirect(string Root, bool Redirected, string? PriorTmpDir, string? PriorTmp, string? PriorTemp) : IDisposable {
     private static readonly string[] Keys = ["TMPDIR", "TMP", "TEMP"];
 
     internal static ScratchRedirect Open(string reportDir, string scenario) {
-        // BOUNDARY ADAPTER: a filesystem fault degrades to an un-redirected scratch rooted at the
-        // report dir — the scenario stays live and Dispose is inert, never a raw throw across the rail.
         string root = Path.Combine(path1: reportDir, path2: ReportLayout.ScratchDirectory, path3: scenario);
         try {
             _ = Directory.CreateDirectory(path: root);
@@ -88,10 +77,6 @@ internal readonly record struct ScratchRedirect(string Root, bool Redirected, st
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: the collectible cargo host owns scenario discovery, capability probing, requires
-// admission, host-drift attribution, and scenario IO. Every event is both spooled for crash
-// evidence and relayed through the shell-owned publisher; CargoManifest supplies the session stamp
-// and artifact root. Cargo statics stay absent outside Gh2Lane and the per-run Capture hook.
 public sealed class CargoHost : IBridgeCargo {
     private const string ProbeSlot = "probe";
     private const int CommandEvidenceTail = 4096;
@@ -107,8 +92,6 @@ public sealed class CargoHost : IBridgeCargo {
     private long sequence;
     private bool scanned;
 
-    // The shell computes the running fingerprint once per swap and hands it across the ALC seam;
-    // cargo never re-derives host identity.
     public CargoHost(CargoManifest manifest, HostFingerprint running) {
         ArgumentNullException.ThrowIfNull(argument: manifest);
         this.manifest = manifest;
@@ -149,7 +132,6 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     public void Dispose() {
-        // Unload requires the ambient SDK hook, scenario scopes, and GH2 lane references to be clear.
         Capture.Hook = null;
         lock (sync) {
             lane?.Dispose();
@@ -160,7 +142,6 @@ public sealed class CargoHost : IBridgeCargo {
     // --- [PROBES]
 
     internal static (PhaseStatus Outcome, string Receipt) ProbeEventPipe() {
-        // This probe asserts the current host pid, not a version or prior verdict.
         string socketRoot = Path.GetTempPath();
         string pattern = string.Create(provider: CultureInfo.InvariantCulture, $"dotnet-diagnostic-{Environment.ProcessId}-*");
         return Directory.EnumerateFiles(path: socketRoot, searchPattern: pattern).Any()
@@ -197,7 +178,6 @@ public sealed class CargoHost : IBridgeCargo {
         };
 
     private ScenarioReceipt Refuse(ScenarioEntry scenario, CapabilityEntry gap, Action<BridgeEvent> publish, long started) {
-        // Unmet capability requirements refuse before entrypoint invocation.
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
         BridgeFault fault = new BridgeFault.CapabilityAbsent(Capability: gap.Key, ProbeReceipt: gap.Receipt);
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
@@ -225,8 +205,6 @@ public sealed class CargoHost : IBridgeCargo {
         bool commandCaptureAdmitted = false;
         string commandCaptureFailure = string.Empty;
         try {
-            // Both command surfaces clear per scenario: the capture buffer AND the persistent history
-            // window, so a warm host never carries prior scenarios' lines into command.*.tail evidence.
             commandCaptureWasEnabled = RhinoApp.CommandWindowCaptureEnabled;
             RhinoApp.CommandWindowCaptureEnabled = true;
             _ = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
@@ -236,7 +214,6 @@ public sealed class CargoHost : IBridgeCargo {
             commandCaptureFailure = $"{error.GetType().Name}: {error.Message}";
         }
         try {
-            // Provision a host ActiveDoc when absent: RhinoDoc.Create registers it (CreateHeadless would not) and the host owns its lifetime — the quit scrub closes it, never disposed here, hence CA2000 is suppressed.
             RhinoDoc? prior = RhinoDoc.ActiveDoc;
 #pragma warning disable CA2000
             RhinoDoc? resolved = prior ?? RhinoDoc.Create(modelTemplateFileName: null);
@@ -260,7 +237,6 @@ public sealed class CargoHost : IBridgeCargo {
                 fact(key: "scenario.doc.absent", value: "RhinoDoc.Create(null) returned null; host cannot provision an active document");
             }
         } finally {
-            // Footer facts ride the same write-through spool as per-event crash evidence.
             Capture.Hook = null;
             if (context is { } scenarioContext) {
                 int leaked = scenarioContext.DrainScopes();
@@ -304,8 +280,6 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private (PhaseStatus Status, BridgeFault? Fault) Invoke(MethodInfo entry, ScenarioContext context, Action<string, object?> fact) {
-        // BOUNDARY ADAPTER: reflective dispatch maps loader drift to HostDrift; scenario throws
-        // stay scenario facts and never escape the cargo rail.
         try {
             return entry.Invoke(obj: null, parameters: [context]) switch {
                 Fin<Unit>.Succ => (PhaseStatus.Ok, null),
@@ -323,7 +297,6 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private void AutoCapture(Spool spool, ScenarioContext context, ScenarioEntry scenario, Action<BridgeEvent> emit, Action<string, object?> fact) {
-        // Failure captures are evidence only: realized view scopes shoot viewports, gh2.* shoots canvas.
         if (context.RealizedView is { } view) {
             _ = Shoot(spool: spool, view: view, scenario: scenario.Name, label: null, onFailure: true, emit: emit, fact: fact);
         }
@@ -349,7 +322,6 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private Fin<CaptureReceipt> Shoot(Spool spool, RhinoView view, string scenario, string? label, bool onFailure, Action<BridgeEvent> emit, Action<string, object?> fact) {
-        // Capture metadata travels with the shot so empty images are diagnosable.
         Fin<BridgeEvent.CaptureCase> shot = spool.Capture(view: view, label: label, onFailure: onFailure);
         if (shot is Fin<BridgeEvent.CaptureCase>.Succ(BridgeEvent.CaptureCase capture)) {
             emit(capture with { Stamp = NextStamp(scenario: scenario) });
@@ -437,7 +409,6 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private Fin<Gh2Lane> AcquireLane() {
-        // BOUNDARY ADAPTER: GH2 load failures project to the typed render capability rail.
         lock (sync) {
             try {
                 lane ??= Gh2Lane.Acquire();

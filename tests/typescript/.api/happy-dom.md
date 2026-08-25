@@ -25,20 +25,18 @@ Two consumption seams carry it — vitest selects it by the `environment: 'happy
 |  [05]   | `IOptionalBrowserSettings` | interface     | the one construction policy bag (see [03])                                          |
 
 ```ts signature
-// Prefer `new Window(...)` over touching globals when a spec needs an isolated DOM; the vitest 'happy-dom' environment builds a GlobalWindow for you.
 declare class Window extends BrowserWindow {
   readonly happyDOM: DetachedWindowAPI
   constructor(options?: { width?: number; height?: number; url?: string; console?: IConsole; settings?: IOptionalBrowserSettings })
 }
-// Control surface — the ONLY sound way to await DOM async work (timers, fetch, microtasks) before asserting.
 declare class DetachedWindowAPI {
   get settings(): IBrowserSettings
-  get virtualConsolePrinter(): VirtualConsolePrinter        // buffered console output the spec can readAll()/dump
-  waitUntilComplete(): Promise<void>                        // settle all pending async before assertion
-  abort(): Promise<void>                                    // cancel outstanding async tasks
-  close(): Promise<void>                                    // abort + tear the window down (release the object graph)
-  setURL(url: string): void                                 // relocate document.location without navigation
-  setViewport(viewport: IOptionalBrowserPageViewport): void // width/height/deviceScaleFactor for media-query specs
+  get virtualConsolePrinter(): VirtualConsolePrinter
+  waitUntilComplete(): Promise<void>
+  abort(): Promise<void>
+  close(): Promise<void>
+  setURL(url: string): void
+  setViewport(viewport: IOptionalBrowserPageViewport): void
 }
 ```
 
@@ -77,9 +75,9 @@ declare class BrowserPage {
 
 ```ts signature
 interface IOptionalBrowserSettings {
-  disableJavaScriptEvaluation?: boolean; disableJavaScriptFileLoading?: boolean   // the "no script execution" fast default
+  disableJavaScriptEvaluation?: boolean; disableJavaScriptFileLoading?: boolean
   disableCSSFileLoading?: boolean; enableImageFileLoading?: boolean
-  disableComputedStyleRendering?: boolean                                          // opt out of computed-length resolution; values read back as authored
+  disableComputedStyleRendering?: boolean
   handleDisabledFileLoadingAsSuccess?: boolean
   timer?: { maxTimeout?: number; maxIntervalTime?: number; maxIntervalIterations?: number; preventTimerLoops?: boolean }
   fetch?: { disableSameOriginPolicy?: boolean; disableStrictSSL?: boolean; interceptor?: IFetchInterceptor | null; virtualServers?: IVirtualServer[] | null }

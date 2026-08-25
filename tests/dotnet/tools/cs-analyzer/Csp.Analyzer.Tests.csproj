@@ -16,7 +16,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Metadata And Usings">
-        <!-- RepoRoot fixes meta scans to workspace-owned files without runtime directory walks. -->
         <AssemblyMetadata Include="RepoRoot" Value="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))" />
         <Using Include="Microsoft.CodeAnalysis.CSharp.Testing.CSharpAnalyzerVerifier&lt;Rasm.Csp.Kernel.Driver, Microsoft.CodeAnalysis.Testing.DefaultVerifier&gt;" Alias="Verify" />
     </ItemGroup>

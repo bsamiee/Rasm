@@ -15,17 +15,17 @@ import time
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 import anyio
-from anyio import to_thread  # ty mis-resolves anyio.to_thread without an explicit submodule import
+from anyio import to_thread
 from expression import Error, Ok, Result
 import msgspec
 from opentelemetry import propagate, trace
 import stamina
 import structlog
 from upath import UPath
-lazy import asyncssh  # ~83ms cold start; materializes when a retry classifier or remote path first touches asyncssh.Error
+lazy import asyncssh
 
 from assay.composition.catalog import launch
-from assay.composition.settings import AssaySettings, Local, Ssh  # unconditional: beartype resolves forward refs at import time
+from assay.composition.settings import AssaySettings, Local, Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.aspect import checked, compose, traced
 from assay.core.govern import (
@@ -48,18 +48,7 @@ from assay.core.govern import (
     stream_artifacts,
     touched,
 )
-from assay.core.model import (  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
-    Check,
-    Completed,
-    Fault,
-    HOST_BOUND_CLAIMS,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    Tool,
-    ToolGroup,
-)
+from assay.core.model import Check, Completed, Fault, HOST_BOUND_CLAIMS, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
 from assay.core.remote import pooled_ssh, run_remote
 from assay.core.routing import discover, place, Routed
 from assay.diagnostics import AST_MATCHES
@@ -99,7 +88,6 @@ class Executor(Protocol):
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
 _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
 _RETRY_MIN_REMAINING: float = 0.05
-# Fan batches share one to_thread limiter so the governed cap binds the whole batch rather than each check separately.
 _FAN_LIMITER: ContextVar[anyio.CapacityLimiter | None] = ContextVar("assay_fan_limiter", default=None)
 
 
@@ -150,7 +138,7 @@ def _project_scope(command: tuple[str, ...]) -> str:
 
 
 def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
-    base: MutableMapping[str, str] = dict(os.environ)  # ruff:ignore[banned-api]  # clones the host environment at the spawn boundary
+    base: MutableMapping[str, str] = dict(os.environ)  # ruff:ignore[banned-api]
     base.update(settings.python_tool_env)
     base.update(tool.env)
     match scope:
@@ -161,8 +149,6 @@ def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -
 
 
 def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> Result[tuple[str, ...], Fault]:
-    # The catalog row is the only command speller: typed splice values fill the row's holes, launch() spells the
-    # runner prefix, and the sole engine-owned token is the staged uv --project anchor (settings-dependent).
     tool = check.tool
     try:
         body = check.args.fill(tool.command)
@@ -197,7 +183,6 @@ def argv_for(check: Check, routed: Routed, *, settings: AssaySettings, scope: Ar
 
 @cache
 def _dotnet_root() -> str | None:
-    # Nix DOTNET_ROOT can point at a wrapper; resolve the real shared-runtime root once per process.
     def valid(path: str) -> str | None:
         root = Path(path).expanduser()
         return str(root) if path and Path(root, *_DOTNET_SHARED_RUNTIME).is_dir() else None
@@ -210,7 +195,7 @@ def _dotnet_root() -> str | None:
                 return None
 
     def from_env() -> str | None:
-        return valid(os.environ.get("DOTNET_ROOT", ""))  # ruff:ignore[banned-api]  # the host override is the probe's first-precedence source
+        return valid(os.environ.get("DOTNET_ROOT", ""))  # ruff:ignore[banned-api]
 
     def from_runtimes() -> str | None:
         listed = discover(("dotnet", "--list-runtimes"), root=Path.cwd(), timeout=_DOTNET_PROBE_TIMEOUT_S)
@@ -225,7 +210,6 @@ def _dotnet_root() -> str | None:
 
 
 def _apphost(tool: Tool, env: Mapping[str, str]) -> Mapping[str, str]:
-    # Apphost-deployed dotnet tools need DOTNET_ROOT; SDK verbs self-locate through the muxer.
     match (tool.runner, tool.command[:2]):
         case (Runner.DOTNET, ("tool", "run")):
             match _dotnet_root():
@@ -263,7 +247,7 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
     if isinstance(src, ValueError):
         return Fault((check.tool.name, "stage", rel), message=str(src))
     dst = _contained(work, rel)
-    if isinstance(dst, ValueError):  # pragma: no cover  # src passed identical containment on the same rel; dst cannot escape work
+    if isinstance(dst, ValueError):  # pragma: no cover
         return Fault((check.tool.name, "stage", rel), message=str(dst))
     if not src.exists():
         return Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}")
@@ -278,7 +262,6 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
 def _contained(root: Path, rel: str) -> Path | ValueError:
     text = rel.replace("\\", "/")
     parts = text.split("/")
-    # The per-part scan rejects empty, self, and parent parts without a standalone path disjunct.
     match text.startswith("/") or "\x00" in text or any(p in {"", ".", ".."} for p in parts):
         case True:
             return ValueError(f"unsafe stage path: {rel!r}")
@@ -287,7 +270,7 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
             return target if target.is_relative_to(root) else ValueError(f"stage path escaped root: {rel!r}")
 
 
-async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/remote backend branches keep telemetry state local
+async def _run_process_backend(plan: ExecPlan) -> Completed:
     started = time.monotonic()
     _LOG.info(
         "process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target)
@@ -310,7 +293,6 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/rem
                                 stall,
                             )
                             tg.cancel_scope.cancel()
-                        # The monitor's shielded first tick guarantees at least one sample.
                         resources = max_resources(tuple(samples))
                         duration_ms = (time.monotonic() - started) * 1000.0
                         _LOG.info(
@@ -337,7 +319,6 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/rem
                 case False:
                     done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False, start_new_session=True)
                     streams = captured_outputs(plan, done.stdout, done.stderr)
-                    # One measurement owner feeds every receipt: the non-streaming receipt now carries proc.children like the streaming path.
                     resources = tuple(sorted(measure().to_resources()))
                     duration_ms = (time.monotonic() - started) * 1000.0
                     _LOG.info(
@@ -359,7 +340,6 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/rem
                         resources=(*resources, ("process.duration_ms", duration_ms)),
                     )
         case Ssh() as target:
-            # The remote env (allowlist + injected toolchain PATH) is built inside run_remote once the connection resolves the home.
             remote_done = await run_remote(plan, target)
             _LOG.info(
                 "process.end",
@@ -402,7 +382,6 @@ def apply_row_status(tool: Tool, done: Completed) -> Completed:
 
 
 def _is_match_document(raw: bytes) -> bool:
-    # The typed match-array decoder rejects a valid-JSON non-array on exit 1, keeping it a tool fault.
     try:
         AST_MATCHES.decode(raw or b"[]")
     except msgspec.MsgspecError:
@@ -421,8 +400,6 @@ async def _guarded(
         match await _prepare_exec(check, settings, scope, routed, deadline):
             case Result(tag="ok", ok=prepared):
                 argv = prepared.argv
-                # Parser and sarif_dir stamps carry the row's diagnostics family and the check's typed SARIF drop
-                # directory onto the receipt, so report folds never re-parse argv.
                 return (await _run_prepared(prepared, settings, scope, attempts)).map(
                     lambda done: apply_row_status(
                         check.tool,
@@ -440,7 +417,6 @@ async def _guarded(
 
 
 def _exec_cwd(check: Check, settings: AssaySettings) -> str:
-    # Local keeps the staging worktree or anchored root; the Ssh case projects the remote run dir the push tree lands under.
     match settings.exec_target:
         case Ssh() as target:
             return target.remote_workroot(settings.run_id)
@@ -451,7 +427,6 @@ def _exec_cwd(check: Check, settings: AssaySettings) -> str:
 async def _prepare_exec(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[_PreparedExec, Fault]:
-    # Staging rmtree/copytree are filesystem-bound; the thread hop keeps them off the event loop.
     match await to_thread.run_sync(_materialize, check, settings):
         case Result(tag="ok", ok=prepared):
             check = prepared
@@ -466,10 +441,8 @@ async def _prepare_exec(
             pass
         case Result(error=fault):
             return Error(fault)
-    # Check.timeout is the per-invocation override; the row timeout is the catalog default.
     limit = check.timeout if check.timeout is not None else check.tool.timeout
     bound = deadline if deadline is not None else (time.monotonic() + limit if limit is not None else None)
-    # The remote cwd is the run dir the push lands under; an agent-local absolute path would not exist on the remote host.
     cwd = _exec_cwd(check, settings)
     env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
     propagate.inject(env)
@@ -511,7 +484,6 @@ async def _run_prepared(
 
 
 def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fault:
-    # Spawn-fault status is derived from the boundary class, not message text.
     diagnose(exc)
     message = "deadline exceeded" if isinstance(exc, TimeoutError) else str(exc)
     stamped = f"{message} [attempts={attempts}]" if attempts > 1 else message
@@ -524,7 +496,7 @@ def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fa
             return Fault(argv, status=RailStatus.FAULTED, message=stamped)
 
 
-async def _execute_retrying(  # ruff:ignore[too-many-arguments]  # all params are load-bearing across the retry body; no grouping reduces the count
+async def _execute_retrying(  # ruff:ignore[too-many-arguments]
     check: Check,
     settings: AssaySettings,
     scope: ArtifactScope | None,
@@ -536,9 +508,7 @@ async def _execute_retrying(  # ruff:ignore[too-many-arguments]  # all params ar
     deadline: float | None,
     attempts: list[int],
 ) -> Completed:
-    # list[int] cell carries attempt count across stamina's re-raise boundary for fault stamping in _guarded.
     done: Completed | None = None
-    # Name the retry context so stamina telemetry attributes attempts to the tool, not "<context block>".
     retrying = stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline))
     async for attempt in retrying.with_name(check.tool.name, (), {}):
         attempts[0] = attempt.num
@@ -546,7 +516,7 @@ async def _execute_retrying(  # ruff:ignore[too-many-arguments]  # all params ar
             with anyio.fail_after(remaining(deadline)):
                 done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
     match done:
-        case None:  # pragma: no cover  # stamina always re-raises on exhaustion; None only if that contract breaks
+        case None:  # pragma: no cover
             raise RuntimeError("stamina exhausted without raising — invariant violated")
         case Completed() as result:
             return msgspec.structs.replace(result, notes=(*result.notes, f"retry attempts={attempts[0]}")) if attempts[0] > 1 else result
@@ -619,18 +589,17 @@ async def _inproc(check: Check, limiter: anyio.CapacityLimiter | None = None) ->
         case thunk:
             try:
                 return await to_thread.run_sync(thunk, check, limiter=limiter)
-            except Exception as exc:  # ruff:ignore[blind-except]  # INPROC resilience: any thunk fault becomes a FAILED receipt; never propagates across the fan
+            except Exception as exc:  # ruff:ignore[blind-except]
                 return receipt((check.tool.name, *check.paths), 1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024])
 
 
 def _spawn(check: Check, settings: AssaySettings) -> _Woven:
-    # Compose per invocation for a fresh span; no variance-safe overload exists for async _Woven.
     span = traced(
         span=check.tool.name,
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
         agent=lambda *_a, **_k: settings.agent_context,
     )
-    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # async _Woven vs sync Hom[P, T]; the comment above owns the seam
+    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(_guarded)
 
 
@@ -664,7 +633,7 @@ async def run_check_async(
 class EngineExecutor:
     """Production Executor over the engine spawn rails; the registry weave constructs the one bound instance."""
 
-    def run(  # ruff:ignore[no-self-use]  # port method: the instance IS the capability rails receive
+    def run(  # ruff:ignore[no-self-use]
         self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
     ) -> Result[Completed, Fault]:
         """Run one check under a single event loop.
@@ -674,7 +643,7 @@ class EngineExecutor:
         """
         return run_check(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
-    def fan(  # ruff:ignore[no-self-use]  # port method: the instance IS the capability rails receive
+    def fan(  # ruff:ignore[no-self-use]
         self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
     ) -> tuple[Result[Completed, Fault], ...]:
         """Run checks concurrently and preserve input order.
@@ -700,7 +669,7 @@ def fan_out(
         return await run_check_async(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
     async def _run() -> tuple[Result[Completed, Fault], ...]:
-        reset_foreign_census()  # fresh dotnet census per fan
+        reset_foreign_census()
         limit = governed_concurrency(settings, checks)
         token = _FAN_LIMITER.set(anyio.CapacityLimiter(limit))
         try:

@@ -13,7 +13,6 @@ declare namespace Bench {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Sustained-regression policy: a breach needs `window` consecutive slow runs — a single spike never trips the gate.
 const _POLICY = { window: 3, tolerance: 0.15, noiseCap: 10, minHistory: 5 } as const;
 
 const _LEDGER = { latest: 'latest.json', history: 'history.ndjson' } as const;
@@ -64,7 +63,6 @@ const _encodeRow = Schema.encode(Schema.parseJson(BenchRow));
 const _median = (values: ReadonlyArray<number>): Option.Option<number> =>
     pipe(Array.sort(values, Order.number), (sorted) => Array.get(sorted, Math.floor(sorted.length / 2)));
 
-// A missing ledger is an empty history; a corrupted line is a typed malformed fault, never a die.
 const _history: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -76,8 +74,6 @@ const _history: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.Fi
     );
 });
 
-// Harvest keys on the autosave's own mtime: re-running the gate over one bench run appends nothing — a duplicated
-// harvest would forge the consecutive-slow-run evidence the breach verdict reads.
 const _harvest: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -93,11 +89,7 @@ const _harvest: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.Fi
     const seen = yield* _history;
     const rows = Array.flatMap(latest.files, (file) =>
         Array.flatMap(file.groups, (group) =>
-            Array.map(
-                group.benchmarks,
-                // The group fullName already carries the repo-relative spec path; an absolute filepath key couples the ledger to one machine.
-                (entry) => new BenchRow({ at, name: `${group.fullName}::${entry.name}`, hz: entry.hz, rme: entry.rme }),
-            ),
+            Array.map(group.benchmarks, (entry) => new BenchRow({ at, name: `${group.fullName}::${entry.name}`, hz: entry.hz, rme: entry.rme })),
         ),
     );
     return yield* Array.some(seen, (row) => row.at === at)
@@ -134,7 +126,6 @@ const _receipt = (name: string, rows: ReadonlyArray<BenchRow>, policy: Bench.Pol
 
 const Bench = {
     POLICY: _POLICY,
-    // Pure sustained-regression fold over the accumulated ledger — the falsifiable core the gate and the specs share.
     fold: (rows: ReadonlyArray<BenchRow>, policy: Bench.Policy = _POLICY): Bench.Report =>
         pipe(
             Array.groupBy(rows, (row) => row.name),
@@ -163,7 +154,6 @@ const Bench = {
         ),
     harvest: _harvest,
     history: _history,
-    // The gate verb: harvest the latest run, fold the full ledger, and FAIL typed on a sustained breach.
     gate: (policy: Bench.Policy = _POLICY): Effect.Effect<Bench.Report, BenchFault, FileSystem.FileSystem | Path.Path> =>
         Effect.gen(function* () {
             yield* _harvest;

@@ -34,7 +34,7 @@ A dataflow shape selects the form that owns it; the most specific shape wins.
 
 ## [02]-[PIPELINE_SELECTION]
 
-Three discriminants select the carrier — boundedness, effectfulness, incrementality — and the selection is a memory-and-latency contract, not a style: a `Stream` holds a bounded working set over an unbounded source, an `Effect.forEach` holds the whole collection and its results, a pure fold holds one accumulator. One entrypoint owns the modalities the concept genuinely serves, discriminating on the input value.
+Three discriminants select the carrier — boundedness, effectfulness, incrementality — and the selection fixes memory and latency, not style: a `Stream` holds a bounded working set over an unbounded source, an `Effect.forEach` holds the whole collection and its results, a pure fold holds one accumulator. One entrypoint owns the modalities the concept genuinely serves, discriminating on the input value.
 
 [CARRIER_SELECT]:
 - Law: bounded plus pure folds without a carrier — `Chunk.reduce` over the admitted collection; bounded plus effectful traverses the rail — `Effect.forEach` with the degree explicit; unbounded, incremental, windowed, or resource-scoped dataflow is a `Stream`, the only form whose consumption is chunked pull with backpressure.
@@ -44,7 +44,7 @@ Three discriminants select the carrier — boundedness, effectfulness, increment
 - Boundary: `Chunk` algebra is `values.md`'s; `Effect.forEach` degrees and fiber ownership are `concurrency.md`'s — this page owns the selection between them and everything the `Stream` branch opens.
 
 [SOURCE_LIFT]:
-- Law: a cursor-paged provider lifts through `Stream.paginateChunkEffect(start, turn)` — `turn` returns `readonly [Chunk<A>, Option<Cursor>]`, the page emits before the cursor decides continuation, so the final page flows and `Option.none()` closes the feed; emission runs one step past the state, the contract `Stream.unfoldChunkEffect` cannot state, and `Stream.paginateEffect` is the single-value form.
+- Law: a cursor-paged provider lifts through `Stream.paginateChunkEffect(start, turn)` — `turn` returns `readonly [Chunk<A>, Option<Cursor>]`, the page emits before the cursor decides continuation, so the final page flows and `Option.none()` closes the feed; emission runs one step past the state, behavior `Stream.unfoldChunkEffect` cannot state, and `Stream.paginateEffect` is the single-value form.
 - Law: a point read becomes a feed through `Stream.repeatEffectWithSchedule(read, policy)` — cadence is a composed `Schedule` value consumed as policy, never a sleep loop — and the poll pairs with the adjacency dedup below so downstream consumes transitions, not samples.
 - Law: a long-lived feed survives its faults by re-registration — `Stream.retry(policy)` re-runs the entire stream through its acquires on each fault and resets the schedule once an element flows again, so backoff never compounds across outages — and `Stream.timeoutFail(fault, gap)` converts a stalled pull into the typed fault the policy consumes; the restart re-emits from wherever the source starts, so the resume coordinate lives in the source's own state — the cursor, the poll's high-water mark — never in a downstream dedup set.
 - Reject: an offset `while` pump; `Stream.fromIterable` around a fully fetched result; a recursive effect pushing into a `Queue` as a hand-rolled feed — the constructor family already owns registration, cadence, and termination.
@@ -335,7 +335,7 @@ N identical lookups inside one flow are one declared request family and one reso
 [REQUEST_FAMILY]:
 - Law: the lookup is a class extending `Request.TaggedClass("<tag>")<Success, Error, Fields>` — one name serving value, type, constructor, and identity: structural `Equal` over the fields is what deduplicates two requests for the same key, so the fields carry exactly the identity, and success and failure types are declared once at the family, never re-stated at call sites.
 - Law: the class owner absorbs its derivations as statics — the resolver factory, its combinator stack, and the windowed consumer live on the request class, so the module exports one name and the family cannot scatter.
-- Law: one `RequestResolver.makeBatched((requests) => ...)` receives the whole window as a `NonEmptyArray` and must settle every request — `Request.completeEffect` per hit, `Request.fail` per miss, and a provider-level fault fans out to every request in the window; an unsettled request suspends its caller forever, the resolver's stated contract.
+- Law: one `RequestResolver.makeBatched((requests) => ...)` receives the whole window as a `NonEmptyArray` and must settle every request — `Request.completeEffect` per hit, `Request.fail` per miss, and a provider-level fault fans out to every request in the window; an unsettled request suspends its caller forever, as the resolver semantics require.
 - Reject: a `getMany` twin beside `get`; a hand `Map` of in-flight promises as a dedup cache; a resolver rebuilt per call site.
 
 [RESOLVER_ALGEBRA]:

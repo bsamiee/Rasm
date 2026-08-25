@@ -43,7 +43,7 @@ def _fs_algebra(fs: AbstractFileSystem, root: str) -> None:
 
 def test_provision_is_total_over_the_spec_union(socket_enabled: None) -> None:
     """Every ``EnvSpec`` variant provisions a URL, factory, and idempotent teardown."""
-    _ = socket_enabled  # ObjectStore binds a real loopback endpoint at provision time
+    _ = socket_enabled
     specs: tuple[EnvSpec, ...] = (SshHost(), RemoteFS(), ObjectStore())
     for spec in specs:
         provisioned = provision(spec)
@@ -51,7 +51,7 @@ def test_provision_is_total_over_the_spec_union(socket_enabled: None) -> None:
         assert callable(provisioned.client_factory), f"{type(spec).__name__} factory is not callable"
         assert callable(provisioned.teardown), f"{type(spec).__name__} teardown is not callable"
         provisioned.teardown()
-        provisioned.teardown()  # idempotent by contract
+        provisioned.teardown()
 
 
 # --- [SSH_HOST]
@@ -144,7 +144,7 @@ def test_remote_fs_isolates_per_test_roots() -> None:
     fs_second.pipe_file("blob.bin", b"beta")
     assert (fs_first.cat_file("blob.bin"), fs_second.cat_file("blob.bin")) == (b"alpha", b"beta"), "cross-root bleed"
     first.teardown()
-    first.teardown()  # idempotent: a second teardown of an absent root is a no-op
+    first.teardown()
     assert not fs_first.exists("blob.bin"), "teardown left the first root populated"
     assert fs_second.cat_file("blob.bin") == b"beta", "teardown of one root erased its sibling"
     second.teardown()
@@ -157,7 +157,6 @@ def test_remote_fs_obeys_filesystem_algebra_and_refuses_presign() -> None:
         fs = provisioned.client_factory()
         _fs_algebra(fs, "")
         fs.pipe_file("blob.bin", b"payload")
-        # Total over both honest refusal shapes: no presign surface at all, or a typed refusal.
         match getattr(fs, "url", None):
             case None:
                 pass
@@ -215,5 +214,5 @@ def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled
         assert (fs.cat_file("kit-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), "cross-endpoint bleed"
     finally:
         first.teardown()
-        first.teardown()  # idempotent: a second stop of a dead server is a no-op
+        first.teardown()
         second.teardown()

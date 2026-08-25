@@ -2,7 +2,7 @@
 
 C# 14 on `net10.0` is the active language surface, and language-form law binds here: which declaration, member, pattern, construction, conversion, and literal form carries a concept before any generated owner, rail, or boundary. Value lifecycle sheds by kind — generated-owner shape to `shapes.md`, dispatch and arity to `surfaces-and-dispatch.md`, the result rail to `rails-and-effects.md`, foreign admission to `boundaries.md`, BCL API replacement to `system-apis.md`.
 
-Every form-contract snippet composes those owners as settled material and demonstrates only the syntactic shape preceding them.
+Every language-form snippet composes those owners as settled material and demonstrates only the syntactic shape preceding them.
 
 `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, `ImplicitUsings`, and `CheckForOverflowUnderflow`; this page names those facts only where they change the form a source file may assume.
 
@@ -10,7 +10,7 @@ Every form-contract snippet composes those owners as settled material and demons
 
 - Target framework: `net10.0`
 - Language version: `14.0` explicit; floating `latest`/`preview` is rejected so a form lands only when the pinned compiler owns it
-- Nullable: `enable` with warnings-as-errors, so a nullable annotation is a checked contract, never advisory
+- Nullable: `enable` with warnings-as-errors, so a nullable annotation is checked, never advisory
 - Implicit usings: `enable`; `LanguageExt.Prelude` enters `static`, so `Optional`, `guard`, `Some`, and `None` are unqualified
 - Overflow: `CheckForOverflowUnderflow` is on, so an unchecked numeric body is the deliberate `unchecked(...)` exception, and a key-math operator traps by default
 
@@ -60,16 +60,16 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 
 | [INDEX] | [CONCERN]                         | [USE]                                         | [REPLACE]                                |
 | :-----: | :-------------------------------- | :-------------------------------------------- | :--------------------------------------- |
-|  [01]   | stack-only contract conformance   | `ref struct` implementing an interface        | boxing the stack value to the interface  |
+|  [01]   | stack-only interface conformance  | `ref struct` implementing an interface        | boxing the stack value to the interface  |
 |  [02]   | span-capable generic              | `allows ref struct` type parameter            | a boxed or duplicated non-span path      |
 |  [03]   | by-reference field                | `ref` field with `scoped` lifetime            | a raw pointer carrier, an index pair     |
 |  [04]   | ref state inside a coroutine      | `ref`/`unsafe` in an iterator or `async` body | an extracted helper duplicating the body |
 |  [05]   | embedded structured text          | raw string literal `"""..."""`                | escape-laden concatenation               |
 |  [06]   | terminal escape in processed text | `\e`                                          | the `\x1b` magic literal                 |
 
-## [03]-[LANGUAGE_FORM_CONTRACTS]
+## [03]-[LANGUAGE_FORMS]
 
-Each contract fixes the placement rule the chooser row cannot state. Form-contract snippets compose the finalized owners — generated shapes, rails, dispatch surfaces — as supporting material; the spotlight is the language form itself, and each contract closes on the one boundary that hands the value off to its owning page.
+Each entry fixes the placement rule the chooser row cannot state. Language-form snippets compose the finalized owners — generated shapes, rails, dispatch surfaces — as supporting material; the spotlight is the language form itself, and each entry closes on the one boundary that hands the value off to its owning page.
 
 [EXTENSION_SURFACE_SITE]:
 - Use when: behavior belongs to a receiver the declaring assembly does not own, or a forwarding wrapper type merely decorates an existing receiver.
@@ -203,13 +203,13 @@ public static class BoardOps {
 
 [STACK_KERNEL_SITE]:
 - Use when: a measured algorithm needs stack-only values, by-reference state, or span traversal that a rail combinator cannot carry without allocation, and the kernel returns ordinary values or rails at its public edge.
-- Accept: a `ref struct` owner with a primary constructor; a `ref` field with a `scoped` lifetime; the C# 14 instance `void operator +=` that mutates that `ref` field in place, so accumulation is one member call, not a static binary operator returning a fresh value; an `allows ref struct` type parameter so one fold body admits a stack-only step; a `ref struct` implementing an interface so the contract binds without boxing; `ref` and `unsafe` inside an iterator or `async` body; statement loops confined to the kernel body.
+- Accept: a `ref struct` owner with a primary constructor; a `ref` field with a `scoped` lifetime; the C# 14 instance `void operator +=` that mutates that `ref` field in place, so accumulation is one member call, not a static binary operator returning a fresh value; an `allows ref struct` type parameter so one fold body admits a stack-only step; a `ref struct` implementing an interface so the bound applies without boxing; `ref` and `unsafe` inside an iterator or `async` body; statement loops confined to the kernel body.
 - Reject: boxing a stack-only value through an interface conversion, carrying a `ref struct` across `await` or `yield`, a pointer carrier where a `ref` field expresses the lifetime, and a kernel-style statement leaking into domain flow.
 - Reject: a `ref struct` operand, receiver, or method group handed to any lambda or delegate seam — an invoke helper, a `Bind`/`Map` arm, a rail lift, a `Func`-shaped builder — because closure capture is the same escape as the box; a span-backed result copies element-wise into owned storage before any delegate-taking consumer, and the fence rebuilds statement-shaped at a named seam.
 - Reject: a `ref struct` riding any generic carrier — a `ValueTuple`, `Fin`, `Option`, `Seq`, or delegate return containing a span-shaped value is CS0306 — so a pairing that must yield both a span view and a rail value exits the span through an `out` parameter or a statement seam while the rail carries the admissible half.
 - Boundary: this is the named statement exemption for the language type-system layer; the numeric route that consumes the kernel and the foreign memory the span borrows are `algorithms.md`'s and `boundaries.md`'s, never re-derived here.
 
-Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the contract binds with no box, its C# 14 instance `operator +=` folds each value into the `ref double` field in place where a static `operator +` returns a fresh value the loop discards, and `Frame.Fold` admits the step through an `allows ref struct` type parameter so one stack-only fold body runs without heap traffic — the `foreach` loop and the operator's two-statement body are the named statement exemption, confined to the kernel and never reached by domain flow, which receives the kernel's ordinary return value.
+Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the interface bound applies with no box, its C# 14 instance `operator +=` folds each value into the `ref double` field in place where a static `operator +` returns a fresh value the loop discards, and `Frame.Fold` admits the step through an `allows ref struct` type parameter so one stack-only fold body runs without heap traffic — the `foreach` loop and the operator's two-statement body are the named statement exemption, confined to the kernel and never reached by domain flow, which receives the kernel's ordinary return value.
 
 Deleted form: a boxed `IStep<double>` argument and a heap `Func<double,double,double>` accumulator on a measured hot path.
 
@@ -286,5 +286,5 @@ Run each test before keeping a local construct beside the language form that sub
 
 [KERNEL_REPAIR]:
 - Smell: a measured loop boxes a stack-only value through an interface conversion, threads a heap `Func<,>` accumulator, or duplicates a span path into a boxed one because the type parameter forbids a `ref struct`.
-- Collapse: bind the contract with a `ref struct` implementing the interface, admit the step through an `allows ref struct` type parameter, and carry running state in a `scoped ref` field so the fold runs allocation-free.
+- Collapse: bind the interface with a `ref struct` implementation, admit the step through an `allows ref struct` type parameter, and carry running state in a `scoped ref` field so the fold runs allocation-free.
 - Done when: the kernel allocates nothing per element, the `foreach` is confined to the kernel body, and the public edge returns an ordinary value or rail with no `ref struct` crossing `await` or `yield`.

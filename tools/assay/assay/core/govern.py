@@ -19,7 +19,7 @@ import time
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 import anyio
-from anyio import to_thread  # ty mis-resolves anyio.to_thread without an explicit submodule import
+from anyio import to_thread
 from expression import Error, Ok, Result
 import msgspec
 from opentelemetry import trace
@@ -30,17 +30,7 @@ from upath import UPath
 from assay.composition.settings import Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.aspect import ring_recent
-from assay.core.model import (  # beartype resolves carrier annotations at runtime under PEP 649
-    Artifact,
-    ArtifactKind,
-    Check,
-    Claim,
-    Completed,
-    Fault,
-    Mode,
-    RailStatus,
-    Runner,
-)
+from assay.core.model import Artifact, ArtifactKind, Check, Claim, Completed, Fault, Mode, RailStatus, Runner
 
 
 if TYPE_CHECKING:
@@ -89,27 +79,20 @@ class _WriteContext(Protocol):
 
 type ByteRecv = Callable[[], Coroutine[None, None, bytes | None]]
 
-# O_CLOEXEC states the non-inheritance law at the open: PEP 446 covers Python-spawned children, the flag covers
-# exec'd descendants (dotnet build-server / msbuild worker nodes) that would otherwise hold the flock past this process.
 _LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT | os.O_CLOEXEC  # ty: ignore[possibly-missing-attribute]
 _LOCK_MODE: int = 0o644
 _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _RING_SNAPSHOT: str = "assay.ring"
 _MEM_PRESSURE_PERCENT: float = 90.0
 _DOTNET_SLOT_POLL_S: float = 0.25
-# A zombie or dead holder can never release its flock; both statuses are stale regardless of create-time match.
 _DEAD_STATUSES: frozenset[str] = frozenset({psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE})
-# Foreign-process census names: the dotnet-family processes that contend for the machine across invocations.
 _DOTNET_PROC_NAMES: frozenset[str] = frozenset({"dotnet", "MSBuild", "VBCSCompiler"})
-# Bound at import so a patched psutil module double cannot skew the verdict comparison.
 _DISK_WAIT_STATUS: str = psutil.STATUS_DISK_SLEEP
-# Fixed stall thresholds make silent-child diagnostics deterministic across runs.
 _STALL_AFTER_S: float = 30.0
 _STALL_SAMPLE_S: float = 5.0
 _RESOURCE_SAMPLE_S: float = 5.0
 _STALL_CPU_PCT: float = 25.0
 _STALL_CTX_RATE_HZ: float = 100.0
-# POSIX-only bindings localize checker suppressions for fcntl/os/signal members.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
 _GETPGID, _KILLPG, _SIGKILL = os.getpgid, os.killpg, signal.SIGKILL  # ty: ignore[possibly-missing-attribute]
 
@@ -118,7 +101,7 @@ class _LeaseOwner(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     resource: str
     run_id: str
     pid: int
-    create_time: float  # (pid, create_time) pair survives PID reuse; a recycled pid carries a fresh create_time
+    create_time: float
     cwd: str = ""
     project: str = ""
     mode: str = "exclusive"
@@ -173,7 +156,6 @@ class _MemoryInfo:
 
 @dataclass(frozen=True, slots=True)
 class _LoadInfo:
-    # Mem and load probes degrade independently to None: a faulted source elides its keys rather than reporting a sentinel.
     mem: tuple[float, float, float] | None
     load1_percent: float | None
 
@@ -200,7 +182,7 @@ class Measurements:
 
     memory: _MemoryInfo
     load: _LoadInfo
-    children: _ChildrenInfo | None  # None when the recursive children walk faults; elides the two child-tree keys
+    children: _ChildrenInfo | None
 
     def to_resources(self) -> tuple[tuple[str, float], ...]:
         """Project the canonical resource key/value rows, eliding any child-tree or load arm that degraded.
@@ -240,7 +222,6 @@ class ExecPlan:
 
     def local_store(self) -> ArtifactStore | None:
         """Return the agent-side store a spilled stdout artifact lands in, or None without a scope."""
-        # The agent-side store a spilled stdout artifact landed in; None when no scope wrote one (Captured.read resolves accordingly).
         return self.scope.store if isinstance(self.scope, ArtifactScope) else None
 
 
@@ -293,14 +274,12 @@ class Captured:
                 return store.read_path(self.path) if store is not None else b""
 
 
-# Fault-time snapshots cross the anyio.run boundary; ContextVar threads the snapshot without polluting call signatures.
 RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
 
 _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)
 
 
 def _spilled(path: str, total: int, spill_cap: int) -> bool:
-    # One shared spill predicate, strict greater-than: a payload retains inline at or below the cap, spills past it.
     return bool(path) and total > spill_cap
 
 
@@ -328,13 +307,11 @@ async def drain_stream(
         _write_sink(sink, read)
         total += len(read)
         lines += read.count(b"\n")
-        last = read[-1:] or last  # an empty chunk must not clobber the newline-terminus probe
+        last = read[-1:] or last
         match (kind, spilled or stopped):
             case ("out", False) if _spilled(path, total, spill_cap):
-                # Crossing the cap with a disk sink: the sink keeps streaming, so drop the in-memory copy and mark spilled.
                 spilled, body = True, bytearray()
             case ("out", False) if not path and total > spill_cap:
-                # No disk to spill to (scope=None stream): fill to the cap, stop appending, and surface one truncation note.
                 body += read
                 del body[spill_cap:]
                 stopped = True
@@ -381,7 +358,6 @@ def recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> ByteRecv:
         Async recv yielding the next chunk, or None at EOF (asyncssh signals EOF with b"").
     """
 
-    # asyncssh signals EOF with b"", not EndOfStream; map to None for pump uniformity.
     async def _recv() -> bytes | None:
         return (await reader.read(chunk)) or None
 
@@ -395,7 +371,6 @@ def touched(recv: ByteRecv, last_output: list[float]) -> ByteRecv:
         Recv that stamps last_output on every chunk and EOF.
     """
 
-    # Every received chunk (and EOF) re-arms the stall clock; silence is measured from the last byte, not from spawn.
     async def _recv() -> bytes | None:
         chunk = await recv()
         last_output[0] = time.monotonic()
@@ -442,12 +417,10 @@ async def drain_pair(
 
 async def reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> None:
     """Terminate and wait a child process tree, shielded from cancellation."""
-    # Shielded so cancellation cannot strand a child process past lease release.
     with anyio.CancelScope(shield=True):
         match proc.returncode:
             case None:
                 await to_thread.run_sync(_reap_tree, proc.pid, limiter=limiter)
-                # Backstop for a reap-eluding child; waitpid races degrade through _safe_call.
                 _safe_call(proc.kill, None)
             case _:
                 pass
@@ -455,13 +428,11 @@ async def reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> N
 
 
 def _terminate_process_tree(tree: tuple[psutil.Process, ...], pgid: int | None) -> None:
-    # SIGTERM-then-SIGKILL ladder; each phase emits one proc.reaped ledger line after its wait.
     alive = _signal_phase(tree, pgid, signal.SIGTERM)
     _ = _signal_phase(alive, pgid, _SIGKILL) if alive else ()
 
 
 def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: signal.Signals) -> tuple[psutil.Process, ...]:
-    # killpg reaches re-parented grandchildren; per-process signaling covers in-tree stragglers.
     _ = _safe_call(lambda: _KILLPG(pgid, sig), None) if pgid is not None else None
     for proc in reversed(procs):
         if proc.is_running():
@@ -472,12 +443,10 @@ def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: sign
 
 
 def _child_pgid(pid: int) -> int | None:
-    # Never killpg the engine's own process group.
     return _safe_call(lambda: pgid if (pgid := _GETPGID(pid)) != _GETPGID(0) else None, None)
 
 
 def _proc_tree(pid: int) -> tuple[psutil.Process, ...]:
-    # Root plus the recursive child set; dotnet builds fan compiler children the root alone under-reports.
     return _safe_call(lambda: ((root := psutil.Process(pid)), *root.children(recursive=True)), ())
 
 
@@ -486,7 +455,6 @@ def _reap_tree(pid: int) -> None:
 
 
 def _tree_rss(procs: tuple[psutil.Process, ...]) -> float:
-    # One owner folds resident memory across a process set; each per-proc read degrades to 0.0 through _safe_call.
     def _rss(proc: psutil.Process) -> float:
         return _safe_call(lambda: float(proc.memory_info().rss), 0.0)
 
@@ -494,7 +462,6 @@ def _tree_rss(procs: tuple[psutil.Process, ...]) -> float:
 
 
 def _stall_sample(pid: int) -> StalledProcess:
-    # Tree-aggregated: dotnet builds fan out compiler children, so the root process alone under-reports activity.
     def _cpu(proc: psutil.Process) -> float:
         def _read() -> float:
             times = proc.cpu_times()
@@ -515,7 +482,6 @@ def _stall_sample(pid: int) -> StalledProcess:
 
 
 def _stall_verdict(first: StalledProcess, second: StalledProcess) -> str:
-    # Silent-child triage reports the resource consumed across the sample window.
     cpu_pct = max(0.0, second.cpu_s - first.cpu_s) * 100.0 / max(_STALL_SAMPLE_S, 1e-6)
     invol_rate = max(0.0, second.invol - first.invol) / max(_STALL_SAMPLE_S, 1e-6)
     match (cpu_pct, second.status, invol_rate):
@@ -531,7 +497,6 @@ def _stall_verdict(first: StalledProcess, second: StalledProcess) -> str:
 
 async def stall_monitor(pid: int, last_output: list[float], notes: list[str]) -> None:
     """Diagnose one silent-child stall after the threshold and append a bounded note."""
-    # Diagnose once after the silence threshold so receipts carry at most one bounded stall note.
     while not notes:
         await anyio.sleep(_STALL_SAMPLE_S)
         match time.monotonic() - last_output[0] >= _STALL_AFTER_S:
@@ -651,7 +616,6 @@ def _capture_payload(plan: ExecPlan, name: str, payload: bytes) -> Captured:
             path = store.write_bytes(payload, *_process_parts(plan, name))
         case None:
             pass
-    # scope=None retains full inline regardless of size (one in-flight subprocess bounds it); a scoped payload past the cap spills to the artifact.
     return Captured(
         full=payload if not _spilled(path, len(payload), plan.spill_cap) else b"",
         spilled=_spilled(path, len(payload), plan.spill_cap),
@@ -692,7 +656,6 @@ def _stream_writer(plan: ExecPlan, name: str) -> tuple[str, _WriteContext | None
 
 
 def _safe_call[T](fn: Callable[[], T], default: T) -> T:
-    # NotImplementedError is psutil's off-POSIX signal for per-process probes such as num_fds.
     try:
         return fn()
     except psutil.Error, TypeError, ValueError, AttributeError, OSError, NotImplementedError:
@@ -700,7 +663,6 @@ def _safe_call[T](fn: Callable[[], T], default: T) -> T:
 
 
 def _load_info() -> _LoadInfo:
-    # Memory and load probes degrade independently: each arm yields None (elided keys) when its own source calls fail.
     def _mem() -> tuple[float, float, float]:
         mem, swap = psutil.virtual_memory(), psutil.swap_memory()
         return (
@@ -710,7 +672,7 @@ def _load_info() -> _LoadInfo:
         )
 
     def _load() -> float:
-        load1 = os.getloadavg()[0]  # ty: ignore[possibly-missing-attribute]  # POSIX-only; absence degrades through _safe_call
+        load1 = os.getloadavg()[0]  # ty: ignore[possibly-missing-attribute]
         return load1 * 100.0 / max(float(psutil.cpu_count(logical=True) or 1), 1.0)
 
     return _LoadInfo(mem=_safe_call(_mem, None), load1_percent=_safe_call(_load, None))
@@ -722,7 +684,6 @@ def measure() -> Measurements:
     Returns:
         Measurements over this process, its children, and system load.
     """
-    # One oneshot batches self-process syscalls; one recursive children walk and one load read feed the unified owner.
     proc = psutil.Process()
 
     def _walk() -> _ChildrenInfo:
@@ -736,7 +697,7 @@ def measure() -> Measurements:
             vms=_safe_call(lambda: float(info.vms), -1.0),
             uss=_safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
             percent_rss=_safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
-            num_fds=_safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]  # POSIX-only probe
+            num_fds=_safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]
             num_threads=_safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
         )
         children = _safe_call(_walk, None)
@@ -798,9 +759,7 @@ def _slot_census(settings: AssaySettings, slots: int) -> tuple[int, int]:
 
 
 @contextlib.asynccontextmanager
-async def dotnet_slot(  # closed resource-state ladder + machine-pool census; static rail work only surfaces its receipts
-    check: Check, settings: AssaySettings, deadline: float | None
-) -> AsyncIterator[Result[tuple[str, ...], Fault]]:
+async def dotnet_slot(check: Check, settings: AssaySettings, deadline: float | None) -> AsyncIterator[Result[tuple[str, ...], Fault]]:
     """Hold one machine-wide dotnet admission slot for a DOTNET check, or time out at the deadline.
 
     Yields:
@@ -835,7 +794,6 @@ async def dotnet_slot(  # closed resource-state ladder + machine-pool census; st
                 case _:
                     stack.close()
                     contended += 1
-        # Every slot contended: emit the once-per-window slot-wait event and let the next acquire carry the queue-position note.
         waited = True
         wait_ms = (time.monotonic() - started) * 1000.0
         _LOG.info("dotnet.slot_wait", contended=contended, slots=pressure.slots, wait_ms=round(wait_ms, 1))
@@ -932,12 +890,10 @@ def resource_projection(
     return tuple(sorted(resources.items()))
 
 
-# (monotonic_at, count) TTL memo: the 0.25s slot poll and the pressure checks share one census within the poll window.
 _FOREIGN_DOTNET_MEMO: list[tuple[float, int]] = []
 
 
 def _foreign_dotnet_count() -> int:
-    # Dotnet-family processes are the cross-invocation pressure unit; exclude this invocation's subtree.
     now = time.monotonic()
     match _FOREIGN_DOTNET_MEMO:
         case [(stamped, count)] if now - stamped < _DOTNET_SLOT_POLL_S:
@@ -965,7 +921,6 @@ async def fan_schedule(checks: tuple[Check, ...], worker: FanWorker, *, deadline
     """
     _LOG.info("fan.schedule", total=len(checks), concurrency=limit)
     trace.get_current_span().add_event("fan.schedule", attributes={"fan.total": len(checks), "fan.concurrency": limit})
-    # Buffer capacity equals the check count so the producer never blocks behind a stalled worker.
     send, recv = anyio.create_memory_object_stream[tuple[int, Check]](max(1, len(checks)))
     out_send, out_recv = anyio.create_memory_object_stream[tuple[int, Result[Completed, Fault]]](limit)
     results: dict[int, Result[Completed, Fault]] = {}
@@ -976,7 +931,7 @@ async def fan_schedule(checks: tuple[Check, ...], worker: FanWorker, *, deadline
                 slot: Result[Completed, Fault]
                 try:
                     slot = await worker(check)
-                except Exception as exc:  # ruff:ignore[blind-except]  # fan resilience: one escaped check must not cancel sibling workers
+                except Exception as exc:  # ruff:ignore[blind-except]
                     slot = Error(Fault((check.tool.name,), status=RailStatus.FAULTED, message=f"{type(exc).__name__}: {exc}"[:1024]))
                 await out.send((i, slot))
 
@@ -1001,7 +956,7 @@ async def fan_schedule(checks: tuple[Check, ...], worker: FanWorker, *, deadline
 
 def reset_foreign_census() -> None:
     """Clear the foreign-dotnet TTL memo so a new fan takes a fresh census."""
-    _FOREIGN_DOTNET_MEMO.clear()  # the memo only spans one fan's slot-poll window
+    _FOREIGN_DOTNET_MEMO.clear()
 
 
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
@@ -1012,7 +967,6 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
     Returns:
         Concurrency limit, at least 1.
     """
-    # Load-average backpressure rejected: macOS load1 counts uninterruptible waits, far too noisy a halving signal.
     pressure = _concurrency_pressure(settings, checks)
     match pressure.mem_pressure or pressure.dotnet_pressure:
         case True:
@@ -1031,16 +985,13 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
 
 
 def _stale(pid: int, extra: Callable[[psutil.Process], bool] = lambda _p: False) -> bool:
-    # Single psutil liveness admission: gone/corrupt/dead/zombie, plus an optional per-holder staleness predicate.
     try:
         proc = psutil.Process(pid)
         with proc.oneshot():
             return proc.status() in _DEAD_STATUSES or extra(proc)
     except psutil.NoSuchProcess, ValueError:
-        # ValueError covers psutil.Process(pid<=0) from a corrupt marker or owner block; treat as dead.
         return True
     except psutil.AccessDenied:
-        # AccessDenied means the OS still owns the pid; defer to pid_exists rather than declaring death.
         return not psutil.pid_exists(pid)
 
 
@@ -1068,18 +1019,15 @@ def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
     Returns:
         True when the holder is gone, zombie/dead, not running, or PID-reused beyond ``tolerance``.
     """
-    # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
     return proc_identity_dead(owner.pid, owner.create_time, tolerance)
 
 
 def _claim(fd: int, resource: str, spec: _ClaimSpec) -> _LeaseOwner | _Contention:
-    # Non-blocking flock: live contention returns a _Contention verdict (BUSY); stale or corrupt owner falls through to steal.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
         return _write_owner(fd, resource, spec)
     except BlockingIOError:
         held = os.read(fd, 4096)
-        # Empty bytes under a live flock means the holder is mid-write, not dead.
         match held:
             case b"":
                 _stamp_holder(None)
@@ -1096,9 +1044,6 @@ def _claim(fd: int, resource: str, spec: _ClaimSpec) -> _LeaseOwner | _Contentio
 
 
 def _steal(fd: int, resource: str, spec: _ClaimSpec, owner: _LeaseOwner | None) -> _LeaseOwner | _Contention:
-    # TOCTOU: the flock may still be held past the stale verdict. A recorded owner probing live again revived (or its
-    # pid recycled into a real contender) — plain contention; one still dead or corrupt cannot hold its own flock, so
-    # the lock rides an fd a descendant inherited (dotnet build-server / msbuild worker) — the phantom-holder verdict.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
     except BlockingIOError:
@@ -1109,7 +1054,6 @@ def _steal(fd: int, resource: str, spec: _ClaimSpec, owner: _LeaseOwner | None) 
 
 
 def _busy_fault(resource: str, refusal: _Contention) -> Fault:
-    # Phantom holders need the remedy spelled out: no live recorded owner exists for the operator to wait on.
     match refusal:
         case _Contention(phantom=True, owner=owner):
             record = f"pid {owner.pid}, run {owner.run_id}" if owner is not None else "corrupt owner block"
@@ -1151,7 +1095,6 @@ def decode_lease_owner(held: bytes) -> _LeaseOwner | None:
 
 
 def _write_all(fd: int, payload: bytes) -> None:
-    # POSIX write(2) permits short-writes; advance the view until the full payload is consumed.
     view = memoryview(payload)
     while view:
         view = view[os.write(fd, view) :]
@@ -1203,7 +1146,6 @@ def exclusive_lease(
             path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
         case LeaseScope.MACHINE:
             path = UPath(settings.machine_lock_root / f"{resource}.lock")
-    # fcntl.flock requires a local fd; remote artifact backends cannot host lease files.
     if path.protocol not in {"", "file"}:
         yield Error(Fault((), status=RailStatus.UNSUPPORTED, message=f"POSIX leases require a local artifact root; got {path.protocol!r} backend"))
         return

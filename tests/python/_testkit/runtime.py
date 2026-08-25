@@ -10,16 +10,14 @@ import sys
 import threading
 
 
-# Upward sentinel search: the workspace lockfile marks the root, so kit depth never re-anchors this.
 REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
 _DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
-_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # ruff:ignore[banned-api]  # precedes hypothesis import; locks storage path
+_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # ruff:ignore[banned-api]
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
-os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ruff:ignore[banned-api]  # precedes hypothesis import in subprocess workers
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ruff:ignore[banned-api]
 
-# Must precede any Hypothesis import; the observability callback is installed on first internal import.
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]  # precedes the observability module import
-    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ruff:ignore[banned-api]  # must precede observability module import
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ruff:ignore[banned-api]
 
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
@@ -28,8 +26,8 @@ import anyio
 from hypothesis import HealthCheck, is_hypothesis_test, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
 from hypothesis.database import BackgroundWriteDatabase, DirectoryBasedExampleDatabase, GitHubArtifactDatabase, MultiplexedDatabase, ReadOnlyDatabase
-from hypothesis.internal.observability import add_observability_callback  # no public re-export; hypothesis itself uses this path
-from hypothesis.strategies._internal.utils import to_jsonable  # no public re-export; mirrors hypothesis._deliver_to_file's own import
+from hypothesis.internal.observability import add_observability_callback
+from hypothesis.strategies._internal.utils import to_jsonable
 import msgspec.json
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -39,7 +37,7 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
-lazy from tests.python._testkit.laws import consume_covers  # laws imports runtime; the lazy binding breaks the cycle at first collection
+lazy from tests.python._testkit.laws import consume_covers
 
 
 if TYPE_CHECKING:
@@ -52,13 +50,9 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Public constant imported directly by suites that cannot use fixture indirection.
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
-# filter_too_much: recursive resolve() strategies bound depth via engine rejection (st.deferred marks
-# over-deep draws invalid); unreachable lanes still fail as Unsatisfiable, the correctness signal.
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much)
 
-# Symbolic profile vocabulary for non-pytest consumers and model-based profile resolution.
 PROFILE_DEFAULT = "rasm"
 PROFILE_MUTATION = "rasm-mutation"
 PROFILE_STATEFUL = "rasm-stateful"
@@ -110,8 +104,7 @@ def _run_profiler(artifact_dir: Path, secs: str) -> None:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
-# Background writes stay off the critical path; optional GH replay is read-only.
-_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]  # CI replay gate
+_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]
 match _gh_replay.split("/", 1) if _gh_replay else []:
     case [owner, repo]:
         _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
@@ -138,7 +131,6 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # Mutation runs need stable, cache-free verdicts and short state traces to preserve kill-signal budget.
     PROFILE_MUTATION,
     database=None,
     deadline=None,
@@ -148,36 +140,13 @@ hyp_settings.register_profile(
     phases=(Phase.explicit, Phase.generate),
     suppress_health_check=_SUPPRESSIONS,
 )
-hyp_settings.register_profile(
-    # Hostile-input degradation laws need a deeper example budget.
-    "rasm-adversarial",
-    database=_EXAMPLE_DB,
-    deadline=None,
-    max_examples=2000,
-    suppress_health_check=_SUPPRESSIONS,
-)
-hyp_settings.register_profile(
-    # Stateful laws need long traces to minimize interleaving counterexamples.
-    PROFILE_STATEFUL,
-    database=_EXAMPLE_DB,
-    deadline=None,
-    stateful_step_count=200,
-    suppress_health_check=_SUPPRESSIONS,
-)
-hyp_settings.register_profile(
-    # Derandomized parity requires database=None for byte-stable cross-tool comparison.
-    "rasm-parity",
-    database=None,
-    deadline=None,
-    derandomize=True,
-    suppress_health_check=_SUPPRESSIONS,
-)
-# Redirect Hypothesis observations to repo artifacts without replacing its built-in callback.
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]  # the callback installs before any settings model exists
+hyp_settings.register_profile("rasm-adversarial", database=_EXAMPLE_DB, deadline=None, max_examples=2000, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile(PROFILE_STATEFUL, database=_EXAMPLE_DB, deadline=None, stateful_step_count=200, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile("rasm-parity", database=None, deadline=None, derandomize=True, suppress_health_check=_SUPPRESSIONS)
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
     _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
     def _deliver_to_artifacts(observation: object, _thread_id: int) -> None:
-        # all_threads=True callbacks receive (observation, thread_id).
         kind = "testcases" if getattr(observation, "type", None) == "test_case" else "info"
         _OBS_DIR.mkdir(parents=True, exist_ok=True)
         artifact = _OBS_DIR / f"{datetime.now(tz=UTC).date().isoformat()}_{kind}.jsonl"
@@ -233,10 +202,10 @@ def _otel_provider() -> InMemorySpanExporter:
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Start the optional out-of-process CPU sampler for the test session PID."""
     _ = session
-    profile_flag = os.environ.get("TESTS_PROFILE")  # ruff:ignore[banned-api]  # profiler activation gate
+    profile_flag = os.environ.get("TESTS_PROFILE")  # ruff:ignore[banned-api]
     if not profile_flag:
         return
-    secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # ruff:ignore[banned-api]  # sampling duration override
+    secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # ruff:ignore[banned-api]
     artifact_dir = REPO_ROOT / ".artifacts" / "python" / "profile"
 
     def _spawn() -> None:

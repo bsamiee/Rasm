@@ -136,7 +136,6 @@ def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> Cal
 
 
 def _override_fan(overrides: dict[tuple[str, ...], Result[Completed, Fault]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
-    # Canned check-verb fan: overridden commands play their outcome; every other command succeeds with its default stdout.
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         commands = tuple(check.args.fill(check.tool.command) for check in checks)
         return tuple(overrides.get(command, Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command)))) for command in commands)
@@ -195,7 +194,6 @@ def _frow(
 
 _STALE_V3 = "installed forge-provision is older than the Rasm provision adapter"
 
-# One adapter-boundary fault table: wire framing, schema vintage, command identity, and egress sanitizing.
 _FAULT_ROWS = (
     _frow("malformed-json", b"{not-json", "invalid forge-provision JSON"),
     _frow("log-framed-stdout", b"log line\n" + _json("status"), "expected exactly one forge-provision JSON object"),
@@ -207,7 +205,7 @@ _FAULT_ROWS = (
     _frow("command-missing", {"schemaVersion": 3, "ok": True}, "missing command"),
     _frow("command-empty", {"schemaVersion": 3, "command": "", "ok": True}, "missing command"),
     _frow("command-mismatch", {"schemaVersion": 3, "command": "doctor", "ok": True}, "forge-provision JSON command"),
-    _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # ruff:ignore[hardcoded-password-func-arg]  # canned secret-shaped probe
+    _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # ruff:ignore[hardcoded-password-func-arg]
     _frow(
         "sensitive-value",
         _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False),
@@ -368,7 +366,6 @@ def test_provision_ok_projection_variants(assay_root: AssayHarness) -> None:
     assert "composeYaml" not in dict(plan_detail.plan_summary)
 
 
-# Extension projection matrix: catalog rows, runtime-probed null admission, and tool-surface rows are attribute expectations per payload.
 _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple[tuple[str, ...], ...]]], ...] = (
     (
         "catalog-rows-stay-separate-from-results",

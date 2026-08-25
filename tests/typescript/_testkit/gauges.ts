@@ -22,7 +22,6 @@ declare namespace Imports {
 }
 
 declare namespace Snapshots {
-    // A golden dialect is a row on the one audit engine: claim the snapshot entries, project the candidate owning specs.
     type Dialect = {
         readonly snapshot: (entry: string) => boolean;
         readonly owners: (entry: string, path: Path.Path) => ReadonlyArray<string>;
@@ -40,10 +39,8 @@ const Audit: Data.TaggedEnum.Constructor<Audit> = Data.taggedEnum<Audit>();
 const _SNAP = { home: '__snapshots__', extension: '.snap' } as const;
 const _GOLDEN = { home: 'goldens', spec: /\.pw\.[mc]?ts$/ } as const;
 
-// Every compilable source dialect joins the audit — a .tsx or .mts module must never evade a banned-module verdict.
 const _SOURCE = { include: /\.(?:[mc]?ts|tsx)$/, declaration: /\.d\.[mc]?ts$/ } as const;
 
-// Dependency, build, output, cache, and VCS trees never join a source audit: a routed artifact or a workspace symlink under the root would sweep foreign code.
 const _PRUNE = /(^|\/)(node_modules|dist|build|coverage|\.git|\.cache|\.artifacts)(\/|$)/;
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -59,9 +56,6 @@ const _walked = (root: string): Effect.Effect<ReadonlyArray<string>, GaugeFault,
     );
 
 const _specifiers = (path: string, text: string): ReadonlyArray<Imports.Specifier> => {
-    // BOUNDARY ADAPTER: the swc parse walk is a native callback seam; the accumulator detaches immutable at the return.
-    // The walk is recursive over every AST value so a dynamic `import("<specifier>")` buried in a body cannot evade a
-    // banned-module verdict, and an unparsable source throws loud — a span that fails to parse proves nothing.
     const found: Array<Imports.Specifier> = [];
     const visit = (node: unknown): void => {
         if (Array.isArray(node)) {
@@ -95,9 +89,6 @@ const _specifiers = (path: string, text: string): ReadonlyArray<Imports.Specifie
     return found;
 };
 
-// {home}/{...template metadata}/{...specPath}/{arg}: the metadata run between the home and the spec-suffixed segment is
-// snapshotPathTemplate data (project, platform, ...), so every metadata/spec-path split is a candidate owner — the gauge
-// never couples to one template arity.
 const _goldenOwners = (entry: string): ReadonlyArray<string> => {
     const segments = entry.split('/');
     const home = segments.indexOf(_GOLDEN.home);
@@ -111,22 +102,17 @@ const _goldenOwners = (entry: string): ReadonlyArray<string> => {
     );
 };
 
-// The golden dialect rows: each claims its snapshot entries and projects candidate owning specs; a new golden layout is a row.
 const _DIALECTS = {
-    // Runner snapshots: __snapshots__/<spec>.snap owned by the sibling spec beside the snapshot home.
     runner: {
         snapshot: (entry) => entry.endsWith(_SNAP.extension) && entry.includes(_SNAP.home),
         owners: (entry, path) => [path.join(path.dirname(path.dirname(entry)), path.basename(entry, _SNAP.extension))],
     },
-    // Playwright goldens: the snapshotPathTemplate embeds the owning spec path as the directory run closing at the spec segment.
     playwright: {
         snapshot: (entry) => Array.isNonEmptyReadonlyArray(_goldenOwners(entry)),
         owners: (entry) => _goldenOwners(entry),
     },
 } as const satisfies Record<string, Snapshots.Dialect>;
 
-// Standing snapshot-hygiene gauge over every golden dialect: a snapshot no candidate spec owns — or that no dialect can
-// attribute at all — is stale evidence, flagged for deletion.
 const Snapshots = {
     dialects: _DIALECTS,
     audit: (
@@ -150,7 +136,6 @@ const Snapshots = {
         }),
 } as const;
 
-// Import-graph gauge engine: pure over supplied sources, parameterized by zone projection and permitted-edge rows.
 const Imports = {
     scan: (sources: ReadonlyArray<{ readonly path: string; readonly text: string }>): ReadonlyArray<Imports.Module> =>
         Array.map(sources, (source) => ({ path: source.path, specifiers: _specifiers(source.path, source.text) })),
@@ -172,7 +157,6 @@ const Imports = {
                 ),
             );
         }),
-    // An empty module set is UNSUPPORTED, never a vacuous green: the gauge names what it could not audit.
     verdict: (modules: ReadonlyArray<Imports.Module>, rules: Imports.Rules): Audit =>
         Array.isNonEmptyReadonlyArray(modules)
             ? Audit.Audited({

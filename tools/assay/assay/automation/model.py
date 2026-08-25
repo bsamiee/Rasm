@@ -9,7 +9,7 @@ from typing import Annotated, assert_never
 
 from msgspec import json, Meta, Raw
 
-from assay.core.model import Base, Claim  # runtime msgspec field; deferring breaks struct resolution
+from assay.core.model import Base, Claim
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
     """Ordered actions evaluated by the engine."""
 
-    actions: tuple["Action", ...]  # ruff:ignore[quoted-annotation]  # forward ref; Action alias defined after Sequence
+    actions: tuple["Action", ...]  # ruff:ignore[quoted-annotation]
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
@@ -98,7 +98,7 @@ class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unkno
     the quiescence duration in milliseconds.
     """
 
-    action: "Action"  # ruff:ignore[quoted-annotation]  # forward ref; Action alias defined after Debounce
+    action: "Action"  # ruff:ignore[quoted-annotation]
     window_ms: int = 500
     edge: Edge = Edge.TRAILING
 
@@ -108,9 +108,9 @@ type Action = Rail | Program | Sequence | Debounce
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)  # msgspec resolves union members eagerly at Decoder.__init__
+TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)
 ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)
-_NODE_DECODER: json.Decoder[Trigger | Action] = json.Decoder(Trigger | Action)  # disjoint tags discriminate the combined union
+_NODE_DECODER: json.Decoder[Trigger | Action] = json.Decoder(Trigger | Action)
 _ENCODE = json.Encoder(order="deterministic")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

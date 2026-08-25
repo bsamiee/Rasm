@@ -5,8 +5,6 @@ using Rasm.TestKit;
 namespace Rasm.Architecture.Tests;
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Synthetic BDN full-report rows drive the gate end-to-end: the tri-state verdict, the exact
-// FullName registry match, and the Potts/BIC sustained segmenter prove without a live session.
 internal static class BdnRows {
     public static BdnBenchmark Bench(string fullName, double medianNs, double iqrNs) => new() {
         FullName = fullName,
@@ -40,7 +38,6 @@ public sealed class BenchmarkGateLaws {
             BdnRows.Case(fullName: "Kit.Fast"),
             BdnRows.Case(fullName: "Kit.Noisy"),
             BdnRows.Case(fullName: "Kit.Slow"),
-            // Exact-match law: a registry prefix of a report FullName resolves nothing.
             BdnRows.Case(fullName: "Kit.Fa"),
             BdnRows.Case(fullName: "Kit.Absent")));
         Assert.Equal(expected: 5, actual: verdicts.Count);
@@ -78,7 +75,6 @@ public sealed class BenchmarkGateLaws {
         Spec.Fail(result: Regression.Sustained(seriesByKey: HashMap(("Kit.Fast", Seq(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 3.0, 3.0)))),
             then: static error => Assert.Contains(expectedSubstring: "Kit.Fast", actualString: error.Message, comparisonType: StringComparison.Ordinal));
         Spec.Succ(result: Regression.Sustained(seriesByKey: HashMap(("Kit.Fast", Seq(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)))));
-        // A 50% final-segment jump sits under the 70% tolerance: segmentation fires, the gate does not.
         Spec.Succ(result: Regression.Sustained(seriesByKey: HashMap(("Kit.Fast", Seq(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 1.5, 1.5)))));
     }
 
@@ -114,7 +110,6 @@ public sealed class BenchmarkGateLaws {
             File.WriteAllText(path: broken, contents: "{not json");
             Spec.Fail(result: Regression.ReadReport(path: broken), then: static error =>
                 Assert.Contains(expectedSubstring: "read failed", actualString: error.Message, comparisonType: StringComparison.Ordinal));
-            // A literal "null" body decodes to a null report: the empty-report guard fails typed, never NRE.
             string empty = Path.Combine(path1: root.FullName, path2: "null.json");
             File.WriteAllText(path: empty, contents: "null");
             Spec.Fail(result: Regression.ReadReport(path: empty));
@@ -123,8 +118,6 @@ public sealed class BenchmarkGateLaws {
         }
     }
 
-    // The discovery-parity gate: a [Benchmark] landing in Rasm.Benchmarks without its registry row
-    // fails HERE, so a measurement can never exist silently ungated.
     [Fact]
     [Law(typeof(Regression), nameof(Regression.RegistryParity), Member = nameof(Regression.RegistryParity))]
     public void RegistryParityNamesUngatedAndPhantomRowsAndHoldsForTheLiveAssembly() {
@@ -133,7 +126,6 @@ public sealed class BenchmarkGateLaws {
             cases: Seq(BdnRows.Case(fullName: "Kit.A"), BdnRows.Case(fullName: "Kit.B(N: 4)"))));
         Spec.FailMany(result: Regression.RegistryParity(discovered: Seq("Kit.A"), cases: Seq(BdnRows.Case(fullName: "Kit.Ghost"))),
             expectedCount: 2, "ungated benchmark: 'Kit.A'", "phantom registry row: 'Kit.Ghost'");
-        // Bare-prefix ownership is refused: "Kit.AB" is not owned by the "Kit.A" method key.
         Spec.FailMany(result: Regression.RegistryParity(discovered: Seq("Kit.A"), cases: Seq(BdnRows.Case(fullName: "Kit.AB"))),
             expectedCount: 2, "'Kit.A'", "'Kit.AB'");
         Spec.Succ(result: Regression.RegistryParity(discovered: DiscoveredBenchmarks(), cases: BenchRegistry.Cases));

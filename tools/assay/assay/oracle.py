@@ -6,7 +6,7 @@ reports. Every C# spawn is a catalog row filled through typed splice slots; the 
 carrying producer identity, probed producer version, and content _fingerprint.
 """
 
-import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
+import annotationlib
 from dataclasses import dataclass, field
 import difflib
 from enum import StrEnum
@@ -21,7 +21,7 @@ from pathlib import Path
 import re
 from types import ModuleType
 from typing import override, Protocol, runtime_checkable, TYPE_CHECKING, TypeAliasType
-import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local MSBuild XML, never network-sourced
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]
 
 from expression import Error, Ok, Result
 import msgspec
@@ -29,9 +29,9 @@ from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_typescript
 
 from assay.composition.catalog import select
-from assay.composition.settings import AssaySettings  # beartype resolves adapter annotations at runtime
-from assay.composition.store import ArtifactScope  # beartype resolves adapter annotations at runtime
-from assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import Executor
 from assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -67,15 +67,15 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps | package-root
+type PathKind = str
 
 
 class Fidelity(StrEnum):
     """Decompilation fidelity of an API surface, derived from its SourceKind."""
 
-    DECOMPILED = "decompiled"  # ilspycmd IL->C# reconstruction (assembly, nuget)
-    INTROSPECTED = "introspected"  # live inspect of an imported Python distribution
-    DECLARED = "declared"  # parsed .d.ts ambient declarations
+    DECOMPILED = "decompiled"
+    INTROSPECTED = "introspected"
+    DECLARED = "declared"
 
 
 class _Outcome(StrEnum):
@@ -85,10 +85,10 @@ class _Outcome(StrEnum):
     other nonzero exit or exit-0 stderr fault, so a tool failure never masquerades as a symbol miss.
     """
 
-    HIT = "hit"  # exit 0 with decompiled source on stdout
-    MISS = "miss"  # type definition absent from this assembly's type system
-    EMPTY = "empty"  # clean exit, empty output, silent stderr: a genuine soft miss
-    FAULT = "fault"  # operational failure: nonzero exit or an exit-0 stderr fault
+    HIT = "hit"
+    MISS = "miss"
+    EMPTY = "empty"
+    FAULT = "fault"
 
 
 @runtime_checkable
@@ -133,7 +133,7 @@ _HOST_SPECS: dict[str, tuple[str, str]] = {
     "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
 }
 HOST_KEYS: frozenset[str] = frozenset(_HOST_SPECS)
-_RHINO_BUNDLE_RANK: tuple[str, ...] = ("RhinoWIP.app", "RhinoBETA.app")  # explicit rank; versioned bundles follow, newest name first
+_RHINO_BUNDLE_RANK: tuple[str, ...] = ("RhinoWIP.app", "RhinoBETA.app")
 _RESOURCE_ROOT: str = "Contents/Frameworks/RhCore.framework/Versions/Current/Resources"
 _BUILD_PROPS: str = "Directory.Build.props"
 _PACKAGES_PROPS: str = "Directory.Packages.props"
@@ -141,31 +141,18 @@ _NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nu
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
-# cisde renders open generics by bare name (no arity marker, no angle bracket); every `<` in a type name is a
-# compiler synthetic: `<Module>`, `<>c`/`<>c__DisplayClass`, `<>f__AnonymousType`, `<MethodName>d__NN` iterators,
-# and `<PrivateImplementationDetails>`. Filtering on the angle bracket drops synthetics and never a legitimate generic.
 _NOISE: re.Pattern[str] = re.compile(r"<")
-# Consumer TFM floor fallback when Directory.Build.props omits TargetFramework; the props value wins when present.
 _TFM_FLOOR_FALLBACK: tuple[int, int] = (10, 0)
 _TFM_MODERN: re.Pattern[str] = re.compile(r"^net(\d+)\.(\d+)$")
 _TFM_NETCOREAPP: re.Pattern[str] = re.compile(r"^netcoreapp(\d+)\.(\d+)$")
 _TFM_NETSTANDARD: re.Pattern[str] = re.compile(r"^netstandard(\d+)\.(\d+)$")
 _TFM_NETFRAMEWORK: re.Pattern[str] = re.compile(r"^net(4\d{1,2})$")
 _TARGET_FRAMEWORK: re.Pattern[str] = re.compile(r"<TargetFramework>\s*net(\d+)\.(\d+)\s*</TargetFramework>")
-# ilspycmd's typed not-found verdict; it can ride stderr under any exit code, so classification keys on the text.
 _ILSPY_MISS: str = "Could not find type definition"
-# ilspycmd decompiler-crash markers (an ICSharpCode.Decompiler transform bug on one method aborts the whole
-# type); stderr tail-clips under the stream cap, so the trace-frame marker — present throughout the stack —
-# detects a crash whose "Error decompiling" head was clipped. The rail retries the attempt at the downgraded
-# language version, whose simpler transform pipeline decompiles the type cleanly, and stamps the fallback note.
 _ILSPY_CRASH: tuple[str, ...] = ("Error decompiling", "ICSharpCode.Decompiler")
 _ILSPY_LV_FALLBACK: tuple[str, ...] = ("-lv", "CSharp7_3")
-# XMLDoc ids arity-mark generics (`N types, ``N methods); the CLR reflection tail is single-backtick only.
 _ARITY: re.Pattern[str] = re.compile(r"`+\d+")
 _ARITY_TAIL: re.Pattern[str] = re.compile(r"^(?P<base>.+)`(?P<n>\d+)$")
-# ECMA-335 #~ table schemas: column tokens are u2/u4 fixed, S/G/B heap indexes, I:<tid> simple indexes, and
-# C:<family> coded indexes. Row widths derive from these schemas so the reader can skip every table between
-# TypeDef (0x02) and NestedClass (0x29); an unknown present table id aborts the parse fail-open.
 _MD_TABLES: dict[int, tuple[str, ...]] = {
     0x00: ("u2", "S", "G", "G", "G"),
     0x01: ("C:ResolutionScope", "S", "S"),
@@ -213,7 +200,6 @@ _MD_TABLES: dict[int, tuple[str, ...]] = {
     0x2B: ("C:MethodDefOrRef", "B"),
     0x2C: ("I:2A", "C:TypeDefOrRef"),
 }
-# Coded-index families (ECMA-335 II.24.2.6); zero entries hold unused tag slots so tag-bit widths stay exact.
 _MD_FAMILIES: dict[str, tuple[int, ...]] = {
     "TypeDefOrRef": (0x02, 0x01, 0x1B),
     "HasConstant": (0x04, 0x08, 0x17),
@@ -235,18 +221,14 @@ _MD_FAMILIES: dict[str, tuple[int, ...]] = {
 _MD_MAGIC: int = 0x424A5342
 _MD_FIXED: dict[str, int] = {"u2": 2, "u4": 4}
 _MD_HEAP_BIT: dict[str, int] = {"S": 1, "G": 2, "B": 4}
-# Surface-cache file shape (`<16-hex>.json` or `unresolved.json`); the write-time reaper removes only these.
 _FINGERPRINT_FILE: re.Pattern[str] = re.compile(r"(?:[0-9a-f]{16}|unresolved)\.json")
-# Producer identities stamped into typed cache entries; a mismatched producer is a cache miss, never a parse guess.
 _ILSPY_PRODUCER: str = "ilspycmd"
-_PY_PRODUCER: str = "py-api/2"  # bumped with roster semantics (builtin rows, ownership roots) so stale cached rosters miss
+_PY_PRODUCER: str = "py-api/2"
 _TS_PRODUCER: str = "ts-api"
-# Roster-grammar dispatch keyed on the probed ilspycmd version; the catch-all row is the stable cisde grammar.
-# A future grammar break adds a version-pattern row here instead of sniffing output shape.
 _ILSPY_VERSION: re.Pattern[str] = re.compile(r"(\d+(?:\.\d+)+)")
-_PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))  # key is also a package name
+_PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))
 _NODE_MODULES: str = "node_modules"
-_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
+_PNPM_STORE: str = "node_modules/.pnpm"
 _DTS_GLOB: str = "*.d.ts"
 _DTS_ENTRY: str = "index.d.ts"
 _TS_DECL_QUERY: str = (
@@ -257,8 +239,8 @@ _TS_DECL_QUERY: str = (
     " (enum_declaration name: (identifier) @type)"
     " (function_signature name: (identifier) @type)"
     " (module name: (identifier) @type)"
-    " (variable_declarator name: (identifier) @type)"  # export declare const NAME
-    " (namespace_export (identifier) @type)"  # export * as NAME
+    " (variable_declarator name: (identifier) @type)"
+    " (namespace_export (identifier) @type)"
 )
 _TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript
 _DECL_NODES: frozenset[str] = frozenset((
@@ -274,8 +256,6 @@ _DECL_NODES: frozenset[str] = frozenset((
     "public_field_definition",
     "variable_declarator",
 ))
-# Flat symbol lookups prefer type-level declarations over value/member-level ones sharing the name, so an
-# interface's `Effect` property never shadows the `Effect` type the query names; document order breaks ties.
 _DECL_RANK: dict[str, int] = {
     "class_declaration": 0,
     "abstract_class_declaration": 0,
@@ -289,9 +269,8 @@ _DECL_RANK: dict[str, int] = {
     "property_signature": 2,
     "public_field_definition": 2,
 }
-_RANK_EXPORT: int = 8  # export-alias fallback outranks nothing but a miss
-_RANK_NONE: int = 99  # no declaration and no export alias in this file
-# Declaration-node kinds projected onto the member-truth band a report consumer reads typed.
+_RANK_EXPORT: int = 8
+_RANK_NONE: int = 99
 _TS_KIND: dict[str, str] = {
     "class_declaration": "class",
     "abstract_class_declaration": "class",
@@ -306,16 +285,16 @@ _TS_KIND: dict[str, str] = {
     "public_field_definition": "field",
 }
 _EXPORT_SPEC: frozenset[str] = frozenset(("export_specifier",))
-_TYPE_CAP: str = "type"  # roster capture-name vocabulary: every INPROC/tree-sitter declaration row caps under this name
+_TYPE_CAP: str = "type"
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
     (_TYPE_CAP, inspect.isclass),
     (_TYPE_CAP, inspect.isfunction),
-    (_TYPE_CAP, inspect.isbuiltin),  # native-extension module callables (PyO3/pybind11) are builtins, never functions
-    (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)),  # PEP 695 `type` aliases surface alongside classes and functions
+    (_TYPE_CAP, inspect.isbuiltin),
+    (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)),
 )
 NAME_CAP: int = 320
 _SIG_CAP: int = 480
-_FULL_CAP: int = 2560  # full .d.ts member body capture
+_FULL_CAP: int = 2560
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -374,7 +353,6 @@ class CacheEntry(Base, frozen=True):
 
 
 def _score_name(name: str, needle: str) -> int:
-    # Ranking favors exact, prefix, substring, segment overlap, then character similarity.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
     low = name.casefold()
@@ -423,7 +401,6 @@ def rank_namespace(surface: Surface, symbol: str) -> str:
 
 
 def _props_digest(path: Path | UPath) -> str | None:
-    # Content digest keying the props lru_caches; None marks an unreadable file for the caller's fallback.
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
     except OSError:
@@ -432,7 +409,7 @@ def _props_digest(path: Path | UPath) -> str | None:
 
 @lru_cache(maxsize=8)
 def _tfm_floor_at(path_str: str, digest: str) -> tuple[int, int]:
-    _ = digest  # lru_cache key slot: content hash, immune to mtime-preserving rewrites
+    _ = digest
     match _TARGET_FRAMEWORK.search(Path(path_str).read_text(encoding="utf-8", errors="replace")):
         case None:
             return _TFM_FLOOR_FALLBACK
@@ -479,12 +456,10 @@ def _ranked_tfm_dirs(root: Path, asset: str, floor: tuple[int, int]) -> tuple[Pa
     base = root / asset
     frameworks = tuple(p for p in base.iterdir() if p.is_dir()) if base.is_dir() else ()
     compatible = sorted((p for p in frameworks if tfm_rank(p.name, floor) is not None), key=lambda p: (tfm_rank(p.name, floor), p.name))
-    # A package with zero compatible TFMs still resolves (sorted fallback) so `resolve` keeps reporting its assets.
     return tuple(compatible) or tuple(sorted(frameworks))
 
 
 def _select_tfm_dir(root: Path, floor: tuple[int, int]) -> Path | None:
-    # ref/ wins over lib/ for the same reason the compiler binds reference assemblies first.
     return next((ranked[0] for asset in ("ref", "lib") for ranked in (_ranked_tfm_dirs(root, asset, floor),) if ranked), None)
 
 
@@ -507,13 +482,11 @@ def safe_key(key: str) -> str:
 
 
 @lru_cache(maxsize=256)
-def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # ruff:ignore[unused-function-argument]  # size+mtime_ns are lru_cache key slots, not used in the body
-    # RhinoWIP reinstalls can preserve DLL mtimes, so content-hash is the discriminant.
+def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # ruff:ignore[unused-function-argument]
     return hashlib.sha256(Path(path_str).read_bytes()).hexdigest()
 
 
 def _fingerprint(paths: tuple[Path, ...]) -> str:
-    # 16-hex content fingerprint (path, size, mtime, digest) keying the typed surface cache.
     seed = "|".join(
         f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}" for p in paths if p.is_file() for st in (p.stat(),)
     )
@@ -526,7 +499,7 @@ def rhino_app(settings: AssaySettings) -> Path | None:
     Returns:
         Bundle path, or ``None`` when no bundle is present.
     """
-    candidates = (  # bundle resolution is local-fs; UPath -> Path; mirrors the rhino-bridge host contract
+    candidates = (
         Path(str(settings.root)) / "rhino-app",
         *((Path(settings.rhino_wip_app_path),) if settings.rhino_wip_app_path else ()),
         *_installed_rhino_bundles(),
@@ -535,14 +508,12 @@ def rhino_app(settings: AssaySettings) -> Path | None:
 
 
 def _installed_rhino_bundles() -> tuple[Path, ...]:
-    # Discovery over a pinned bundle name: any installed Rhino answers, ranked WIP > BETA > versioned (newest first).
     apps = tuple(Path("/Applications").glob("Rhino*.app"))
     ranked = tuple(p for name in _RHINO_BUNDLE_RANK for p in apps if p.name == name)
     return ranked + tuple(sorted((p for p in apps if p.name not in _RHINO_BUNDLE_RANK), key=lambda p: p.name, reverse=True))
 
 
 def _host_source(settings: AssaySettings, key: str) -> Source | None:
-    # Empty sources let status report absent bundles instead of hiding the row.
     match _HOST_SPECS.get(key):
         case None:
             return None
@@ -567,9 +538,9 @@ def host_sources(settings: AssaySettings) -> tuple[Source, ...]:
 
 @lru_cache(maxsize=8)
 def _packages_at(root_str: str, digest: str) -> dict[str, str]:
-    _ = digest  # lru_cache key slot: content hash, immune to mtime-preserving rewrites
+    _ = digest
     try:
-        root = ET.fromstring(Path(root_str).read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local Directory.Packages.props, never network-sourced
+        root = ET.fromstring(Path(root_str).read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]
     except OSError, ET.ParseError:
         return {}
     return {
@@ -608,9 +579,7 @@ def resolve_key(package_map: dict[str, str], key: str, *, fuzzy: bool = True) ->
 
 
 def _package_root(settings: AssaySettings, package: str, version: str) -> Path:
-    candidates = tuple(
-        Path(root) if Path(root).is_absolute() else Path(str(settings.root)) / root for root in _NUGET_ROOTS
-    )  # NuGet cache is local-fs; UPath -> Path
+    candidates = tuple(Path(root) if Path(root).is_absolute() else Path(str(settings.root)) / root for root in _NUGET_ROOTS)
     targets = tuple(base / package.casefold() / version for base in candidates)
     return next((t for t in targets if t.is_dir()), targets[0])
 
@@ -624,13 +593,12 @@ def _project_references(path: Path) -> tuple[str, ...]:
 
 
 def _csproj_paths(root: Path) -> tuple[Path, ...]:
-    # The one owner-index discovery: generated trees never own packages.
     return tuple(sorted(p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts)))
 
 
 @lru_cache(maxsize=8)
 def _package_owner_index_at(root_str: str, index_fingerprint: str) -> dict[str, tuple[str, ...]]:
-    _ = index_fingerprint  # lru_cache key slot; encodes sorted csproj mtime_ns so re-computation triggers on project graph changes
+    _ = index_fingerprint
     root = Path(root_str)
     rows = sorted((package, path.relative_to(root).as_posix()) for path in _csproj_paths(root) for package in _project_references(path))
     return {package: tuple(sorted(owner for _, owner in group)) for package, group in itertools.groupby(rows, key=operator.itemgetter(0))}
@@ -721,9 +689,8 @@ def pydist_inventory_sources() -> tuple[ApiSource, ...]:
 
 
 def _pydist_source(key: str) -> Source | None:
-    # No assemblies: PYDIST roster and decompile use the INPROC inspect thunk, not ilspycmd.
     try:
-        dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError -> None (fall through)
+        dist = importlib.metadata.distribution(key)
     except importlib.metadata.PackageNotFoundError:
         return None
     root = Path(str(dist.locate_file("")))
@@ -742,8 +709,6 @@ def _pydist_source(key: str) -> Source | None:
 
 
 def _pydist_modules(key: str) -> tuple[str, ...]:
-    # Declared top_level.txt roots, else packages_distributions() mapped roots, else dashes-to-underscores.
-    # top_level.txt is absent in many modern wheels; packages_distributions() recovers real import roots.
     try:
         text = importlib.metadata.distribution(key).read_text("top_level.txt")
     except importlib.metadata.PackageNotFoundError:
@@ -768,7 +733,6 @@ def tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
 
 
 def _json_fields(path: Path, *fields: str) -> dict[str, str]:
-    # One decode per manifest, but each field's str-decode is isolated: a malformed sibling value must not zero a valid field.
     try:
         data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])
     except OSError, msgspec.DecodeError:
@@ -789,7 +753,6 @@ def tsdecl_source(settings: AssaySettings, key: str) -> Source | None:
     Returns:
         Source over the package's ``.d.ts`` files, or ``None`` when the package is absent.
     """
-    # Hoisted node_modules entry wins, pnpm store paths are fallbacks; a package with no .d.ts files yields EMPTY, not FAULTED.
     mangled = key.replace("/", "+")
     store = Path(str(settings.root)) / _PNPM_STORE
     candidates = (Path(str(settings.root)) / _NODE_MODULES / key, *sorted(store.glob(f"{mangled}@*/{_NODE_MODULES}/{key}")))
@@ -798,20 +761,15 @@ def tsdecl_source(settings: AssaySettings, key: str) -> Source | None:
             return None
         case pkg_dir:
             manifest = _json_fields(pkg_dir / "package.json", "types", "typings", "version")
-            # package.json `types`/`typings` wins over the `index.d.ts` convention. Declarations walk the whole
-            # package tree (an entry that only re-exports nested files rosters nothing otherwise), skipping the
-            # package's own vendored node_modules.
             declared = pkg_dir / (manifest["types"] or manifest["typings"] or _DTS_ENTRY)
             entry = declared if declared.is_file() else None
             siblings = tuple(sorted(p for p in pkg_dir.rglob(_DTS_GLOB) if _NODE_MODULES not in p.relative_to(pkg_dir).parts))
             assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
-            # pnpm store dir encodes `{mangled}@version(+peer)(_hash)`; strip the peer/hash suffixes.
             pnpm = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in sorted(store.glob(f"{mangled}@*"))), "")
             return Source(key=key, kind=SourceKind.TSDECL, version=pnpm or manifest["version"], package_root=pkg_dir, asset_paths=assets)
 
 
 def _resolve_targets(source: Source, kind: PathKind) -> tuple[Path, ...]:
-    # Deduplicated paths per kind token; the caller validates the token against PATH_KINDS.
     catalog: dict[PathKind, tuple[Path, ...]] = {
         "all": (*source.assemblies, *source.xmls, *((source.nuspec,) if source.nuspec is not None else ()), *source.asset_paths),
         "assembly": source.assemblies,
@@ -823,7 +781,6 @@ def _resolve_targets(source: Source, kind: PathKind) -> tuple[Path, ...]:
     return tuple(dict.fromkeys(catalog[kind]))
 
 
-# SourceKind-keyed resolver order is the bundle > NuGet > pydist > tsdecl precedence; iteration takes the first hit.
 def _nuget_leg(*, fuzzy: bool) -> SourceResolver:
     def leg(settings: AssaySettings, key: str, packages_map: dict[str, str]) -> Source | None:
         resolved = resolve_key(packages_map, key, fuzzy=fuzzy)
@@ -832,9 +789,6 @@ def _nuget_leg(*, fuzzy: bool) -> SourceResolver:
     return leg
 
 
-# Ordered resolution ladder: every exact leg outranks the terminal fuzzy NuGet leg, so an installed pydist or
-# node package never resolves under a NuGet prefix/substring hit (`deltalake` -> `DeltaLake.Net`); a NUGET row
-# appears twice because exactness, not kind, is the precedence axis.
 _RESOLVE_LADDER: tuple[tuple[SourceKind, SourceResolver], ...] = (
     (SourceKind.ASSEMBLY, lambda settings, key, _packages_map: _host_source(settings, key)),
     (SourceKind.NUGET, _nuget_leg(fuzzy=False)),
@@ -842,8 +796,6 @@ _RESOLVE_LADDER: tuple[tuple[SourceKind, SourceResolver], ...] = (
     (SourceKind.TSDECL, lambda settings, key, _packages_map: tsdecl_source(settings, key)),
     (SourceKind.NUGET, _nuget_leg(fuzzy=True)),
 )
-# A `<scope>:` key prefix pins resolution to one kind — the sole disambiguator when one spelling is exact in two
-# ecosystems (`py:rhino3dm` introspects the wheel, `nuget:rhino3dm` decompiles the package).
 _KEY_SCOPES: dict[str, frozenset[SourceKind]] = {
     "host": frozenset((SourceKind.ASSEMBLY,)),
     "nuget": frozenset((SourceKind.NUGET,)),
@@ -851,8 +803,6 @@ _KEY_SCOPES: dict[str, frozenset[SourceKind]] = {
     "npm": frozenset((SourceKind.TSDECL,)),
 }
 
-# Fidelity is the single SourceKind->Fidelity correspondence: the surface stores no fidelity, every read derives it
-# here, so it cannot drift. ASSEMBLY/NUGET decompile through ilspycmd; PYDIST is live introspection; TSDECL parses declarations.
 _FIDELITY: dict[SourceKind, Fidelity] = {
     SourceKind.ASSEMBLY: Fidelity.DECOMPILED,
     SourceKind.NUGET: Fidelity.DECOMPILED,
@@ -872,14 +822,12 @@ def fidelity_note(source: Source) -> str:
 
 
 def _resolve_source(settings: AssaySettings, key: str) -> Result[Source, ApiResolution]:
-    # Misses aggregate candidates across every resolver kind; a scope-pinned key walks only its own ladder rows.
     package_map = packages(settings)
     scope, _, bare = key.partition(":")
     pinned = _KEY_SCOPES.get(scope.casefold()) if bare else None
     lookup = bare if pinned is not None else key
 
     def _attempt(resolver: SourceResolver) -> Source | None:
-        # Empty/NUL keys can raise in metadata and glob resolvers; unknown stays a miss.
         try:
             return resolver(settings, lookup, package_map)
         except ValueError, OSError:
@@ -929,7 +877,6 @@ def to_api_source(source: Source, *, status: RailStatus | None = None, selected:
 
 
 def _cli_streams(raw: bytes) -> tuple[bytes, bytes] | None:
-    # PE -> COFF -> optional-header data directory 14 (CLI) -> metadata root -> (#~|#-, #Strings) payloads.
     pe = int.from_bytes(raw[0x3C:0x40], "little")
     if raw[pe : pe + 4] != b"PE\x00\x00":
         return None
@@ -940,9 +887,9 @@ def _cli_streams(raw: bytes) -> tuple[bytes, bytes] | None:
     table = opt + opt_size
     sections = tuple(
         (
-            int.from_bytes(raw[base + 12 : base + 16], "little"),  # virtual address
-            int.from_bytes(raw[base + 8 : base + 12], "little"),  # virtual size
-            int.from_bytes(raw[base + 20 : base + 24], "little"),  # raw pointer
+            int.from_bytes(raw[base + 12 : base + 16], "little"),
+            int.from_bytes(raw[base + 8 : base + 12], "little"),
+            int.from_bytes(raw[base + 20 : base + 24], "little"),
         )
         for index in range(section_count)
         for base in (table + 40 * index,)
@@ -989,7 +936,6 @@ def _heap_str(strings: bytes, index: int) -> str:
 
 
 def _typedef_reflection(raw: bytes) -> tuple[str, ...]:
-    # TypeDef names carry the backtick arity verbatim in metadata; NestedClass supplies the `+` chain.
     match _cli_streams(raw):
         case None:
             return ()
@@ -1036,7 +982,7 @@ def _typedef_reflection(raw: bytes) -> tuple[str, ...]:
 
 @lru_cache(maxsize=64)
 def _reflection_names_at(path_str: str, size: int, mtime_ns: int) -> tuple[str, ...]:
-    _ = (size, mtime_ns)  # lru_cache key slots: a rewritten assembly re-reads, an unchanged one replays
+    _ = (size, mtime_ns)
     try:
         return _typedef_reflection(Path(path_str).read_bytes())
     except OSError, ValueError, IndexError:
@@ -1070,7 +1016,6 @@ def _api_row(language: Language, mode: Mode) -> Tool | None:
 
 
 def _invoke(settings: AssaySettings, executor: Executor, tool: Tool, args: ToolArgs) -> Completed:
-    # scope=None preserves the real dotnet-tools.json CLI home for `dotnet tool run ilspycmd`.
     routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
     check = Check(tool=tool, args=args)
     match executor.run(check, settings=settings, scope=None, routed=routed):
@@ -1092,13 +1037,11 @@ def probe_ilspy(settings: AssaySettings, executor: Executor) -> tuple[str, int]:
         case Tool() as tool:
             done = _invoke(settings, executor, tool, ToolArgs())
             line = next((ln.strip() for ln in done.stdout.decode(errors="replace").splitlines() if ln.strip()), "")
-            # A failed probe reports its real cause (first stderr line) instead of a bare empty version.
             reason = next((ln.strip() for ln in done.stderr.decode(errors="replace").splitlines() if ln.strip()), "")
             return (line or (f"unavailable: {reason[:200]}" if reason else ""), done.returncode)
 
 
 def _parse_cisde(text: str) -> tuple[str, ...]:
-    # `Kind FullyQualifiedName` rows; angle-bracket names are compiler synthetics (see _NOISE).
     return tuple(
         dict.fromkeys(
             parts[1]
@@ -1110,12 +1053,10 @@ def _parse_cisde(text: str) -> tuple[str, ...]:
     )
 
 
-# Version-gated roster grammars: rows match on the probed producer version; the catch-all is today's cisde grammar.
 _ROSTER_PARSERS: tuple[tuple[re.Pattern[str], Callable[[str], tuple[str, ...]]], ...] = ((re.compile(r""), _parse_cisde),)
 
 
 def _roster_parser(version: str) -> Callable[[str], tuple[str, ...]]:
-    # Version-gated parser selection; the catch-all cisde grammar handles every currently shipped version.
     numeric = found.group(1) if (found := _ILSPY_VERSION.search(version)) else version
     return next(parser for pattern, parser in _ROSTER_PARSERS if pattern.search(numeric) is not None)
 
@@ -1149,8 +1090,6 @@ def _classify(done: Completed) -> _Outcome:
 def _attempt_spelling(
     settings: AssaySettings, executor: Executor, tool: Tool, spelling: str, ordered: tuple[Path, ...], refs: tuple[str, ...]
 ) -> tuple[_Outcome, Completed | None, tuple[str, ...], bool]:
-    # Assemblies scan ref-first with early exit on the first hit; fault stderr accrues across the scan. A
-    # decompiler crash retries the same pair once at the downgraded language version before counting as a fault.
     outcome: _Outcome = _Outcome.MISS
     faults: tuple[str, ...] = ()
     for assembly in ordered:
@@ -1173,10 +1112,6 @@ def _attempt_spelling(
 
 
 def _run_decompile(settings: AssaySettings, executor: Executor, symbol: str, surface: Surface) -> Result[Completed, Fault]:
-    # The reflection map supplies the CLR spellings (backtick arity, `+` nesting) the display FQN elides; every
-    # colliding arity decompiles and the bodies join under per-spelling headers. A typed not-found on every
-    # spelling is a Completed soft miss (the caller's roster/search fallback); any real tool failure is an
-    # operational Fault carrying the aggregated stderr, never a silent degradation into fuzzy search.
     base, arity = split_arity(symbol)
     ordered = tuple(sorted(surface.source.assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold())))
     refs = tuple(part for parent in dict.fromkeys(str(a.parent) for a in ordered) for part in ("-r", parent))
@@ -1208,7 +1143,6 @@ def _run_decompile(settings: AssaySettings, executor: Executor, symbol: str, sur
 
 
 def _cache_path(settings: AssaySettings, source: Source, content_fingerprint: str) -> str:
-    # Store path co-located under the per-key scope dir.
     return settings.store().path(ArtifactKind.SCOPE.value, "api", safe_key(source.key), f"{content_fingerprint or 'unresolved'}.json")
 
 
@@ -1220,16 +1154,12 @@ def _cache_read(settings: AssaySettings, path: str, *, producer: str, content_fi
         entry = msgspec.json.decode(store.read_path(path), type=CacheEntry)
     except OSError, msgspec.MsgspecError:
         return None
-    # Producer + _fingerprint identity is the replay guard; a mismatched entry is a miss, never a parse guess.
     return entry if entry.producer == producer and entry.fingerprint == content_fingerprint else None
 
 
 def _cache_write(settings: AssaySettings, path: str, entry: CacheEntry) -> None:
-    # transaction=True commits atomically so a concurrent reader never decodes a torn entry into a rebuild loop.
     store = settings.store()
     store.write_bytes_path(msgspec.json.encode(entry), path, transaction=True)
-    # One live fingerprint per key: superseded entries (an updated DLL, a bumped package) reap on write, so the
-    # per-key cache dir never accretes stale fingerprints across host or dependency upgrades.
     stale = tuple(
         sibling
         for sibling in store.walk(*path.removeprefix(f"{store.root}/").split("/")[:-1])
@@ -1239,14 +1169,13 @@ def _cache_write(settings: AssaySettings, path: str, entry: CacheEntry) -> None:
         try:
             store.remove_path(sibling)
         except FileNotFoundError:
-            _ = store.exists_path(sibling)  # a concurrent reaper already removed it
+            _ = store.exists_path(sibling)
 
 
 # --- [SURFACE]
 
 
 def _namespace_of(fqn: str, types: frozenset[str]) -> str:
-    # The longest known owner prefix becomes the namespace.
     parts = fqn.split(".")
     return next((".".join(parts[:i]) for i in range(len(parts)) if ".".join(parts[: i + 1]) in types), ".".join(parts[:-1]))
 
@@ -1277,7 +1206,6 @@ def _cs_surface(settings: AssaySettings, source: Source, executor: Executor) -> 
     content_fingerprint = _fingerprint(assemblies) if assemblies else ""
     cache = _cache_path(settings, source, content_fingerprint)
     if not assemblies:
-        # No assemblies → EMPTY surface, never FAULTED.
         return Ok(Surface(source, (), (), {}, cache, ""))
     match _cache_read(settings, cache, producer=_ILSPY_PRODUCER, content_fingerprint=content_fingerprint):
         case CacheEntry() as entry:
@@ -1308,7 +1236,6 @@ def _cs_list(
 
 
 def _inproc_check(settings: AssaySettings, source: Source, mode: Mode, thunk: InprocThunk, executor: Executor) -> Result[Completed, Fault]:
-    # Thunks run through the executor port to share the deadline, rate limiter, and trace span with subprocess rails.
     language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
     match _api_row(language, mode):
         case None:
@@ -1340,14 +1267,10 @@ def _inproc_surface(settings: AssaySettings, source: Source, executor: Executor)
 
 
 def _clip(text: str, cap: int) -> tuple[str, bool]:
-    # Slice detection: the bool marks a capture whose text was cut at the cap.
     return text[:cap], len(text) > cap
 
 
 def _owned_roots(key: str) -> frozenset[str]:
-    # Ownership truth for roster and scan membership: every top-level module packages_distributions() maps to
-    # this distribution joins the declared roots, so a native core re-exported from `_duckdb` into `duckdb`
-    # stays owned while a foreign re-export (stdlib, sibling dist) stays out.
     casefold = key.casefold()
     mapped = (module for module, dists in importlib.metadata.packages_distributions().items() if any(d.casefold() == casefold for d in dists))
     return frozenset((*_pydist_modules(key), *mapped))
@@ -1358,7 +1281,6 @@ def _owned_by(obj: object, roots: frozenset[str], default: str) -> bool:
 
 
 def _module_members(module: object, prefix: str, *, roots: frozenset[str], depth: int = 1) -> tuple[Capture, ...]:
-    # depth=1 captures same-prefix submodules without walking the full transitive import graph.
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
     own = tuple(
@@ -1383,7 +1305,7 @@ def _module_members(module: object, prefix: str, *, roots: frozenset[str], depth
 def _import(name: str) -> object | None:
     try:
         return importlib.import_module(name)
-    except Exception:  # ruff:ignore[blind-except]  # INPROC defensive: per-module import fault -> drop that module, the thunk still surfaces the rest
+    except Exception:  # ruff:ignore[blind-except]
         return None
 
 
@@ -1397,8 +1319,6 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
                 return receipt(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures))
             case _:
                 obj = _resolve_py_symbol(key, symbol)
-                # Direct walk first; a bare member re-roots at every owned class, one survivor resolving and two
-                # surviving owners crossing as an `owners` capture the rail reports as candidate spellings.
                 match (obj, () if obj is not None else _owner_scan(key, symbol)):
                     case (None, ()):
                         member: tuple[Capture, ...] = ()
@@ -1418,7 +1338,6 @@ def _inproc_thunk(source: Source, symbol: str) -> InprocThunk:
 
 
 def _resolve_py_symbol(key: str, symbol: str) -> object | None:
-    # Candidate imports stay under declared distribution roots; the longest importable module prefix that walks to the attr wins.
     roots = _pydist_modules(key)
     qualified = tuple(dict.fromkeys((symbol, *(f"{root}.{symbol}" for root in roots if not symbol.startswith(f"{root}.") and symbol != root))))
     return next(
@@ -1447,10 +1366,6 @@ def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
 
 
 def _owner_scan(key: str, symbol: str) -> tuple[tuple[str, object], ...]:
-    # Bare-member depth: a symbol no module root walks to re-roots at every owned module-level class across the
-    # declared roots and their depth-1 submodules, so a method spelling resolves through its owning class without
-    # the caller knowing the owner. Identity-dedup keeps one row per resolved object (a re-exported class counts
-    # once); two surviving rows are a real ambiguity surfaced as spellings, never a silent pick.
     parts = tuple(symbol.split("."))
     roots = _owned_roots(key)
     imported = tuple(module for name in _pydist_modules(key) for module in (_import(name),) if module is not None)
@@ -1502,8 +1417,6 @@ def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
 
 
 def _live_surface(obj: object, symbol: str) -> str:
-    # Sourceless owners (C-extension classes/modules) reconstruct their public surface from live members,
-    # so a member query stays a real extraction instead of degrading to the bare symbol name.
     if not (inspect.isclass(obj) or inspect.ismodule(obj)):
         return ""
     rows = tuple(
@@ -1535,7 +1448,6 @@ def _annotations(obj: object) -> dict[str, str]:
 
 def _object_source(obj: object) -> str:
     try:
-        # C-builtin or unreadable callable -> TypeError; a non-callable non-module carries no source.
         return inspect.getsource(obj) if isinstance(obj, ModuleType) or callable(obj) else ""
     except OSError, TypeError:
         return ""
@@ -1546,13 +1458,11 @@ def _object_source(obj: object) -> str:
 
 def _tsdecl_thunk(source: Source, symbol: str) -> InprocThunk:
     def run(_check: Check) -> Completed:
-        parser = TSParser(ts_language(_TS_GRAMMAR))  # parser is mutable: never cached, one per thunk run
+        parser = TSParser(ts_language(_TS_GRAMMAR))
         match symbol:
             case "":
                 captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, path))
             case _:
-                # One winner across the whole declaration tree: files rank by their best declaration kind, so a
-                # member-level namesake in an early file never shadows the type-level declaration in a later one.
                 ranked = tuple((rank, caps) for path in source.asset_paths for rank, caps in (_ts_member_ranked(parser, path, symbol),) if caps)
                 captures = min(ranked, key=operator.itemgetter(0))[1] if ranked else ()
         return receipt(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures))
@@ -1580,9 +1490,6 @@ def _ts_member_ranked(parser: TSParser, path: Path, symbol: str) -> tuple[int, t
     is_dts = path.name.endswith(".d.ts")
     parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
     owner, _dot, target = symbol.rpartition(".")
-    # An owner segment also names a declaration FILE (`Effect.gen` -> Effect.d.ts top level): a target the
-    # owner type does not nest falls back to that module's top level, and the file-owner bonus makes the
-    # module's own declaration beat same-named exports scattered across sibling modules.
     file_owner = bool(owner) and path.name.split(".d.", 1)[0] == owner.rsplit(".", 1)[-1]
     owner_node = _find_decl(root, owner, is_dts=is_dts) if owner else None
     nested = _find_decl(owner_node, target, is_dts=None) if owner_node is not None else None
@@ -1607,7 +1514,6 @@ def _ts_member_ranked(parser: TSParser, path: Path, symbol: str) -> tuple[int, t
 
 
 def _span_capture(name: str, text: str, node: Node, path: Path, *, truncated: bool = False) -> Capture:
-    # tree-sitter points are 0-indexed; Capture line/column are 1-indexed.
     return Capture(
         name=name,
         text=text,
@@ -1623,7 +1529,6 @@ def _span_capture(name: str, text: str, node: Node, path: Path, *, truncated: bo
 
 
 def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
-    # QueryError on a malformed roster query surfaces as a single capture, mirroring the code.py query rail.
     match ts_query(_TS_GRAMMAR, _TS_DECL_QUERY):
         case Result(tag="error", error=exc):
             return (Capture(name="query_error", text=str(exc)[:NAME_CAP], file=path.name, line=1, parse_error=True),)
@@ -1631,7 +1536,6 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
             cursor = QueryCursor(compiled.ok)
     cursor.match_limit = RESULT_CAP
     nodes = tuple(node for group in cursor.captures(root).values() for node in group if _exported(node, is_dts=is_dts))
-    # Cursor match-limit or roster overflow marks every kept row as truncated.
     saturated = cursor.did_exceed_match_limit or len(nodes) > RESULT_CAP
     return tuple(
         _span_capture(_TYPE_CAP, clipped, node, path, truncated=cut or saturated)
@@ -1641,7 +1545,6 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
 
 
 def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
-    # is_dts None skips the export gate: owner-scoped members inherit the owner's export.
     matched: tuple[Node, ...] = tuple(
         n
         for n in _walk(scope, _DECL_NODES)
@@ -1651,14 +1554,12 @@ def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
 
 
 def _ts_doc(node: Node) -> str:
-    # The TSDoc block is the comment immediately preceding the declaration's top-level statement.
     top = next((p for p in _parents(node) if p.parent is not None and p.parent.type == "program"), node)
     prev = top.prev_sibling
     return node_text(prev).strip() if prev is not None and prev.type == "comment" and node_text(prev).startswith("/**") else ""
 
 
 def _exported(node: Node, *, is_dts: bool) -> bool:
-    # Ambient .d.ts top-level declarations count as exported, with one ambient wrapper admitted.
     chain = tuple(p.type for p in _parents(node))
     ambient_depth1 = is_dts and chain[1:] in {("program",), ("ambient_declaration", "program")}
     return "export_statement" in chain or ambient_depth1
@@ -1673,7 +1574,6 @@ def _parents(node: Node) -> tuple[Node, ...]:
 
 
 def _export_specs(root: Node, path: Path, target: str | None = None) -> tuple[Capture, ...]:
-    # target None rosters every alias name; a target returns at most one signature capture.
     rows = tuple(
         _span_capture(_TYPE_CAP if target is None else "signature", clipped, spec, path, truncated=cut)
         for spec in _walk(root, _EXPORT_SPEC)
@@ -1703,8 +1603,6 @@ def xml_doc(source: Source, symbol: str) -> str:
     Returns:
         Stripped summary text clipped at the signature cap, or ``""`` when no member matches.
     """
-    # Strips the XMLDoc kind prefix (M:/T:), the parameter list, and generic arity marks (`N types, ``N
-    # methods), then matches on a dotted-segment boundary — a generic symbol matches its arity-marked id.
     needle = _ARITY.sub("", symbol).casefold()
     return next(
         (
@@ -1721,7 +1619,7 @@ def xml_doc(source: Source, symbol: str) -> str:
 
 def _xml_members(path: Path) -> tuple[ET.Element[str], ...]:
     try:
-        root = ET.fromstring(path.read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local sidecar .xml from the resolved source, never network-sourced
+        root = ET.fromstring(path.read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]
     except ET.ParseError:
         return ()
     return tuple(root.iterfind(".//member"))

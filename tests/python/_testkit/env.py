@@ -2,9 +2,9 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # msgspec resolves Provisioned field annotations at runtime
+from collections.abc import Callable
 import os
-from pathlib import Path  # msgspec resolves SshHost field annotations at runtime
+from pathlib import Path
 import socket
 from typing import assert_never, overload, override, TYPE_CHECKING
 import uuid
@@ -94,7 +94,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
             _ = username
             return False
 
-    async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]  # no await; asyncssh drives the handler synchronously
+    async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]
         text, code = spec.handler(process.command or "")
         process.stdout.write(text)
         process.exit(code)
@@ -102,18 +102,15 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
     def _sftp(chan: asyncssh.SSHServerChannel[bytes]) -> asyncssh.SFTPServer:
         return asyncssh.SFTPServer(chan, chroot=os.fsencode(spec.sftp_root) if spec.sftp_root is not None else None)
 
-    async def _serve(sock: socket.socket) -> None:  # ruff:ignore[banned-api]  # asyncssh adopts the pair half; no raw socket I/O
-        # No retained handle: asyncssh closes the server side when the client half reaches EOF.
+    async def _serve(sock: socket.socket) -> None:  # ruff:ignore[banned-api]
         await asyncssh.run_server(
             sock, server_factory=_Host, server_host_keys=[key], process_factory=_exec, sftp_factory=_sftp if spec.sftp_root is not None else None
         )
 
     async def _connect() -> asyncssh.SSHClientConnection:
-        # asyncssh binds the asyncio loop; under the trio anyio backend the double cannot exist.
         if sniffio.current_async_library() != "asyncio":
             pytest.skip("asyncssh double requires the asyncio backend")
         server_sock, client_sock = socket.socketpair()
-        # Both handshake halves block on auth, so the awaiting loop must drive them concurrently.
         async with anyio.create_task_group() as tg:
             _ = tg.start_soon(_serve, server_sock)
             client = await asyncssh.connect("127.0.0.1", 22, sock=client_sock, username=spec.user, known_hosts=None)
@@ -152,16 +149,13 @@ def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
     live: list[ThreadedMotoServer] = [server]
 
     def _store() -> s3fs.S3FileSystem:
-        # skip_instance_cache: fsspec caches instances by args, and a stopped moto port can be reissued
-        # to a later provision — a cached instance would then carry the dead server's dircache.
         fs = s3fs.S3FileSystem(
-            key="testing",  # static moto double credential, not a secret
-            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]  # the moto double's fixed credential pair, not a secret
+            key="testing",
+            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]
             endpoint_url=endpoint,
             client_kwargs={"region_name": spec.region},
             skip_instance_cache=True,
         )
-        # S3 rejects a LocationConstraint of us-east-1, so bucket creation bypasses s3fs.mkdir's unconditional constraint.
         constraint = {"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}
         fs.exists(spec.bucket) or fs.call_s3("create_bucket", Bucket=spec.bucket, **constraint)
         return fs
@@ -171,10 +165,9 @@ def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
             return
         server_handle = live.pop()
         try:
-            # Moto backend state is process-global: reset it so no residue leaks into a later provision.
             httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
         except httpx.HTTPError:
-            server_handle.stop()  # endpoint already dead — no state left to reset
+            server_handle.stop()
             return
         server_handle.stop()
 
@@ -187,7 +180,7 @@ def provision(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientConnecti
 def provision(spec: RemoteFS) -> Provisioned[AbstractFileSystem]: ...
 @overload
 def provision(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]: ...
-def provision(  # one dispatch surface owns every provision arm; splitting fragments the closed union
+def provision(
     spec: EnvSpec,
 ) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[AbstractFileSystem] | Provisioned[s3fs.S3FileSystem]:
     """Materialize the declared environment double.

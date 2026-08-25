@@ -33,8 +33,6 @@ const _optionalKeys = (schema: Schema.Schema.Any): ReadonlyArray<_Key> =>
     );
 
 const _reshaped = <A>(value: A, dropped: ReadonlyArray<string>, unset: ReadonlyArray<string>): A => {
-    // BOUNDARY ADAPTER: dialect surgery over an encoded record — explicit undefined lands only on keys whose encoded
-    // signature admits it, deletion is legal on every optional key, and deletion wins on overlap.
     const draft: Record<string, unknown> = { ...(value as Record<string, unknown>) };
     for (const key of unset) {
         draft[key] = undefined;
@@ -53,10 +51,6 @@ const _absent = <A>(base: FastCheck.Arbitrary<A>, keys: ReadonlyArray<_Key>): Fa
         ).map(([dropped, unset]) => _reshaped(value, dropped, unset)),
     );
 
-// The field-absence lane, one entry over three input shapes: a Schema derives its encoded optional keys and attacks BOTH
-// wire absence dialects — key deleted, and key present as explicit undefined where the encoded signature admits it; a base
-// arbitrary takes a caller key mask (the deletion dialect the caller owns); a per-field model rides fast-check's native
-// requiredKeys record. Every absence dialect attacks the decode seam through the same name.
 function absence<S extends Schema.Schema.Any>(schema: S): FastCheck.Arbitrary<Schema.Schema.Encoded<S>>;
 function absence<A>(arb: FastCheck.Arbitrary<A>, keys: ReadonlyArray<string>): FastCheck.Arbitrary<A>;
 function absence<T>(model: Arbitrate.Model<T>, required?: ReadonlyArray<keyof T & string>): FastCheck.Arbitrary<Partial<T>>;
@@ -74,15 +68,12 @@ function absence(
           : FastCheck.record(input, { requiredKeys: [...(keys ?? [])] });
 }
 
-// The distinct-payload lane: a subject transporting several inputs never receives equal placeholders that hide swapped arguments.
 const distinct = <A>(
     base: FastCheck.Arbitrary<A>,
     count: number,
     equals: (self: A, that: A) => boolean = Equal.equals,
 ): FastCheck.Arbitrary<ReadonlyArray<A>> => FastCheck.uniqueArray(base, { minLength: count, maxLength: count, comparator: equals });
 
-// Distribution gauge over a generator: samples the arbitrary and returns every expected label the corpus never produced —
-// a lying or over-biased arbitrary is refuted by its own emptiness, never trusted on shape alone.
 const coverage = <A, Label extends string>(
     arb: FastCheck.Arbitrary<A>,
     classify: (value: A) => Label | ReadonlyArray<Label>,

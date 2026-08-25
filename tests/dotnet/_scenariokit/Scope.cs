@@ -7,8 +7,6 @@ namespace Rasm.ScenarioKit;
 public sealed record CaptureReceipt(string Path, int Width, int Height, bool OnFailure, ArtifactRef? Artifact = null);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// DocumentScope admits the live document once, clears object state on open/dispose, and registers
-// leak drainage with the context. ViewportRealized feeds the runner's failure-capture trigger.
 public sealed class DocumentScope : IDisposable {
     private readonly ScenarioContext ctx;
     private readonly int openedWithObjects;
@@ -25,8 +23,6 @@ public sealed class DocumentScope : IDisposable {
 
     internal bool IsLive { get; private set; } = true;
 
-    // Host boundary: Try converts a faulting document surface to typed failure, so the entrypoint
-    // rail owns it and the run bracket still folds — the Fin is honest, never decorative.
     public static Fin<DocumentScope> Open(ScenarioContext ctx) {
         ArgumentNullException.ThrowIfNull(argument: ctx);
         return Try.lift(f: () => {
@@ -58,8 +54,6 @@ public sealed class DocumentScope : IDisposable {
     }
 }
 
-// Capture is the green-path SDK seam; the runner binds Hook only for the run bracket and cargo
-// lifetime. Unbound calls fail typed instead of throwing or writing stray files.
 public static class Capture {
     internal static Func<string, Fin<CaptureReceipt>>? Hook { get; set; }
 

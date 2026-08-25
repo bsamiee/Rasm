@@ -1,4 +1,3 @@
-// The seeded breach twin of probe.k6.ts: an unmeetable floor proves the threshold gate can fail.
 import { Trend } from 'k6/metrics';
 import type { Options } from 'k6/options';
 
