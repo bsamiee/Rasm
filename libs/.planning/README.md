@@ -1,6 +1,6 @@
 # [PLANNING_STANDARD]
 
-This standard binds every `libs/` planning surface: it fixes the doc-set per tier, the index-doc contracts, and the design-page grammar. Container, table, marker, and prose form follows `docs/standards/` and the docgen skill's templates and gate; topology and the `.planning/` lifecycle follow `ARCHITECTURE.md`.
+This standard binds every `libs/` planning surface: it fixes the doc-set per tier, the index-doc contracts, and the design-page grammar. Container, table, marker, and prose form follows the docgen skill's templates and gate; topology and the `.planning/` lifecycle follow `ARCHITECTURE.md`.
 
 ## [01]-[DOC_SET]
 

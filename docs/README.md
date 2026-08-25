@@ -1,9 +1,8 @@
 # [DOCS_CORPUS]
 
-| [INDEX] | [CORPUS]  | [PATH]       | [OWNS]                             |
-| :-----: | :-------- | :----------- | :--------------------------------- |
-|  [01]   | Standards | `standards/` | Documentation craft                |
-|  [02]   | Stacks    | `stacks/`    | Per-language implementation lookup |
+| [INDEX] | [CORPUS] | [PATH]    | [OWNS]                             |
+| :-----: | :------- | :-------- | :--------------------------------- |
+|  [01]   | Stacks   | `stacks/` | Per-language implementation lookup |
 
 Each `stacks/<lang>/` folder keeps language policy, platform truth, testing references, and first-class capability pages at the level where the coding decision is made.
 
